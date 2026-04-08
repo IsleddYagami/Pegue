@@ -38,14 +38,14 @@ export default function ClientesPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#00C896] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C9A84C] border-t-transparent" />
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-extrabold text-[#1a1a1a]">Clientes</h1>
+      <h1 className="text-2xl font-extrabold text-[#0A0A0A]">Clientes</h1>
       <p className="text-sm text-gray-400">Base de clientes da Pegue</p>
 
       <div className="relative mt-4">
@@ -55,7 +55,7 @@ export default function ClientesPage() {
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar por nome ou telefone..."
-          className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-sm focus:border-[#00C896] focus:outline-none sm:max-w-md"
+          className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-sm focus:border-[#C9A84C] focus:outline-none sm:max-w-md"
         />
       </div>
 

@@ -31,11 +31,11 @@ export default function AdminLayout({
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="hidden w-56 flex-col bg-[#1a1a1a] text-white md:flex">
+      <aside className="hidden w-56 flex-col bg-[#0A0A0A] text-white md:flex">
         {/* Logo */}
         <div className="border-b border-gray-700 px-5 py-5">
           <Link href="/admin" className="text-xl font-extrabold">
-            <span className="text-[#00C896]">Pegue</span>{" "}
+            <span className="text-[#C9A84C]">Pegue</span>{" "}
             <span className="text-sm font-normal text-gray-400">Admin</span>
           </Link>
         </div>
@@ -52,7 +52,7 @@ export default function AdminLayout({
                 href={item.href}
                 className={`flex items-center gap-3 px-5 py-3 text-sm transition-colors ${
                   isActive
-                    ? "bg-[#00C896] font-semibold text-[#1a1a1a]"
+                    ? "bg-[#C9A84C] font-semibold text-[#0A0A0A]"
                     : "text-gray-400 hover:text-white"
                 }`}
               >
@@ -77,12 +77,12 @@ export default function AdminLayout({
 
       {/* Mobile Header */}
       <div className="flex w-full flex-col md:hidden">
-        <div className="flex items-center justify-between bg-[#1a1a1a] px-4 py-3 text-white">
+        <div className="flex items-center justify-between bg-[#0A0A0A] px-4 py-3 text-white">
           <Link href="/admin" className="text-lg font-extrabold">
-            <span className="text-[#00C896]">Pegue</span> Admin
+            <span className="text-[#C9A84C]">Pegue</span> Admin
           </Link>
         </div>
-        <nav className="flex gap-1 overflow-x-auto bg-[#1a1a1a] px-2 pb-2">
+        <nav className="flex gap-1 overflow-x-auto bg-[#0A0A0A] px-2 pb-2">
           {menuItems.map((item) => {
             const isActive =
               pathname === item.href ||
@@ -93,7 +93,7 @@ export default function AdminLayout({
                 href={item.href}
                 className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs ${
                   isActive
-                    ? "bg-[#00C896] font-semibold text-[#1a1a1a]"
+                    ? "bg-[#C9A84C] font-semibold text-[#0A0A0A]"
                     : "text-gray-400"
                 }`}
               >

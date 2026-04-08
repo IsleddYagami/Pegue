@@ -32,7 +32,7 @@ export default function PrestadoresPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#00C896] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C9A84C] border-t-transparent" />
       </div>
     );
   }
@@ -48,7 +48,7 @@ export default function PrestadoresPage() {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold text-[#1a1a1a]">Prestadores</h1>
+          <h1 className="text-2xl font-extrabold text-[#0A0A0A]">Prestadores</h1>
           <p className="text-sm text-gray-400">Gerencie os motoristas e prestadores</p>
         </div>
       </div>
@@ -60,7 +60,7 @@ export default function PrestadoresPage() {
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar por nome ou telefone..."
-          className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-sm focus:border-[#00C896] focus:outline-none sm:max-w-md"
+          className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-sm focus:border-[#C9A84C] focus:outline-none sm:max-w-md"
         />
       </div>
 
@@ -80,11 +80,11 @@ export default function PrestadoresPage() {
               <div key={p.id} className="rounded-2xl bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#00C896] text-lg font-bold text-white">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#C9A84C] text-lg font-bold text-white">
                       {p.nome.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                     </div>
                     <div>
-                      <p className="font-bold text-[#1a1a1a]">{p.nome}</p>
+                      <p className="font-bold text-[#0A0A0A]">{p.nome}</p>
                       <p className="text-xs text-gray-400">{p.telefone}</p>
                     </div>
                   </div>
@@ -130,7 +130,7 @@ export default function PrestadoresPage() {
                         await supabase.from("prestadores").update({ status: "aprovado" }).eq("id", p.id);
                         setPrestadores((prev) => prev.map((x) => x.id === p.id ? { ...x, status: "aprovado" } : x));
                       }}
-                      className="flex-1 rounded-lg bg-[#00C896] py-2 text-xs font-bold text-white"
+                      className="flex-1 rounded-lg bg-[#C9A84C] py-2 text-xs font-bold text-white"
                     >
                       Aprovar
                     </button>

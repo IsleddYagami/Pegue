@@ -68,7 +68,7 @@ export default function ConfigPage() {
             step="0.01"
             value={precos ? (precos[field] as number) : 0}
             onChange={(e) => updateField(field, parseFloat(e.target.value) || 0)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#00C896] focus:outline-none"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#C9A84C] focus:outline-none"
           />
           {suffix && <span className="text-sm text-gray-400">{suffix}</span>}
         </div>
@@ -79,7 +79,7 @@ export default function ConfigPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#00C896] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C9A84C] border-t-transparent" />
       </div>
     );
   }
@@ -92,13 +92,13 @@ export default function ConfigPage() {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold text-[#1a1a1a]">Configuracoes</h1>
+          <h1 className="text-2xl font-extrabold text-[#0A0A0A]">Configuracoes</h1>
           <p className="text-sm text-gray-400">Tabela de precos: {precos.nome}</p>
         </div>
         <button
           onClick={handleSave}
           disabled={salvando}
-          className="flex items-center gap-2 rounded-xl bg-[#00C896] px-5 py-3 text-sm font-bold text-[#1a1a1a] transition-transform hover:scale-105 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl bg-[#C9A84C] px-5 py-3 text-sm font-bold text-[#0A0A0A] transition-transform hover:scale-105 disabled:opacity-50"
         >
           {salvando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           {salvo ? "Salvo!" : salvando ? "Salvando..." : "Salvar"}
@@ -107,8 +107,8 @@ export default function ConfigPage() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h3 className="flex items-center gap-2 text-base font-bold text-[#1a1a1a]">
-            <DollarSign size={18} className="text-[#00C896]" /> Preco Base
+          <h3 className="flex items-center gap-2 text-base font-bold text-[#0A0A0A]">
+            <DollarSign size={18} className="text-[#C9A84C]" /> Preco Base
           </h3>
           <div className="mt-4 space-y-3">
             <InputField label="Preco por km" field="preco_base_km" prefix="R$" />
@@ -118,8 +118,8 @@ export default function ConfigPage() {
         </div>
 
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h3 className="flex items-center gap-2 text-base font-bold text-[#1a1a1a]">
-            <Truck size={18} className="text-[#00C896]" /> Multiplicadores de Veiculo
+          <h3 className="flex items-center gap-2 text-base font-bold text-[#0A0A0A]">
+            <Truck size={18} className="text-[#C9A84C]" /> Multiplicadores de Veiculo
           </h3>
           <div className="mt-4 space-y-3">
             <InputField label="Utilitario" field="mult_utilitario" suffix="x" />
@@ -130,8 +130,8 @@ export default function ConfigPage() {
         </div>
 
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h3 className="flex items-center gap-2 text-base font-bold text-[#1a1a1a]">
-            <Users size={18} className="text-[#00C896]" /> Adicionais
+          <h3 className="flex items-center gap-2 text-base font-bold text-[#0A0A0A]">
+            <Users size={18} className="text-[#C9A84C]" /> Adicionais
           </h3>
           <div className="mt-4 space-y-3">
             <InputField label="Adicional por ajudante" field="adicional_ajudante" prefix="R$" />
@@ -141,8 +141,8 @@ export default function ConfigPage() {
         </div>
 
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h3 className="flex items-center gap-2 text-base font-bold text-[#1a1a1a]">
-            <Clock size={18} className="text-[#00C896]" /> Planos e Comissao
+          <h3 className="flex items-center gap-2 text-base font-bold text-[#0A0A0A]">
+            <Clock size={18} className="text-[#C9A84C]" /> Planos e Comissao
           </h3>
           <div className="mt-4 space-y-3">
             <InputField label="Multiplicador Economica" field="mult_economica" suffix="x" />

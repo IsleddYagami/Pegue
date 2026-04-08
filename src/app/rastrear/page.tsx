@@ -58,7 +58,7 @@ export default function RastrearPage() {
 
       <main className="flex-1 bg-gray-50 py-12">
         <div className="mx-auto max-w-xl px-4">
-          <h1 className="text-center text-3xl font-extrabold text-[#1a1a1a] md:text-4xl">
+          <h1 className="text-center text-3xl font-extrabold text-[#0A0A0A] md:text-4xl">
             Rastrear Pedido
           </h1>
           <p className="mt-2 text-center text-gray-500">
@@ -78,12 +78,12 @@ export default function RastrearPage() {
                 setBuscou(false);
               }}
               placeholder="Ex: PEG-2024-0847"
-              className="flex-1 rounded-xl border-2 border-gray-200 px-4 py-3 text-base transition-colors focus:border-[#00C896] focus:outline-none"
+              className="flex-1 rounded-xl border-2 border-gray-200 px-4 py-3 text-base transition-colors focus:border-[#C9A84C] focus:outline-none"
             />
             <button
               type="submit"
               disabled={!codigo.trim()}
-              className="rounded-xl bg-[#00C896] px-6 py-3 font-bold text-[#1a1a1a] transition-transform hover:scale-105 disabled:opacity-40"
+              className="rounded-xl bg-[#C9A84C] px-6 py-3 font-bold text-[#0A0A0A] transition-transform hover:scale-105 disabled:opacity-40"
             >
               <Search size={20} />
             </button>
@@ -108,7 +108,7 @@ export default function RastrearPage() {
               {/* Header */}
               <div className="text-center">
                 <p className="text-sm text-gray-400">Codigo do pedido</p>
-                <p className="text-2xl font-extrabold text-[#00C896]">
+                <p className="text-2xl font-extrabold text-[#C9A84C]">
                   {codigo.toUpperCase()}
                 </p>
                 <p className="mt-1 text-sm text-gray-400">
@@ -123,7 +123,7 @@ export default function RastrearPage() {
                     {/* Line + Dot */}
                     <div className="flex flex-col items-center">
                       {step.done ? (
-                        <CheckCircle className="h-6 w-6 shrink-0 text-[#00C896]" />
+                        <CheckCircle className="h-6 w-6 shrink-0 text-[#C9A84C]" />
                       ) : step.current ? (
                         <div className="h-6 w-6 shrink-0 rounded-full border-4 border-orange-400 bg-white" />
                       ) : (
@@ -132,7 +132,7 @@ export default function RastrearPage() {
                       {i < mockSteps.length - 1 && (
                         <div
                           className={`h-full w-0.5 ${
-                            step.done ? "bg-[#00C896]" : "bg-gray-200"
+                            step.done ? "bg-[#C9A84C]" : "bg-gray-200"
                           }`}
                         />
                       )}
@@ -145,7 +145,7 @@ export default function RastrearPage() {
                           step.current
                             ? "text-orange-500"
                             : step.done
-                              ? "text-[#1a1a1a]"
+                              ? "text-[#0A0A0A]"
                               : "text-gray-400"
                         }`}
                       >
@@ -164,15 +164,15 @@ export default function RastrearPage() {
 
               {/* Driver Card */}
               <div className="mt-4 flex items-center gap-4 rounded-xl bg-gray-50 p-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#00C896] text-lg font-bold text-white">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#C9A84C] text-lg font-bold text-white">
                   CS
                 </div>
                 <div>
-                  <p className="font-semibold text-[#1a1a1a]">Carlos Souza</p>
+                  <p className="font-semibold text-[#0A0A0A]">Carlos Souza</p>
                   <p className="text-sm text-gray-500">
                     Caminhao bau branco | ABC-1234
                   </p>
-                  <p className="text-sm text-[#00C896]">
+                  <p className="text-sm text-[#C9A84C]">
                     &#11088; 4.8 (127 corridas)
                   </p>
                 </div>

@@ -61,24 +61,24 @@ export default function FinanceiroPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#00C896] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C9A84C] border-t-transparent" />
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-extrabold text-[#1a1a1a]">Financeiro</h1>
+      <h1 className="text-2xl font-extrabold text-[#0A0A0A]">Financeiro</h1>
       <p className="text-sm text-gray-400">Pagamentos, comissoes e repasses</p>
 
       <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3">
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase text-gray-400">Faturamento Total</p>
-          <p className="mt-2 text-2xl font-extrabold text-[#00C896]">R$ {totalFaturamento.toFixed(0)}</p>
+          <p className="mt-2 text-2xl font-extrabold text-[#C9A84C]">R$ {totalFaturamento.toFixed(0)}</p>
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase text-gray-400">Comissao Pegue</p>
-          <p className="mt-2 text-2xl font-extrabold text-[#00C896]">R$ {totalComissao.toFixed(0)}</p>
+          <p className="mt-2 text-2xl font-extrabold text-[#C9A84C]">R$ {totalComissao.toFixed(0)}</p>
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase text-gray-400">Repasses Pendentes</p>
@@ -88,7 +88,7 @@ export default function FinanceiroPage() {
 
       <div className="mt-6 rounded-2xl bg-white shadow-sm">
         <div className="border-b border-gray-100 px-5 py-4">
-          <h2 className="text-lg font-bold text-[#1a1a1a]">Pagamentos</h2>
+          <h2 className="text-lg font-bold text-[#0A0A0A]">Pagamentos</h2>
         </div>
 
         {pagamentos.length === 0 ? (
@@ -123,7 +123,7 @@ export default function FinanceiroPage() {
                   {p.status === "aprovado" && p.repasse_status === "pendente" && (
                     <button
                       onClick={() => aprovarRepasse(p.id)}
-                      className="rounded-lg bg-[#00C896] px-4 py-2 text-xs font-bold text-white"
+                      className="rounded-lg bg-[#C9A84C] px-4 py-2 text-xs font-bold text-white"
                     >
                       Aprovar
                     </button>

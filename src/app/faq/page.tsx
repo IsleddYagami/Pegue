@@ -57,7 +57,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
         onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between py-5 text-left"
       >
-        <span className="text-base font-semibold text-[#1a1a1a] pr-4">{q}</span>
+        <span className="text-base font-semibold text-[#0A0A0A] pr-4">{q}</span>
         <ChevronDown
           className={`h-5 w-5 shrink-0 text-gray-400 transition-transform ${
             open ? "rotate-180" : ""
@@ -78,7 +78,7 @@ export default function FaqPage() {
 
       <main className="flex-1 bg-white py-12">
         <div className="mx-auto max-w-2xl px-4">
-          <h1 className="text-center text-3xl font-extrabold text-[#1a1a1a] md:text-4xl">
+          <h1 className="text-center text-3xl font-extrabold text-[#0A0A0A] md:text-4xl">
             Perguntas Frequentes
           </h1>
           <p className="mt-2 text-center text-gray-500">
@@ -93,7 +93,7 @@ export default function FaqPage() {
 
           {/* CTA */}
           <div className="mt-12 rounded-2xl bg-gray-50 p-8 text-center">
-            <p className="text-lg font-bold text-[#1a1a1a]">
+            <p className="text-lg font-bold text-[#0A0A0A]">
               Nao encontrou sua resposta?
             </p>
             <p className="mt-1 text-sm text-gray-500">
@@ -103,7 +103,7 @@ export default function FaqPage() {
               href={WHATSAPP_LINK}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#00C896] px-8 py-3 font-bold text-[#1a1a1a] transition-transform hover:scale-105"
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#C9A84C] px-8 py-3 font-bold text-[#0A0A0A] transition-transform hover:scale-105"
             >
               Falar no WhatsApp
             </a>

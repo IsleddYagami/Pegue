@@ -1,35 +1,36 @@
 import Link from "next/link";
-import { WHATSAPP_LINK } from "@/lib/constants";
+import { WHATSAPP_LINK, INSTAGRAM_LINK, INSTAGRAM_HANDLE } from "@/lib/constants";
 
 export function Footer() {
   return (
-    <footer className="bg-[#1a1a1a] text-gray-400">
+    <footer className="bg-[#0A0A0A] text-gray-400">
       <div className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid gap-8 md:grid-cols-3">
           {/* Brand */}
           <div>
-            <p className="text-2xl font-extrabold text-white">
-              <span className="text-[#00C896]">Pegue</span>
+            <p className="text-2xl font-extrabold text-[#C9A84C]">PEGUE</p>
+            <p className="mt-3 text-sm leading-relaxed">
+              Frete e mudanca com experiencia premium.
+              Cotacao instantanea, rastreio completo e prova digital.
             </p>
-            <p className="mt-2 text-sm">
-              Frete e mudanca com cotacao instantanea, rastreio e prova digital.
+            <p className="mt-2 text-sm text-[#C9A84C]/70">
+              Osasco e regiao - Zona Oeste SP
             </p>
-            <p className="mt-1 text-sm">Osasco e regiao - Zona Oeste SP</p>
           </div>
 
           {/* Links */}
           <div>
-            <p className="mb-3 text-sm font-semibold uppercase text-gray-300">
+            <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#C9A84C]">
               Links
             </p>
             <div className="flex flex-col gap-2 text-sm">
-              <Link href="/simular" className="hover:text-white">
+              <Link href="/simular" className="transition-colors hover:text-[#C9A84C]">
                 Simular Frete
               </Link>
-              <Link href="/rastrear" className="hover:text-white">
+              <Link href="/rastrear" className="transition-colors hover:text-[#C9A84C]">
                 Rastrear Pedido
               </Link>
-              <Link href="/faq" className="hover:text-white">
+              <Link href="/faq" className="transition-colors hover:text-[#C9A84C]">
                 Perguntas Frequentes
               </Link>
             </div>
@@ -37,7 +38,7 @@ export function Footer() {
 
           {/* Contact */}
           <div>
-            <p className="mb-3 text-sm font-semibold uppercase text-gray-300">
+            <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#C9A84C]">
               Contato
             </p>
             <div className="flex flex-col gap-2 text-sm">
@@ -45,29 +46,29 @@ export function Footer() {
                 href={WHATSAPP_LINK}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-white"
+                className="transition-colors hover:text-[#C9A84C]"
               >
                 WhatsApp
               </a>
               <a
-                href="mailto:contato@pegue.com.br"
-                className="hover:text-white"
-              >
-                contato@pegue.com.br
-              </a>
-              <a
-                href="https://instagram.com/pegue"
+                href={INSTAGRAM_LINK}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-white"
+                className="transition-colors hover:text-[#C9A84C]"
               >
-                @pegue no Instagram
+                {INSTAGRAM_HANDLE}
+              </a>
+              <a
+                href="mailto:contato@pegue.com.br"
+                className="transition-colors hover:text-[#C9A84C]"
+              >
+                contato@pegue.com.br
               </a>
             </div>
           </div>
         </div>
 
-        <div className="mt-8 border-t border-gray-700 pt-6 text-center text-xs text-gray-500">
+        <div className="mt-8 border-t border-[#C9A84C]/10 pt-6 text-center text-xs text-gray-600">
           &copy; {new Date().getFullYear()} Pegue. Todos os direitos reservados.
         </div>
       </div>

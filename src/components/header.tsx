@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { WHATSAPP_LINK } from "@/lib/constants";
@@ -16,20 +17,22 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 bg-[#1a1a1a] text-white">
+    <header className="sticky top-0 z-40 border-b border-[#C9A84C]/20 bg-[#0A0A0A]/95 text-white backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         {/* Logo */}
-        <Link href="/" className="text-2xl font-extrabold tracking-tight">
-          <span className="text-[#00C896]">Pegue</span>
+        <Link href="/" className="flex items-center gap-2">
+          <div className="text-2xl font-extrabold tracking-tight text-[#C9A84C]">
+            PEGUE
+          </div>
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden items-center gap-6 md:flex">
+        <nav className="hidden items-center gap-8 md:flex">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-gray-300 transition-colors hover:text-white"
+              className="text-sm font-medium text-gray-300 transition-colors hover:text-[#C9A84C]"
             >
               {link.label}
             </Link>
@@ -38,7 +41,7 @@ export function Header() {
             href={WHATSAPP_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full bg-[#00C896] px-5 py-2 text-sm font-bold text-[#1a1a1a] transition-transform hover:scale-105"
+            className="rounded-full border-2 border-[#C9A84C] bg-[#C9A84C] px-6 py-2 text-sm font-bold text-[#0A0A0A] transition-all hover:bg-transparent hover:text-[#C9A84C]"
           >
             Pedir Frete
           </a>
@@ -56,7 +59,7 @@ export function Header() {
 
       {/* Mobile Nav */}
       {menuOpen && (
-        <nav className="flex flex-col gap-4 border-t border-gray-700 px-4 pb-4 pt-4 md:hidden">
+        <nav className="flex flex-col gap-4 border-t border-[#C9A84C]/20 px-4 pb-4 pt-4 md:hidden">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -71,7 +74,7 @@ export function Header() {
             href={WHATSAPP_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full bg-[#00C896] px-5 py-3 text-center text-sm font-bold text-[#1a1a1a]"
+            className="rounded-full bg-[#C9A84C] px-5 py-3 text-center text-sm font-bold text-[#0A0A0A]"
           >
             Pedir Frete
           </a>

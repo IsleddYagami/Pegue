@@ -77,16 +77,16 @@ export default function AdminDashboard() {
   }, []);
 
   const stats = [
-    { label: "Corridas Hoje", value: totalHoje.toString(), icon: Truck, color: "text-[#00C896]", bg: "bg-green-50" },
+    { label: "Corridas Hoje", value: totalHoje.toString(), icon: Truck, color: "text-[#C9A84C]", bg: "bg-green-50" },
     { label: "Em Andamento", value: emAndamento.toString(), icon: Clock, color: "text-orange-500", bg: "bg-orange-50" },
-    { label: "Faturamento Hoje", value: `R$ ${faturamento.toFixed(0)}`, icon: DollarSign, color: "text-[#00C896]", bg: "bg-green-50" },
+    { label: "Faturamento Hoje", value: `R$ ${faturamento.toFixed(0)}`, icon: DollarSign, color: "text-[#C9A84C]", bg: "bg-green-50" },
     { label: "Prestadores Ativos", value: prestadoresAtivos.toString(), icon: Users, color: "text-blue-500", bg: "bg-blue-50" },
   ];
 
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#00C896] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C9A84C] border-t-transparent" />
       </div>
     );
   }
@@ -94,7 +94,7 @@ export default function AdminDashboard() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-extrabold text-[#1a1a1a]">Dashboard</h1>
+        <h1 className="text-2xl font-extrabold text-[#0A0A0A]">Dashboard</h1>
         <p className="text-sm text-gray-400">
           {new Date().toLocaleDateString("pt-BR", {
             weekday: "long",
@@ -123,8 +123,8 @@ export default function AdminDashboard() {
       {/* Corridas recentes */}
       <div className="mt-6 rounded-2xl bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h2 className="text-lg font-bold text-[#1a1a1a]">Corridas Recentes</h2>
-          <a href="/admin/corridas" className="text-sm font-medium text-[#00C896] hover:underline">Ver todas</a>
+          <h2 className="text-lg font-bold text-[#0A0A0A]">Corridas Recentes</h2>
+          <a href="/admin/corridas" className="text-sm font-medium text-[#C9A84C] hover:underline">Ver todas</a>
         </div>
 
         {corridas.length === 0 ? (

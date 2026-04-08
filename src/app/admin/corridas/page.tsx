@@ -109,7 +109,7 @@ export default function CorridasPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-extrabold text-[#1a1a1a]">Corridas</h1>
+      <h1 className="text-2xl font-extrabold text-[#0A0A0A]">Corridas</h1>
       <p className="text-sm text-gray-400">
         Gerencie todas as corridas da plataforma
       </p>
@@ -126,7 +126,7 @@ export default function CorridasPage() {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar por codigo ou cliente..."
-            className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-sm focus:border-[#00C896] focus:outline-none"
+            className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-sm focus:border-[#C9A84C] focus:outline-none"
           />
         </div>
         <div className="relative">
@@ -137,7 +137,7 @@ export default function CorridasPage() {
           <select
             value={filtroStatus}
             onChange={(e) => setFiltroStatus(e.target.value)}
-            className="w-full appearance-none rounded-xl border border-gray-200 py-3 pl-10 pr-8 text-sm focus:border-[#00C896] focus:outline-none sm:w-48"
+            className="w-full appearance-none rounded-xl border border-gray-200 py-3 pl-10 pr-8 text-sm focus:border-[#C9A84C] focus:outline-none sm:w-48"
           >
             {statusOptions.map((s) => (
               <option key={s} value={s}>
@@ -163,7 +163,7 @@ export default function CorridasPage() {
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <div className="flex items-center gap-3">
-                  <span className="text-base font-bold text-[#1a1a1a]">
+                  <span className="text-base font-bold text-[#0A0A0A]">
                     {c.codigo}
                   </span>
                   <span
@@ -177,7 +177,7 @@ export default function CorridasPage() {
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold text-[#00C896]">{c.valor}</p>
+                <p className="text-lg font-bold text-[#C9A84C]">{c.valor}</p>
                 <p className="text-xs text-gray-400">
                   {c.plano} · {c.tipo}
                 </p>
@@ -186,7 +186,7 @@ export default function CorridasPage() {
 
             <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-500">
               <div className="flex items-center gap-1">
-                <MapPin size={14} className="text-[#00C896]" />
+                <MapPin size={14} className="text-[#C9A84C]" />
                 {c.origem} → {c.destino}
               </div>
               <div className="flex items-center gap-1">

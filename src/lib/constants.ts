@@ -1,14 +1,20 @@
-// Numero do WhatsApp da Pegue (trocar pelo numero real)
-export const WHATSAPP_NUMBER = "5511999999999";
-export const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=Oi%2C%20quero%20fazer%20um%20frete!`;
-export const WHATSAPP_LINK_SIMULAR = `https://wa.me/${WHATSAPP_NUMBER}?text=Quero%20um%20or%C3%A7amento%20de%20frete`;
+// WhatsApp da Pegue
+export const WHATSAPP_LINK = "https://wa.me/message/PLNWORBTRYOZM1";
+
+// Instagram
+export const INSTAGRAM_LINK = "https://www.instagram.com/chamepegue";
+export const INSTAGRAM_HANDLE = "@chamepegue";
 
 // Cores da marca
 export const BRAND = {
-  green: "#00C896",
-  greenDark: "#00A87A",
-  dark: "#1a1a1a",
+  gold: "#C9A84C",
+  goldLight: "#D4B96A",
+  goldDark: "#A88A3D",
+  dark: "#0A0A0A",
+  darkGray: "#1a1a1a",
   gray: "#666666",
+  lightGray: "#f8f9fa",
+  white: "#ffffff",
 };
 
 // Tabela de precos base

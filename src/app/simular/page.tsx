@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { MapPin, ArrowRight, Truck, Users, Building } from "lucide-react";
-import { WHATSAPP_NUMBER } from "@/lib/constants";
+import { WHATSAPP_LINK } from "@/lib/constants";
 
 export default function SimularPage() {
   const [origem, setOrigem] = useState("");
@@ -22,10 +22,7 @@ export default function SimularPage() {
     }
   }
 
-  const whatsappMsg = encodeURIComponent(
-    `Oi! Quero um orcamento de frete.\n\nOrigem: ${origem}\nDestino: ${destino}`
-  );
-  const whatsappLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMsg}`;
+  const whatsappLink = WHATSAPP_LINK;
 
   return (
     <>
@@ -33,9 +30,9 @@ export default function SimularPage() {
 
       <main className="flex-1 bg-gray-50 py-12">
         <div className="mx-auto max-w-2xl px-4">
-          <h1 className="text-center text-3xl font-extrabold text-[#1a1a1a] md:text-4xl">
+          <h1 className="text-center text-3xl font-extrabold text-[#0A0A0A] md:text-4xl">
             Simule seu frete em{" "}
-            <span className="text-[#00C896]">segundos</span>
+            <span className="text-[#C9A84C]">segundos</span>
           </h1>
           <p className="mt-2 text-center text-gray-500">
             Informe origem e destino para uma estimativa instantanea
@@ -49,7 +46,7 @@ export default function SimularPage() {
             <div className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm font-semibold text-gray-600">
-                  <MapPin className="mr-1 inline h-4 w-4 text-[#00C896]" />
+                  <MapPin className="mr-1 inline h-4 w-4 text-[#C9A84C]" />
                   De onde sai? (origem)
                 </label>
                 <input
@@ -60,7 +57,7 @@ export default function SimularPage() {
                     setCalculado(false);
                   }}
                   placeholder="Ex: Rua das Flores, 123 - Osasco"
-                  className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-base transition-colors focus:border-[#00C896] focus:outline-none"
+                  className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-base transition-colors focus:border-[#C9A84C] focus:outline-none"
                 />
               </div>
 
@@ -77,14 +74,14 @@ export default function SimularPage() {
                     setCalculado(false);
                   }}
                   placeholder="Ex: Av. Brasil, 456 - Carapicuiba"
-                  className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-base transition-colors focus:border-[#00C896] focus:outline-none"
+                  className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-base transition-colors focus:border-[#C9A84C] focus:outline-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={!origem.trim() || !destino.trim()}
-                className="w-full rounded-xl bg-[#00C896] py-4 text-lg font-bold text-[#1a1a1a] transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
+                className="w-full rounded-xl bg-[#C9A84C] py-4 text-lg font-bold text-[#0A0A0A] transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Calcular Estimativa
               </button>
@@ -92,11 +89,11 @@ export default function SimularPage() {
 
             {/* Result */}
             {calculado && (
-              <div className="mt-6 rounded-xl border-2 border-[#00C896] bg-[#f0fdf9] p-6">
+              <div className="mt-6 rounded-xl border-2 border-[#C9A84C] bg-[#1a1700] p-6">
                 <p className="text-sm text-gray-500">
                   Estimativa para frete/mudanca:
                 </p>
-                <p className="mt-1 text-4xl font-extrabold text-[#00C896]">
+                <p className="mt-1 text-4xl font-extrabold text-[#C9A84C]">
                   R$ {estimativaMin} - R$ {estimativaMax}
                 </p>
                 <p className="mt-1 text-sm text-gray-400">

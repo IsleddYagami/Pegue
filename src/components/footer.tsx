@@ -17,11 +17,10 @@ export function Footer() {
               className="h-9 w-auto"
             />
             <p className="mt-3 text-sm leading-relaxed">
-              Solucoes em transportes e fretes.
-              Cotacao instantanea, rastreio completo e prova digital.
+              Frete e mudanca sem dor de cabeca.
             </p>
-            <p className="mt-2 text-sm text-[#C9A84C]/70">
-              Osasco e regiao - Zona Oeste SP
+            <p className="mt-1 text-sm text-gray-600">
+              Grande SP &middot; Litoral &middot; Interior
             </p>
           </div>
 
@@ -75,8 +74,14 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-8 border-t border-[#C9A84C]/10 pt-6 text-center text-xs text-gray-600">
-          &copy; {new Date().getFullYear()} Pegue. Todos os direitos reservados.
+        {/* Trust micro-text */}
+        <div className="mt-8 border-t border-[#C9A84C]/10 pt-6 text-center">
+          <p className="text-[11px] text-gray-600">
+            Motoristas verificados &middot; Pagamento protegido &middot; Prova digital de entrega
+          </p>
+          <p className="mt-2 text-xs text-gray-700">
+            &copy; {new Date().getFullYear()} Pegue. Todos os direitos reservados.
+          </p>
         </div>
       </div>
     </footer>

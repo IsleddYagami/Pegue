@@ -48,7 +48,7 @@ export function Header() {
             rel="noopener noreferrer"
             className="rounded-full border-2 border-[#C9A84C] bg-[#C9A84C] px-6 py-2 text-sm font-bold text-[#0A0A0A] transition-all hover:bg-transparent hover:text-[#C9A84C]"
           >
-            Pedir Frete
+            Chamar no WhatsApp
           </a>
         </nav>
 
@@ -81,7 +81,7 @@ export function Header() {
             rel="noopener noreferrer"
             className="rounded-full bg-[#C9A84C] px-5 py-3 text-center text-sm font-bold text-[#0A0A0A]"
           >
-            Pedir Frete
+            Chamar no WhatsApp
           </a>
         </nav>
       )}

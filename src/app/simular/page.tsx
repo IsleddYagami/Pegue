@@ -123,7 +123,7 @@ export default function SimularPage() {
                   href={whatsappLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] py-4 text-lg font-bold text-white transition-transform hover:scale-[1.02]"
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#C9A84C] py-4 text-lg font-bold text-white transition-transform hover:scale-[1.02]"
                 >
                   Continuar no WhatsApp
                   <ArrowRight size={20} />

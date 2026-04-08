@@ -128,21 +128,25 @@ export default function Home() {
         {/* Background image overlay */}
         <div className="absolute inset-0 z-0">
           <Image
-            src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?w=1400&h=800&fit=crop"
+            src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?w=1400&h=800&fit=crop&q=50"
             alt="Frete e mudanca"
             fill
-            className="object-cover opacity-15"
+            className="object-cover opacity-10 grayscale"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0A0A0A]/80 via-[#0A0A0A]/60 to-[#0A0A0A]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#000000]/90 via-[#000000]/80 to-[#0A0A0A]" />
         </div>
 
-        <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center px-4 py-24 text-center md:py-32">
-          {/* Badge */}
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-4 py-2 text-sm text-[#C9A84C]">
-            <Award size={16} />
-            Solucoes em transportes e fretes
-          </div>
+        <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center px-4 py-16 text-center md:py-24">
+          {/* Logo grande */}
+          <Image
+            src="/logo-pegue.png"
+            alt="Pegue - Solucoes em Transportes e Fretes"
+            width={220}
+            height={220}
+            className="mb-8 h-40 w-auto md:h-52"
+            priority
+          />
 
           <h1 className="text-4xl font-extrabold leading-tight tracking-tight md:text-6xl lg:text-7xl">
             Sua carga em{" "}

@@ -4,7 +4,7 @@ import { MessageCircle, Camera, CheckCircle, ArrowRight } from "lucide-react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { FloatingNotification } from "@/components/floating-notification";
-import { WHATSAPP_LINK } from "@/lib/constants";
+import { WHATSAPP_LINK, INSTAGRAM_LINK, INSTAGRAM_HANDLE } from "@/lib/constants";
 
 export default function HomePage() {
   return (
@@ -141,6 +141,25 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* INSTAGRAM - Sutil, vantagem clara */}
+      <section className="border-y border-gray-800 bg-[#0A0A0A] py-10">
+        <div className="mx-auto flex max-w-2xl flex-col items-center px-4 text-center">
+          <p className="text-sm text-gray-500">
+            Quem segue a Pegue no Instagram{" "}
+            <span className="text-[#C9A84C]">sabe antes de todo mundo</span>{" "}
+            quando tem oferta e vaga de frete disponivel.
+          </p>
+          <a
+            href={INSTAGRAM_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 rounded-full border border-[#C9A84C]/30 px-6 py-2.5 text-sm font-medium text-[#C9A84C] transition-all hover:bg-[#C9A84C]/10"
+          >
+            Seguir {INSTAGRAM_HANDLE}
+          </a>
         </div>
       </section>
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { WHATSAPP_LINK, INSTAGRAM_LINK, INSTAGRAM_HANDLE } from "@/lib/constants";
 
 export function Footer() {
@@ -8,7 +9,13 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-3">
           {/* Brand */}
           <div>
-            <p className="text-2xl font-extrabold text-[#C9A84C]">PEGUE</p>
+            <Image
+              src="/logo-pegue-horizontal.png"
+              alt="Pegue"
+              width={140}
+              height={40}
+              className="h-9 w-auto"
+            />
             <p className="mt-3 text-sm leading-relaxed">
               Solucoes em transportes e fretes.
               Cotacao instantanea, rastreio completo e prova digital.

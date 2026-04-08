@@ -20,10 +20,15 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-[#C9A84C]/20 bg-[#0A0A0A]/95 text-white backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <div className="text-2xl font-extrabold tracking-tight text-[#C9A84C]">
-            PEGUE
-          </div>
+        <Link href="/" className="flex items-center">
+          <Image
+            src="/logo-pegue-horizontal.png"
+            alt="Pegue - Solucoes em Transportes e Fretes"
+            width={160}
+            height={45}
+            className="h-10 w-auto"
+            priority
+          />
         </Link>
 
         {/* Desktop Nav */}

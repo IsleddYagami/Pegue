@@ -141,7 +141,7 @@ export default function Home() {
           {/* Badge */}
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-4 py-2 text-sm text-[#C9A84C]">
             <Award size={16} />
-            Experiencia premium em frete e mudanca
+            Solucoes em transportes e fretes
           </div>
 
           <h1 className="text-4xl font-extrabold leading-tight tracking-tight md:text-6xl lg:text-7xl">

@@ -10,7 +10,7 @@ export function Footer() {
           <div>
             <p className="text-2xl font-extrabold text-[#C9A84C]">PEGUE</p>
             <p className="mt-3 text-sm leading-relaxed">
-              Frete e mudanca com experiencia premium.
+              Solucoes em transportes e fretes.
               Cotacao instantanea, rastreio completo e prova digital.
             </p>
             <p className="mt-2 text-sm text-[#C9A84C]/70">

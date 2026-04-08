@@ -10,7 +10,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Pegue - Frete e Mudanca Rapido e Seguro",
   description:
-    "Frete e mudanca com cotacao instantanea pelo WhatsApp. Rastreio, prova digital e pagamento seguro. Osasco e regiao.",
+    "Solucoes em transportes e fretes. Cotacao instantanea pelo WhatsApp, rastreio, prova digital e pagamento seguro. Osasco e regiao.",
   keywords: [
     "frete osasco",
     "mudanca osasco",

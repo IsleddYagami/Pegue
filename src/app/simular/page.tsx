@@ -56,9 +56,10 @@ export default function SimularPage() {
                     setOrigem(e.target.value);
                     setCalculado(false);
                   }}
-                  placeholder="Ex: Rua das Flores, 123 - Osasco"
+                  placeholder="CEP, bairro ou endereco. Ex: 06010-000 ou Centro, Osasco"
                   className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-base transition-colors focus:border-[#C9A84C] focus:outline-none"
                 />
+                <p className="mt-1 text-xs text-gray-400">Aceita CEP, nome do bairro ou endereco completo</p>
               </div>
 
               <div>
@@ -73,9 +74,10 @@ export default function SimularPage() {
                     setDestino(e.target.value);
                     setCalculado(false);
                   }}
-                  placeholder="Ex: Av. Brasil, 456 - Carapicuiba"
+                  placeholder="CEP, bairro ou endereco. Ex: 06321-000 ou Centro, Carapicuiba"
                   className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-base transition-colors focus:border-[#C9A84C] focus:outline-none"
                 />
+                <p className="mt-1 text-xs text-gray-400">Aceita CEP, nome do bairro ou endereco completo</p>
               </div>
 
               <button

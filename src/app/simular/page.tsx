@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Image from "next/image";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import {
@@ -14,6 +13,7 @@ import {
   AlertCircle,
   Navigation,
   Building,
+  Plus,
 } from "lucide-react";
 import { WHATSAPP_LINK } from "@/lib/constants";
 import { Package, Truck as TruckIcon } from "lucide-react";
@@ -24,9 +24,16 @@ type AnaliseIA = {
   tamanho: string;
   veiculo_sugerido: string;
   observacao: string;
-} | null;
+};
 
-// Geocodificar via Nominatim (OpenStreetMap) - gratuito
+type ItemFoto = {
+  id: string;
+  foto: string;
+  analise: AnaliseIA | null;
+  analisando: boolean;
+};
+
+// Geocodificar via Nominatim
 async function geocodificar(
   endereco: string
 ): Promise<{ lat: number; lng: number; nome: string } | null> {
@@ -37,22 +44,16 @@ async function geocodificar(
       const data = await r.json();
       if (!data.erro && data.localidade) {
         const q = `${data.logradouro || ""}, ${data.bairro || ""}, ${data.localidade}, ${data.uf}, Brasil`;
-        return await geocodificarNominatim(
-          q,
-          `${data.bairro || data.localidade}, ${data.localidade}`
-        );
+        return await geocodificarNominatim(q, `${data.bairro || data.localidade}, ${data.localidade}`);
       }
     } catch {}
   }
-  return await geocodificarNominatim(
-    endereco + ", Sao Paulo, Brasil",
-    endereco
-  );
+  return await geocodificarNominatim(endereco + ", Sao Paulo, Brasil", endereco);
 }
 
 async function geocodificarNominatim(
   query: string,
-  nomeExibicao: string
+  _nomeExibicao: string
 ): Promise<{ lat: number; lng: number; nome: string } | null> {
   try {
     const encoded = encodeURIComponent(query);
@@ -72,11 +73,7 @@ async function geocodificarNominatim(
   return null;
 }
 
-// Geocodificacao reversa (lat/lng -> endereco)
-async function reverseGeocode(
-  lat: number,
-  lng: number
-): Promise<string | null> {
+async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
   try {
     const r = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
@@ -85,37 +82,25 @@ async function reverseGeocode(
     const data = await r.json();
     if (data && data.address) {
       const a = data.address;
-      const parts = [
-        a.road,
-        a.suburb || a.neighbourhood,
-        a.city || a.town || a.municipality,
-      ].filter(Boolean);
-      return parts.join(", ");
+      return [a.road, a.suburb || a.neighbourhood, a.city || a.town || a.municipality]
+        .filter(Boolean)
+        .join(", ");
     }
   } catch {}
   return null;
 }
 
-function calcularDistancia(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
+function calcularDistancia(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c * 1.35 * 10) / 10;
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35 * 10) / 10;
 }
 
-function calcularPrecos(distanciaKm: number) {
+function calcularPrecos(distanciaKm: number, totalItens: number) {
   const PRECO_KM = 8;
   const KM_MINIMO = 5;
   const VALOR_MINIMO = 80;
@@ -124,22 +109,25 @@ function calcularPrecos(distanciaKm: number) {
   const kmCobrado = Math.max(distanciaKm, KM_MINIMO);
   const precoBase = kmCobrado * PRECO_KM;
 
+  // Ajuste por volume: mais itens = veiculo maior
+  const multVolume = totalItens <= 1 ? 1.0 : totalItens <= 3 ? 1.2 : totalItens <= 6 ? 1.5 : 1.8;
+
   return {
-    economica: Math.max(Math.round(precoBase * 1.0), VALOR_MINIMO),
-    padrao: Math.max(
-      Math.round(precoBase * 1.6 + ADICIONAL_AJUDANTE),
-      VALOR_MINIMO + 80
-    ),
-    premium: Math.max(
-      Math.round(precoBase * 2.0 + ADICIONAL_AJUDANTE * 2),
-      VALOR_MINIMO + 160
-    ),
+    economica: Math.max(Math.round(precoBase * multVolume), VALOR_MINIMO),
+    padrao: Math.max(Math.round(precoBase * 1.6 * multVolume + ADICIONAL_AJUDANTE), VALOR_MINIMO + 80),
+    premium: Math.max(Math.round(precoBase * 2.0 * multVolume + ADICIONAL_AJUDANTE * 2), VALOR_MINIMO + 160),
   };
 }
 
+function melhorVeiculo(itens: ItemFoto[]): string {
+  const veiculos = itens.map((i) => i.analise?.veiculo_sugerido || "utilitario");
+  if (veiculos.includes("caminhao_bau")) return "Caminhao bau";
+  if (veiculos.includes("van")) return "Van";
+  return "Utilitario";
+}
+
 export default function SimularPage() {
-  const [foto, setFoto] = useState<string | null>(null);
-  const [fotoFile, setFotoFile] = useState<File | null>(null);
+  const [itens, setItens] = useState<ItemFoto[]>([]);
   const [destino, setDestino] = useState("");
   const [calculado, setCalculado] = useState(false);
   const [calculando, setCalculando] = useState(false);
@@ -148,78 +136,79 @@ export default function SimularPage() {
   const [origemNome, setOrigemNome] = useState("");
   const [destinoNome, setDestinoNome] = useState("");
   const [precos, setPrecos] = useState({ economica: 0, padrao: 0, premium: 0 });
-  const [analiseIA, setAnaliseIA] = useState<AnaliseIA>(null);
-  const [analisando, setAnalisando] = useState(false);
-  const [gpsStatus, setGpsStatus] = useState<
-    "idle" | "loading" | "ok" | "denied"
-  >("idle");
+  const [gpsStatus, setGpsStatus] = useState<"idle" | "loading" | "ok" | "denied">("idle");
   const [origemLat, setOrigemLat] = useState<number | null>(null);
   const [origemLng, setOrigemLng] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // Detectar GPS automaticamente ao entrar na pagina
   useEffect(() => {
     detectarLocalizacao();
   }, []);
 
   function detectarLocalizacao() {
-    if (!navigator.geolocation) {
-      setGpsStatus("denied");
-      return;
-    }
+    if (!navigator.geolocation) { setGpsStatus("denied"); return; }
     setGpsStatus("loading");
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        setOrigemLat(lat);
-        setOrigemLng(lng);
-        const nome = await reverseGeocode(lat, lng);
-        setOrigemNome(nome || `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+        setOrigemLat(pos.coords.latitude);
+        setOrigemLng(pos.coords.longitude);
+        const nome = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+        setOrigemNome(nome || `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
         setGpsStatus("ok");
       },
-      () => {
-        setGpsStatus("denied");
-      },
+      () => setGpsStatus("denied"),
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }
 
-  function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFotoFile(file);
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const base64 = ev.target?.result as string;
-        setFoto(base64);
-        setCalculado(false);
-
-        // Enviar para IA analisar
-        setAnalisando(true);
-        setAnaliseIA(null);
-        try {
-          const res = await fetch("/api/analisar-foto", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ imageBase64: base64 }),
-          });
-          const data = await res.json();
-          setAnaliseIA(data);
-        } catch {
-          setAnaliseIA(null);
-        }
-        setAnalisando(false);
-      };
-      reader.readAsDataURL(file);
+  async function analisarFoto(base64: string): Promise<AnaliseIA | null> {
+    try {
+      const res = await fetch("/api/analisar-foto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64 }),
+      });
+      return await res.json();
+    } catch {
+      return null;
     }
   }
 
-  function removerFoto() {
-    setFoto(null);
-    setFotoFile(null);
+  function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file) => {
+      if (itens.length >= 10) return;
+
+      const id = Math.random().toString(36).slice(2, 9);
+      const reader = new FileReader();
+
+      reader.onload = async (ev) => {
+        const base64 = ev.target?.result as string;
+        const novoItem: ItemFoto = { id, foto: base64, analise: null, analisando: true };
+
+        setItens((prev) => [...prev, novoItem]);
+        setCalculado(false);
+
+        const analise = await analisarFoto(base64);
+        setItens((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, analise, analisando: false } : item
+          )
+        );
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset input para permitir selecionar o mesmo arquivo
+    e.target.value = "";
+  }
+
+  function removerItem(id: string) {
+    setItens((prev) => prev.filter((i) => i.id !== id));
     setCalculado(false);
   }
 
@@ -230,32 +219,21 @@ export default function SimularPage() {
     setCalculado(false);
 
     try {
-      // Verificar origem
       if (gpsStatus !== "ok" || !origemLat || !origemLng) {
-        setErro(
-          "Nao conseguimos detectar sua localizacao. Permita o acesso ao GPS ou tente novamente."
-        );
+        setErro("Permita o acesso ao GPS ou tente novamente.");
         setCalculando(false);
         return;
       }
 
-      // Geocodificar destino
       const localDestino = await geocodificar(destino);
       if (!localDestino) {
-        setErro(
-          "Nao encontramos o destino. Verifique o nome da cidade, bairro ou CEP."
-        );
+        setErro("Nao encontramos o destino. Verifique o nome da cidade, bairro ou CEP.");
         setCalculando(false);
         return;
       }
 
-      const dist = calcularDistancia(
-        origemLat,
-        origemLng,
-        localDestino.lat,
-        localDestino.lng
-      );
-      const p = calcularPrecos(dist);
+      const dist = calcularDistancia(origemLat, origemLng, localDestino.lat, localDestino.lng);
+      const p = calcularPrecos(dist, itens.length);
 
       setDistancia(dist);
       setDestinoNome(localDestino.nome);
@@ -266,6 +244,8 @@ export default function SimularPage() {
     }
     setCalculando(false);
   }
+
+  const algumAnalisando = itens.some((i) => i.analisando);
 
   return (
     <>
@@ -278,175 +258,187 @@ export default function SimularPage() {
             <span className="text-[#C9A84C]">Receba o valor.</span>
           </h1>
           <p className="mt-2 text-center text-sm text-gray-500">
-            A gente detecta sua localizacao. Voce so diz para onde vai.
+            Envie fotos dos itens. A gente detecta sua localizacao. Voce so diz para onde vai.
           </p>
 
-          <form
-            onSubmit={handleSimular}
-            className="mt-8 space-y-5"
-          >
-            {/* FOTO */}
+          <form onSubmit={handleSimular} className="mt-8 space-y-5">
+
+            {/* FOTOS DOS ITENS */}
             <div>
-              {!foto ? (
-                <div className="flex flex-col gap-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase text-gray-500">
+                  Fotos dos itens ({itens.length}/10)
+                </span>
+                {itens.length > 0 && (
+                  <span className="text-xs text-gray-600">
+                    {itens.filter((i) => i.analise).length} analisado(s)
+                  </span>
+                )}
+              </div>
+
+              {/* Grid de fotos */}
+              {itens.length > 0 && (
+                <div className="mb-3 grid grid-cols-3 gap-2">
+                  {itens.map((item) => (
+                    <div key={item.id} className="relative">
+                      <img
+                        src={item.foto}
+                        alt="Item"
+                        className="h-28 w-full rounded-xl border border-gray-800 object-cover"
+                      />
+                      {/* Overlay com analise */}
+                      {item.analisando && (
+                        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60">
+                          <Loader2 size={20} className="animate-spin text-[#C9A84C]" />
+                        </div>
+                      )}
+                      {item.analise && !item.analisando && (
+                        <div className="absolute bottom-0 left-0 right-0 rounded-b-xl bg-black/70 px-2 py-1">
+                          <p className="truncate text-[10px] font-semibold text-[#C9A84C]">
+                            {item.analise.item}
+                          </p>
+                          <p className="text-[9px] text-gray-400">{item.analise.tamanho}</p>
+                        </div>
+                      )}
+                      {/* Botao remover */}
+                      <button
+                        type="button"
+                        onClick={() => removerItem(item.id)}
+                        className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-red-500"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Botoes de adicionar foto */}
+              {itens.length < 10 && (
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => cameraInputRef.current?.click()}
-                    className="flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#C9A84C]/40 bg-[#C9A84C]/5 py-10 text-[#C9A84C] transition-all hover:border-[#C9A84C] hover:bg-[#C9A84C]/10"
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-dashed ${itens.length === 0 ? "border-[#C9A84C]/40 bg-[#C9A84C]/5 py-10" : "border-gray-700 py-4"} text-[#C9A84C] transition-all hover:border-[#C9A84C]`}
                   >
-                    <Camera size={28} />
-                    <span className="text-base font-semibold">
-                      Tirar foto do material
+                    <Camera size={itens.length === 0 ? 28 : 18} />
+                    <span className={`font-semibold ${itens.length === 0 ? "text-base" : "text-sm"}`}>
+                      {itens.length === 0 ? "Tirar foto do material" : "Tirar foto"}
                     </span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-700 py-3 text-sm text-gray-400 transition-colors hover:border-gray-500 hover:text-gray-300"
+                    className={`flex items-center justify-center gap-2 rounded-xl border ${itens.length === 0 ? "w-full border-gray-700 py-3" : "border-gray-700 px-4 py-4"} text-sm text-gray-400 transition-colors hover:border-gray-500`}
                   >
                     <Upload size={16} />
-                    Ou enviar foto da galeria
+                    {itens.length === 0 && "Ou enviar da galeria"}
                   </button>
-
-                  <input
-                    ref={cameraInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleFoto}
-                    className="hidden"
-                  />
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFoto}
-                    className="hidden"
-                  />
                 </div>
-              ) : (
-                <div className="relative">
-                  <div className="overflow-hidden rounded-2xl border border-[#C9A84C]/30">
-                    <img
-                      src={foto}
-                      alt="Material para frete"
-                      className="h-56 w-full object-cover"
-                    />
+              )}
+
+              {itens.length >= 10 && (
+                <p className="text-center text-xs text-gray-500">Maximo de 10 fotos atingido</p>
+              )}
+
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFoto}
+                className="hidden"
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFoto}
+                className="hidden"
+              />
+
+              {/* Lista de itens reconhecidos */}
+              {itens.some((i) => i.analise) && (
+                <div className="mt-3 rounded-xl border border-[#C9A84C]/20 bg-[#C9A84C]/5 p-3">
+                  <p className="mb-2 text-xs font-semibold text-[#C9A84C]">
+                    Itens identificados:
+                  </p>
+                  <div className="space-y-1">
+                    {itens
+                      .filter((i) => i.analise)
+                      .map((item) => (
+                        <div key={item.id} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <Package size={12} className="text-[#C9A84C]" />
+                            <span className="text-white">{item.analise!.item}</span>
+                          </div>
+                          <span className="text-gray-500">{item.analise!.tamanho}</span>
+                        </div>
+                      ))}
                   </div>
-                  <button
-                    type="button"
-                    onClick={removerFoto}
-                    className="absolute right-2 top-2 rounded-full bg-[#0A0A0A]/80 p-1.5 text-white transition-colors hover:bg-red-500"
-                  >
-                    <X size={16} />
-                  </button>
-                  {/* Resultado da IA */}
-                  {analisando && (
-                    <div className="mt-3 flex items-center justify-center gap-2 text-sm text-gray-400">
-                      <Loader2 size={14} className="animate-spin" />
-                      Analisando material...
-                    </div>
-                  )}
-                  {analiseIA && !analisando && (
-                    <div className="mt-3 rounded-xl border border-[#C9A84C]/20 bg-[#C9A84C]/5 p-3">
-                      <div className="flex items-center gap-2">
-                        <Package size={16} className="text-[#C9A84C]" />
-                        <span className="text-sm font-semibold text-white">
-                          {analiseIA.item}
-                        </span>
-                        <span className="rounded bg-[#C9A84C]/20 px-1.5 py-0.5 text-[10px] text-[#C9A84C]">
-                          {analiseIA.tamanho}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <TruckIcon size={14} className="text-gray-500" />
-                        <span className="text-xs text-gray-400">
-                          Veiculo sugerido: {analiseIA.veiculo_sugerido === "caminhao_bau" ? "Caminhao bau" : analiseIA.veiculo_sugerido === "van" ? "Van" : "Utilitario"}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-[11px] text-gray-500">
-                        {analiseIA.observacao}
-                      </p>
-                    </div>
-                  )}
-                  {!analiseIA && !analisando && (
-                    <p className="mt-2 text-center text-xs text-[#C9A84C]">
-                      Foto recebida
-                    </p>
-                  )}
+                  <div className="mt-2 flex items-center gap-2 border-t border-[#C9A84C]/10 pt-2">
+                    <TruckIcon size={12} className="text-gray-400" />
+                    <span className="text-[11px] text-gray-400">
+                      Veiculo sugerido: {melhorVeiculo(itens)}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* ORIGEM - GPS automatico */}
+            {/* ORIGEM GPS */}
             <div className="rounded-xl border border-gray-800 bg-[#111111] p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Navigation size={16} className="text-[#C9A84C]" />
-                  <span className="text-xs font-semibold uppercase text-gray-500">
-                    Sua localizacao
-                  </span>
+                  <span className="text-xs font-semibold uppercase text-gray-500">Sua localizacao</span>
                 </div>
                 {gpsStatus === "denied" && (
-                  <button
-                    type="button"
-                    onClick={detectarLocalizacao}
-                    className="text-xs text-[#C9A84C] hover:underline"
-                  >
+                  <button type="button" onClick={detectarLocalizacao} className="text-xs text-[#C9A84C] hover:underline">
                     Tentar novamente
                   </button>
                 )}
               </div>
-
               {gpsStatus === "loading" && (
                 <div className="mt-2 flex items-center gap-2 text-sm text-gray-400">
-                  <Loader2 size={14} className="animate-spin" />
-                  Detectando localizacao...
+                  <Loader2 size={14} className="animate-spin" /> Detectando...
                 </div>
               )}
-              {gpsStatus === "ok" && (
-                <p className="mt-2 text-sm text-white">{origemNome}</p>
-              )}
+              {gpsStatus === "ok" && <p className="mt-2 text-sm text-white">{origemNome}</p>}
               {gpsStatus === "denied" && (
-                <p className="mt-2 text-xs text-red-400">
-                  GPS nao permitido. Habilite a localizacao no navegador.
-                </p>
-              )}
-              {gpsStatus === "idle" && (
-                <p className="mt-2 text-xs text-gray-500">Aguardando GPS...</p>
+                <p className="mt-2 text-xs text-red-400">GPS nao permitido. Habilite no navegador.</p>
               )}
             </div>
 
             {/* DESTINO */}
             <div>
               <label className="mb-1 flex items-center gap-1 text-xs font-semibold uppercase text-gray-500">
-                <MapPin size={14} className="text-red-400" />
-                Para onde vai?
+                <MapPin size={14} className="text-red-400" /> Para onde vai?
               </label>
               <input
                 type="text"
                 value={destino}
-                onChange={(e) => {
-                  setDestino(e.target.value);
-                  setCalculado(false);
-                  setErro("");
-                }}
+                onChange={(e) => { setDestino(e.target.value); setCalculado(false); setErro(""); }}
                 placeholder="Bairro, cidade ou CEP. Ex: Agua Branca, Sao Paulo"
-                className="w-full rounded-xl border border-gray-700 bg-[#111111] px-4 py-3 text-base text-white placeholder-gray-600 transition-colors focus:border-[#C9A84C] focus:outline-none"
+                className="w-full rounded-xl border border-gray-700 bg-[#111111] px-4 py-3 text-base text-white placeholder-gray-600 focus:border-[#C9A84C] focus:outline-none"
               />
             </div>
 
             {/* BOTAO */}
             <button
               type="submit"
-              disabled={!destino.trim() || gpsStatus !== "ok" || calculando}
+              disabled={!destino.trim() || gpsStatus !== "ok" || calculando || algumAnalisando}
               className="w-full rounded-xl bg-[#C9A84C] py-4 text-lg font-bold text-[#0A0A0A] transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {calculando ? (
                 <span className="flex items-center justify-center gap-2">
-                  <Loader2 size={20} className="animate-spin" />
-                  Calculando...
+                  <Loader2 size={20} className="animate-spin" /> Calculando...
+                </span>
+              ) : algumAnalisando ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 size={20} className="animate-spin" /> Analisando fotos...
                 </span>
               ) : (
                 "Ver valor"
@@ -456,8 +448,7 @@ export default function SimularPage() {
             {/* ERRO */}
             {erro && (
               <div className="flex items-start gap-2 rounded-xl border border-red-800 bg-red-900/20 p-4 text-sm text-red-400">
-                <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                {erro}
+                <AlertCircle size={18} className="mt-0.5 shrink-0" /> {erro}
               </div>
             )}
 
@@ -479,23 +470,33 @@ export default function SimularPage() {
                   </div>
                 </div>
 
-                {/* Foto thumbnail */}
-                {foto && (
-                  <div className="mb-4 flex items-center gap-3 rounded-lg bg-[#0A0A0A] p-2">
-                    <img
-                      src={foto}
-                      alt="Material"
-                      className="h-12 w-12 rounded-lg object-cover"
-                    />
-                    <div>
-                      <p className="text-xs font-semibold text-white">
-                        {analiseIA ? analiseIA.item : "Foto recebida"}
-                      </p>
-                      <p className="text-[10px] text-gray-500">
-                        {analiseIA
-                          ? `${analiseIA.veiculo_sugerido === "caminhao_bau" ? "Caminhao bau" : analiseIA.veiculo_sugerido === "van" ? "Van" : "Utilitario"} recomendado`
-                          : "O veiculo sera confirmado no WhatsApp"}
-                      </p>
+                {/* Resumo dos itens */}
+                {itens.length > 0 && itens.some((i) => i.analise) && (
+                  <div className="mb-4 rounded-lg bg-[#0A0A0A] p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex -space-x-2">
+                        {itens.slice(0, 4).map((item) => (
+                          <img
+                            key={item.id}
+                            src={item.foto}
+                            alt=""
+                            className="h-8 w-8 rounded-lg border border-gray-700 object-cover"
+                          />
+                        ))}
+                        {itens.length > 4 && (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-700 bg-[#111111] text-[10px] text-gray-400">
+                            +{itens.length - 4}
+                          </div>
+                        )}
+                      </div>
+                      <div className="ml-2">
+                        <p className="text-xs font-semibold text-white">
+                          {itens.length} {itens.length === 1 ? "item" : "itens"}
+                        </p>
+                        <p className="text-[10px] text-gray-500">
+                          {melhorVeiculo(itens)} recomendado
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -504,16 +505,10 @@ export default function SimularPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between rounded-lg border border-gray-800 p-3">
                     <div>
-                      <p className="text-sm font-semibold text-white">
-                        Economica
-                      </p>
-                      <p className="text-[11px] text-gray-500">
-                        Utilitario, sem ajudante
-                      </p>
+                      <p className="text-sm font-semibold text-white">Economica</p>
+                      <p className="text-[11px] text-gray-500">Utilitario, sem ajudante</p>
                     </div>
-                    <p className="text-xl font-extrabold text-[#C9A84C]">
-                      R$ {precos.economica}
-                    </p>
+                    <p className="text-xl font-extrabold text-[#C9A84C]">R$ {precos.economica}</p>
                   </div>
 
                   <div className="flex items-center justify-between rounded-lg border-2 border-[#C9A84C]/50 bg-[#C9A84C]/5 p-3">
@@ -524,31 +519,24 @@ export default function SimularPage() {
                           Recomendado
                         </span>
                       </p>
-                      <p className="text-[11px] text-gray-400">
-                        Caminhao bau, 1 ajudante
-                      </p>
+                      <p className="text-[11px] text-gray-400">Caminhao bau, 1 ajudante</p>
                     </div>
-                    <p className="text-xl font-extrabold text-[#C9A84C]">
-                      R$ {precos.padrao}
-                    </p>
+                    <p className="text-xl font-extrabold text-[#C9A84C]">R$ {precos.padrao}</p>
                   </div>
 
                   <div className="flex items-center justify-between rounded-lg border border-gray-800 p-3">
                     <div>
-                      <p className="text-sm font-semibold text-white">
-                        Premium
-                      </p>
-                      <p className="text-[11px] text-gray-500">
-                        Caminhao bau, 2 ajudantes
-                      </p>
+                      <p className="text-sm font-semibold text-white">Premium</p>
+                      <p className="text-[11px] text-gray-500">Caminhao bau, 2 ajudantes</p>
                     </div>
-                    <p className="text-xl font-extrabold text-[#C9A84C]">
-                      R$ {precos.premium}
-                    </p>
+                    <p className="text-xl font-extrabold text-[#C9A84C]">R$ {precos.premium}</p>
                   </div>
                 </div>
 
-                {/* CTA WhatsApp */}
+                <p className="mt-3 text-center text-[10px] text-gray-600">
+                  Valor final confirmado no WhatsApp com base nas fotos enviadas.
+                </p>
+
                 <a
                   href={WHATSAPP_LINK}
                   target="_blank"
@@ -558,19 +546,12 @@ export default function SimularPage() {
                   Fechar pelo WhatsApp
                   <ArrowRight size={18} />
                 </a>
-
-                <p className="mt-2 text-center text-[10px] text-gray-600">
-                  Valor final confirmado no WhatsApp com base na foto do
-                  material.
-                </p>
               </div>
             )}
           </form>
 
-          {/* Micro-copy */}
           <p className="mt-6 text-center text-xs text-gray-700">
-            Sua localizacao e usada apenas para calcular a distancia. Nao
-            armazenamos dados de GPS.
+            Sua localizacao e usada apenas para calcular a distancia.
           </p>
         </div>
       </main>

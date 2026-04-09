@@ -16,6 +16,15 @@ import {
   Building,
 } from "lucide-react";
 import { WHATSAPP_LINK } from "@/lib/constants";
+import { Package, Truck as TruckIcon } from "lucide-react";
+
+type AnaliseIA = {
+  item: string;
+  quantidade: string;
+  tamanho: string;
+  veiculo_sugerido: string;
+  observacao: string;
+} | null;
 
 // Geocodificar via Nominatim (OpenStreetMap) - gratuito
 async function geocodificar(
@@ -139,6 +148,8 @@ export default function SimularPage() {
   const [origemNome, setOrigemNome] = useState("");
   const [destinoNome, setDestinoNome] = useState("");
   const [precos, setPrecos] = useState({ economica: 0, padrao: 0, premium: 0 });
+  const [analiseIA, setAnaliseIA] = useState<AnaliseIA>(null);
+  const [analisando, setAnalisando] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<
     "idle" | "loading" | "ok" | "denied"
   >("idle");
@@ -181,11 +192,28 @@ export default function SimularPage() {
     if (file) {
       setFotoFile(file);
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        setFoto(ev.target?.result as string);
+      reader.onload = async (ev) => {
+        const base64 = ev.target?.result as string;
+        setFoto(base64);
+        setCalculado(false);
+
+        // Enviar para IA analisar
+        setAnalisando(true);
+        setAnaliseIA(null);
+        try {
+          const res = await fetch("/api/analisar-foto", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageBase64: base64 }),
+          });
+          const data = await res.json();
+          setAnaliseIA(data);
+        } catch {
+          setAnaliseIA(null);
+        }
+        setAnalisando(false);
       };
       reader.readAsDataURL(file);
-      setCalculado(false);
     }
   }
 
@@ -313,9 +341,40 @@ export default function SimularPage() {
                   >
                     <X size={16} />
                   </button>
-                  <p className="mt-2 text-center text-xs text-[#C9A84C]">
-                    Foto do material recebida
-                  </p>
+                  {/* Resultado da IA */}
+                  {analisando && (
+                    <div className="mt-3 flex items-center justify-center gap-2 text-sm text-gray-400">
+                      <Loader2 size={14} className="animate-spin" />
+                      Analisando material...
+                    </div>
+                  )}
+                  {analiseIA && !analisando && (
+                    <div className="mt-3 rounded-xl border border-[#C9A84C]/20 bg-[#C9A84C]/5 p-3">
+                      <div className="flex items-center gap-2">
+                        <Package size={16} className="text-[#C9A84C]" />
+                        <span className="text-sm font-semibold text-white">
+                          {analiseIA.item}
+                        </span>
+                        <span className="rounded bg-[#C9A84C]/20 px-1.5 py-0.5 text-[10px] text-[#C9A84C]">
+                          {analiseIA.tamanho}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <TruckIcon size={14} className="text-gray-500" />
+                        <span className="text-xs text-gray-400">
+                          Veiculo sugerido: {analiseIA.veiculo_sugerido === "caminhao_bau" ? "Caminhao bau" : analiseIA.veiculo_sugerido === "van" ? "Van" : "Utilitario"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-gray-500">
+                        {analiseIA.observacao}
+                      </p>
+                    </div>
+                  )}
+                  {!analiseIA && !analisando && (
+                    <p className="mt-2 text-center text-xs text-[#C9A84C]">
+                      Foto recebida
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -430,10 +489,12 @@ export default function SimularPage() {
                     />
                     <div>
                       <p className="text-xs font-semibold text-white">
-                        Foto recebida
+                        {analiseIA ? analiseIA.item : "Foto recebida"}
                       </p>
                       <p className="text-[10px] text-gray-500">
-                        O veiculo sera confirmado no WhatsApp
+                        {analiseIA
+                          ? `${analiseIA.veiculo_sugerido === "caminhao_bau" ? "Caminhao bau" : analiseIA.veiculo_sugerido === "van" ? "Van" : "Utilitario"} recomendado`
+                          : "O veiculo sera confirmado no WhatsApp"}
                       </p>
                     </div>
                   </div>

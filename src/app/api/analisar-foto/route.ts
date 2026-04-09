@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
     const { imageBase64 } = await req.json();
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY || "",
+    });
 
     if (!imageBase64) {
       return NextResponse.json({ error: "Imagem nao enviada" }, { status: 400 });

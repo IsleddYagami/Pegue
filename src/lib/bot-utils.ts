@@ -120,7 +120,9 @@ export function calcularPrecos(
 ) {
   const precoPorKm = 8.0;
   const kmMinimo = 5;
-  const valorMinimoFrete = 150; // minimo absoluto sem ajudante
+  const valorMinimoSemAjudante = 150;
+  const valorMinimoComAjudante = 250;
+  const valorMinimo = temAjudante ? valorMinimoComAjudante : valorMinimoSemAjudante;
 
   const multVeiculo: Record<string, number> = {
     utilitario: 1.0,
@@ -130,18 +132,18 @@ export function calcularPrecos(
   };
 
   const km = Math.max(distanciaKm, kmMinimo);
-  const base = Math.max(km * precoPorKm * (multVeiculo[veiculoTipo] || 1.0), valorMinimoFrete);
+  const base = km * precoPorKm * (multVeiculo[veiculoTipo] || 1.0);
 
   let adicional = 0;
   if (temAjudante) adicional += 80;
   if (andares > 0) adicional += andares * 30;
 
-  const total = base + adicional;
+  const total = Math.max(base + adicional, valorMinimo);
 
   return {
-    economica: Math.max(Math.round(total * 0.7), valorMinimoFrete),
-    padrao: Math.max(Math.round(total * 1.0), valorMinimoFrete),
-    premium: Math.max(Math.round(total * 1.4), valorMinimoFrete + 50),
+    economica: Math.max(Math.round(total * 0.7), valorMinimo),
+    padrao: Math.max(Math.round(total * 1.0), valorMinimo),
+    premium: Math.max(Math.round(total * 1.4), valorMinimo + 50),
   };
 }
 

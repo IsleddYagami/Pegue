@@ -63,3 +63,11 @@ export async function sendImage({ to, url, caption }: SendImageOptions) {
 export function formatPhone(phone: string): string {
   return phone.replace(/\D/g, "");
 }
+
+// Envia mensagem para multiplos numeros
+export async function sendMessageToMany(numbers: string[], message: string) {
+  const results = await Promise.allSettled(
+    numbers.map((to) => sendMessage({ to, message }))
+  );
+  return results;
+}

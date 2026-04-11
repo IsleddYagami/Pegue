@@ -13,18 +13,16 @@ Ou se preferir, me passa o *CEP* ou *endereco com rua e bairro* 🏠`,
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅
 
-Agora me conta, o que voce precisa levar?
-Pode mandar uma foto que facilita muito! 📸
+Agora manda uma foto do material 📸 assim consigo te dizer qual o melhor veiculo e quantos ajudantes vai precisar!
 
-Sem pressa, to aqui pra te ajudar 😊`,
+Ou se preferir, descreve o que precisa transportar 😊`,
 
   enderecoRecebido: (endereco: string) =>
     `Anotado! Coleta em: ${endereco} ✅
 
-Agora me conta, o que voce precisa levar?
-Pode mandar uma foto que facilita muito! 📸
+Agora manda uma foto do material 📸 assim consigo te dizer qual o melhor veiculo e quantos ajudantes vai precisar!
 
-Sem pressa, to aqui pra te ajudar 😊`,
+Ou se preferir, descreve o que precisa transportar 😊`,
 
   fotoRecebida: (item: string) =>
     `Aah entendi! Vi que e ${item}! 📦

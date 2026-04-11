@@ -301,7 +301,15 @@ async function handleFoto(
 
   if (hasMedia && imageUrl) {
     // Analisa foto com OpenAI Vision
+    await supabase.from("bot_logs").insert({
+      payload: { debug: "antes_da_IA", imageUrl, hasMedia }
+    }).catch(() => {});
+
     const analise = await analisarFotoIA(imageUrl);
+
+    await supabase.from("bot_logs").insert({
+      payload: { debug: "resultado_IA", analise, imageUrl }
+    }).catch(() => {});
 
     if (analise) {
       const emoji = getItemEmoji(analise.item);

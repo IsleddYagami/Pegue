@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "ignored_event", eventType });
     }
 
-    const info = rawBody.Body?.Info || {};
+    const info = rawBody.Body?.Info || rawBody.Info || {};
     const message = rawBody.Body?.Text || "";
     const from = info.RemoteJid || info.SenderJid || "";
     const isGroup = from.includes("@g.us");
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
 
     const phoneNumber = from.replace("@s.whatsapp.net", "");
 
-    console.log(`Mensagem de ${phoneNumber}: ${message}`);
+    console.log(`Mensagem de ${phoneNumber}: ${message} | hasMedia: ${hasMedia} | imageUrl: ${imageUrl} | eventType: ${eventType}`);
 
     // Verifica se e prestador respondendo a dispatch
     const dispatch = getDispatchForPrestador(phoneNumber);

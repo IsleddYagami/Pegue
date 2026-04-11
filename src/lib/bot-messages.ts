@@ -4,10 +4,10 @@ export const MSG = {
   boasVindas: `Oii! 😊 Que bom ter voce aqui no Pegue! 🚚
 Estou aqui pra te ajudar com o que precisar.
 
-Pra comecar, manda sua localizacao 📍
-(clica no 📎 > Localizacao)
+De onde vamos retirar o material?
+Me passa o *CEP* ou *endereco com rua e bairro* 🏠
 
-Ou se preferir, me passa o CEP ou endereco com rua e bairro da coleta 🏠`,
+Ou se quiser mandar sua localizacao: la embaixo, do lado de onde voce digita a mensagem, tem um icone de clipe 📎 - clica nele e depois em *Localizacao* 📍`,
 
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅

@@ -156,6 +156,11 @@ async function handleClienteMessage(
   hasMedia: boolean,
   imageUrl: string | null = null
 ) {
+  // Log debug no Supabase
+  await supabase.from("bot_logs").insert({
+    payload: { debug: "handleClienteMessage", phone, message, hasMedia, imageUrl, lat, lng }
+  }).catch(() => {});
+
   // Detecta pedido de atendente em qualquer momento
   if (isAtendente(message)) {
     await handleAtendente(phone);

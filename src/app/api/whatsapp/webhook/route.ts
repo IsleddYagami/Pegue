@@ -40,53 +40,37 @@ export async function POST(req: NextRequest) {
 
     console.log("Webhook RAW recebido:", JSON.stringify(rawBody, null, 2));
 
-    // ChatPro pode enviar em diferentes formatos
-    // Formato 1: objeto direto { type, body, from, ... }
-    // Formato 2: array ["Msg", { cmd, body, from, ... }]
-    // Formato 3: objeto com evento { event, data: { ... } }
+    // Formato real do ChatPro v5:
+    // {
+    //   "Type": "receveid_message",
+    //   "Body": {
+    //     "Info": { "RemoteJid": "55..@s.whatsapp.net", "FromMe": false, "PushName": "..." },
+    //     "Text": "mensagem"
+    //   }
+    // }
 
-    let body: any = null;
+    const eventType = rawBody.Type || rawBody.type || "";
 
-    if (Array.isArray(rawBody)) {
-      // Formato array
-      if (rawBody.length >= 2 && rawBody[0] === "Msg") {
-        body = rawBody[1];
-      } else {
-        return NextResponse.json({ status: "ignored_array" });
-      }
-    } else if (rawBody && typeof rawBody === "object") {
-      body = rawBody;
-    } else {
-      return NextResponse.json({ status: "ignored_unknown" });
-    }
-
-    // Detecta tipo de evento - aceita varios formatos do ChatPro
-    const eventType = body.type || body.event || body.cmd || "";
-
-    // Ignora eventos que nao sao mensagem recebida
-    const receivedTypes = [
-      "ReceivedCallback",
-      "received_message",
-      "chat",
-      "message",
-    ];
-    const isReceived =
-      receivedTypes.includes(eventType) ||
-      body.body !== undefined ||
-      body.message !== undefined;
-
-    if (!isReceived) {
+    // Aceita "receveid_message" (typo do ChatPro) e variacoes
+    if (!eventType.includes("receveid") && !eventType.includes("received")) {
       console.log("Evento ignorado:", eventType);
       return NextResponse.json({ status: "ignored_event", eventType });
     }
 
-    const message = body.body || body.message || body.text || "";
-    const from = body.from || body.sender || body.chatId || "";
-    const isGroup = body.isGroup || body.isGroupMsg || from.includes("@g.us") || false;
-    const isFromMe = body.fromMe || false;
-    const lat = body.lat || body.latitude || null;
-    const lng = body.lng || body.longitude || null;
-    const hasMedia = body.hasMedia || body.isMedia || !!body.mediaUrl || false;
+    const info = rawBody.Body?.Info || {};
+    const message = rawBody.Body?.Text || "";
+    const from = info.RemoteJid || info.SenderJid || "";
+    const isGroup = from.includes("@g.us");
+    const isFromMe = info.FromMe || false;
+
+    // Localizacao (se o cliente mandar)
+    const source = info.Source?.message || {};
+    const locationMsg = source.locationMessage || null;
+    const lat = locationMsg?.degreesLatitude || null;
+    const lng = locationMsg?.degreesLongitude || null;
+
+    // Media (fotos, audios etc)
+    const hasMedia = !!(source.imageMessage || source.audioMessage || source.documentMessage || source.videoMessage);
 
     // Ignora mensagens de grupo e proprias
     if (isGroup || isFromMe || !from) {

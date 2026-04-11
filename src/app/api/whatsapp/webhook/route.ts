@@ -42,6 +42,13 @@ export async function POST(req: NextRequest) {
 
     console.log("Webhook RAW recebido:", JSON.stringify(rawBody, null, 2));
 
+    // Log no Supabase para debug
+    try {
+      await supabase.from("bot_logs").insert({ payload: rawBody });
+    } catch (e) {
+      // ignora erro de log
+    }
+
     // Formato real do ChatPro v5:
     // {
     //   "Type": "receveid_message",

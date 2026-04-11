@@ -92,6 +92,9 @@ export async function POST(req: NextRequest) {
       eventType.toLowerCase().includes("document");
     const hasMedia = isMediaType || !!(sourceMsg.imageMessage || sourceMsg.audioMessage || sourceMsg.documentMessage || sourceMsg.videoMessage);
 
+    // URL da imagem (ChatPro disponibiliza direto)
+    const imageUrl = rawBody.Url || rawBody.Info?.Url || sourceMsg.imageMessage?.url || null;
+
     // Ignora mensagens de grupo e proprias
     if (isGroup || isFromMe || !from) {
       return NextResponse.json({ status: "ignored" });
@@ -110,7 +113,7 @@ export async function POST(req: NextRequest) {
 
     // Fluxo do cliente
     try {
-      await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia);
+      await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia, imageUrl);
     } catch (flowError: any) {
       console.error("Erro no fluxo:", flowError?.message);
       // Nao retorna 500 - sempre responde 200 pro ChatPro
@@ -140,7 +143,8 @@ async function handleClienteMessage(
   message: string,
   lat: number | null,
   lng: number | null,
-  hasMedia: boolean
+  hasMedia: boolean,
+  imageUrl: string | null = null
 ) {
   // Detecta pedido de atendente em qualquer momento
   if (isAtendente(message)) {
@@ -171,7 +175,7 @@ async function handleClienteMessage(
       break;
 
     case "aguardando_foto":
-      await handleFoto(phone, message, hasMedia);
+      await handleFoto(phone, message, hasMedia, imageUrl);
       break;
 
     case "aguardando_destino":
@@ -277,11 +281,49 @@ async function handleLocalizacao(
 async function handleFoto(
   phone: string,
   message: string,
-  hasMedia: boolean
+  hasMedia: boolean,
+  imageUrl: string | null = null
 ) {
-  if (hasMedia) {
-    // TODO: integrar OpenAI Vision para analisar foto
-    // Por enquanto aceita a foto e segue
+  if (hasMedia && imageUrl) {
+    // Analisa foto com OpenAI Vision
+    const analise = await analisarFotoIA(imageUrl);
+
+    if (analise) {
+      const emoji = getItemEmoji(analise.item);
+      const precisaAjudante = analise.tamanho === "grande";
+      const veiculoNome: Record<string, string> = {
+        utilitario: "utilitario",
+        van: "van",
+        caminhao_bau: "caminhao bau",
+        caminhao_grande: "caminhao grande",
+      };
+
+      await updateSession(phone, {
+        step: "aguardando_destino",
+        descricao_carga: `${analise.item} (${analise.quantidade})`,
+        veiculo_sugerido: analise.veiculo_sugerido,
+        precisa_ajudante: precisaAjudante,
+      });
+
+      const ajudanteTexto = precisaAjudante
+        ? "e vai precisar de ajudante pra carregar"
+        : "e nao vai precisar de ajudante";
+
+      await sendMessage({
+        to: phone,
+        message: `📸 Recebi sua foto!
+
+Vi que e *${analise.item}* ${emoji}
+Tamanho ${analise.tamanho}, cabe em um *${veiculoNome[analise.veiculo_sugerido] || "utilitario"}* ${ajudanteTexto}!
+
+E pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠
+
+(Se eu errei alguma coisa, me corrige que eu ajusto! 😊)`,
+      });
+      return;
+    }
+
+    // IA nao conseguiu analisar - segue sem
     await updateSession(phone, {
       step: "aguardando_destino",
       descricao_carga: "Material (foto recebida)",
@@ -308,6 +350,90 @@ async function handleFoto(
     message:
       "Me manda uma foto do material ou descreve o que precisa levar 📸😊",
   });
+}
+
+// Analisa foto usando OpenAI Vision
+async function analisarFotoIA(
+  imageUrl: string
+): Promise<{
+  item: string;
+  quantidade: string;
+  tamanho: string;
+  veiculo_sugerido: string;
+  observacao: string;
+} | null> {
+  try {
+    const OpenAI = (await import("openai")).default;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `Voce e um assistente de uma empresa de fretes chamada Pegue.
+Analise a foto enviada pelo cliente e retorne APENAS um JSON com:
+{
+  "item": "nome do item principal na foto (ex: Geladeira, Sofa, Caixas, Violao)",
+  "quantidade": "quantidade estimada (ex: 1, 3, varias caixas)",
+  "tamanho": "pequeno, medio ou grande",
+  "veiculo_sugerido": "utilitario, van ou caminhao_bau",
+  "observacao": "frase curta sobre o que voce ve (max 15 palavras)"
+}
+Regras:
+- pequeno: cabe no banco de um carro (ex: violao, caixa pequena, mala)
+- medio: precisa de utilitario (ex: mesa, geladeira, maquina de lavar)
+- grande: precisa de van ou caminhao (ex: mudanca completa, sofa grande + caixas)
+- utilitario: para itens pequenos e medios
+- van: para itens grandes ou varios medios
+- caminhao_bau: para mudancas grandes
+Responda SOMENTE o JSON, nada mais.`,
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: imageUrl, detail: "low" },
+            },
+            {
+              type: "text",
+              text: "O que e esse material? Qual veiculo ideal?",
+            },
+          ],
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.1,
+    });
+
+    const texto = response.choices[0]?.message?.content || "";
+    const jsonMatch = texto.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    return null;
+  } catch (error: any) {
+    console.error("Erro OpenAI Vision:", error?.message);
+    return null;
+  }
+}
+
+// Emoji baseado no item
+function getItemEmoji(item: string): string {
+  const lower = item.toLowerCase();
+  if (lower.includes("sofa") || lower.includes("sofá")) return "🛋️";
+  if (lower.includes("geladeira") || lower.includes("refrigerador")) return "🧊";
+  if (lower.includes("maquina") || lower.includes("máquina")) return "🫧";
+  if (lower.includes("caixa")) return "📦";
+  if (lower.includes("mesa")) return "🪑";
+  if (lower.includes("cama") || lower.includes("colchao")) return "🛏️";
+  if (lower.includes("tv") || lower.includes("televisao")) return "📺";
+  if (lower.includes("violao") || lower.includes("guitarra")) return "🎸";
+  if (lower.includes("bicicleta") || lower.includes("bike")) return "🚲";
+  if (lower.includes("moto")) return "🏍️";
+  if (lower.includes("piano") || lower.includes("teclado")) return "🎹";
+  return "📦";
 }
 
 // STEP 3: Receber destino

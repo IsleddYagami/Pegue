@@ -1,5 +1,5 @@
-// Gerenciamento de sessoes do bot WhatsApp
-// Cada cliente tem uma sessao ativa com o estado da conversa
+// Gerenciamento de sessoes do bot WhatsApp via Supabase
+import { supabase } from "@/lib/supabase";
 
 export type BotStep =
   | "inicio"
@@ -17,104 +17,101 @@ export type BotStep =
 export interface BotSession {
   phone: string;
   step: BotStep;
-  // Dados coletados
-  origemEndereco: string | null;
-  origemLat: number | null;
-  origemLng: number | null;
-  destinoEndereco: string | null;
-  destinoLat: number | null;
-  destinoLng: number | null;
-  distanciaKm: number | null;
-  descricaoCarga: string | null;
-  veiculoSugerido: string | null;
-  fotoUrl: string | null;
-  dataAgendada: string | null;
+  origem_endereco: string | null;
+  origem_lat: number | null;
+  origem_lng: number | null;
+  destino_endereco: string | null;
+  destino_lat: number | null;
+  destino_lng: number | null;
+  distancia_km: number | null;
+  descricao_carga: string | null;
+  veiculo_sugerido: string | null;
+  foto_url: string | null;
+  data_agendada: string | null;
   periodo: string | null;
-  planoEscolhido: string | null;
-  valorEstimado: number | null;
-  temEscada: boolean;
+  plano_escolhido: string | null;
+  valor_estimado: number | null;
+  tem_escada: boolean;
   andar: number;
-  precisaAjudante: boolean;
-  // Controle
-  corridaId: string | null;
-  criadoEm: number;
-  atualizadoEm: number;
+  precisa_ajudante: boolean;
+  corrida_id: string | null;
 }
 
-// Sessoes em memoria (para MVP - depois migrar pro Supabase)
-const sessions = new Map<string, BotSession>();
+export async function getSession(phone: string): Promise<BotSession | null> {
+  const { data } = await supabase
+    .from("bot_sessions")
+    .select("*")
+    .eq("phone", phone)
+    .single();
 
-export function getSession(phone: string): BotSession | null {
-  const session = sessions.get(phone);
-  if (!session) return null;
+  if (!data) return null;
 
-  // Expira sessao apos 2 horas de inatividade
+  // Expira sessao apos 2 horas
   const duasHoras = 2 * 60 * 60 * 1000;
-  if (Date.now() - session.atualizadoEm > duasHoras) {
-    sessions.delete(phone);
+  const atualizado = new Date(data.atualizado_em).getTime();
+  if (Date.now() - atualizado > duasHoras) {
+    await deleteSession(phone);
     return null;
   }
 
-  return session;
+  return data as BotSession;
 }
 
-export function createSession(phone: string): BotSession {
-  const session: BotSession = {
+export async function createSession(phone: string): Promise<BotSession> {
+  const session: Record<string, any> = {
     phone,
     step: "inicio",
-    origemEndereco: null,
-    origemLat: null,
-    origemLng: null,
-    destinoEndereco: null,
-    destinoLat: null,
-    destinoLng: null,
-    distanciaKm: null,
-    descricaoCarga: null,
-    veiculoSugerido: null,
-    fotoUrl: null,
-    dataAgendada: null,
+    origem_endereco: null,
+    origem_lat: null,
+    origem_lng: null,
+    destino_endereco: null,
+    destino_lat: null,
+    destino_lng: null,
+    distancia_km: null,
+    descricao_carga: null,
+    veiculo_sugerido: null,
+    foto_url: null,
+    data_agendada: null,
     periodo: null,
-    planoEscolhido: null,
-    valorEstimado: null,
-    temEscada: false,
+    plano_escolhido: null,
+    valor_estimado: null,
+    tem_escada: false,
     andar: 0,
-    precisaAjudante: false,
-    corridaId: null,
-    criadoEm: Date.now(),
-    atualizadoEm: Date.now(),
+    precisa_ajudante: false,
+    corrida_id: null,
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString(),
   };
 
-  sessions.set(phone, session);
-  return session;
+  // Upsert - cria ou atualiza se ja existe
+  await supabase.from("bot_sessions").upsert(session, { onConflict: "phone" });
+
+  return session as unknown as BotSession;
 }
 
-export function updateSession(
+export async function updateSession(
   phone: string,
   updates: Partial<BotSession>
-): BotSession {
-  const session = sessions.get(phone);
-  if (!session) return createSession(phone);
-
-  Object.assign(session, updates, { atualizadoEm: Date.now() });
-  sessions.set(phone, session);
-  return session;
+): Promise<void> {
+  await supabase
+    .from("bot_sessions")
+    .update({ ...updates, atualizado_em: new Date().toISOString() })
+    .eq("phone", phone);
 }
 
-export function deleteSession(phone: string): void {
-  sessions.delete(phone);
+export async function deleteSession(phone: string): Promise<void> {
+  await supabase.from("bot_sessions").delete().eq("phone", phone);
 }
 
-// Dispatch: controle de leilao de fretistas
+// === DISPATCH (em memoria - OK pois janela e de 30s) ===
+
 export interface DispatchEntry {
   corridaId: string;
   clientePhone: string;
-  prestadores: string[]; // telefones dos prestadores
-  respostas: Map<
-    string,
-    { valor: number; timestamp: number }
-  >;
+  prestadores: string[];
+  respostas: Map<string, { valor: number; timestamp: number }>;
   iniciadoEm: number;
-  janelaMs: number; // 30 segundos
+  janelaMs: number;
   finalizado: boolean;
   vencedorPhone: string | null;
 }
@@ -132,30 +129,21 @@ export function createDispatch(
     prestadores,
     respostas: new Map(),
     iniciadoEm: Date.now(),
-    janelaMs: 30 * 1000, // 30 segundos
+    janelaMs: 30 * 1000,
     finalizado: false,
     vencedorPhone: null,
   };
-
   dispatches.set(corridaId, dispatch);
   return dispatch;
 }
 
-export function getDispatchByCorridaId(
-  corridaId: string
-): DispatchEntry | null {
+export function getDispatchByCorridaId(corridaId: string): DispatchEntry | null {
   return dispatches.get(corridaId) || null;
 }
 
-// Encontra dispatch ativo para um prestador
-export function getDispatchForPrestador(
-  prestadorPhone: string
-): DispatchEntry | null {
+export function getDispatchForPrestador(prestadorPhone: string): DispatchEntry | null {
   for (const dispatch of dispatches.values()) {
-    if (
-      !dispatch.finalizado &&
-      dispatch.prestadores.includes(prestadorPhone)
-    ) {
+    if (!dispatch.finalizado && dispatch.prestadores.includes(prestadorPhone)) {
       return dispatch;
     }
   }
@@ -169,14 +157,9 @@ export function addDispatchResponse(
 ): void {
   const dispatch = dispatches.get(corridaId);
   if (!dispatch || dispatch.finalizado) return;
-
-  dispatch.respostas.set(prestadorPhone, {
-    valor,
-    timestamp: Date.now(),
-  });
+  dispatch.respostas.set(prestadorPhone, { valor, timestamp: Date.now() });
 }
 
-// Resolve o dispatch: retorna o telefone do vencedor
 export function resolveDispatch(corridaId: string): string | null {
   const dispatch = dispatches.get(corridaId);
   if (!dispatch || dispatch.finalizado) return null;
@@ -187,45 +170,37 @@ export function resolveDispatch(corridaId: string): string | null {
   if (dispatch.respostas.size === 0) return null;
 
   if (dentroJanela && dispatch.respostas.size > 1) {
-    // Multiplas respostas dentro da janela: menor preco ganha
     let menorValor = Infinity;
     let vencedor = "";
-
     for (const [phone, resp] of dispatch.respostas) {
       if (resp.valor < menorValor) {
         menorValor = resp.valor;
         vencedor = phone;
       }
     }
-
     dispatch.vencedorPhone = vencedor;
     dispatch.finalizado = true;
     return vencedor;
   }
 
   if (!dentroJanela) {
-    // Fora da janela: primeiro que respondeu ganha
     let primeiroTimestamp = Infinity;
     let vencedor = "";
-
     for (const [phone, resp] of dispatch.respostas) {
       if (resp.timestamp < primeiroTimestamp) {
         primeiroTimestamp = resp.timestamp;
         vencedor = phone;
       }
     }
-
     dispatch.vencedorPhone = vencedor;
     dispatch.finalizado = true;
     return vencedor;
   }
 
-  return null; // Ainda na janela com apenas 1 resposta, espera mais
+  return null;
 }
 
 export function finalizeDispatch(corridaId: string): void {
   const dispatch = dispatches.get(corridaId);
-  if (dispatch) {
-    dispatch.finalizado = true;
-  }
+  if (dispatch) dispatch.finalizado = true;
 }

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendMessage, sendMessageToMany } from "@/lib/chatpro";
 import {
+  type BotSession,
   getSession,
   createSession,
   updateSession,
   getDispatchForPrestador,
+  getDispatchByCorridaId,
   addDispatchResponse,
   resolveDispatch,
   createDispatch,
@@ -152,12 +154,12 @@ async function handleClienteMessage(
     return;
   }
 
-  let session = getSession(phone);
+  let session = await getSession(phone);
 
   // Nova conversa ou saudacao
   if (!session || isSaudacao(message)) {
-    session = createSession(phone);
-    updateSession(phone, { step: "aguardando_localizacao" });
+    await createSession(phone);
+    await updateSession(phone, { step: "aguardando_localizacao" });
     await sendMessage({ to: phone, message: MSG.boasVindas });
     return;
   }
@@ -198,8 +200,8 @@ async function handleClienteMessage(
 
     default:
       // Mensagem fora de contexto - reinicia
-      session = createSession(phone);
-      updateSession(phone, { step: "aguardando_localizacao" });
+      await createSession(phone);
+      await updateSession(phone, { step: "aguardando_localizacao" });
       await sendMessage({ to: phone, message: MSG.boasVindas });
       break;
   }
@@ -215,11 +217,11 @@ async function handleLocalizacao(
   // Recebeu localizacao GPS
   if (lat && lng) {
     const endereco = await reverseGeocode(lat, lng);
-    updateSession(phone, {
+    await updateSession(phone, {
       step: "aguardando_foto",
-      origemEndereco: endereco,
-      origemLat: lat,
-      origemLng: lng,
+      origem_endereco: endereco,
+      origem_lat: lat,
+      origem_lng: lng,
     });
     await sendMessage({
       to: phone,
@@ -234,11 +236,11 @@ async function handleLocalizacao(
     const endereco = await buscaCep(cep);
     if (endereco) {
       const coords = await geocodeAddress(endereco);
-      updateSession(phone, {
+      await updateSession(phone, {
         step: "aguardando_foto",
-        origemEndereco: endereco,
-        origemLat: coords?.lat || null,
-        origemLng: coords?.lng || null,
+        origem_endereco: endereco,
+        origem_lat: coords?.lat || null,
+        origem_lng: coords?.lng || null,
       });
       await sendMessage({
         to: phone,
@@ -251,11 +253,11 @@ async function handleLocalizacao(
   // Verifica se parece endereco
   if (pareceEndereco(message)) {
     const coords = await geocodeAddress(message);
-    updateSession(phone, {
+    await updateSession(phone, {
       step: "aguardando_foto",
-      origemEndereco: message,
-      origemLat: coords?.lat || null,
-      origemLng: coords?.lng || null,
+      origem_endereco: message,
+      origem_lat: coords?.lat || null,
+      origem_lng: coords?.lng || null,
     });
     await sendMessage({
       to: phone,
@@ -280,9 +282,9 @@ async function handleFoto(
   if (hasMedia) {
     // TODO: integrar OpenAI Vision para analisar foto
     // Por enquanto aceita a foto e segue
-    updateSession(phone, {
+    await updateSession(phone, {
       step: "aguardando_destino",
-      descricaoCarga: "Material (foto recebida)",
+      descricao_carga: "Material (foto recebida)",
     });
     await sendMessage({ to: phone, message: MSG.fotoSemIA });
     return;
@@ -290,9 +292,9 @@ async function handleFoto(
 
   // Se mandou texto descrevendo o material
   if (message.length > 2) {
-    updateSession(phone, {
+    await updateSession(phone, {
       step: "aguardando_destino",
-      descricaoCarga: message,
+      descricao_carga: message,
     });
     await sendMessage({
       to: phone,
@@ -310,7 +312,7 @@ async function handleFoto(
 
 // STEP 3: Receber destino
 async function handleDestino(phone: string, message: string) {
-  const session = getSession(phone);
+  const session = await getSession(phone);
   if (!session) return;
 
   let destinoEndereco = message;
@@ -333,11 +335,11 @@ async function handleDestino(phone: string, message: string) {
     destinoLng = coords?.lng || null;
   }
 
-  updateSession(phone, {
+  await updateSession(phone, {
     step: "aguardando_detalhes",
-    destinoEndereco,
-    destinoLat,
-    destinoLng,
+    destino_endereco: destinoEndereco,
+    destino_lat: destinoLat,
+    destino_lng: destinoLng,
   });
 
   // Extrai cidade para exibicao
@@ -352,7 +354,7 @@ async function handleDestino(phone: string, message: string) {
 
 // STEP 4: Receber detalhes (escada, ajudante)
 async function handleDetalhes(phone: string, message: string) {
-  const session = getSession(phone);
+  const session = await getSession(phone);
   if (!session) return;
 
   const lower = message.toLowerCase();
@@ -375,61 +377,54 @@ async function handleDetalhes(phone: string, message: string) {
 
   // Calcula distancia e precos
   let distanciaKm = 5; // minimo
-  if (session.origemLat && session.origemLng && session.destinoLat && session.destinoLng) {
+  if (session.origem_lat && session.origem_lng && session.destino_lat && session.destino_lng) {
     distanciaKm = calcularDistanciaKm(
-      session.origemLat,
-      session.origemLng,
-      session.destinoLat,
-      session.destinoLng
+      session.origem_lat,
+      session.origem_lng,
+      session.destino_lat,
+      session.destino_lng
     );
   }
 
   const precos = calcularPrecos(
     distanciaKm,
-    session.veiculoSugerido || "utilitario",
+    session.veiculo_sugerido || "utilitario",
     precisaAjudante,
     andar
   );
 
-  updateSession(phone, {
+  await updateSession(phone, {
     step: "aguardando_data",
-    temEscada,
+    tem_escada: temEscada,
     andar,
-    precisaAjudante,
-    distanciaKm,
-  });
-
-  // Guarda precos na sessao para uso posterior
-  updateSession(phone, {
-    valorEstimado: precos.padrao,
+    precisa_ajudante: precisaAjudante,
+    distancia_km: distanciaKm,
+    valor_estimado: precos.padrao,
   });
 
   await sendMessage({
     to: phone,
     message: MSG.detalhesRecebidos(
-      session.origemEndereco || "Origem",
-      session.destinoEndereco || "Destino",
-      session.descricaoCarga || "Material",
+      session.origem_endereco || "Origem",
+      session.destino_endereco || "Destino",
+      session.descricao_carga || "Material",
       distanciaKm.toString(),
       precos.economica.toString(),
       precos.padrao.toString(),
       precos.premium.toString()
     ),
   });
-
-  // Atualiza step para escolha de plano
-  updateSession(phone, { step: "aguardando_data" });
 }
 
 // STEP 5: Receber plano escolhido e data
 async function handleData(phone: string, message: string) {
-  const session = getSession(phone);
+  const session = await getSession(phone);
   if (!session) return;
 
   const lower = message.toLowerCase().trim();
 
   // Se ainda nao escolheu plano
-  if (!session.planoEscolhido) {
+  if (!session.plano_escolhido) {
     let plano = "";
     let multiplicador = 1.0;
 
@@ -451,12 +446,12 @@ async function handleData(phone: string, message: string) {
       return;
     }
 
-    const valorBase = session.valorEstimado || 80;
+    const valorBase = session.valor_estimado || 80;
     const valorFinal = Math.round((valorBase / 1.0) * multiplicador);
 
-    updateSession(phone, {
-      planoEscolhido: plano,
-      valorEstimado: valorFinal,
+    await updateSession(phone, {
+      plano_escolhido: plano,
+      valor_estimado: valorFinal,
     });
 
     await sendMessage({ to: phone, message: MSG.planoEscolhido });
@@ -464,27 +459,27 @@ async function handleData(phone: string, message: string) {
   }
 
   // Ja escolheu plano, agora recebe data
-  updateSession(phone, {
+  await updateSession(phone, {
     step: "aguardando_confirmacao",
-    dataAgendada: message,
+    data_agendada: message,
   });
 
   await sendMessage({
     to: phone,
     message: MSG.resumoFrete(
-      session.origemEndereco || "Origem",
-      session.destinoEndereco || "Destino",
-      session.descricaoCarga || "Material",
+      session.origem_endereco || "Origem",
+      session.destino_endereco || "Destino",
+      session.descricao_carga || "Material",
       message,
-      session.planoEscolhido || "Padrao",
-      (session.valorEstimado || 0).toString()
+      session.plano_escolhido || "Padrao",
+      (session.valor_estimado || 0).toString()
     ),
   });
 }
 
 // STEP 6: Confirmacao final
 async function handleConfirmacao(phone: string, message: string) {
-  const session = getSession(phone);
+  const session = await getSession(phone);
   if (!session) return;
 
   const lower = message.toLowerCase().trim();
@@ -494,9 +489,9 @@ async function handleConfirmacao(phone: string, message: string) {
     const corridaId = await salvarCorrida(session);
 
     if (corridaId) {
-      updateSession(phone, {
+      await updateSession(phone, {
         step: "aguardando_pagamento",
-        corridaId,
+        corrida_id: corridaId,
       });
 
       // TODO: Gerar link de pagamento Mercado Pago
@@ -514,8 +509,8 @@ async function handleConfirmacao(phone: string, message: string) {
     }
   } else if (lower.startsWith("nao") || lower === "n" || lower === "não") {
     // Reinicia
-    createSession(phone);
-    updateSession(phone, { step: "aguardando_localizacao" });
+    await createSession(phone);
+    await updateSession(phone, { step: "aguardando_localizacao" });
     await sendMessage({
       to: phone,
       message:
@@ -534,7 +529,7 @@ async function handleConfirmacao(phone: string, message: string) {
 
 async function handleAtendente(phone: string) {
   if (isHorarioAtendimentoHumano()) {
-    updateSession(phone, { step: "atendimento_humano" });
+    await updateSession(phone, { step: "atendimento_humano" });
     await sendMessage({ to: phone, message: MSG.transferenciaHumano });
 
     // Notifica Fabio
@@ -551,7 +546,7 @@ async function handleAtendente(phone: string) {
 
 async function dispararParaFretistas(
   corridaId: string,
-  session: import("@/lib/bot-sessions").BotSession
+  session: BotSession
 ) {
   try {
     // Busca prestadores disponiveis no Supabase
@@ -568,7 +563,7 @@ async function dispararParaFretistas(
 
     const telefones = prestadores.map((p) => p.telefone);
     const valorPrestador = Math.round(
-      (session.valorEstimado || 0) * 0.8
+      (session.valor_estimado || 0) * 0.8
     );
 
     // Cria dispatch
@@ -576,10 +571,10 @@ async function dispararParaFretistas(
 
     // Envia mensagem para todos
     const mensagem = MSG.novoFreteDisponivel(
-      session.origemEndereco || "SP",
-      session.destinoEndereco || "Destino",
-      session.descricaoCarga || "Material",
-      session.dataAgendada || "A combinar",
+      session.origem_endereco || "SP",
+      session.destino_endereco || "Destino",
+      session.descricao_carga || "Material",
+      session.data_agendada || "A combinar",
       valorPrestador.toString(),
       corridaId
     );
@@ -649,7 +644,6 @@ async function notificarResultadoDispatch(
   corridaId: string,
   vencedorPhone: string
 ) {
-  const { getDispatchByCorridaId } = await import("@/lib/bot-sessions");
   const dispatch = getDispatchByCorridaId(corridaId);
   if (!dispatch) return;
 
@@ -696,7 +690,7 @@ async function notificarResultadoDispatch(
 // === SALVAR NO SUPABASE ===
 
 async function salvarCorrida(
-  session: import("@/lib/bot-sessions").BotSession
+  session: BotSession
 ): Promise<string | null> {
   try {
     // Busca ou cria cliente
@@ -735,23 +729,23 @@ async function salvarCorrida(
       .insert({
         codigo,
         cliente_id: clienteId,
-        origem_endereco: session.origemEndereco || "",
-        origem_lat: session.origemLat,
-        origem_lng: session.origemLng,
-        destino_endereco: session.destinoEndereco || "",
-        destino_lat: session.destinoLat,
-        destino_lng: session.destinoLng,
-        distancia_km: session.distanciaKm,
+        origem_endereco: session.origem_endereco || "",
+        origem_lat: session.origem_lat,
+        origem_lng: session.origem_lng,
+        destino_endereco: session.destino_endereco || "",
+        destino_lat: session.destino_lat,
+        destino_lng: session.destino_lng,
+        distancia_km: session.distancia_km,
         tipo_servico: "frete",
-        descricao_carga: session.descricaoCarga,
-        escada_origem: session.temEscada,
+        descricao_carga: session.descricao_carga,
+        escada_origem: session.tem_escada,
         andares_origem: session.andar,
-        plano: session.planoEscolhido?.toLowerCase(),
-        valor_estimado: session.valorEstimado,
-        valor_final: session.valorEstimado,
-        valor_prestador: Math.round((session.valorEstimado || 0) * 0.8),
-        valor_pegue: Math.round((session.valorEstimado || 0) * 0.2),
-        data_agendada: session.dataAgendada,
+        plano: session.plano_escolhido?.toLowerCase(),
+        valor_estimado: session.valor_estimado,
+        valor_final: session.valor_estimado,
+        valor_prestador: Math.round((session.valor_estimado || 0) * 0.8),
+        valor_pegue: Math.round((session.valor_estimado || 0) * 0.2),
+        data_agendada: session.data_agendada,
         status: "pendente",
         canal_origem: "whatsapp",
       })

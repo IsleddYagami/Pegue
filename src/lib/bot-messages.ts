@@ -5,9 +5,10 @@ export const MSG = {
 Estou aqui pra te ajudar com o que precisar.
 
 De onde vamos retirar o material?
-Me passa o *CEP* ou *endereco com rua e bairro* 🏠
 
-Ou se quiser mandar sua localizacao: la embaixo, do lado de onde voce digita a mensagem, tem um icone de clipe 📎 - clica nele e depois em *Localizacao* 📍`,
+La embaixo, do lado de onde voce digita a mensagem, tem um icone de clipe 📎 - clica nele e depois em *Localizacao* 📍
+
+Ou se preferir, me passa o *CEP* ou *endereco com rua e bairro* 🏠`,
 
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅

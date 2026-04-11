@@ -51,8 +51,23 @@ export async function POST(req: NextRequest) {
 
     const eventType = rawBody.Type || rawBody.type || "";
 
-    // Aceita "receveid_message" (typo do ChatPro) e variacoes
-    if (!eventType.includes("receveid") && !eventType.includes("received")) {
+    // Aceita mensagens e localizacao do ChatPro
+    const allowedTypes = [
+      "receveid_message",
+      "received_message",
+      "receveid_location",
+      "received_location",
+      "receveid_image",
+      "received_image",
+      "receveid_audio",
+      "received_audio",
+      "receveid_document",
+      "received_document",
+      "receveid_video",
+      "received_video",
+    ];
+
+    if (!allowedTypes.some((t) => eventType.toLowerCase().includes(t.toLowerCase()))) {
       console.log("Evento ignorado:", eventType);
       return NextResponse.json({ status: "ignored_event", eventType });
     }
@@ -63,14 +78,17 @@ export async function POST(req: NextRequest) {
     const isGroup = from.includes("@g.us");
     const isFromMe = info.FromMe || false;
 
-    // Localizacao (se o cliente mandar)
-    const source = info.Source?.message || {};
-    const locationMsg = source.locationMessage || null;
-    const lat = locationMsg?.degreesLatitude || null;
-    const lng = locationMsg?.degreesLongitude || null;
+    // Localizacao - ChatPro envia como "receveid_location" com lat/lng em Source.message
+    const sourceMsg = info.Source?.message || {};
+    const lat = sourceMsg.lat || sourceMsg.degreesLatitude || null;
+    const lng = sourceMsg.lng || sourceMsg.degreesLongitude || null;
 
     // Media (fotos, audios etc)
-    const hasMedia = !!(source.imageMessage || source.audioMessage || source.documentMessage || source.videoMessage);
+    const isMediaType = eventType.toLowerCase().includes("image") ||
+      eventType.toLowerCase().includes("audio") ||
+      eventType.toLowerCase().includes("video") ||
+      eventType.toLowerCase().includes("document");
+    const hasMedia = isMediaType || !!(sourceMsg.imageMessage || sourceMsg.audioMessage || sourceMsg.documentMessage || sourceMsg.videoMessage);
 
     // Ignora mensagens de grupo e proprias
     if (isGroup || isFromMe || !from) {

@@ -139,13 +139,16 @@ Assim que pago, voce recebe todos os detalhes!`,
 Fica de olho que sempre tem novos aparecendo! 🚚`,
 
   // Atendimento humano
-  transferenciaHumano: `Vou te transferir pro nosso time! 😊
-Em instantes alguem te chama aqui mesmo.
-Aguarda so um pouquinho! 🙏`,
+  transferenciaHumano: `Vou te transferir pro *Santos*, nosso especialista! 😊
+Pode chamar ele direto:
+📱 (11) 97142-9605
+
+Ele vai te ajudar com tudo! 🙏`,
 
   foraHorarioHumano: `Nosso time ta disponivel de segunda a sexta, das 10h as 15h ⏰
 
-Mas pode deixar sua mensagem aqui que respondemos assim que voltar! 😊
+Mas voce pode falar direto com o *Santos*, nosso especialista:
+📱 (11) 97142-9605
 
 Ou se preferir, o bot continua te atendendo 24h! 🚚`,
 
@@ -153,15 +156,14 @@ Ou se preferir, o bot continua te atendendo 24h! 🚚`,
   naoEntendi: `Desculpa, nao entendi 😅
 Me conta o que voce precisa que eu te ajudo!
 
-Ou se preferir:
-1️⃣ *Solicitar frete*
-2️⃣ *Falar com atendente*`,
+Ou se preferir, fala direto com o *Santos*, nosso especialista:
+📱 (11) 97142-9605`,
 
   erroInterno: `Ops, tive um probleminha aqui 😅
-Mas ja ja normaliza! Tenta de novo em alguns instantes.
+Mas ja ja normaliza!
 
-Ou se preferir, chama nosso time:
-📱 Falar com atendente`,
+Enquanto isso, voce pode falar direto com o *Santos*, nosso especialista:
+📱 (11) 97142-9605`,
 
   obrigado: `Por nada! 😊
 Estamos aqui sempre que precisar.

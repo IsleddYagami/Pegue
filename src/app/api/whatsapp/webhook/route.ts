@@ -74,8 +74,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ status: "ok" });
   } catch (error: any) {
-    console.error("Erro no webhook:", error?.message);
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    console.error("Erro no webhook:", error?.message, error?.stack);
+    return NextResponse.json(
+      { error: "Erro interno", detail: error?.message },
+      { status: 500 }
+    );
   }
 }
 

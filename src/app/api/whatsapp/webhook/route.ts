@@ -92,8 +92,15 @@ export async function POST(req: NextRequest) {
       eventType.toLowerCase().includes("document");
     const hasMedia = isMediaType || !!(sourceMsg.imageMessage || sourceMsg.audioMessage || sourceMsg.documentMessage || sourceMsg.videoMessage);
 
-    // URL da imagem (ChatPro disponibiliza direto)
-    const imageUrl = rawBody.Url || rawBody.Info?.Url || sourceMsg.imageMessage?.url || null;
+    // URL da imagem (ChatPro disponibiliza em varios caminhos)
+    const imageUrl =
+      rawBody.Url ||
+      rawBody.Info?.Url ||
+      rawBody.Body?.Info?.Source?.message?.imageMessage?.url ||
+      sourceMsg.imageMessage?.url ||
+      null;
+
+    console.log("DEBUG imageUrl:", imageUrl, "| rawBody.Url:", rawBody.Url, "| hasMedia:", hasMedia);
 
     // Ignora mensagens de grupo e proprias
     if (isGroup || isFromMe || !from) {
@@ -284,6 +291,8 @@ async function handleFoto(
   hasMedia: boolean,
   imageUrl: string | null = null
 ) {
+  console.log("handleFoto chamado:", { hasMedia, imageUrl, messageLen: message.length });
+
   if (hasMedia && imageUrl) {
     // Analisa foto com OpenAI Vision
     const analise = await analisarFotoIA(imageUrl);

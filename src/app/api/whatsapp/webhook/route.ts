@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
     console.log("Webhook RAW recebido:", JSON.stringify(rawBody, null, 2));
 
     // Log TODOS os webhooks no Supabase para debug
-    await supabase.from("bot_logs").insert({ payload: rawBody }).catch(() => {});
+    await supabase.from("bot_logs").insert({ payload: rawBody });
+
 
     // Formato real do ChatPro v5:
     // {
@@ -112,7 +113,56 @@ export async function POST(req: NextRequest) {
 
     const phoneNumber = from.replace("@s.whatsapp.net", "");
 
-    console.log(`Mensagem de ${phoneNumber}: ${message} | hasMedia: ${hasMedia} | imageUrl: ${imageUrl} | eventType: ${eventType}`);
+    // Se é imagem e tem URL, salva na sessao e processa com IA direto
+    if (hasMedia && imageUrl) {
+      const session = await getSession(phoneNumber);
+      if (session && session.step === "aguardando_foto") {
+        // Analisa com IA
+        const analise = await analisarFotoIA(imageUrl);
+
+        await supabase.from("bot_logs").insert({
+          payload: { debug: "IA_resultado", analise, imageUrl }
+        });
+
+        if (analise) {
+          const emoji = getItemEmoji(analise.item);
+          const precisaAjudante = analise.tamanho === "grande";
+          const veiculoNome: Record<string, string> = {
+            utilitario: "utilitario",
+            van: "van",
+            caminhao_bau: "caminhao bau",
+            caminhao_grande: "caminhao grande",
+          };
+
+          await updateSession(phoneNumber, {
+            step: "aguardando_destino",
+            descricao_carga: `${analise.item} (${analise.quantidade})`,
+            veiculo_sugerido: analise.veiculo_sugerido,
+            precisa_ajudante: precisaAjudante,
+            foto_url: imageUrl,
+          });
+
+          const ajudanteTexto = precisaAjudante
+            ? "e vai precisar de ajudante pra carregar"
+            : "e nao vai precisar de ajudante";
+
+          await sendMessage({
+            to: phoneNumber,
+            message: `📸 Recebi sua foto!\n\nVi que e *${analise.item}* ${emoji}\nTamanho ${analise.tamanho}, cabe em um *${veiculoNome[analise.veiculo_sugerido] || "utilitario"}* ${ajudanteTexto}!\n\nE pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠\n\n(Se eu errei alguma coisa, me corrige que eu ajusto! 😊)`,
+          });
+          return NextResponse.json({ status: "ok" });
+        }
+
+        // IA falhou - fallback
+        await updateSession(phoneNumber, {
+          step: "aguardando_destino",
+          descricao_carga: "Material (foto recebida)",
+          foto_url: imageUrl,
+        });
+        await sendMessage({ to: phoneNumber, message: MSG.fotoSemIA });
+        return NextResponse.json({ status: "ok" });
+      }
+    }
 
     // Verifica se e prestador respondendo a dispatch
     const dispatch = getDispatchForPrestador(phoneNumber);
@@ -159,7 +209,7 @@ async function handleClienteMessage(
   // Log debug no Supabase
   await supabase.from("bot_logs").insert({
     payload: { debug: "handleClienteMessage", phone, message, hasMedia, imageUrl, lat, lng }
-  }).catch(() => {});
+  });
 
   // Detecta pedido de atendente em qualquer momento
   if (isAtendente(message)) {
@@ -302,19 +352,19 @@ async function handleFoto(
   // Log detalhado no Supabase
   await supabase.from("bot_logs").insert({
     payload: { debug: "handleFoto", hasMedia, imageUrl, messageLen: message.length }
-  }).catch(() => {});
+  });
 
   if (hasMedia && imageUrl) {
     // Analisa foto com OpenAI Vision
     await supabase.from("bot_logs").insert({
       payload: { debug: "antes_da_IA", imageUrl, hasMedia }
-    }).catch(() => {});
+    });
 
     const analise = await analisarFotoIA(imageUrl);
 
     await supabase.from("bot_logs").insert({
       payload: { debug: "resultado_IA", analise, imageUrl }
-    }).catch(() => {});
+    });
 
     if (analise) {
       const emoji = getItemEmoji(analise.item);

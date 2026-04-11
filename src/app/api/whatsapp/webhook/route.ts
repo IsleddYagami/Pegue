@@ -36,22 +36,57 @@ const FABIO_PHONE = "5511970363713";
 // Webhook recebe mensagens do ChatPro
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
 
-    console.log("Webhook recebido:", JSON.stringify(body, null, 2));
+    console.log("Webhook RAW recebido:", JSON.stringify(rawBody, null, 2));
 
-    // Filtra apenas mensagens recebidas
-    if (!body || body.type !== "ReceivedCallback") {
-      return NextResponse.json({ status: "ignored" });
+    // ChatPro pode enviar em diferentes formatos
+    // Formato 1: objeto direto { type, body, from, ... }
+    // Formato 2: array ["Msg", { cmd, body, from, ... }]
+    // Formato 3: objeto com evento { event, data: { ... } }
+
+    let body: any = null;
+
+    if (Array.isArray(rawBody)) {
+      // Formato array
+      if (rawBody.length >= 2 && rawBody[0] === "Msg") {
+        body = rawBody[1];
+      } else {
+        return NextResponse.json({ status: "ignored_array" });
+      }
+    } else if (rawBody && typeof rawBody === "object") {
+      body = rawBody;
+    } else {
+      return NextResponse.json({ status: "ignored_unknown" });
     }
 
-    const message = body.body || "";
-    const from = body.from || "";
-    const isGroup = body.isGroup || false;
+    // Detecta tipo de evento - aceita varios formatos do ChatPro
+    const eventType = body.type || body.event || body.cmd || "";
+
+    // Ignora eventos que nao sao mensagem recebida
+    const receivedTypes = [
+      "ReceivedCallback",
+      "received_message",
+      "chat",
+      "message",
+    ];
+    const isReceived =
+      receivedTypes.includes(eventType) ||
+      body.body !== undefined ||
+      body.message !== undefined;
+
+    if (!isReceived) {
+      console.log("Evento ignorado:", eventType);
+      return NextResponse.json({ status: "ignored_event", eventType });
+    }
+
+    const message = body.body || body.message || body.text || "";
+    const from = body.from || body.sender || body.chatId || "";
+    const isGroup = body.isGroup || body.isGroupMsg || from.includes("@g.us") || false;
     const isFromMe = body.fromMe || false;
-    const lat = body.lat || null;
-    const lng = body.lng || null;
-    const hasMedia = body.hasMedia || false;
+    const lat = body.lat || body.latitude || null;
+    const lng = body.lng || body.longitude || null;
+    const hasMedia = body.hasMedia || body.isMedia || !!body.mediaUrl || false;
 
     // Ignora mensagens de grupo e proprias
     if (isGroup || isFromMe || !from) {
@@ -70,14 +105,21 @@ export async function POST(req: NextRequest) {
     }
 
     // Fluxo do cliente
-    await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia);
+    try {
+      await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia);
+    } catch (flowError: any) {
+      console.error("Erro no fluxo:", flowError?.message);
+      // Nao retorna 500 - sempre responde 200 pro ChatPro
+      // senao ele pode parar de enviar webhooks
+    }
 
     return NextResponse.json({ status: "ok" });
   } catch (error: any) {
     console.error("Erro no webhook:", error?.message, error?.stack);
+    // Sempre retorna 200 pro ChatPro nao parar de enviar
     return NextResponse.json(
       { error: "Erro interno", detail: error?.message },
-      { status: 500 }
+      { status: 200 }
     );
   }
 }

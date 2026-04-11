@@ -42,12 +42,8 @@ export async function POST(req: NextRequest) {
 
     console.log("Webhook RAW recebido:", JSON.stringify(rawBody, null, 2));
 
-    // Log no Supabase para debug
-    try {
-      await supabase.from("bot_logs").insert({ payload: rawBody });
-    } catch (e) {
-      // ignora erro de log
-    }
+    // Log TODOS os webhooks no Supabase para debug
+    await supabase.from("bot_logs").insert({ payload: rawBody }).catch(() => {});
 
     // Formato real do ChatPro v5:
     // {
@@ -298,7 +294,10 @@ async function handleFoto(
   hasMedia: boolean,
   imageUrl: string | null = null
 ) {
-  console.log("handleFoto chamado:", { hasMedia, imageUrl, messageLen: message.length });
+  // Log detalhado no Supabase
+  await supabase.from("bot_logs").insert({
+    payload: { debug: "handleFoto", hasMedia, imageUrl, messageLen: message.length }
+  }).catch(() => {});
 
   if (hasMedia && imageUrl) {
     // Analisa foto com OpenAI Vision

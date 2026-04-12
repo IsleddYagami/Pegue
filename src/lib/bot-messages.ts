@@ -142,7 +142,7 @@ Estamos reservando a agenda!`,
 Para garantir a data, conclua o pagamento:
 💳 ${linkPagamento}
 
-💰 *Pix* ou *Cartao de debito* sem taxas
+💰 *Pix* sem taxas
 💳 *Cartao de credito* taxas adicionais
 
 ⏳ A reserva se mantem disponivel por *20 minutos*. Apos esse tempo, sera necessaria uma nova cotacao para verificar e garantir nova agenda.

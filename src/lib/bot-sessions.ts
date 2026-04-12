@@ -16,6 +16,7 @@ export type BotStep =
   | "aguardando_fretista"
   | "cadastro_nome"
   | "cadastro_cpf"
+  | "cadastro_email"
   | "cadastro_selfie"
   | "cadastro_foto_placa"
   | "cadastro_foto_veiculo"

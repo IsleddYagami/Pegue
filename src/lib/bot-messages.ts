@@ -222,6 +222,9 @@ Vamos lá! Qual seu *nome completo*?`,
 
   cadastroCpf: `Agora me passa seu *CPF* (somente números)`,
 
+  cadastroEmail: `Agora me passa seu *email* 📧
+(vamos enviar uma cópia dos termos pra você)`,
+
   cadastroSelfie: `Agora preciso de uma *selfie sua segurando seu RG ou CNH aberto* 📸
 
 ⚠️ O documento precisa estar *aberto e legível* na foto!

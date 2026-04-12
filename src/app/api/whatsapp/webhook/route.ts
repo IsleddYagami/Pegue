@@ -316,6 +316,9 @@ async function handleClienteMessage(
     case "cadastro_cpf":
       await handleCadastroCpf(phone, message);
       break;
+    case "cadastro_email":
+      await handleCadastroEmail(phone, message);
+      break;
     case "cadastro_selfie":
       await sendMessage({ to: phone, message: MSG.cadastroSelfie });
       break;
@@ -879,11 +882,21 @@ async function handleCadastroNome(phone: string, message: string) {
 async function handleCadastroCpf(phone: string, message: string) {
   const cpf = message.replace(/\D/g, "");
   if (cpf.length !== 11) {
-    await sendMessage({ to: phone, message: "CPF precisa ter 11 digitos. Tenta de novo 😊" });
+    await sendMessage({ to: phone, message: "CPF precisa ter 11 dígitos. Tenta de novo 😊" });
     return;
   }
-  // Salva CPF temporariamente no campo destino_endereco
-  await updateSession(phone, { step: "cadastro_selfie", destino_endereco: cpf });
+  await updateSession(phone, { step: "cadastro_email", destino_endereco: cpf });
+  await sendMessage({ to: phone, message: MSG.cadastroEmail });
+}
+
+async function handleCadastroEmail(phone: string, message: string) {
+  const email = message.trim().toLowerCase();
+  if (!email.includes("@") || !email.includes(".")) {
+    await sendMessage({ to: phone, message: "Email inválido. Tenta de novo 😊\nExemplo: *seunome@email.com*" });
+    return;
+  }
+  // Salva email no campo plano_escolhido (campo temporário)
+  await updateSession(phone, { step: "cadastro_selfie", plano_escolhido: email });
   await sendMessage({ to: phone, message: MSG.cadastroSelfie });
 }
 
@@ -935,6 +948,8 @@ async function handleCadastroTermos(phone: string, message: string) {
     return;
   }
 
+  const dataHoraAceite = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+
   // Registra aceite dos termos como prova jurídica
   await supabase.from("bot_logs").insert({
     payload: {
@@ -942,11 +957,25 @@ async function handleCadastroTermos(phone: string, message: string) {
       phone,
       mensagem_original: message,
       data_hora: new Date().toISOString(),
+      data_hora_sp: dataHoraAceite,
       ip: "whatsapp",
       nome: session.origem_endereco,
       cpf: session.destino_endereco,
+      email: session.plano_escolhido,
     },
   });
+
+  // Envia cópia dos termos por email
+  const emailPrestador = session.plano_escolhido || "";
+  if (emailPrestador && emailPrestador.includes("@")) {
+    const { enviarEmailTermosAceitos } = await import("@/lib/email");
+    await enviarEmailTermosAceitos(
+      emailPrestador,
+      session.origem_endereco || "Prestador",
+      session.destino_endereco || "",
+      dataHoraAceite
+    );
+  }
 
   // Salva prestador no Supabase
   const nome = session.origem_endereco || "Prestador";

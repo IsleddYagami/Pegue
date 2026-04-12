@@ -399,6 +399,33 @@ Nosso especialista *Santos* vai entrar em contato:
 
 Pagamento fica retido até resolução.`,
 
+  // === DASHBOARD FRETISTA ===
+
+  dashboardFretista: (
+    nome: string,
+    score: string,
+    totalFretes: number,
+    faturamento: string,
+    status: string
+  ) =>
+    `📊 *Seu Painel - Pegue*
+
+👤 *${nome}*
+⭐ Score: *${score}/10*
+🚚 Fretes realizados: *${totalFretes}*
+💰 Faturamento total: *R$ ${faturamento}*
+📌 Status: *${status}*
+
+${
+  parseFloat(score) >= 8
+    ? "🏆 Excelente! Você está entre os melhores parceiros!"
+    : parseFloat(score) >= 5
+    ? "👍 Bom trabalho! Continue assim pra subir no ranking!"
+    : "⚠️ Atenção! Melhore seu atendimento pra receber mais indicações."
+}
+
+Pra ver novamente, digite *meu painel* a qualquer momento 😊`,
+
   // Erros e fallbacks
   naoEntendi: `Desculpa, não entendi 😅
 Me conta o que você precisa que eu te ajudo!

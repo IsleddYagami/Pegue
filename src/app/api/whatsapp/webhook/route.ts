@@ -235,8 +235,15 @@ async function handleClienteMessage(
     return;
   }
 
-  // Detecta interesse em ser prestador
   const lower = message.toLowerCase().trim();
+
+  // Dashboard do fretista
+  if (lower === "meu painel" || lower === "meus fretes" || lower === "meu dashboard" || lower === "meu score") {
+    await handleDashboardFretista(phone);
+    return;
+  }
+
+  // Detecta interesse em ser prestador
   if (lower.includes("parcerias pegue") || lower.includes("parceria pegue") || lower.includes("quero ser parceiro") || lower.includes("ser parceiro") || lower.includes("cadastro prestador")) {
     await createSession(phone);
     await updateSession(phone, { step: "cadastro_nome" });
@@ -928,6 +935,19 @@ async function handleCadastroTermos(phone: string, message: string) {
     return;
   }
 
+  // Registra aceite dos termos como prova jurídica
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "aceite_termos",
+      phone,
+      mensagem_original: message,
+      data_hora: new Date().toISOString(),
+      ip: "whatsapp",
+      nome: session.origem_endereco,
+      cpf: session.destino_endereco,
+    },
+  });
+
   // Salva prestador no Supabase
   const nome = session.origem_endereco || "Prestador";
   const cpf = session.destino_endereco || "";
@@ -979,6 +999,51 @@ async function handleCadastroTermos(phone: string, message: string) {
 }
 
 // === FOTOS COLETA/ENTREGA FRETISTA ===
+
+// === DASHBOARD FRETISTA ===
+
+async function handleDashboardFretista(phone: string) {
+  // Busca prestador
+  const { data: prestador } = await supabase
+    .from("prestadores")
+    .select("id, nome, score, total_corridas, status, disponivel")
+    .eq("telefone", phone)
+    .single();
+
+  if (!prestador) {
+    await sendMessage({
+      to: phone,
+      message: "Você ainda não tem cadastro de parceiro na Pegue 😊\n\nPra se cadastrar, envie: *Parcerias Pegue*",
+    });
+    return;
+  }
+
+  // Busca faturamento total
+  const { data: corridas } = await supabase
+    .from("corridas")
+    .select("valor_prestador")
+    .eq("prestador_id", prestador.id)
+    .eq("status", "concluida");
+
+  const faturamento = corridas
+    ? corridas.reduce((sum, c) => sum + (c.valor_prestador || 0), 0)
+    : 0;
+
+  const statusTexto = prestador.status === "aprovado"
+    ? prestador.disponivel ? "✅ Ativo" : "⏸️ Pausado"
+    : prestador.status === "pendente" ? "🔄 Em análise" : "❌ Inativo";
+
+  await sendMessage({
+    to: phone,
+    message: MSG.dashboardFretista(
+      prestador.nome,
+      prestador.score?.toFixed(1) || "5.0",
+      prestador.total_corridas || 0,
+      faturamento.toFixed(2),
+      statusTexto
+    ),
+  });
+}
 
 // === AVALIAÇÃO DO CLIENTE ===
 

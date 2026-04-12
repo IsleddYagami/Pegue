@@ -298,13 +298,11 @@ A Pegue pode desativar sua conta a qualquer momento em caso de:
 Para prosseguir com o cadastro, digite:
 *eu concordo*`,
 
-  cadastroConcluido: `Cadastro recebido! ✅🎉
+  cadastroConcluido: `Suas informacoes entraram em analise! ✅
 
-Nosso time vai analisar seus dados e em breve voce comeca a receber indicacoes de fretes!
+Em breve voce recebera a confirmacao para iniciarmos nossa grande parceria! 🚚✨
 
-Fique atento ao WhatsApp 📱
-
-Bem-vindo a Pegue! 🚚✨`,
+Fique atento ao WhatsApp 📱`,
 
   // === FLUXO DE FOTOS COLETA/ENTREGA ===
 

@@ -780,19 +780,27 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
     if (clienteExistente) {
       clienteId = clienteExistente.id;
     } else {
-      const { data: novoCliente } = await supabase
+      const { data: novoCliente, error: errCliente } = await supabase
         .from("clientes")
         .insert({ telefone: session.phone, nivel: "bronze", total_corridas: 0, ativo: true })
         .select("id")
         .single();
+
+      if (errCliente) {
+        await supabase.from("bot_logs").insert({ payload: { debug: "erro_criar_cliente", error: errCliente.message, phone: session.phone } });
+        return null;
+      }
       clienteId = novoCliente?.id || null;
     }
 
-    if (!clienteId) return null;
+    if (!clienteId) {
+      await supabase.from("bot_logs").insert({ payload: { debug: "cliente_id_null", phone: session.phone } });
+      return null;
+    }
 
     const codigo = `PG${Date.now().toString(36).toUpperCase()}`;
 
-    const { data: corrida } = await supabase
+    const { data: corrida, error: errCorrida } = await supabase
       .from("corridas")
       .insert({
         codigo,
@@ -821,9 +829,14 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
       .select("id")
       .single();
 
+    if (errCorrida) {
+      await supabase.from("bot_logs").insert({ payload: { debug: "erro_criar_corrida", error: errCorrida.message, code: errCorrida.code } });
+      return null;
+    }
+
     return corrida?.id || null;
   } catch (error: any) {
-    console.error("Erro salvar corrida:", error?.message);
+    await supabase.from("bot_logs").insert({ payload: { debug: "erro_salvar_catch", error: error?.message } });
     return null;
   }
 }

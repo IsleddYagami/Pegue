@@ -144,7 +144,7 @@ const MULT_VEICULO: Record<string, number> = {
 const MIN_VEICULO: Record<string, number> = {
   utilitario: 150,
   hr: 220,
-  caminhao_bau: 350,
+  caminhao_bau: 500,
 };
 
 export interface PrecoDetalhado {

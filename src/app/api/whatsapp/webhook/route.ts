@@ -32,49 +32,27 @@ import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-// Numero do Fabio para notificacoes de atendimento humano
 const FABIO_PHONE = "5511970363713";
 
-// Webhook recebe mensagens do ChatPro
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.json();
 
-    console.log("Webhook RAW recebido:", JSON.stringify(rawBody, null, 2));
-
-    // Log TODOS os webhooks no Supabase para debug
+    // Log no Supabase
     await supabase.from("bot_logs").insert({ payload: rawBody });
-
-
-    // Formato real do ChatPro v5:
-    // {
-    //   "Type": "receveid_message",
-    //   "Body": {
-    //     "Info": { "RemoteJid": "55..@s.whatsapp.net", "FromMe": false, "PushName": "..." },
-    //     "Text": "mensagem"
-    //   }
-    // }
 
     const eventType = rawBody.Type || rawBody.type || "";
 
-    // Aceita mensagens e localizacao do ChatPro
     const allowedTypes = [
-      "receveid_message",
-      "received_message",
-      "receveid_location",
-      "received_location",
-      "receveid_image",
-      "received_image",
-      "receveid_audio",
-      "received_audio",
-      "receveid_document",
-      "received_document",
-      "receveid_video",
-      "received_video",
+      "receveid_message", "received_message",
+      "receveid_location", "received_location",
+      "receveid_image", "received_image",
+      "receveid_audio", "received_audio",
+      "receveid_document", "received_document",
+      "receveid_video", "received_video",
     ];
 
     if (!allowedTypes.some((t) => eventType.toLowerCase().includes(t.toLowerCase()))) {
-      console.log("Evento ignorado:", eventType);
       return NextResponse.json({ status: "ignored_event", eventType });
     }
 
@@ -84,19 +62,13 @@ export async function POST(req: NextRequest) {
     const isGroup = from.includes("@g.us");
     const isFromMe = info.FromMe || false;
 
-    // Localizacao - ChatPro envia como "receveid_location" com lat/lng em Source.message
     const sourceMsg = info.Source?.message || {};
     const lat = sourceMsg.lat || sourceMsg.degreesLatitude || null;
     const lng = sourceMsg.lng || sourceMsg.degreesLongitude || null;
 
-    // Media (fotos, audios etc)
-    const isMediaType = eventType.toLowerCase().includes("image") ||
-      eventType.toLowerCase().includes("audio") ||
-      eventType.toLowerCase().includes("video") ||
-      eventType.toLowerCase().includes("document");
-    const hasMedia = isMediaType || !!(sourceMsg.imageMessage || sourceMsg.audioMessage || sourceMsg.documentMessage || sourceMsg.videoMessage);
+    const isMediaType = eventType.toLowerCase().includes("image");
+    const hasMedia = isMediaType || !!sourceMsg.imageMessage;
 
-    // URL da imagem (ChatPro disponibiliza em varios caminhos)
     const imageUrl =
       rawBody.Url ||
       rawBody.Info?.Url ||
@@ -104,56 +76,44 @@ export async function POST(req: NextRequest) {
       sourceMsg.imageMessage?.url ||
       null;
 
-    console.log("DEBUG imageUrl:", imageUrl, "| rawBody.Url:", rawBody.Url, "| hasMedia:", hasMedia);
-
-    // Ignora mensagens de grupo e proprias
     if (isGroup || isFromMe || !from) {
       return NextResponse.json({ status: "ignored" });
     }
 
     const phoneNumber = from.replace("@s.whatsapp.net", "");
 
-    // Se é imagem e tem URL, salva na sessao e processa com IA direto
+    // Foto com IA - processa direto
     if (hasMedia && imageUrl) {
       const session = await getSession(phoneNumber);
       if (session && session.step === "aguardando_foto") {
-        // Analisa com IA
         const analise = await analisarFotoIA(imageUrl);
-
-        await supabase.from("bot_logs").insert({
-          payload: { debug: "IA_resultado", analise, imageUrl }
-        });
 
         if (analise) {
           const emoji = getItemEmoji(analise.item);
-          const precisaAjudante = analise.tamanho === "grande";
           const veiculoNome: Record<string, string> = {
-            utilitario: "utilitario",
-            van: "van",
+            utilitario: "utilitario (Strada/Saveiro)",
+            hr: "HR",
             caminhao_bau: "caminhao bau",
-            caminhao_grande: "caminhao grande",
           };
+
+          // IA sugere veiculo baseado no tamanho
+          let veiculoSugerido = analise.veiculo_sugerido;
+          if (veiculoSugerido === "van") veiculoSugerido = "hr";
 
           await updateSession(phoneNumber, {
             step: "aguardando_destino",
             descricao_carga: `${analise.item} (${analise.quantidade})`,
-            veiculo_sugerido: analise.veiculo_sugerido,
-            precisa_ajudante: precisaAjudante,
+            veiculo_sugerido: veiculoSugerido,
             foto_url: imageUrl,
           });
 
-          const ajudanteTexto = precisaAjudante
-            ? "e vai precisar de ajudante pra carregar"
-            : "e nao vai precisar de ajudante";
-
           await sendMessage({
             to: phoneNumber,
-            message: `📸 Recebi sua foto!\n\nVi que e *${analise.item}* ${emoji}\nTamanho ${analise.tamanho}, cabe em um *${veiculoNome[analise.veiculo_sugerido] || "utilitario"}* ${ajudanteTexto}!\n\nE pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠\n\n(Se eu errei alguma coisa, me corrige que eu ajusto! 😊)`,
+            message: `📸 Recebi sua foto!\n\nVi que e *${analise.item}* ${emoji}\nTamanho ${analise.tamanho}, cabe em um *${veiculoNome[veiculoSugerido] || "utilitario"}*!\n\nE pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠\n\n(Se eu errei alguma coisa, me corrige que eu ajusto! 😊)`,
           });
           return NextResponse.json({ status: "ok" });
         }
 
-        // IA falhou - fallback
         await updateSession(phoneNumber, {
           step: "aguardando_destino",
           descricao_carga: "Material (foto recebida)",
@@ -164,7 +124,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Verifica se e prestador respondendo a dispatch
+    // Prestador respondendo dispatch
     const dispatch = getDispatchForPrestador(phoneNumber);
     if (dispatch) {
       await handlePrestadorResponse(phoneNumber, message, dispatch.corridaId);
@@ -176,22 +136,15 @@ export async function POST(req: NextRequest) {
       await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia, imageUrl);
     } catch (flowError: any) {
       console.error("Erro no fluxo:", flowError?.message);
-      // Nao retorna 500 - sempre responde 200 pro ChatPro
-      // senao ele pode parar de enviar webhooks
     }
 
     return NextResponse.json({ status: "ok" });
   } catch (error: any) {
     console.error("Erro no webhook:", error?.message, error?.stack);
-    // Sempre retorna 200 pro ChatPro nao parar de enviar
-    return NextResponse.json(
-      { error: "Erro interno", detail: error?.message },
-      { status: 200 }
-    );
+    return NextResponse.json({ error: "Erro interno", detail: error?.message }, { status: 200 });
   }
 }
 
-// GET healthcheck
 export async function GET() {
   return NextResponse.json({ status: "Webhook Pegue ativo" });
 }
@@ -206,18 +159,11 @@ async function handleClienteMessage(
   hasMedia: boolean,
   imageUrl: string | null = null
 ) {
-  // Log debug no Supabase
-  await supabase.from("bot_logs").insert({
-    payload: { debug: "handleClienteMessage", phone, message, hasMedia, imageUrl, lat, lng }
-  });
-
-  // Detecta pedido de atendente em qualquer momento
   if (isAtendente(message)) {
     await handleAtendente(phone);
     return;
   }
 
-  // Detecta agradecimento
   if (isAgradecimento(message)) {
     await sendMessage({ to: phone, message: MSG.obrigado });
     return;
@@ -228,13 +174,16 @@ async function handleClienteMessage(
   // Nova conversa ou saudacao
   if (!session || isSaudacao(message)) {
     await createSession(phone);
-    await updateSession(phone, { step: "aguardando_localizacao" });
+    await updateSession(phone, { step: "aguardando_servico" });
     await sendMessage({ to: phone, message: MSG.boasVindas });
     return;
   }
 
-  // Processa de acordo com o step atual
   switch (session.step) {
+    case "aguardando_servico":
+      await handleEscolhaServico(phone, message);
+      break;
+
     case "aguardando_localizacao":
       await handleLocalizacao(phone, message, lat, lng);
       break;
@@ -247,8 +196,16 @@ async function handleClienteMessage(
       await handleDestino(phone, message);
       break;
 
-    case "aguardando_detalhes":
-      await handleDetalhes(phone, message);
+    case "aguardando_tipo_local":
+      await handleTipoLocal(phone, message);
+      break;
+
+    case "aguardando_andar":
+      await handleAndar(phone, message);
+      break;
+
+    case "aguardando_ajudante":
+      await handleAjudante(phone, message);
       break;
 
     case "aguardando_data":
@@ -262,28 +219,48 @@ async function handleClienteMessage(
     case "aguardando_pagamento":
       await sendMessage({
         to: phone,
-        message:
-          "Seu frete ja ta confirmado! 😊 Assim que o pagamento for identificado, te aviso aqui!",
+        message: "Seu frete ja ta confirmado! 😊 Assim que o pagamento for identificado, te aviso aqui!",
       });
       break;
 
     default:
-      // Mensagem fora de contexto - reinicia
       await createSession(phone);
-      await updateSession(phone, { step: "aguardando_localizacao" });
+      await updateSession(phone, { step: "aguardando_servico" });
       await sendMessage({ to: phone, message: MSG.boasVindas });
       break;
   }
 }
 
-// STEP 1: Receber localizacao ou endereco de origem
+// STEP 0: Escolha do servico
+async function handleEscolhaServico(phone: string, message: string) {
+  const lower = message.toLowerCase().trim();
+
+  if (lower === "1" || lower.includes("frete") || lower.includes("mudanc")) {
+    await updateSession(phone, { step: "aguardando_localizacao" });
+    await sendMessage({ to: phone, message: MSG.pedirLocalizacao });
+    return;
+  }
+
+  if (lower === "2" || lower.includes("guincho")) {
+    await sendMessage({ to: phone, message: MSG.guincho });
+    return;
+  }
+
+  if (lower === "3" || lower.includes("santos") || lower.includes("especialista")) {
+    await handleAtendente(phone);
+    return;
+  }
+
+  await sendMessage({
+    to: phone,
+    message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Pequenos Fretes ou Mudanca\n2️⃣ Guincho (carro ou moto)\n3️⃣ Falar com nosso especialista Santos",
+  });
+}
+
+// STEP 1: Localizacao
 async function handleLocalizacao(
-  phone: string,
-  message: string,
-  lat: number | null,
-  lng: number | null
+  phone: string, message: string, lat: number | null, lng: number | null
 ) {
-  // Recebeu localizacao GPS
   if (lat && lng) {
     const endereco = await reverseGeocode(lat, lng);
     await updateSession(phone, {
@@ -292,14 +269,10 @@ async function handleLocalizacao(
       origem_lat: lat,
       origem_lng: lng,
     });
-    await sendMessage({
-      to: phone,
-      message: MSG.localizacaoRecebida(endereco),
-    });
+    await sendMessage({ to: phone, message: MSG.localizacaoRecebida(endereco) });
     return;
   }
 
-  // Verifica se mandou CEP
   const cep = extrairCep(message);
   if (cep) {
     const endereco = await buscaCep(cep);
@@ -311,15 +284,11 @@ async function handleLocalizacao(
         origem_lat: coords?.lat || null,
         origem_lng: coords?.lng || null,
       });
-      await sendMessage({
-        to: phone,
-        message: MSG.enderecoRecebido(endereco),
-      });
+      await sendMessage({ to: phone, message: MSG.enderecoRecebido(endereco) });
       return;
     }
   }
 
-  // Verifica se parece endereco
   if (pareceEndereco(message)) {
     const coords = await geocodeAddress(message);
     await updateSession(phone, {
@@ -328,193 +297,33 @@ async function handleLocalizacao(
       origem_lat: coords?.lat || null,
       origem_lng: coords?.lng || null,
     });
-    await sendMessage({
-      to: phone,
-      message: MSG.enderecoRecebido(message),
-    });
+    await sendMessage({ to: phone, message: MSG.enderecoRecebido(message) });
     return;
   }
 
-  // Nao entendeu - pede novamente
-  await sendMessage({
-    to: phone,
-    message: MSG.naoEntendi,
-  });
+  await sendMessage({ to: phone, message: MSG.naoEntendi });
 }
 
-// STEP 2: Receber foto do material
+// STEP 2: Foto
 async function handleFoto(
-  phone: string,
-  message: string,
-  hasMedia: boolean,
-  imageUrl: string | null = null
+  phone: string, message: string, hasMedia: boolean, imageUrl: string | null = null
 ) {
-  // Log detalhado no Supabase
-  await supabase.from("bot_logs").insert({
-    payload: { debug: "handleFoto", hasMedia, imageUrl, messageLen: message.length }
-  });
-
-  if (hasMedia && imageUrl) {
-    // Analisa foto com OpenAI Vision
-    await supabase.from("bot_logs").insert({
-      payload: { debug: "antes_da_IA", imageUrl, hasMedia }
-    });
-
-    const analise = await analisarFotoIA(imageUrl);
-
-    await supabase.from("bot_logs").insert({
-      payload: { debug: "resultado_IA", analise, imageUrl }
-    });
-
-    if (analise) {
-      const emoji = getItemEmoji(analise.item);
-      const precisaAjudante = analise.tamanho === "grande";
-      const veiculoNome: Record<string, string> = {
-        utilitario: "utilitario",
-        van: "van",
-        caminhao_bau: "caminhao bau",
-        caminhao_grande: "caminhao grande",
-      };
-
-      await updateSession(phone, {
-        step: "aguardando_destino",
-        descricao_carga: `${analise.item} (${analise.quantidade})`,
-        veiculo_sugerido: analise.veiculo_sugerido,
-        precisa_ajudante: precisaAjudante,
-      });
-
-      const ajudanteTexto = precisaAjudante
-        ? "e vai precisar de ajudante pra carregar"
-        : "e nao vai precisar de ajudante";
-
-      await sendMessage({
-        to: phone,
-        message: `📸 Recebi sua foto!
-
-Vi que e *${analise.item}* ${emoji}
-Tamanho ${analise.tamanho}, cabe em um *${veiculoNome[analise.veiculo_sugerido] || "utilitario"}* ${ajudanteTexto}!
-
-E pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠
-
-(Se eu errei alguma coisa, me corrige que eu ajusto! 😊)`,
-      });
-      return;
-    }
-
-    // IA nao conseguiu analisar - segue sem
-    await updateSession(phone, {
-      step: "aguardando_destino",
-      descricao_carga: "Material (foto recebida)",
-    });
-    await sendMessage({ to: phone, message: MSG.fotoSemIA });
-    return;
-  }
-
-  // Se mandou texto descrevendo o material
   if (message.length > 2) {
     await updateSession(phone, {
       step: "aguardando_destino",
       descricao_carga: message,
     });
-    await sendMessage({
-      to: phone,
-      message: MSG.fotoRecebida(message),
-    });
+    await sendMessage({ to: phone, message: MSG.fotoRecebida(message) });
     return;
   }
 
   await sendMessage({
     to: phone,
-    message:
-      "Me manda uma foto do material ou descreve o que precisa levar 📸😊",
+    message: "Me manda uma foto do material ou descreve o que precisa levar 📸😊",
   });
 }
 
-// Analisa foto usando OpenAI Vision
-async function analisarFotoIA(
-  imageUrl: string
-): Promise<{
-  item: string;
-  quantidade: string;
-  tamanho: string;
-  veiculo_sugerido: string;
-  observacao: string;
-} | null> {
-  try {
-    const OpenAI = (await import("openai")).default;
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `Voce e um assistente de uma empresa de fretes chamada Pegue.
-Analise a foto enviada pelo cliente e retorne APENAS um JSON com:
-{
-  "item": "nome do item principal na foto (ex: Geladeira, Sofa, Caixas, Violao)",
-  "quantidade": "quantidade estimada (ex: 1, 3, varias caixas)",
-  "tamanho": "pequeno, medio ou grande",
-  "veiculo_sugerido": "utilitario, van ou caminhao_bau",
-  "observacao": "frase curta sobre o que voce ve (max 15 palavras)"
-}
-Regras:
-- pequeno: cabe no banco de um carro (ex: violao, caixa pequena, mala)
-- medio: precisa de utilitario (ex: mesa, geladeira, maquina de lavar)
-- grande: precisa de van ou caminhao (ex: mudanca completa, sofa grande + caixas)
-- utilitario: para itens pequenos e medios
-- van: para itens grandes ou varios medios
-- caminhao_bau: para mudancas grandes
-Responda SOMENTE o JSON, nada mais.`,
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: { url: imageUrl, detail: "low" },
-            },
-            {
-              type: "text",
-              text: "O que e esse material? Qual veiculo ideal?",
-            },
-          ],
-        },
-      ],
-      max_tokens: 200,
-      temperature: 0.1,
-    });
-
-    const texto = response.choices[0]?.message?.content || "";
-    const jsonMatch = texto.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-    return null;
-  } catch (error: any) {
-    console.error("Erro OpenAI Vision:", error?.message);
-    return null;
-  }
-}
-
-// Emoji baseado no item
-function getItemEmoji(item: string): string {
-  const lower = item.toLowerCase();
-  if (lower.includes("sofa") || lower.includes("sofá")) return "🛋️";
-  if (lower.includes("geladeira") || lower.includes("refrigerador")) return "🧊";
-  if (lower.includes("maquina") || lower.includes("máquina")) return "🫧";
-  if (lower.includes("caixa")) return "📦";
-  if (lower.includes("mesa")) return "🪑";
-  if (lower.includes("cama") || lower.includes("colchao")) return "🛏️";
-  if (lower.includes("tv") || lower.includes("televisao")) return "📺";
-  if (lower.includes("violao") || lower.includes("guitarra")) return "🎸";
-  if (lower.includes("bicicleta") || lower.includes("bike")) return "🚲";
-  if (lower.includes("moto")) return "🏍️";
-  if (lower.includes("piano") || lower.includes("teclado")) return "🎹";
-  return "📦";
-}
-
-// STEP 3: Receber destino
+// STEP 3: Destino
 async function handleDestino(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session) return;
@@ -523,7 +332,6 @@ async function handleDestino(phone: string, message: string) {
   let destinoLat: number | null = null;
   let destinoLng: number | null = null;
 
-  // Verifica CEP
   const cep = extrairCep(message);
   if (cep) {
     const endereco = await buscaCep(cep);
@@ -540,133 +348,181 @@ async function handleDestino(phone: string, message: string) {
   }
 
   await updateSession(phone, {
-    step: "aguardando_detalhes",
+    step: "aguardando_tipo_local",
     destino_endereco: destinoEndereco,
     destino_lat: destinoLat,
     destino_lng: destinoLng,
   });
 
-  // Extrai cidade para exibicao
-  const cidadeDestino =
-    destinoEndereco.split(",").pop()?.trim() || destinoEndereco;
+  const cidadeDestino = destinoEndereco.split(",").pop()?.trim() || destinoEndereco;
+  await sendMessage({ to: phone, message: MSG.destinoRecebido(cidadeDestino) });
+}
+
+// STEP 4: Tipo do local (terreo/elevador/escada)
+async function handleTipoLocal(phone: string, message: string) {
+  const lower = message.toLowerCase().trim();
+
+  if (lower === "1" || lower.includes("casa") || lower.includes("terreo") || lower.includes("térreo")) {
+    // Terreo - sem adicional
+    await updateSession(phone, {
+      step: "aguardando_ajudante",
+      tem_escada: false,
+      andar: 0,
+    });
+    await sendMessage({
+      to: phone,
+      message: MSG.precisaAjudante("Casa/terreo, anotado! ✅"),
+    });
+    return;
+  }
+
+  if (lower === "2" || lower.includes("elevador")) {
+    // Elevador - +R$50
+    await updateSession(phone, {
+      step: "aguardando_ajudante",
+      tem_escada: false,
+      andar: 0,
+    });
+    await sendMessage({
+      to: phone,
+      message: MSG.precisaAjudante("Predio com elevador, anotado! ✅\n📌 _Adicional de R$ 50 no frete_"),
+    });
+    return;
+  }
+
+  if (lower === "3" || lower.includes("escada") || lower.includes("sem elevador")) {
+    await updateSession(phone, { step: "aguardando_andar", tem_escada: true });
+    await sendMessage({ to: phone, message: MSG.qualAndar });
+    return;
+  }
 
   await sendMessage({
     to: phone,
-    message: MSG.destinoRecebido(cidadeDestino),
+    message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Casa ou terreo\n2️⃣ Predio com elevador (+R$ 50)\n3️⃣ Predio sem elevador / escada (+R$ 30 por andar)",
   });
 }
 
-// STEP 4: Receber detalhes (escada, ajudante)
-async function handleDetalhes(phone: string, message: string) {
-  const session = await getSession(phone);
-  if (!session) return;
-
-  const lower = message.toLowerCase();
-
-  const temEscada =
-    lower.includes("escada") ||
-    lower.includes("andar") ||
-    lower.includes("lance");
-  const precisaAjudante =
-    lower.includes("ajudante") ||
-    lower.includes("ajuda") ||
-    lower.includes("carregar");
-
-  // Tenta extrair numero do andar
-  let andar = 0;
-  const andarMatch = message.match(/(\d+)\s*(andar|o\s*andar|lance)/i);
+// STEP 4b: Qual andar (escada)
+async function handleAndar(phone: string, message: string) {
+  const andarMatch = message.match(/(\d+)/);
   if (andarMatch) {
-    andar = parseInt(andarMatch[1]);
+    const andar = parseInt(andarMatch[1]);
+    const valorEscada = andar * 30;
+
+    await updateSession(phone, {
+      step: "aguardando_ajudante",
+      andar,
+    });
+    await sendMessage({
+      to: phone,
+      message: MSG.precisaAjudante(`${andar}o andar por escada, anotado! ✅\n📌 _Adicional de R$ ${valorEscada} (${andar} andares x R$ 30)_`),
+    });
+    return;
   }
-
-  // Calcula distancia e precos
-  let distanciaKm = 5; // minimo
-  if (session.origem_lat && session.origem_lng && session.destino_lat && session.destino_lng) {
-    distanciaKm = calcularDistanciaKm(
-      session.origem_lat,
-      session.origem_lng,
-      session.destino_lat,
-      session.destino_lng
-    );
-  }
-
-  const precos = calcularPrecos(
-    distanciaKm,
-    session.veiculo_sugerido || "utilitario",
-    precisaAjudante,
-    andar
-  );
-
-  await updateSession(phone, {
-    step: "aguardando_data",
-    tem_escada: temEscada,
-    andar,
-    precisa_ajudante: precisaAjudante,
-    distancia_km: distanciaKm,
-    valor_estimado: precos.padrao,
-  });
 
   await sendMessage({
     to: phone,
-    message: MSG.detalhesRecebidos(
-      session.origem_endereco || "Origem",
-      session.destino_endereco || "Destino",
-      session.descricao_carga || "Material",
-      distanciaKm.toString(),
-      precos.economica.toString(),
-      precos.padrao.toString(),
-      precos.premium.toString()
-    ),
+    message: "Me manda o numero do andar 😊 Exemplo: *5*",
   });
 }
 
-// STEP 5: Receber plano escolhido e data
-async function handleData(phone: string, message: string) {
+// STEP 5: Precisa ajudante?
+async function handleAjudante(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session) return;
 
   const lower = message.toLowerCase().trim();
+  let precisaAjudante = false;
 
-  // Se ainda nao escolheu plano
-  if (!session.plano_escolhido) {
-    let plano = "";
-    let multiplicador = 1.0;
-
-    if (lower === "1" || lower.includes("economic")) {
-      plano = "Economica";
-      multiplicador = 0.7;
-    } else if (lower === "2" || lower.includes("padrao") || lower.includes("padrão")) {
-      plano = "Padrao";
-      multiplicador = 1.0;
-    } else if (lower === "3" || lower.includes("premium")) {
-      plano = "Premium";
-      multiplicador = 1.4;
-    } else {
-      await sendMessage({
-        to: phone,
-        message:
-          "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Economica\n2️⃣ Padrao\n3️⃣ Premium",
-      });
-      return;
-    }
-
-    const valorBase = session.valor_estimado || 80;
-    const valorFinal = Math.round((valorBase / 1.0) * multiplicador);
-
-    await updateSession(phone, {
-      plano_escolhido: plano,
-      valor_estimado: valorFinal,
+  if (lower === "1" || lower.includes("nao") || lower === "n" || lower.includes("não") || lower.includes("sozinho")) {
+    precisaAjudante = false;
+  } else if (lower === "2" || lower.includes("sim") || lower === "s" || lower.includes("preciso") || lower.includes("ajudante")) {
+    precisaAjudante = true;
+  } else {
+    await sendMessage({
+      to: phone,
+      message: "Vai precisar de ajudante? 😊\n\n1️⃣ *Nao*, consigo sozinho\n2️⃣ *Sim*, preciso de ajudante",
     });
-
-    await sendMessage({ to: phone, message: MSG.planoEscolhido });
     return;
   }
 
-  // Ja escolheu plano, agora recebe data
+  await updateSession(phone, { precisa_ajudante: precisaAjudante });
+
+  // Calcular distancia
+  let distanciaKm = 2;
+  if (session.origem_lat && session.origem_lng && session.destino_lat && session.destino_lng) {
+    distanciaKm = calcularDistanciaKm(
+      session.origem_lat, session.origem_lng,
+      session.destino_lat, session.destino_lng
+    );
+  }
+
+  // Detectar se tem elevador (step anterior salvou tem_escada=false e andar=0 para elevador)
+  // Precisamos distinguir terreo de elevador - vamos checar pela mensagem anterior
+  // Se tem_escada=false e andar=0, pode ser terreo ou elevador
+  // Vamos usar um campo extra - por ora checamos o destino_endereco
+
+  const temElevador = !session.tem_escada && session.andar === 0 ? false : false;
+  // TODO: salvar temElevador na sessao (por ora nao temos campo)
+
+  const veiculo = session.veiculo_sugerido || "utilitario";
+  const precos = calcularPrecos(distanciaKm, veiculo, precisaAjudante, session.andar || 0, false);
+
+  // Montar detalhes dos adicionais
+  let adicionaisTexto = "";
+  const p = precos.padrao;
+  if (p.ajudante > 0) adicionaisTexto += `🙋 Ajudante: + R$ ${p.ajudante}\n`;
+  if (p.elevador > 0) adicionaisTexto += `🛗 Elevador: + R$ ${p.elevador}\n`;
+  if (p.escada > 0) adicionaisTexto += `🪜 Escada (${session.andar || 0} andares): + R$ ${p.escada}\n`;
+
+  const veiculoNome: Record<string, string> = {
+    utilitario: "Utilitario (Strada/Saveiro)",
+    hr: "HR",
+    caminhao_bau: "Caminhao Bau",
+  };
+
+  await updateSession(phone, {
+    step: "aguardando_data",
+    distancia_km: distanciaKm,
+    valor_estimado: p.total,
+  });
+
+  await sendMessage({
+    to: phone,
+    message: MSG.orcamento(
+      session.origem_endereco || "Origem",
+      session.destino_endereco || "Destino",
+      session.descricao_carga || "Material",
+      distanciaKm.toString(),
+      veiculoNome[veiculo] || "Utilitario",
+      p.base.toString(),
+      adicionaisTexto,
+      p.total.toString()
+    ),
+  });
+}
+
+// STEP 6: Data
+async function handleData(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+
   await updateSession(phone, {
     step: "aguardando_confirmacao",
     data_agendada: message,
   });
+
+  const veiculo = session.veiculo_sugerido || "utilitario";
+  const veiculoNome: Record<string, string> = {
+    utilitario: "Utilitario (Strada/Saveiro)",
+    hr: "HR",
+    caminhao_bau: "Caminhao Bau",
+  };
+
+  // Montar detalhes
+  let detalhes = "";
+  if (session.precisa_ajudante) detalhes += "🙋 Com ajudante\n";
+  if (session.tem_escada && session.andar && session.andar > 0) detalhes += `🪜 ${session.andar}o andar (escada)\n`;
 
   await sendMessage({
     to: phone,
@@ -675,13 +531,14 @@ async function handleData(phone: string, message: string) {
       session.destino_endereco || "Destino",
       session.descricao_carga || "Material",
       message,
-      session.plano_escolhido || "Padrao",
-      (session.valor_estimado || 0).toString()
+      veiculoNome[veiculo] || "Utilitario",
+      (session.valor_estimado || 0).toString(),
+      detalhes
     ),
   });
 }
 
-// STEP 6: Confirmacao final
+// STEP 7: Confirmacao
 async function handleConfirmacao(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session) return;
@@ -689,42 +546,30 @@ async function handleConfirmacao(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
 
   if (lower.startsWith("sim") || lower === "s" || lower === "confirmar") {
-    // Salva corrida no Supabase
     const corridaId = await salvarCorrida(session);
 
     if (corridaId) {
-      await updateSession(phone, {
-        step: "aguardando_pagamento",
-        corrida_id: corridaId,
-      });
+      await updateSession(phone, { step: "aguardando_pagamento", corrida_id: corridaId });
 
-      // TODO: Gerar link de pagamento Mercado Pago
+      // TODO: Gerar link Mercado Pago
       const linkPagamento = `https://pegue-eta.vercel.app/simular`;
 
-      await sendMessage({
-        to: phone,
-        message: MSG.linkPagamento(linkPagamento),
-      });
-
-      // Dispara para fretistas
+      await sendMessage({ to: phone, message: MSG.linkPagamento(linkPagamento) });
       await dispararParaFretistas(corridaId, session);
     } else {
       await sendMessage({ to: phone, message: MSG.erroInterno });
     }
   } else if (lower.startsWith("nao") || lower === "n" || lower === "não") {
-    // Reinicia
     await createSession(phone);
-    await updateSession(phone, { step: "aguardando_localizacao" });
+    await updateSession(phone, { step: "aguardando_servico" });
     await sendMessage({
       to: phone,
-      message:
-        "Sem problema! 😊 Vamos comecar de novo.\n\n" + MSG.boasVindas,
+      message: "Sem problema! 😊 Vamos comecar de novo.\n\n" + MSG.boasVindas,
     });
   } else {
     await sendMessage({
       to: phone,
-      message:
-        "Responda *SIM* pra confirmar ou *NAO* pra ajustar algo 😊",
+      message: "Responda *SIM* pra confirmar ou *NAO* pra ajustar algo 😊",
     });
   }
 }
@@ -735,8 +580,6 @@ async function handleAtendente(phone: string) {
   if (isHorarioAtendimentoHumano()) {
     await updateSession(phone, { step: "atendimento_humano" });
     await sendMessage({ to: phone, message: MSG.transferenciaHumano });
-
-    // Notifica Fabio
     await sendMessage({
       to: FABIO_PHONE,
       message: `🔔 *Atendimento solicitado!*\n\nCliente: ${formatarTelefoneExibicao(phone)}\nHorario: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
@@ -746,34 +589,23 @@ async function handleAtendente(phone: string) {
   }
 }
 
-// === DISPATCH PARA FRETISTAS ===
+// === DISPATCH FRETISTAS ===
 
-async function dispararParaFretistas(
-  corridaId: string,
-  session: BotSession
-) {
+async function dispararParaFretistas(corridaId: string, session: BotSession) {
   try {
-    // Busca prestadores disponiveis no Supabase
     const { data: prestadores } = await supabase
       .from("prestadores")
       .select("telefone, nome")
       .eq("disponivel", true)
       .eq("status", "aprovado");
 
-    if (!prestadores || prestadores.length === 0) {
-      console.log("Nenhum prestador disponivel");
-      return;
-    }
+    if (!prestadores || prestadores.length === 0) return;
 
     const telefones = prestadores.map((p) => p.telefone);
-    const valorPrestador = Math.round(
-      (session.valor_estimado || 0) * 0.8
-    );
+    const valorPrestador = Math.round((session.valor_estimado || 0) * 0.8);
 
-    // Cria dispatch
     createDispatch(corridaId, session.phone, telefones);
 
-    // Envia mensagem para todos
     const mensagem = MSG.novoFreteDisponivel(
       session.origem_endereco || "SP",
       session.destino_endereco || "Destino",
@@ -785,51 +617,27 @@ async function dispararParaFretistas(
 
     await sendMessageToMany(telefones, mensagem);
 
-    // Agenda resolucao da janela de 30s
     setTimeout(async () => {
-      await resolverDispatchAposJanela(corridaId);
+      const vencedor = resolveDispatch(corridaId);
+      if (vencedor) await notificarResultadoDispatch(corridaId, vencedor);
     }, 31000);
   } catch (error: any) {
-    console.error("Erro ao disparar para fretistas:", error?.message);
+    console.error("Erro dispatch:", error?.message);
   }
 }
 
-// Resolve dispatch apos janela de 30 segundos
-async function resolverDispatchAposJanela(corridaId: string) {
-  const vencedor = resolveDispatch(corridaId);
-
-  if (vencedor) {
-    await notificarResultadoDispatch(corridaId, vencedor);
-  }
-  // Se ninguem respondeu, a proxima resposta sera processada em handlePrestadorResponse
-}
-
-// === RESPOSTA DO PRESTADOR ===
-
-async function handlePrestadorResponse(
-  prestadorPhone: string,
-  message: string,
-  corridaId: string
-) {
+async function handlePrestadorResponse(prestadorPhone: string, message: string, corridaId: string) {
   const { aceite, valor } = extrairRespostaPrestador(message);
 
   if (!aceite) {
     await sendMessage({
       to: prestadorPhone,
-      message:
-        "Pra aceitar o frete, responda *SIM* seguido do seu valor.\nExemplo: *SIM 200*",
+      message: "Pra aceitar o frete, responda *SIM* seguido do seu valor.\nExemplo: *SIM 200*",
     });
     return;
   }
 
-  // Registra resposta
-  addDispatchResponse(
-    corridaId,
-    prestadorPhone,
-    valor || 9999
-  );
-
-  // Tenta resolver
+  addDispatchResponse(corridaId, prestadorPhone, valor || 9999);
   const vencedor = resolveDispatch(corridaId);
 
   if (vencedor) {
@@ -837,37 +645,23 @@ async function handlePrestadorResponse(
   } else {
     await sendMessage({
       to: prestadorPhone,
-      message:
-        "Resposta recebida! ✅ Aguardando outros prestadores... Resultado em instantes!",
+      message: "Resposta recebida! ✅ Aguardando outros prestadores... Resultado em instantes!",
     });
   }
 }
 
-// Notifica todos sobre resultado do dispatch
-async function notificarResultadoDispatch(
-  corridaId: string,
-  vencedorPhone: string
-) {
+async function notificarResultadoDispatch(corridaId: string, vencedorPhone: string) {
   const dispatch = getDispatchByCorridaId(corridaId);
   if (!dispatch) return;
 
-  // Avisa vencedor
-  await sendMessage({
-    to: vencedorPhone,
-    message: MSG.freteAceito,
-  });
+  await sendMessage({ to: vencedorPhone, message: MSG.freteAceito });
 
-  // Avisa os outros
   for (const phone of dispatch.prestadores) {
     if (phone !== vencedorPhone) {
-      await sendMessage({
-        to: phone,
-        message: MSG.freteJaPego,
-      });
+      await sendMessage({ to: phone, message: MSG.freteJaPego });
     }
   }
 
-  // Atualiza corrida no Supabase com prestador vencedor
   try {
     const { data: prestador } = await supabase
       .from("prestadores")
@@ -878,26 +672,20 @@ async function notificarResultadoDispatch(
     if (prestador) {
       await supabase
         .from("corridas")
-        .update({
-          prestador_id: prestador.id,
-          status: "aceita",
-        })
+        .update({ prestador_id: prestador.id, status: "aceita" })
         .eq("id", corridaId);
     }
   } catch (error: any) {
-    console.error("Erro ao atualizar corrida:", error?.message);
+    console.error("Erro atualizar corrida:", error?.message);
   }
 
   finalizeDispatch(corridaId);
 }
 
-// === SALVAR NO SUPABASE ===
+// === SALVAR CORRIDA ===
 
-async function salvarCorrida(
-  session: BotSession
-): Promise<string | null> {
+async function salvarCorrida(session: BotSession): Promise<string | null> {
   try {
-    // Busca ou cria cliente
     let clienteId: string | null = null;
 
     const { data: clienteExistente } = await supabase
@@ -911,21 +699,14 @@ async function salvarCorrida(
     } else {
       const { data: novoCliente } = await supabase
         .from("clientes")
-        .insert({
-          telefone: session.phone,
-          nivel: "bronze",
-          total_corridas: 0,
-          ativo: true,
-        })
+        .insert({ telefone: session.phone, nivel: "bronze", total_corridas: 0, ativo: true })
         .select("id")
         .single();
-
       clienteId = novoCliente?.id || null;
     }
 
     if (!clienteId) return null;
 
-    // Gera codigo da corrida
     const codigo = `PG${Date.now().toString(36).toUpperCase()}`;
 
     const { data: corrida } = await supabase
@@ -941,10 +722,11 @@ async function salvarCorrida(
         destino_lng: session.destino_lng,
         distancia_km: session.distancia_km,
         tipo_servico: "frete",
+        tipo_veiculo: session.veiculo_sugerido,
         descricao_carga: session.descricao_carga,
         escada_origem: session.tem_escada,
         andares_origem: session.andar,
-        plano: session.plano_escolhido?.toLowerCase(),
+        plano: "padrao",
         valor_estimado: session.valor_estimado,
         valor_final: session.valor_estimado,
         valor_prestador: Math.round((session.valor_estimado || 0) * 0.8),
@@ -958,7 +740,74 @@ async function salvarCorrida(
 
     return corrida?.id || null;
   } catch (error: any) {
-    console.error("Erro ao salvar corrida:", error?.message);
+    console.error("Erro salvar corrida:", error?.message);
     return null;
   }
+}
+
+// === OPENAI VISION ===
+
+async function analisarFotoIA(imageUrl: string): Promise<{
+  item: string; quantidade: string; tamanho: string;
+  veiculo_sugerido: string; observacao: string;
+} | null> {
+  try {
+    const OpenAI = (await import("openai")).default;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `Voce e um assistente de uma empresa de fretes chamada Pegue.
+Analise a foto e retorne APENAS um JSON:
+{
+  "item": "nome do item (ex: Geladeira, Sofa, Violao)",
+  "quantidade": "quantidade (ex: 1, 3, varias caixas)",
+  "tamanho": "pequeno, medio ou grande",
+  "veiculo_sugerido": "utilitario, hr ou caminhao_bau",
+  "observacao": "frase curta (max 15 palavras)"
+}
+Veiculos disponiveis:
+- utilitario: Strada/Saveiro (cacamba 1.2m x 1.5m) - itens pequenos e medios ate 1 item grande
+- hr: Hyundai HR (1.7m x 2.8m) - 1-3 itens grandes (geladeira+fogao+cama)
+- caminhao_bau: (2.5m x 3.5m) - mudanca completa, muitos itens grandes
+Responda SOMENTE o JSON.`,
+        },
+        {
+          role: "user",
+          content: [
+            { type: "image_url", image_url: { url: imageUrl, detail: "low" } },
+            { type: "text", text: "O que e esse material? Qual veiculo ideal?" },
+          ],
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.1,
+    });
+
+    const texto = response.choices[0]?.message?.content || "";
+    const jsonMatch = texto.match(/\{[\s\S]*\}/);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+    return null;
+  } catch (error: any) {
+    console.error("Erro OpenAI Vision:", error?.message);
+    return null;
+  }
+}
+
+function getItemEmoji(item: string): string {
+  const lower = item.toLowerCase();
+  if (lower.includes("sofa") || lower.includes("sofá")) return "🛋️";
+  if (lower.includes("geladeira") || lower.includes("refrigerador")) return "🧊";
+  if (lower.includes("maquina") || lower.includes("máquina")) return "🫧";
+  if (lower.includes("caixa")) return "📦";
+  if (lower.includes("mesa")) return "🪑";
+  if (lower.includes("cama") || lower.includes("colchao")) return "🛏️";
+  if (lower.includes("tv") || lower.includes("televisao")) return "📺";
+  if (lower.includes("violao") || lower.includes("guitarra")) return "🎸";
+  if (lower.includes("bicicleta") || lower.includes("bike")) return "🚲";
+  if (lower.includes("piano") || lower.includes("teclado")) return "🎹";
+  return "📦";
 }

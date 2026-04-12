@@ -3,9 +3,13 @@ import { supabase } from "@/lib/supabase";
 
 export type BotStep =
   | "inicio"
+  | "aguardando_servico"
   | "aguardando_localizacao"
   | "aguardando_foto"
   | "aguardando_destino"
+  | "aguardando_tipo_local"
+  | "aguardando_andar"
+  | "aguardando_ajudante"
   | "aguardando_detalhes"
   | "aguardando_data"
   | "aguardando_confirmacao"

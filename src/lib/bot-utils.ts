@@ -111,39 +111,92 @@ export function calcularDistanciaKm(
   return Math.round(R * c * 1.3 * 10) / 10; // *1.3 fator rota real
 }
 
-// Calcula precos nos 3 planos
+// Calcula preco base do veiculo pela distancia
+// Formula: 30 * sqrt(km) + 148 (calibrada com valores reais do mercado SP)
+// Valores de referencia Fabio (utilitario, sem ajudante, terreo):
+// Pres.Altino 2km=R$150, Bonfiglioli 3km=R$200, Alphaville 10km=R$220,
+// Lapa 12km=R$250, Agua Branca 15km=R$270, Casa Verde 20km=R$240,
+// Brooklin 22km=R$280, Panamby 25km=R$310, Suzano 55km=R$360, Santos 85km=R$400
+function calcularPrecoBaseUtilitario(km: number): number {
+  if (km <= 2) return 150; // local, mesmo bairro
+  return Math.round(30 * Math.sqrt(km) + 148);
+}
+
+// Multiplicadores por veiculo sobre o preco base do utilitario
+const MULT_VEICULO: Record<string, number> = {
+  utilitario: 1.0,
+  hr: 1.3,
+  caminhao_bau: 1.75,
+};
+
+// Minimos por veiculo (sem ajudante, terreo)
+const MIN_VEICULO: Record<string, number> = {
+  utilitario: 150,
+  hr: 220,
+  caminhao_bau: 350,
+};
+
+export interface PrecoDetalhado {
+  base: number;
+  ajudante: number;
+  elevador: number;
+  escada: number;
+  total: number;
+}
+
 export function calcularPrecos(
   distanciaKm: number,
   veiculoTipo: string = "utilitario",
   temAjudante: boolean = false,
-  andares: number = 0
-) {
-  const precoPorKm = 8.0;
-  const kmMinimo = 5;
-  const valorMinimoSemAjudante = 150;
-  const valorMinimoComAjudante = 250;
-  const valorMinimo = temAjudante ? valorMinimoComAjudante : valorMinimoSemAjudante;
+  andares: number = 0,
+  temElevador: boolean = false
+): { padrao: PrecoDetalhado } {
+  // Preco base do utilitario pela distancia
+  const baseUtil = calcularPrecoBaseUtilitario(distanciaKm);
 
-  const multVeiculo: Record<string, number> = {
-    utilitario: 1.0,
-    van: 1.3,
-    caminhao_bau: 1.6,
-    caminhao_grande: 2.0,
-  };
+  // Aplica multiplicador do veiculo
+  const mult = MULT_VEICULO[veiculoTipo] || 1.0;
+  const minimo = MIN_VEICULO[veiculoTipo] || 150;
+  const base = Math.max(Math.round(baseUtil * mult), minimo);
 
-  const km = Math.max(distanciaKm, kmMinimo);
-  const base = km * precoPorKm * (multVeiculo[veiculoTipo] || 1.0);
+  // Adicionais
+  let ajudante = 0;
+  if (temAjudante) {
+    ajudante = distanciaKm <= 10 ? 80 : 100;
+  }
 
-  let adicional = 0;
-  if (temAjudante) adicional += 80;
-  if (andares > 0) adicional += andares * 30;
+  let elevador = 0;
+  if (temElevador) {
+    elevador = 50;
+  }
 
-  const total = Math.max(base + adicional, valorMinimo);
+  let escada = 0;
+  if (andares > 0 && !temElevador) {
+    escada = andares * 30;
+  }
+
+  const total = base + ajudante + elevador + escada;
 
   return {
-    economica: Math.max(Math.round(total * 0.7), valorMinimo),
-    padrao: Math.max(Math.round(total * 1.0), valorMinimo),
-    premium: Math.max(Math.round(total * 1.4), valorMinimo + 50),
+    padrao: { base, ajudante, elevador, escada, total },
+  };
+}
+
+// Calcula precos para os 3 veiculos de uma vez
+export function calcularPrecosCompleto(
+  distanciaKm: number,
+  temAjudante: boolean = false,
+  andares: number = 0,
+  temElevador: boolean = false
+) {
+  const util = calcularPrecos(distanciaKm, "utilitario", temAjudante, andares, temElevador);
+  const hr = calcularPrecos(distanciaKm, "hr", temAjudante, andares, temElevador);
+  const cam = calcularPrecos(distanciaKm, "caminhao_bau", temAjudante, andares, temElevador);
+
+  return {
+    utilitario: util.padrao,
+    hr: hr.padrao,
+    caminhao_bau: cam.padrao,
   };
 }
 

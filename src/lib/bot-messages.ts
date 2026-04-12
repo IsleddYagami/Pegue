@@ -1,14 +1,31 @@
 // Mensagens do bot com tom empatico e de servir
 
 export const MSG = {
+  // Menu inicial
   boasVindas: `Oii! 😊 Que bom ter voce aqui no Pegue! 🚚
 Estou aqui pra te ajudar com o que precisar.
+
+O que voce precisa?
+
+1️⃣ *Pequenos Fretes ou Mudanca*
+2️⃣ *Guincho* (carro ou moto)
+3️⃣ *Falar com nosso especialista Santos*`,
+
+  // Apos escolher frete/mudanca
+  pedirLocalizacao: `Otimo! Vou te ajudar com seu frete! 🚚
 
 De onde vamos retirar o material?
 
 La embaixo, do lado de onde voce digita a mensagem, tem um icone de clipe 📎 - clica nele e depois em *Localizacao* 📍
 
 Ou se preferir, me passa o *CEP* ou *endereco com rua e bairro* 🏠`,
+
+  // Guincho
+  guincho: `Para guincho, fala direto com nosso especialista *Santos*! 😊
+Ele vai te atender rapidinho:
+📱 (11) 97142-9605
+
+Pode chamar agora mesmo! 🚗`,
 
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅
@@ -35,36 +52,53 @@ Vou cuidar direitinho do transporte, fica tranquilo(a)!
 
 E pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠`,
 
+  // Pergunta sobre local de entrega (elevador/escada/terreo)
   destinoRecebido: (destino: string) =>
     `${destino}! Otimo destino! ✅
 
-Preciso de mais alguns detalhes:
-🏢 Tem escada no local? Qual andar?
-🙋 Vai precisar de ajudante pra carregar?
+Me conta sobre o local de entrega:
 
-Me conta tudo que eu monto o orcamento! 😊`,
+1️⃣ *Casa ou terreo*
+2️⃣ *Predio com elevador* (+R$ 50)
+3️⃣ *Predio sem elevador / escada* (+R$ 30 por andar)`,
 
-  detalhesRecebidos: (
+  // Pergunta andar quando escolhe escada
+  qualAndar: `Entendi, predio sem elevador! 🏢
+Qual andar? Me manda o numero`,
+
+  // Pergunta se precisa ajudante
+  precisaAjudante: (infoLocal: string) =>
+    `${infoLocal}
+
+Vai precisar de ajudante pra carregar? 😊
+
+1️⃣ *Nao*, consigo sozinho
+2️⃣ *Sim*, preciso de ajudante`,
+
+  // Orcamento com detalhes claros
+  orcamento: (
     origem: string,
     destino: string,
     carga: string,
     distancia: string,
-    economica: string,
-    padrao: string,
-    premium: string
+    veiculo: string,
+    base: string,
+    adicionaisTexto: string,
+    total: string
   ) =>
-    `Preparei 3 opcoes pra voce escolher a que cabe melhor no seu bolso:
+    `Preparei seu orcamento! 📋
 
-📍 ${origem} → 🏠 ${destino}
-📦 ${carga}
-📏 ${distancia} km
+📍 *Retirada:* ${origem}
+🏠 *Destino:* ${destino}
+📦 *Material:* ${carga}
+📏 *Distancia:* ${distancia} km
+🚚 *Veiculo:* ${veiculo}
 
-🟢 *1 - Economica* - R$ ${economica} (prazo flexivel)
-🟡 *2 - Padrao* - R$ ${padrao} (dia combinado)
-⭐ *3 - Premium* - R$ ${premium} (prioridade + ajudante)
+💰 *Valor do frete:* R$ ${base}
+${adicionaisTexto}
+✅ *Total: R$ ${total}*
 
-Qual te atende melhor?
-E se tiver qualquer duvida, me pergunta! To aqui pra isso 😊`,
+Pra quando voce precisa? Me manda a *data* e *horario* 📅`,
 
   planoEscolhido: `Otima escolha! ✨
 Vou preparar tudo pra voce.
@@ -76,16 +110,19 @@ Pra quando voce precisa? Me manda a data e o horario que fica melhor pra voce �
     destino: string,
     carga: string,
     data: string,
-    plano: string,
-    valor: string
+    veiculo: string,
+    valor: string,
+    detalhes: string
   ) =>
     `Deixa eu resumir tudo:
 
 📍 Retirada: ${origem}
 🏠 Destino: ${destino}
 📦 Material: ${carga}
+🚚 Veiculo: ${veiculo}
 📅 ${data}
-💰 ${plano}: R$ ${valor}
+${detalhes}
+✅ *Total: R$ ${valor}*
 
 Ta tudo certo? Posso confirmar? 😊
 Responda *SIM* pra confirmar ou *NAO* pra ajustar algo.`,

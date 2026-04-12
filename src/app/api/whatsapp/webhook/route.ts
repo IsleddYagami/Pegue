@@ -82,44 +82,60 @@ export async function POST(req: NextRequest) {
 
     const phoneNumber = from.replace("@s.whatsapp.net", "");
 
-    // Foto com IA - processa direto
+    // Foto com IA - processa direto (primeira foto ou fotos adicionais)
     if (hasMedia && imageUrl) {
       const session = await getSession(phoneNumber);
-      if (session && session.step === "aguardando_foto") {
+      if (session && (session.step === "aguardando_foto" || session.step === "aguardando_mais_fotos")) {
         const analise = await analisarFotoIA(imageUrl);
 
         if (analise) {
           const emoji = getItemEmoji(analise.item);
-          const veiculoNome: Record<string, string> = {
-            utilitario: "utilitario (Strada/Saveiro)",
-            hr: "HR",
-            caminhao_bau: "caminhao bau",
-          };
-
-          // IA sugere veiculo baseado no tamanho
           let veiculoSugerido = analise.veiculo_sugerido;
           if (veiculoSugerido === "van") veiculoSugerido = "hr";
 
+          // Adiciona item a lista existente
+          const itensAnteriores = session.descricao_carga || "";
+          const novoItem = analise.item;
+          const listaItens = itensAnteriores
+            ? `${itensAnteriores}, ${novoItem}`
+            : novoItem;
+
+          // Determina melhor veiculo baseado em todos os itens
+          const melhorVeiculo = determinarMelhorVeiculo(
+            session.veiculo_sugerido,
+            veiculoSugerido
+          );
+
           await updateSession(phoneNumber, {
-            step: "aguardando_destino",
-            descricao_carga: `${analise.item} (${analise.quantidade})`,
-            veiculo_sugerido: veiculoSugerido,
+            step: "aguardando_mais_fotos",
+            descricao_carga: listaItens,
+            veiculo_sugerido: melhorVeiculo,
             foto_url: imageUrl,
           });
 
           await sendMessage({
             to: phoneNumber,
-            message: `📸 Recebi sua foto!\n\nVi que e *${analise.item}* ${emoji}\nTamanho ${analise.tamanho}, cabe em um *${veiculoNome[veiculoSugerido] || "utilitario"}*!\n\nE pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠\n\n(Se eu errei alguma coisa, me corrige que eu ajusto! 😊)`,
+            message: MSG.fotoItemAdicionado(novoItem, emoji, listaItens),
           });
           return NextResponse.json({ status: "ok" });
         }
 
+        // IA falhou mas recebeu foto
+        const itensAnteriores = session.descricao_carga || "";
+        const listaItens = itensAnteriores
+          ? `${itensAnteriores}, Material (foto)`
+          : "Material (foto)";
+
         await updateSession(phoneNumber, {
-          step: "aguardando_destino",
-          descricao_carga: "Material (foto recebida)",
+          step: "aguardando_mais_fotos",
+          descricao_carga: listaItens,
           foto_url: imageUrl,
         });
-        await sendMessage({ to: phoneNumber, message: MSG.fotoSemIA });
+
+        await sendMessage({
+          to: phoneNumber,
+          message: `📸 Recebi a foto! Anotado! ✅\n\nAte agora temos: ${listaItens}\n\nTem mais algum item? Manda outra foto ou digite *PRONTO* pra seguir 😊`,
+        });
         return NextResponse.json({ status: "ok" });
       }
     }
@@ -190,6 +206,10 @@ async function handleClienteMessage(
 
     case "aguardando_foto":
       await handleFoto(phone, message, hasMedia, imageUrl);
+      break;
+
+    case "aguardando_mais_fotos":
+      await handleMaisFotos(phone, message);
       break;
 
     case "aguardando_destino":
@@ -321,6 +341,77 @@ async function handleFoto(
     to: phone,
     message: "Me manda uma foto do material ou descreve o que precisa levar 📸😊",
   });
+}
+
+// STEP 2b: Mais fotos ou PRONTO
+async function handleMaisFotos(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const lower = message.toLowerCase().trim();
+
+  if (lower === "pronto" || lower === "so isso" || lower === "só isso" || lower === "nao" || lower === "não" || lower === "n") {
+    const veiculoNome: Record<string, string> = {
+      utilitario: "Utilitario (Strada/Saveiro)",
+      hr: "HR",
+      caminhao_bau: "Caminhao Bau",
+    };
+
+    const itens = session.descricao_carga || "Material";
+    const veiculo = session.veiculo_sugerido || "utilitario";
+
+    // Formata lista de itens com emoji
+    const itensFormatados = itens.split(", ").map((i) => `📦 ${i}`).join("\n");
+
+    await updateSession(phone, { step: "aguardando_destino" });
+
+    await sendMessage({
+      to: phone,
+      message: MSG.todosItensProntos(
+        itensFormatados,
+        veiculoNome[veiculo] || "Utilitario"
+      ),
+    });
+    return;
+  }
+
+  // Se mandou texto descrevendo mais itens
+  if (message.length > 2) {
+    const itensAnteriores = session.descricao_carga || "";
+    const listaItens = itensAnteriores ? `${itensAnteriores}, ${message}` : message;
+
+    await updateSession(phone, { descricao_carga: listaItens });
+
+    await sendMessage({
+      to: phone,
+      message: `Anotado! ✅\n\nAte agora temos: ${listaItens}\n\nTem mais algum item? Manda outra foto ou digite *PRONTO* pra seguir 😊`,
+    });
+    return;
+  }
+
+  await sendMessage({
+    to: phone,
+    message: "Manda outra foto ou digite *PRONTO* pra seguir 😊",
+  });
+}
+
+// Determina melhor veiculo baseado nos itens (sempre o maior necessario)
+function determinarMelhorVeiculo(
+  veiculoAtual: string | null,
+  veiculoNovo: string
+): string {
+  const hierarquia: Record<string, number> = {
+    utilitario: 1,
+    hr: 2,
+    caminhao_bau: 3,
+  };
+
+  const nivelAtual = hierarquia[veiculoAtual || "utilitario"] || 1;
+  const nivelNovo = hierarquia[veiculoNovo] || 1;
+
+  // Sempre sobe, nunca desce
+  if (nivelNovo > nivelAtual) return veiculoNovo;
+  return veiculoAtual || "utilitario";
 }
 
 // STEP 3: Destino

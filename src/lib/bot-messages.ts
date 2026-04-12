@@ -30,16 +30,31 @@ Pode chamar agora mesmo! 🚗`,
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅
 
-Agora manda foto dos materiais 📸 pode mandar mais de uma! Assim consigo te dizer qual o melhor veiculo e quantos ajudantes vai precisar.
+Agora manda foto dos materiais 📸 pode ir mandando uma por uma, sem pressa!
 
 Ou se preferir, descreve o que precisa transportar 😊`,
 
   enderecoRecebido: (endereco: string) =>
     `Anotado! Coleta em: ${endereco} ✅
 
-Agora manda foto dos materiais 📸 pode mandar mais de uma! Assim consigo te dizer qual o melhor veiculo e quantos ajudantes vai precisar.
+Agora manda foto dos materiais 📸 pode ir mandando uma por uma, sem pressa!
 
 Ou se preferir, descreve o que precisa transportar 😊`,
+
+  fotoItemAdicionado: (item: string, emoji: string, listaItens: string) =>
+    `Vi! *${item}* ${emoji} Anotado! ✅
+
+Ate agora temos: ${listaItens}
+
+Tem mais algum item? Manda outra foto ou digite *PRONTO* pra seguir 😊`,
+
+  todosItensProntos: (listaItens: string, veiculo: string) =>
+    `Beleza! Seus itens:
+${listaItens}
+
+🚚 Veiculo sugerido: *${veiculo}*
+
+E pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠`,
 
   fotoRecebida: (item: string) =>
     `Aah entendi! Vi que e ${item}! 📦

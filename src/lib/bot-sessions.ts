@@ -6,6 +6,7 @@ export type BotStep =
   | "aguardando_servico"
   | "aguardando_localizacao"
   | "aguardando_foto"
+  | "aguardando_mais_fotos"
   | "aguardando_destino"
   | "aguardando_tipo_local"
   | "aguardando_andar"

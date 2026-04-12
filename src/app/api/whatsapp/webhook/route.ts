@@ -82,10 +82,11 @@ export async function POST(req: NextRequest) {
 
     const phoneNumber = from.replace("@s.whatsapp.net", "");
 
-    // Foto com IA - processa direto (primeira foto ou fotos adicionais)
+    // Foto com IA - processa direto (aceita fotos em varios steps pra nao perder nenhuma)
     if (hasMedia && imageUrl) {
       const session = await getSession(phoneNumber);
-      if (session && (session.step === "aguardando_foto" || session.step === "aguardando_mais_fotos")) {
+      const stepsAceitamFoto = ["aguardando_foto", "aguardando_mais_fotos", "aguardando_destino"];
+      if (session && stepsAceitamFoto.includes(session.step)) {
         const analise = await analisarFotoIA(imageUrl);
 
         if (analise) {
@@ -106,24 +107,37 @@ export async function POST(req: NextRequest) {
             veiculoSugerido
           );
 
+          // Re-busca sessao pra pegar descricao atualizada (evita race condition)
+          const sessaoAtual = await getSession(phoneNumber);
+          const itensAtuais = sessaoAtual?.descricao_carga || "";
+          const listaFinal = itensAtuais
+            ? `${itensAtuais}, ${novoItem}`
+            : novoItem;
+
+          const melhorVeiculoFinal = determinarMelhorVeiculo(
+            sessaoAtual?.veiculo_sugerido || null,
+            veiculoSugerido
+          );
+
           await updateSession(phoneNumber, {
             step: "aguardando_mais_fotos",
-            descricao_carga: listaItens,
-            veiculo_sugerido: melhorVeiculo,
+            descricao_carga: listaFinal,
+            veiculo_sugerido: melhorVeiculoFinal,
             foto_url: imageUrl,
           });
 
           await sendMessage({
             to: phoneNumber,
-            message: MSG.fotoItemAdicionado(novoItem, emoji, listaItens),
+            message: MSG.fotoItemAdicionado(novoItem, emoji, listaFinal),
           });
           return NextResponse.json({ status: "ok" });
         }
 
         // IA falhou mas recebeu foto
-        const itensAnteriores = session.descricao_carga || "";
-        const listaItens = itensAnteriores
-          ? `${itensAnteriores}, Material (foto)`
+        const sessaoAtual = await getSession(phoneNumber);
+        const itensAtuais = sessaoAtual?.descricao_carga || "";
+        const listaItens = itensAtuais
+          ? `${itensAtuais}, Material (foto)`
           : "Material (foto)";
 
         await updateSession(phoneNumber, {

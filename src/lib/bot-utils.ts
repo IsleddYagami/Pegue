@@ -67,12 +67,23 @@ export async function buscaCep(cep: string): Promise<string | null> {
 }
 
 // Geocode endereco para coordenadas via Nominatim
+// Adiciona "São Paulo" ao endereco se nao tiver contexto de estado/cidade
 export async function geocodeAddress(
   address: string
 ): Promise<{ lat: number; lng: number } | null> {
   try {
+    // Se o endereco nao menciona cidade/estado, adiciona Sao Paulo
+    const lower = address.toLowerCase();
+    const temContexto = lower.includes("sp") || lower.includes("são paulo") ||
+      lower.includes("sao paulo") || lower.includes("santos") ||
+      lower.includes("guarulhos") || lower.includes("campinas") ||
+      lower.includes("osasco") || lower.includes("rio de janeiro") ||
+      lower.includes("rj") || lower.includes("/");
+
+    const searchAddress = temContexto ? address : `${address}, São Paulo, SP`;
+
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=br`,
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchAddress)}&format=json&limit=1&countrycodes=br`,
       {
         headers: {
           "User-Agent": "Pegue-Bot/1.0",

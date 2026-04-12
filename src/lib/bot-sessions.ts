@@ -175,6 +175,14 @@ export function resolveDispatch(corridaId: string): string | null {
 
   if (dispatch.respostas.size === 0) return null;
 
+  // Se so tem 1 prestador, aceita direto sem esperar janela
+  if (dispatch.prestadores.length === 1 && dispatch.respostas.size === 1) {
+    const [phone] = dispatch.respostas.keys();
+    dispatch.vencedorPhone = phone;
+    dispatch.finalizado = true;
+    return phone;
+  }
+
   if (dentroJanela && dispatch.respostas.size > 1) {
     let menorValor = Infinity;
     let vencedor = "";

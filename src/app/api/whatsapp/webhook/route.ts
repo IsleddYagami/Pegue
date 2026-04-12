@@ -82,9 +82,37 @@ export async function POST(req: NextRequest) {
 
     const phoneNumber = from.replace("@s.whatsapp.net", "");
 
-    // Foto com IA - processa direto (aceita fotos em varios steps pra nao perder nenhuma)
+    // Foto - processa de acordo com o step
     if (hasMedia && imageUrl) {
       const session = await getSession(phoneNumber);
+
+      // Cadastro prestador - selfie com documento
+      if (session && session.step === "cadastro_selfie") {
+        await updateSession(phoneNumber, { step: "cadastro_foto_veiculo", foto_url: imageUrl });
+        await sendMessage({ to: phoneNumber, message: `Selfie recebida! ✅\n\n${MSG.cadastroFotoVeiculo}` });
+        return NextResponse.json({ status: "ok" });
+      }
+
+      // Cadastro prestador - foto do veiculo
+      if (session && session.step === "cadastro_foto_veiculo") {
+        await updateSession(phoneNumber, { step: "cadastro_placa" });
+        // TODO: salvar foto veiculo no storage
+        await sendMessage({ to: phoneNumber, message: `Foto do veiculo recebida! ✅\n\n${MSG.cadastroPlaca}` });
+        return NextResponse.json({ status: "ok" });
+      }
+
+      // Fotos coleta/entrega do fretista
+      if (session && (session.step === "fretista_coleta_fotos" || session.step === "fretista_entrega_fotos")) {
+        // Conta fotos (usa descricao_carga como contador temporario)
+        const contadorAtual = parseInt(session.descricao_carga || "0") || 0;
+        const novoContador = contadorAtual + 1;
+        await updateSession(phoneNumber, { descricao_carga: novoContador.toString() });
+        // TODO: salvar foto no storage vinculada a corrida
+        await sendMessage({ to: phoneNumber, message: MSG.fretistaFotoRecebida(novoContador) });
+        return NextResponse.json({ status: "ok" });
+      }
+
+      // Foto do cliente - IA Vision
       const stepsAceitamFoto = ["aguardando_foto", "aguardando_mais_fotos", "aguardando_destino"];
       if (session && stepsAceitamFoto.includes(session.step)) {
         const analise = await analisarFotoIA(imageUrl);
@@ -199,6 +227,15 @@ async function handleClienteMessage(
     return;
   }
 
+  // Detecta "estou com a pegue" - inicia cadastro de prestador
+  const lower = message.toLowerCase().trim();
+  if (lower.includes("estou com a pegue")) {
+    await createSession(phone);
+    await updateSession(phone, { step: "cadastro_nome" });
+    await sendMessage({ to: phone, message: MSG.cadastroInicio });
+    return;
+  }
+
   let session = await getSession(phone);
 
   // Nova conversa ou saudacao
@@ -255,6 +292,39 @@ async function handleClienteMessage(
         to: phone,
         message: "Estamos reservando a agenda! 😊 Ja ja te retornamos com a confirmacao!",
       });
+      break;
+
+    // === CADASTRO PRESTADOR ===
+    case "cadastro_nome":
+      await handleCadastroNome(phone, message);
+      break;
+    case "cadastro_cpf":
+      await handleCadastroCpf(phone, message);
+      break;
+    case "cadastro_selfie":
+      // Selfie processada no handler de foto no topo do POST
+      await sendMessage({ to: phone, message: MSG.cadastroSelfie });
+      break;
+    case "cadastro_foto_veiculo":
+      // Foto veiculo processada no handler de foto no topo do POST
+      await sendMessage({ to: phone, message: MSG.cadastroFotoVeiculo });
+      break;
+    case "cadastro_placa":
+      await handleCadastroPlaca(phone, message);
+      break;
+    case "cadastro_tipo_veiculo":
+      await handleCadastroTipoVeiculo(phone, message);
+      break;
+    case "cadastro_aguardando_aprovacao":
+      await sendMessage({ to: phone, message: "Seu cadastro esta em analise! 😊 Te avisamos assim que for aprovado!" });
+      break;
+
+    // === FOTOS COLETA/ENTREGA ===
+    case "fretista_coleta_fotos":
+      await handleFretistFotos(phone, message, "coleta");
+      break;
+    case "fretista_entrega_fotos":
+      await handleFretistFotos(phone, message, "entrega");
       break;
 
     case "aguardando_pagamento":
@@ -373,6 +443,7 @@ async function handleMaisFotos(phone: string, message: string) {
 
   if (lower === "pronto" || lower === "so isso" || lower === "só isso" || lower === "nao" || lower === "não" || lower === "n") {
     const veiculoNome: Record<string, string> = {
+      carro_comum: "Carro Comum",
       utilitario: "Utilitario (Strada/Saveiro)",
       hr: "HR",
       caminhao_bau: "Caminhao Bau",
@@ -757,6 +828,133 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
   }
 }
 
+// === CADASTRO PRESTADOR ===
+
+async function handleCadastroNome(phone: string, message: string) {
+  if (message.length < 3) {
+    await sendMessage({ to: phone, message: "Me passa seu nome completo, por favor 😊" });
+    return;
+  }
+  // Salva nome temporariamente no campo origem_endereco
+  await updateSession(phone, { step: "cadastro_cpf", origem_endereco: message });
+  await sendMessage({ to: phone, message: MSG.cadastroCpf });
+}
+
+async function handleCadastroCpf(phone: string, message: string) {
+  const cpf = message.replace(/\D/g, "");
+  if (cpf.length !== 11) {
+    await sendMessage({ to: phone, message: "CPF precisa ter 11 digitos. Tenta de novo 😊" });
+    return;
+  }
+  // Salva CPF temporariamente no campo destino_endereco
+  await updateSession(phone, { step: "cadastro_selfie", destino_endereco: cpf });
+  await sendMessage({ to: phone, message: MSG.cadastroSelfie });
+}
+
+async function handleCadastroPlaca(phone: string, message: string) {
+  if (message.length < 5) {
+    await sendMessage({ to: phone, message: "Me passa a placa do veiculo, por favor 😊" });
+    return;
+  }
+  await updateSession(phone, { step: "cadastro_tipo_veiculo", periodo: message.toUpperCase() });
+  await sendMessage({ to: phone, message: MSG.cadastroTipoVeiculo });
+}
+
+async function handleCadastroTipoVeiculo(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const lower = message.toLowerCase().trim();
+  let tipoVeiculo = "";
+
+  if (lower === "1" || lower.includes("comum") || lower.includes("kicks") || lower.includes("livina")) {
+    tipoVeiculo = "carro_comum";
+  } else if (lower === "2" || lower.includes("utilitario") || lower.includes("strada") || lower.includes("saveiro")) {
+    tipoVeiculo = "utilitario";
+  } else if (lower === "3" || lower.includes("hr")) {
+    tipoVeiculo = "hr";
+  } else if (lower === "4" || lower.includes("caminhao") || lower.includes("bau")) {
+    tipoVeiculo = "caminhao_bau";
+  } else {
+    await sendMessage({ to: phone, message: "Escolhe o tipo do veiculo:\n\n1️⃣ Carro comum\n2️⃣ Utilitario\n3️⃣ HR\n4️⃣ Caminhao Bau" });
+    return;
+  }
+
+  // Salva prestador no Supabase
+  const nome = session.origem_endereco || "Prestador";
+  const cpf = session.destino_endereco || "";
+  const placa = session.periodo || "";
+  const selfieUrl = session.foto_url || "";
+
+  const { error } = await supabase.from("prestadores").insert({
+    telefone: phone,
+    nome,
+    cpf,
+    status: "pendente",
+    score: 5.0,
+    total_corridas: 0,
+    total_reclamacoes: 0,
+    disponivel: false,
+    termos_aceitos: true,
+  });
+
+  if (error && error.code === "23505") {
+    // Ja existe
+    await sendMessage({ to: phone, message: "Voce ja tem cadastro na Pegue! 😊 Em breve recebera indicacoes!" });
+  } else {
+    // Salva veiculo
+    const { data: prestador } = await supabase
+      .from("prestadores")
+      .select("id")
+      .eq("telefone", phone)
+      .single();
+
+    if (prestador) {
+      await supabase.from("prestadores_veiculos").insert({
+        prestador_id: prestador.id,
+        tipo: tipoVeiculo,
+        placa,
+        foto_url: selfieUrl,
+        ativo: true,
+      });
+    }
+
+    await sendMessage({ to: phone, message: MSG.cadastroConcluido });
+
+    // Notifica Santos
+    await sendMessage({
+      to: FABIO_PHONE,
+      message: `🆕 *Novo prestador pra aprovar!*\n\n👤 ${nome}\n📱 ${formatarTelefoneExibicao(phone)}\n🚗 ${tipoVeiculo}\n🪪 Placa: ${placa}\n\nAcesse o painel pra aprovar!`,
+    });
+  }
+
+  await updateSession(phone, { step: "cadastro_aguardando_aprovacao" });
+}
+
+// === FOTOS COLETA/ENTREGA FRETISTA ===
+
+async function handleFretistFotos(phone: string, message: string, tipo: "coleta" | "entrega") {
+  const lower = message.toLowerCase().trim();
+
+  if (lower === "pronto") {
+    if (tipo === "coleta") {
+      await updateSession(phone, { step: "concluido" });
+      await sendMessage({ to: phone, message: MSG.fretistaColetaConfirmada });
+    } else {
+      await updateSession(phone, { step: "concluido" });
+      await sendMessage({ to: phone, message: MSG.fretistaEntregaConfirmada });
+    }
+    return;
+  }
+
+  await sendMessage({
+    to: phone,
+    message: `Manda as fotos ou digite *PRONTO* quando terminar 📸`,
+  });
+}
+
+// === DISPATCH ===
+
 async function handlePrestadorResponse(prestadorPhone: string, message: string, corridaId: string) {
   const lower = message.toLowerCase().trim();
 
@@ -932,6 +1130,7 @@ Analise a foto e retorne APENAS um JSON:
   "observacao": "frase curta (max 15 palavras)"
 }
 Veiculos disponiveis:
+- carro_comum: Kicks/Livina/Renegade (porta-malas) - itens muito pequenos (caixas, malas, pacotes)
 - utilitario: Strada/Saveiro (cacamba 1.2m x 1.5m) - itens pequenos e medios ate 1 item grande
 - hr: Hyundai HR (1.7m x 2.8m) - 1-3 itens grandes (geladeira+fogao+cama)
 - caminhao_bau: (2.5m x 3.5m) - mudanca completa, muitos itens grandes

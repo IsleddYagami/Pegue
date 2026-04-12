@@ -208,6 +208,76 @@ Mas voce pode falar direto com o *Santos*, nosso especialista:
 
 Ou se preferir, o bot continua te atendendo 24h! 🚚`,
 
+  // === CADASTRO DE PRESTADOR ===
+
+  cadastroInicio: `Que bom ter voce com a Pegue! 🚚✨
+
+Vou te guiar no cadastro. E bem rapido!
+
+Primeiro, qual seu *nome completo*?`,
+
+  cadastroCpf: `Agora me passa seu *CPF* (somente numeros)`,
+
+  cadastroSelfie: `Agora preciso de uma *selfie sua segurando seu RG ou CNH* 📸
+
+Isso e pra sua seguranca e dos nossos clientes!`,
+
+  cadastroFotoVeiculo: `Manda uma *foto do seu veiculo* 🚗`,
+
+  cadastroPlaca: `Qual a *placa* do veiculo?`,
+
+  cadastroTipoVeiculo: `Qual o tipo do seu veiculo?
+
+1️⃣ *Carro comum* (Kicks, Livina, Renegade, Nivus, etc)
+2️⃣ *Utilitario* (Strada, Saveiro, Courier)
+3️⃣ *HR* (Hyundai HR)
+4️⃣ *Caminhao Bau*`,
+
+  cadastroConcluido: `Cadastro recebido! ✅🎉
+
+Nosso time vai analisar seus dados e em breve voce comeca a receber indicacoes de fretes!
+
+Fique atento ao WhatsApp 📱
+
+Bem-vindo a Pegue! 🚚✨`,
+
+  // === FLUXO DE FOTOS COLETA/ENTREGA ===
+
+  fretistaPedirFotosColeta: `📸 *Hora de registrar a coleta!*
+
+Manda foto de TODOS os materiais antes de carregar.
+Pode mandar uma por uma.
+
+Quando terminar, digite *PRONTO*
+
+⚠️ Sem fotos de coleta = pagamento bloqueado`,
+
+  fretistaPedirFotosEntrega: `📸 *Hora de registrar a entrega!*
+
+Manda foto de TODOS os materiais entregues.
+Pode mandar uma por uma.
+
+Quando terminar, digite *PRONTO*
+
+⚠️ Sem fotos de entrega = pagamento bloqueado`,
+
+  fretistaFotoRecebida: (total: number) =>
+    `Foto ${total} recebida! ✅ Tem mais? Manda outra ou digite *PRONTO*`,
+
+  fretistaColetaConfirmada: `Fotos de coleta registradas! ✅
+
+Agora e so fazer a entrega com cuidado!
+Quando chegar no destino, vou pedir as fotos de entrega 📸
+
+Bom trabalho! 🚚`,
+
+  fretistaEntregaConfirmada: `Fotos de entrega registradas! ✅🎉
+
+Entrega concluida com sucesso!
+Seu pagamento sera liberado em breve 💰
+
+Obrigado pelo excelente trabalho! 🚚✨`,
+
   // Erros e fallbacks
   naoEntendi: `Desculpa, nao entendi 😅
 Me conta o que voce precisa que eu te ajudo!

@@ -135,6 +135,7 @@ function calcularPrecoBaseUtilitario(km: number): number {
 
 // Multiplicadores por veiculo sobre o preco base do utilitario
 const MULT_VEICULO: Record<string, number> = {
+  carro_comum: 0.85,  // 15% a menos que utilitario
   utilitario: 1.0,
   hr: 1.3,
   caminhao_bau: 1.75,
@@ -142,6 +143,7 @@ const MULT_VEICULO: Record<string, number> = {
 
 // Minimos por veiculo (sem ajudante, terreo)
 const MIN_VEICULO: Record<string, number> = {
+  carro_comum: 120,
   utilitario: 150,
   hr: 220,
   caminhao_bau: 500,

@@ -25,6 +25,7 @@ export type BotStep =
   | "cadastro_aguardando_aprovacao"
   | "fretista_coleta_fotos"
   | "fretista_entrega_fotos"
+  | "aguardando_confirmacao_entrega"
   | "aguardando_confirmacao"
   | "aguardando_pagamento"
   | "dispatch_fretistas"

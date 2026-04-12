@@ -189,7 +189,7 @@ Este serviço já está reservado pra você!
 
 A confirmação chegará logo após o pagamento do cliente. Fique atento! 📱
 
-💰 Seu pagamento será liberado após a confirmação de entrega.`,
+💰 Seu pagamento será liberado assim que o cliente confirmar o recebimento.`,
 
   freteJaPego: `Esse frete já foi pego! 😉
 Fica de olho que sempre tem novos aparecendo! 🚚`,
@@ -264,8 +264,8 @@ A Pegue é uma plataforma de intermediação de serviços de frete e transporte.
 
 *5. PAGAMENTO*
 - Você recebe *88%* do valor do frete
-- O pagamento é liberado *após confirmação de entrega* com fotos
-- Pagamentos são processados no mesmo dia útil
+- O pagamento é liberado *após o cliente confirmar o recebimento* dos materiais
+- Quanto mais rápido a entrega for confirmada, mais rápido você recebe
 
 *6. CANCELAMENTOS*
 - Cancelar um serviço já aceito *afeta seu score* na plataforma
@@ -334,12 +334,54 @@ Quando chegar no destino, vou pedir as fotos de entrega 📸
 
 Bom trabalho! 🚚`,
 
-  fretistaEntregaConfirmada: `Fotos de entrega registradas! ✅🎉
+  fretistaEntregaConfirmada: `Fotos de entrega registradas! ✅
 
-Entrega concluída com sucesso!
-Seu pagamento será liberado em breve 💰
+Aguardando confirmação do cliente para liberar seu pagamento 💰
+Assim que o cliente confirmar, você será notificado!`,
+
+  clienteConfirmarEntrega: (carga: string) =>
+    `Seu frete foi entregue! 📦✅
+
+Material: *${carga}*
+
+⚠️ *Antes de confirmar, verifique com atenção:*
+- Todos os itens foram entregues?
+- Algum item chegou com dano ou avaria?
+- Está tudo conforme o combinado?
+
+Após sua confirmação, o pagamento do fretista será liberado.
+
+Está tudo certo com a entrega? 😊
+
+1️⃣ *SIM* - Tudo OK, pode liberar o pagamento
+2️⃣ *NÃO* - Tive algum problema`,
+
+  clienteConfirmouEntrega: `Entrega confirmada! ✅🎉
+
+Obrigado por confiar no Pegue!
+Relaxa. A gente leva. 🚚✨
+
+Qualquer dúvida, é só chamar!`,
+
+  clienteReclamouEntrega: `Sentimos muito pelo problema 😔
+
+Nosso especialista *Santos* vai entrar em contato pra resolver:
+📱 (11) 97142-9605
+
+Vamos cuidar disso pra você!`,
+
+  fretistaPagamentoLiberado: `Pagamento liberado! ✅💰
+
+O cliente confirmou a entrega. Seu pagamento será processado!
 
 Obrigado pelo excelente trabalho! 🚚✨`,
+
+  fretistaProblemaNaEntrega: `⚠️ O cliente reportou um problema na entrega.
+
+Nosso especialista *Santos* vai entrar em contato:
+📱 (11) 97142-9605
+
+Pagamento fica retido até resolução.`,
 
   // Erros e fallbacks
   naoEntendi: `Desculpa, não entendi 😅

@@ -339,10 +339,14 @@ async function handleClienteMessage(
       await handleFretistFotos(phone, message, "entrega");
       break;
 
+    case "aguardando_confirmacao_entrega":
+      await handleConfirmacaoEntrega(phone, message);
+      break;
+
     case "aguardando_pagamento":
       await sendMessage({
         to: phone,
-        message: "Seu frete ja ta confirmado! 😊 Assim que o pagamento for identificado, te aviso aqui!",
+        message: "Seu frete já tá confirmado! 😊 Assim que o pagamento for identificado, te aviso aqui!",
       });
       break;
 
@@ -963,6 +967,65 @@ async function handleCadastroTermos(phone: string, message: string) {
 
 // === FOTOS COLETA/ENTREGA FRETISTA ===
 
+// === CONFIRMAÇÃO DE ENTREGA PELO CLIENTE ===
+
+async function handleConfirmacaoEntrega(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session || !session.corrida_id) return;
+
+  const lower = message.toLowerCase().trim();
+
+  if (lower === "1" || lower.startsWith("sim") || lower === "s") {
+    await updateSession(phone, { step: "concluido" });
+    await sendMessage({ to: phone, message: MSG.clienteConfirmouEntrega });
+
+    await supabase
+      .from("corridas")
+      .update({ status: "concluida", entrega_em: new Date().toISOString() })
+      .eq("id", session.corrida_id);
+
+    const { data: corrida } = await supabase
+      .from("corridas")
+      .select("prestador_id, prestadores(telefone)")
+      .eq("id", session.corrida_id)
+      .single();
+
+    if (corrida?.prestadores) {
+      const fretistaTel = (corrida.prestadores as any).telefone;
+      await sendMessage({ to: fretistaTel, message: MSG.fretistaPagamentoLiberado });
+    }
+  } else if (lower === "2" || lower.startsWith("nao") || lower.startsWith("não") || lower === "n") {
+    await updateSession(phone, { step: "concluido" });
+    await sendMessage({ to: phone, message: MSG.clienteReclamouEntrega });
+
+    const { data: corrida } = await supabase
+      .from("corridas")
+      .select("prestador_id, prestadores(telefone)")
+      .eq("id", session.corrida_id)
+      .single();
+
+    if (corrida?.prestadores) {
+      const fretistaTel = (corrida.prestadores as any).telefone;
+      await sendMessage({ to: fretistaTel, message: MSG.fretistaProblemaNaEntrega });
+    }
+
+    await sendMessage({
+      to: FABIO_PHONE,
+      message: `⚠️ *Problema na entrega!*\n\nCliente: ${formatarTelefoneExibicao(phone)}\nCorrida: ${session.corrida_id}\n\nVerifique e resolva!`,
+    });
+
+    await supabase
+      .from("corridas")
+      .update({ status: "problema" })
+      .eq("id", session.corrida_id);
+  } else {
+    await sendMessage({
+      to: phone,
+      message: "Está tudo certo com a entrega? 😊\n\n1️⃣ *SIM* - Tudo OK\n2️⃣ *NÃO* - Tive algum problema",
+    });
+  }
+}
+
 async function handleFretistFotos(phone: string, message: string, tipo: "coleta" | "entrega") {
   const lower = message.toLowerCase().trim();
 
@@ -971,8 +1034,29 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
       await updateSession(phone, { step: "concluido" });
       await sendMessage({ to: phone, message: MSG.fretistaColetaConfirmada });
     } else {
+      // Entrega concluída - notifica fretista e pede confirmação do cliente
       await updateSession(phone, { step: "concluido" });
       await sendMessage({ to: phone, message: MSG.fretistaEntregaConfirmada });
+
+      // Busca corrida pra encontrar o cliente
+      const session = await getSession(phone);
+      if (session?.corrida_id) {
+        const { data: corrida } = await supabase
+          .from("corridas")
+          .select("cliente_id, descricao_carga, clientes(telefone)")
+          .eq("id", session.corrida_id)
+          .single();
+
+        if (corrida?.clientes) {
+          const clienteTel = (corrida.clientes as any).telefone;
+          // Muda sessão do cliente pra aguardar confirmação
+          await updateSession(clienteTel, { step: "aguardando_confirmacao_entrega" });
+          await sendMessage({
+            to: clienteTel,
+            message: MSG.clienteConfirmarEntrega(corrida.descricao_carga || "seus materiais"),
+          });
+        }
+      }
     }
     return;
   }

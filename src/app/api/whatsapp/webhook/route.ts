@@ -802,7 +802,7 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
     }
 
     const telefones = prestadores.map((p) => p.telefone);
-    const valorPrestador = Math.round((session.valor_estimado || 0) * 0.8);
+    const valorPrestador = Math.round((session.valor_estimado || 0) * 0.88);
 
     createDispatch(corridaId, clientePhone, telefones);
 
@@ -1113,8 +1113,8 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
         plano: "padrao",
         valor_estimado: session.valor_estimado,
         valor_final: session.valor_estimado,
-        valor_prestador: Math.round((session.valor_estimado || 0) * 0.8),
-        valor_pegue: Math.round((session.valor_estimado || 0) * 0.2),
+        valor_prestador: Math.round((session.valor_estimado || 0) * 0.88),
+        valor_pegue: Math.round((session.valor_estimado || 0) * 0.12),
         // data_agendada salva como texto no campo periodo (data_agendada e tipo date no banco)
         periodo: session.data_agendada,
         status: "pendente",

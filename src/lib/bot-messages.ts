@@ -259,11 +259,11 @@ A Pegue e uma plataforma de intermediacao de servicos de frete e transporte. Nao
 
 *4. RESPONSABILIDADE POR DANOS*
 - O prestador e *responsavel* por qualquer dano, avaria ou extravio de materiais durante o transporte
-- Em caso de dano comprovado, o valor sera descontado do seu pagamento
+- Em caso de dano comprovado, o valor sera descontado dos seus recebiveis
 - Transporte com cuidado! Proteja os materiais adequadamente
 
 *5. PAGAMENTO*
-- Voce recebe *80%* do valor do frete
+- Voce recebe *88%* do valor do frete
 - O pagamento e liberado *apos confirmacao de entrega* com fotos
 - Pagamentos sao processados em ate 3 dias uteis
 

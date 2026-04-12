@@ -169,7 +169,7 @@ export default function ParceiroPage() {
             {[
               {
                 icon: <DollarSign className="h-8 w-8" />,
-                title: "Voce recebe 80%",
+                title: "Voce recebe 88%",
                 desc: "A maior parte do valor do frete vai direto pra voce. Sem surpresas, sem taxas escondidas.",
               },
               {

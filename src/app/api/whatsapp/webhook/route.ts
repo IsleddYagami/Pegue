@@ -749,17 +749,17 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
 }
 
 async function handlePrestadorResponse(prestadorPhone: string, message: string, corridaId: string) {
-  const { aceite, valor } = extrairRespostaPrestador(message);
+  const lower = message.toLowerCase().trim();
 
-  if (!aceite) {
+  if (!lower.startsWith("sim") && lower !== "s") {
     await sendMessage({
       to: prestadorPhone,
-      message: "Pra aceitar o frete, responda *SIM* seguido do seu valor.\nExemplo: *SIM 200*",
+      message: "Pra aceitar o frete, responda *SIM*",
     });
     return;
   }
 
-  addDispatchResponse(corridaId, prestadorPhone, valor || 9999);
+  addDispatchResponse(corridaId, prestadorPhone, 0);
   const vencedor = resolveDispatch(corridaId);
 
   if (vencedor) {

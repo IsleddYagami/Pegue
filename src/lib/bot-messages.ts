@@ -185,8 +185,7 @@ Relaxa. A gente leva. 🚚✨`,
 📅 ${data}
 💰 Voce recebe: R$ ${valorPrestador}
 
-Quer pegar? Responda *SIM* e seu valor
-Exemplo: *SIM 200*`,
+Quer pegar? Responda *SIM*`,
 
   freteAceito: `Voce ganhou o frete! ✅🎉
 Aguarde a confirmacao do pagamento do cliente.

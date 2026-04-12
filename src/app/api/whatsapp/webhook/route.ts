@@ -343,6 +343,19 @@ async function handleClienteMessage(
       await handleConfirmacaoEntrega(phone, message);
       break;
 
+    case "avaliacao_atendimento":
+      await handleAvaliacao(phone, message, "atendimento");
+      break;
+    case "avaliacao_praticidade":
+      await handleAvaliacao(phone, message, "praticidade");
+      break;
+    case "avaliacao_fretista":
+      await handleAvaliacao(phone, message, "fretista");
+      break;
+    case "avaliacao_sugestao":
+      await handleAvaliacaoSugestao(phone, message);
+      break;
+
     case "aguardando_pagamento":
       await sendMessage({
         to: phone,
@@ -967,6 +980,65 @@ async function handleCadastroTermos(phone: string, message: string) {
 
 // === FOTOS COLETA/ENTREGA FRETISTA ===
 
+// === AVALIAÇÃO DO CLIENTE ===
+
+async function handleAvaliacao(phone: string, message: string, tipo: "atendimento" | "praticidade" | "fretista") {
+  const nota = parseInt(message.trim());
+
+  if (isNaN(nota) || nota < 1 || nota > 5) {
+    await sendMessage({
+      to: phone,
+      message: "Me manda uma nota de *1 a 5* 😊\n(1 = péssimo, 5 = excelente)",
+    });
+    return;
+  }
+
+  const session = await getSession(phone);
+
+  // Salva nota no Supabase (usa bot_logs por enquanto)
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "avaliacao",
+      categoria: tipo,
+      nota,
+      phone,
+      corrida_id: session?.corrida_id,
+    },
+  });
+
+  if (tipo === "atendimento") {
+    await updateSession(phone, { step: "avaliacao_praticidade" });
+    await sendMessage({ to: phone, message: MSG.clientePedirNotaPraticidade });
+  } else if (tipo === "praticidade") {
+    await updateSession(phone, { step: "avaliacao_fretista" });
+    await sendMessage({ to: phone, message: MSG.clientePedirNotaFretista });
+  } else if (tipo === "fretista") {
+    await updateSession(phone, { step: "avaliacao_sugestao" });
+    await sendMessage({ to: phone, message: MSG.clientePedirSugestao });
+  }
+}
+
+async function handleAvaliacaoSugestao(phone: string, message: string) {
+  const session = await getSession(phone);
+  const lower = message.toLowerCase().trim();
+
+  if (lower !== "pular") {
+    // Salva sugestão
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "avaliacao",
+        categoria: "sugestao",
+        texto: message,
+        phone,
+        corrida_id: session?.corrida_id,
+      },
+    });
+  }
+
+  await updateSession(phone, { step: "concluido" });
+  await sendMessage({ to: phone, message: MSG.clienteAvaliacaoConcluida });
+}
+
 // === CONFIRMAÇÃO DE ENTREGA PELO CLIENTE ===
 
 async function handleConfirmacaoEntrega(phone: string, message: string) {
@@ -976,7 +1048,7 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
 
   if (lower === "1" || lower.startsWith("sim") || lower === "s") {
-    await updateSession(phone, { step: "concluido" });
+    await updateSession(phone, { step: "avaliacao_atendimento" });
     await sendMessage({ to: phone, message: MSG.clienteConfirmouEntrega });
 
     await supabase

@@ -358,9 +358,25 @@ Está tudo certo com a entrega? 😊
 
   clienteConfirmouEntrega: `Entrega confirmada! ✅🎉
 
-Obrigado por confiar no Pegue!
-Relaxa. A gente leva. 🚚✨
+Pra gente continuar melhorando, me ajuda com uma avaliação rápida? 😊
 
+De 1 a 5, como foi o *atendimento geral*?
+(1 = péssimo, 5 = excelente)`,
+
+  clientePedirNotaPraticidade: `E de 1 a 5, como foi a *praticidade* do serviço?
+(facilidade de solicitar, rapidez, comunicação)`,
+
+  clientePedirNotaFretista: `De 1 a 5, o *fretista foi prestativo*?
+(educação, cuidado com os materiais, pontualidade)`,
+
+  clientePedirSugestao: `Tem alguma *sugestão* pra gente melhorar? 😊
+Pode falar à vontade! Ou digite *PULAR* se preferir.`,
+
+  clienteAvaliacaoConcluida: `Obrigado pela avaliação! 🙏
+
+Sua opinião é muito importante pra gente!
+
+Relaxa. A gente leva. 🚚✨
 Qualquer dúvida, é só chamar!`,
 
   clienteReclamouEntrega: `Sentimos muito pelo problema 😔

@@ -30,16 +30,12 @@ Pode chamar agora mesmo! 🚗`,
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅
 
-Agora manda foto dos materiais 📸 pode ir mandando uma por uma, sem pressa!
-
-Ou se preferir, descreve o que precisa transportar 😊`,
+Pra ser mais rapido e facil, manda foto do material que precisa 📸`,
 
   enderecoRecebido: (endereco: string) =>
     `Anotado! Coleta em: ${endereco} ✅
 
-Agora manda foto dos materiais 📸 pode ir mandando uma por uma, sem pressa!
-
-Ou se preferir, descreve o que precisa transportar 😊`,
+Pra ser mais rapido e facil, manda foto do material que precisa 📸`,
 
   fotoItemAdicionado: (item: string, emoji: string, listaItens: string) =>
     `Vi! *${item}* ${emoji} Anotado! ✅

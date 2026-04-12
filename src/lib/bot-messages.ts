@@ -30,14 +30,14 @@ Pode chamar agora mesmo! 🚗`,
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅
 
-Agora manda uma foto do material 📸 assim consigo te dizer qual o melhor veiculo e quantos ajudantes vai precisar!
+Agora manda foto dos materiais 📸 pode mandar mais de uma! Assim consigo te dizer qual o melhor veiculo e quantos ajudantes vai precisar.
 
 Ou se preferir, descreve o que precisa transportar 😊`,
 
   enderecoRecebido: (endereco: string) =>
     `Anotado! Coleta em: ${endereco} ✅
 
-Agora manda uma foto do material 📸 assim consigo te dizer qual o melhor veiculo e quantos ajudantes vai precisar!
+Agora manda foto dos materiais 📸 pode mandar mais de uma! Assim consigo te dizer qual o melhor veiculo e quantos ajudantes vai precisar.
 
 Ou se preferir, descreve o que precisa transportar 😊`,
 

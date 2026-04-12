@@ -237,7 +237,7 @@ async function handleClienteMessage(
 
   // Detecta interesse em ser prestador
   const lower = message.toLowerCase().trim();
-  if (lower.includes("quero ser parceiro") || lower.includes("ser parceiro") || lower.includes("estou com a pegue") || lower.includes("cadastro prestador")) {
+  if (lower.includes("parcerias pegue") || lower.includes("parceria pegue") || lower.includes("quero ser parceiro") || lower.includes("ser parceiro") || lower.includes("cadastro prestador")) {
     await createSession(phone);
     await updateSession(phone, { step: "cadastro_nome" });
     await sendMessage({ to: phone, message: MSG.cadastroInicio });

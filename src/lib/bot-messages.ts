@@ -135,9 +135,8 @@ Responda *SIM* pra confirmar ou *NAO* pra ajustar algo.`,
   freteRecebido: `Seu frete foi recebido! 😊
 Estamos reservando a agenda!`,
 
-  freteConfirmadoComPrestador: (nomePrestador: string, telPrestador: string, linkPagamento: string) =>
-    `O fretista *${nomePrestador}* ira entrar em contato para alinhar os detalhes da entrega 🚚
-📱 ${telPrestador}
+  freteConfirmadoEnviaPagamento: (linkPagamento: string) =>
+    `Agenda confirmada! ✅
 
 Para garantir a data, conclua o pagamento:
 💳 ${linkPagamento}
@@ -145,9 +144,7 @@ Para garantir a data, conclua o pagamento:
 💰 *Pix* sem taxas
 💳 *Cartao de credito* taxas adicionais
 
-⏳ A reserva se mantem disponivel por *20 minutos*. Apos esse tempo, sera necessaria uma nova cotacao para verificar e garantir nova agenda.
-
-Relaxa. A gente leva. 🚚✨`,
+⏳ A reserva se mantem disponivel por *20 minutos*. Apos esse tempo, sera necessaria uma nova cotacao para verificar e garantir nova agenda.`,
 
   nenhumFretista: `Nosso especialista *Santos* logo enviara a confirmacao do seu frete! 😊
 📱 (11) 97142-9605`,

@@ -803,14 +803,13 @@ async function notificarResultadoDispatch(corridaId: string, vencedorPhone: stri
         .update({ prestador_id: prestador.id, status: "aceita" })
         .eq("id", corridaId);
 
-      // Notifica cliente com dados do fretista + link pagamento
+      // Notifica cliente com link de pagamento (sem dados do fretista ainda)
       // TODO: Gerar link Mercado Pago
       const linkPagamento = "https://pegue-eta.vercel.app/simular";
-      const telFormatado = formatarTelefoneExibicao(prestador.telefone);
 
       await sendMessage({
         to: clientePhone,
-        message: MSG.freteConfirmadoComPrestador(prestador.nome, telFormatado, linkPagamento),
+        message: MSG.freteConfirmadoEnviaPagamento(linkPagamento),
       });
 
       await updateSession(clientePhone, { step: "aguardando_pagamento" });

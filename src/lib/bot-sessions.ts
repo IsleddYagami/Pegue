@@ -17,6 +17,7 @@ export type BotStep =
   | "cadastro_nome"
   | "cadastro_cpf"
   | "cadastro_selfie"
+  | "cadastro_foto_placa"
   | "cadastro_foto_veiculo"
   | "cadastro_placa"
   | "cadastro_tipo_veiculo"

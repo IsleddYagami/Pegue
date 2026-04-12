@@ -88,16 +88,24 @@ export async function POST(req: NextRequest) {
 
       // Cadastro prestador - selfie com documento
       if (session && session.step === "cadastro_selfie") {
-        await updateSession(phoneNumber, { step: "cadastro_foto_veiculo", foto_url: imageUrl });
-        await sendMessage({ to: phoneNumber, message: `Selfie recebida! ✅\n\n${MSG.cadastroFotoVeiculo}` });
+        await updateSession(phoneNumber, { step: "cadastro_foto_placa", foto_url: imageUrl });
+        await sendMessage({ to: phoneNumber, message: `Selfie recebida! ✅\n\n${MSG.cadastroFotoPlaca}` });
         return NextResponse.json({ status: "ok" });
       }
 
-      // Cadastro prestador - foto do veiculo
+      // Cadastro prestador - foto da placa
+      if (session && session.step === "cadastro_foto_placa") {
+        await updateSession(phoneNumber, { step: "cadastro_foto_veiculo" });
+        // TODO: salvar foto placa no storage
+        await sendMessage({ to: phoneNumber, message: `Foto da placa recebida! ✅\n\n${MSG.cadastroFotoVeiculo}` });
+        return NextResponse.json({ status: "ok" });
+      }
+
+      // Cadastro prestador - foto do veiculo inteiro
       if (session && session.step === "cadastro_foto_veiculo") {
         await updateSession(phoneNumber, { step: "cadastro_placa" });
         // TODO: salvar foto veiculo no storage
-        await sendMessage({ to: phoneNumber, message: `Foto do veiculo recebida! ✅\n\n${MSG.cadastroPlaca}` });
+        await sendMessage({ to: phoneNumber, message: `Foto do veiculo recebida! ✅\n\nAgora me passa a *placa* do veiculo por texto` });
         return NextResponse.json({ status: "ok" });
       }
 
@@ -302,11 +310,12 @@ async function handleClienteMessage(
       await handleCadastroCpf(phone, message);
       break;
     case "cadastro_selfie":
-      // Selfie processada no handler de foto no topo do POST
       await sendMessage({ to: phone, message: MSG.cadastroSelfie });
       break;
+    case "cadastro_foto_placa":
+      await sendMessage({ to: phone, message: MSG.cadastroFotoPlaca });
+      break;
     case "cadastro_foto_veiculo":
-      // Foto veiculo processada no handler de foto no topo do POST
       await sendMessage({ to: phone, message: MSG.cadastroFotoVeiculo });
       break;
     case "cadastro_placa":

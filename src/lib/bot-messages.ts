@@ -222,9 +222,10 @@ Primeiro, qual seu *nome completo*?`,
 
 Isso e pra sua seguranca e dos nossos clientes!`,
 
-  cadastroFotoVeiculo: `Manda uma *foto do seu veiculo* 🚗`,
+  cadastroFotoPlaca: `Agora manda uma *foto da placa* do seu veiculo 📸`,
 
-  cadastroPlaca: `Qual a *placa* do veiculo?`,
+  cadastroFotoVeiculo: `Agora manda uma *foto do veiculo inteiro* 🚗
+(de preferencia mostrando o veiculo de lado)`,
 
   cadastroTipoVeiculo: `Qual o tipo do seu veiculo?
 

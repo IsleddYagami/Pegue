@@ -250,6 +250,13 @@ async function handleClienteMessage(
       await handleConfirmacao(phone, message);
       break;
 
+    case "aguardando_fretista":
+      await sendMessage({
+        to: phone,
+        message: "Estamos reservando a agenda! 😊 Ja ja te retornamos com a confirmacao!",
+      });
+      break;
+
     case "aguardando_pagamento":
       await sendMessage({
         to: phone,
@@ -646,13 +653,13 @@ async function handleConfirmacao(phone: string, message: string) {
     const corridaId = await salvarCorrida(session);
 
     if (corridaId) {
-      await updateSession(phone, { step: "aguardando_pagamento", corrida_id: corridaId });
+      await updateSession(phone, { step: "aguardando_fretista", corrida_id: corridaId });
 
-      // TODO: Gerar link Mercado Pago
-      const linkPagamento = `https://pegue-eta.vercel.app/simular`;
+      // Informa que esta reservando a agenda
+      await sendMessage({ to: phone, message: MSG.freteRecebido });
 
-      await sendMessage({ to: phone, message: MSG.linkPagamento(linkPagamento) });
-      await dispararParaFretistas(corridaId, session);
+      // Dispara para fretistas e aguarda resposta
+      await dispararParaFretistas(corridaId, session, phone);
     } else {
       await sendMessage({ to: phone, message: MSG.erroInterno });
     }
@@ -688,7 +695,7 @@ async function handleAtendente(phone: string) {
 
 // === DISPATCH FRETISTAS ===
 
-async function dispararParaFretistas(corridaId: string, session: BotSession) {
+async function dispararParaFretistas(corridaId: string, session: BotSession, clientePhone: string) {
   try {
     const { data: prestadores } = await supabase
       .from("prestadores")
@@ -696,12 +703,16 @@ async function dispararParaFretistas(corridaId: string, session: BotSession) {
       .eq("disponivel", true)
       .eq("status", "aprovado");
 
-    if (!prestadores || prestadores.length === 0) return;
+    if (!prestadores || prestadores.length === 0) {
+      // Nenhum fretista disponivel - notifica cliente
+      await sendMessage({ to: clientePhone, message: MSG.nenhumFretista });
+      return;
+    }
 
     const telefones = prestadores.map((p) => p.telefone);
     const valorPrestador = Math.round((session.valor_estimado || 0) * 0.8);
 
-    createDispatch(corridaId, session.phone, telefones);
+    createDispatch(corridaId, clientePhone, telefones);
 
     const mensagem = MSG.novoFreteDisponivel(
       session.origem_endereco || "SP",
@@ -714,12 +725,26 @@ async function dispararParaFretistas(corridaId: string, session: BotSession) {
 
     await sendMessageToMany(telefones, mensagem);
 
+    // Apos 31s, se ninguem aceitou, notifica cliente
     setTimeout(async () => {
       const vencedor = resolveDispatch(corridaId);
-      if (vencedor) await notificarResultadoDispatch(corridaId, vencedor);
+      if (vencedor) {
+        await notificarResultadoDispatch(corridaId, vencedor, clientePhone);
+      } else {
+        // Ninguem aceitou na janela - espera mais respostas
+        // Se ninguem aceitar em 5 min, notifica Santos
+        setTimeout(async () => {
+          const dispatch = getDispatchByCorridaId(corridaId);
+          if (dispatch && !dispatch.finalizado) {
+            finalizeDispatch(corridaId);
+            await sendMessage({ to: clientePhone, message: MSG.nenhumFretista });
+          }
+        }, 270000); // 4.5 min adicionais (total 5 min)
+      }
     }, 31000);
   } catch (error: any) {
     console.error("Erro dispatch:", error?.message);
+    await sendMessage({ to: clientePhone, message: MSG.nenhumFretista });
   }
 }
 
@@ -738,7 +763,9 @@ async function handlePrestadorResponse(prestadorPhone: string, message: string, 
   const vencedor = resolveDispatch(corridaId);
 
   if (vencedor) {
-    await notificarResultadoDispatch(corridaId, vencedor);
+    const dispatch = getDispatchByCorridaId(corridaId);
+    const clientePhone = dispatch?.clientePhone || "";
+    await notificarResultadoDispatch(corridaId, vencedor, clientePhone);
   } else {
     await sendMessage({
       to: prestadorPhone,
@@ -747,30 +774,46 @@ async function handlePrestadorResponse(prestadorPhone: string, message: string, 
   }
 }
 
-async function notificarResultadoDispatch(corridaId: string, vencedorPhone: string) {
+async function notificarResultadoDispatch(corridaId: string, vencedorPhone: string, clientePhone: string) {
   const dispatch = getDispatchByCorridaId(corridaId);
   if (!dispatch) return;
 
+  // Avisa fretista vencedor
   await sendMessage({ to: vencedorPhone, message: MSG.freteAceito });
 
+  // Avisa os outros
   for (const phone of dispatch.prestadores) {
     if (phone !== vencedorPhone) {
       await sendMessage({ to: phone, message: MSG.freteJaPego });
     }
   }
 
+  // Busca dados do prestador vencedor
   try {
     const { data: prestador } = await supabase
       .from("prestadores")
-      .select("id, nome")
+      .select("id, nome, telefone")
       .eq("telefone", vencedorPhone)
       .single();
 
     if (prestador) {
+      // Atualiza corrida
       await supabase
         .from("corridas")
         .update({ prestador_id: prestador.id, status: "aceita" })
         .eq("id", corridaId);
+
+      // Notifica cliente com dados do fretista + link pagamento
+      // TODO: Gerar link Mercado Pago
+      const linkPagamento = "https://pegue-eta.vercel.app/simular";
+      const telFormatado = formatarTelefoneExibicao(prestador.telefone);
+
+      await sendMessage({
+        to: clientePhone,
+        message: MSG.freteConfirmadoComPrestador(prestador.nome, telFormatado, linkPagamento),
+      });
+
+      await updateSession(clientePhone, { step: "aguardando_pagamento" });
     }
   } catch (error: any) {
     console.error("Erro atualizar corrida:", error?.message);

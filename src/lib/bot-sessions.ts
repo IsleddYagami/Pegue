@@ -13,6 +13,7 @@ export type BotStep =
   | "aguardando_ajudante"
   | "aguardando_detalhes"
   | "aguardando_data"
+  | "aguardando_fretista"
   | "aguardando_confirmacao"
   | "aguardando_pagamento"
   | "dispatch_fretistas"

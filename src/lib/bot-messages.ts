@@ -132,14 +132,25 @@ ${detalhes}
 Ta tudo certo? Posso confirmar? 😊
 Responda *SIM* pra confirmar ou *NAO* pra ajustar algo.`,
 
-  linkPagamento: (link: string) =>
-    `Maravilha! 🎉
-Seu frete ta confirmado!
+  freteRecebido: `Seu frete foi recebido! 😊
+Estamos reservando a agenda!`,
+
+  freteConfirmadoComPrestador: (nomePrestador: string, telPrestador: string, linkPagamento: string) =>
+    `O fretista *${nomePrestador}* ira entrar em contato para alinhar os detalhes da entrega 🚚
+📱 ${telPrestador}
 
 Segue o link pra pagamento seguro:
-💳 ${link}
+💳 ${linkPagamento}
 
-Assim que o pagamento for confirmado, nosso motorista recebe os detalhes e entra em contato com voce!
+Obrigado por confiar no Pegue!
+Relaxa. A gente leva. 🚚✨`,
+
+  nenhumFretista: `Nosso especialista *Santos* logo enviara a confirmacao do seu frete! 😊
+📱 (11) 97142-9605`,
+
+  linkPagamento: (link: string) =>
+    `Segue o link pra pagamento seguro:
+💳 ${link}
 
 Obrigado por confiar no Pegue!
 Relaxa. A gente leva. 🚚✨`,

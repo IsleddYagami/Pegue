@@ -353,8 +353,8 @@ Após sua confirmação, o pagamento do fretista será liberado.
 
 Está tudo certo com a entrega? 😊
 
-1️⃣ *SIM* - Tudo OK, pode liberar o pagamento
-2️⃣ *NÃO* - Tive algum problema`,
+1️⃣ *SIM* - Missão cumprida! ✅
+2️⃣ *NÃO* - Tenho dúvidas`,
 
   clienteConfirmouEntrega: `Entrega confirmada! ✅🎉
 

@@ -1,26 +1,24 @@
-// Mensagens do bot com tom empático e de servir
+// Mensagens do bot - sem acentos para compatibilidade total
 
 export const MSG = {
   // Menu inicial
-  boasVindas: `Oii! 😊 Que bom ter você aqui no Pegue! 🚚
+  boasVindas: `Oii! 😊 Que bom ter voce aqui no Pegue! 🚚
 Estou aqui pra te ajudar com o que precisar.
 
-O que você precisa?
+O que voce precisa?
 
-1️⃣ *Pequenos Fretes ou Mudança*
+1️⃣ *Pequenos Fretes ou Mudanca*
 2️⃣ *Guincho* (carro ou moto)
 3️⃣ *Falar com nosso especialista Santos*`,
 
-  // Após escolher frete/mudança
-  pedirLocalizacao: `Ótimo! Vou te ajudar com seu frete! 🚚
+  pedirLocalizacao: `Otimo! Vou te ajudar com seu frete! 🚚
 
 De onde vamos retirar o material?
 
-Lá embaixo, do lado de onde você digita a mensagem, tem um ícone de clipe 📎 - clica nele e depois em *Localização* 📍
+La embaixo, do lado de onde voce digita a mensagem, tem um icone de clipe 📎 - clica nele e depois em *Localizacao* 📍
 
-Ou se preferir, me passa o *CEP* ou *endereço com rua e bairro* 🏠`,
+Ou se preferir, me passa o *CEP* ou *endereco com rua e bairro* 🏠`,
 
-  // Guincho
   guincho: `Para guincho, fala direto com nosso especialista *Santos*! 😊
 Ele vai te atender rapidinho:
 📱 (11) 97142-9605
@@ -28,19 +26,19 @@ Ele vai te atender rapidinho:
 Pode chamar agora mesmo! 🚗`,
 
   localizacaoRecebida: (endereco: string) =>
-    `Achei! Você tá aqui pertinho: ${endereco} ✅
+    `Achei! Voce ta aqui pertinho: ${endereco} ✅
 
-Pra ser mais rápido e fácil, manda foto do material que precisa 📸`,
+Pra ser mais rapido e facil, manda foto do material que precisa 📸`,
 
   enderecoRecebido: (endereco: string) =>
     `Anotado! Coleta em: ${endereco} ✅
 
-Pra ser mais rápido e fácil, manda foto do material que precisa 📸`,
+Pra ser mais rapido e facil, manda foto do material que precisa 📸`,
 
   fotoItemAdicionado: (item: string, emoji: string, listaItens: string) =>
     `Vi! *${item}* ${emoji} Anotado! ✅
 
-Até agora temos: ${listaItens}
+Ate agora temos: ${listaItens}
 
 Tem mais algum item? Manda outra foto ou digite *PRONTO* pra seguir 😊`,
 
@@ -48,45 +46,41 @@ Tem mais algum item? Manda outra foto ou digite *PRONTO* pra seguir 😊`,
     `Beleza! Seus itens:
 ${listaItens}
 
-🚚 Veículo sugerido: *${veiculo}*
+🚚 Veiculo sugerido: *${veiculo}*
 
-E pra onde a gente leva? Me manda o endereço ou CEP do destino 🏠`,
+E pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠`,
 
   fotoRecebida: (item: string) =>
-    `Aah entendi! Vi que é ${item}! 📦
+    `Aah entendi! Vi que e ${item}! 📦
 Vou cuidar direitinho do transporte, fica tranquilo(a)!
 
-E pra onde a gente leva? Me manda o endereço ou CEP do destino 🏠`,
+E pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠`,
 
   fotoSemIA: `Recebi sua foto! 📸
 Vou cuidar direitinho do transporte, fica tranquilo(a)!
 
-E pra onde a gente leva? Me manda o endereço ou CEP do destino 🏠`,
+E pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠`,
 
-  // Pergunta sobre local de entrega (elevador/escada/térreo)
   destinoRecebido: (destino: string) =>
-    `${destino}! Ótimo destino! ✅
+    `${destino}! Otimo destino! ✅
 
 Me conta sobre o local de entrega:
 
-1️⃣ *Local térreo*
-2️⃣ *Prédio com elevador*
-3️⃣ *Prédio sem elevador / escada*`,
+1️⃣ *Local terreo*
+2️⃣ *Predio com elevador*
+3️⃣ *Predio sem elevador / escada*`,
 
-  // Pergunta andar quando escolhe escada
-  qualAndar: `Entendi, prédio sem elevador! 🏢
-Qual andar? Me manda o número`,
+  qualAndar: `Entendi, predio sem elevador! 🏢
+Qual andar? Me manda o numero`,
 
-  // Pergunta se precisa ajudante
   precisaAjudante: (infoLocal: string) =>
     `${infoLocal}
 
 Vai precisar de ajudante pra carregar? 😊
 
-1️⃣ *Não*, consigo sozinho
+1️⃣ *Nao*, consigo sozinho
 2️⃣ *Sim*, preciso de ajudante`,
 
-  // Orçamento com valor total
   orcamento: (
     origem: string,
     destino: string,
@@ -94,21 +88,21 @@ Vai precisar de ajudante pra carregar? 😊
     veiculo: string,
     total: string
   ) =>
-    `Preparei seu orçamento! 📋
+    `Preparei seu orcamento! 📋
 
 📍 *Retirada:* ${origem}
 🏠 *Destino:* ${destino}
 📦 *Material:* ${carga}
-🚚 *Veículo:* ${veiculo}
+🚚 *Veiculo:* ${veiculo}
 
 ✅ *Total: R$ ${total}*
 
-Pra quando você precisa? Me manda a *data* e *horário* 📅`,
+Pra quando voce precisa? Me manda a *data* e *horario* 📅`,
 
-  planoEscolhido: `Ótima escolha! ✨
-Vou preparar tudo pra você.
+  planoEscolhido: `Otima escolha! ✨
+Vou preparar tudo pra voce.
 
-Pra quando você precisa? Me manda a data e o horário que fica melhor pra você 📅`,
+Pra quando voce precisa? Me manda a data e o horario que fica melhor pra voce 📅`,
 
   resumoFrete: (
     origem: string,
@@ -124,13 +118,13 @@ Pra quando você precisa? Me manda a data e o horário que fica melhor pra você
 📍 Retirada: ${origem}
 🏠 Destino: ${destino}
 📦 Material: ${carga}
-🚚 Veículo: ${veiculo}
+🚚 Veiculo: ${veiculo}
 📅 ${data}
 ${detalhes}
 ✅ *Total: R$ ${valor}*
 
-Tá tudo certo? Posso confirmar? 😊
-Responda *SIM* pra confirmar ou *NÃO* pra ajustar algo.`,
+Ta tudo certo? Posso confirmar? 😊
+Responda *SIM* pra confirmar ou *NAO* pra ajustar algo.`,
 
   freteRecebido: `Seu frete foi recebido! 😊
 Estamos reservando a agenda!`,
@@ -142,11 +136,11 @@ Para garantir a data, conclua o pagamento:
 💳 ${linkPagamento}
 
 💰 *Pix* sem taxas
-💳 *Cartão de crédito* taxas adicionais
+💳 *Cartao de credito* taxas adicionais
 
-⏳ A reserva se mantém disponível por *20 minutos*. Após esse tempo, será necessária uma nova cotação para verificar e garantir nova agenda.`,
+⏳ A reserva se mantem disponivel por *20 minutos*. Apos esse tempo, sera necessaria uma nova cotacao para verificar e garantir nova agenda.`,
 
-  nenhumFretista: `Nosso especialista *Santos* logo enviará a confirmação do seu frete! 😊
+  nenhumFretista: `Nosso especialista *Santos* logo enviara a confirmacao do seu frete! 😊
 📱 (11) 97142-9605`,
 
   linkPagamento: (link: string) =>
@@ -159,7 +153,7 @@ Relaxa. A gente leva. 🚚✨`,
   pagamentoConfirmado: (nomePrestador: string, telPrestador: string) =>
     `Pagamento confirmado! ✅🎉
 
-O ${nomePrestador} vai entrar em contato pra alinhar os detalhes com você.
+O ${nomePrestador} vai entrar em contato pra alinhar os detalhes com voce.
 📱 ${telPrestador}
 
 Qualquer coisa, estamos aqui!
@@ -174,24 +168,24 @@ Relaxa. A gente leva. 🚚✨`,
     valorPrestador: string,
     corridaId: string
   ) =>
-    `🚚 *Novo frete disponível!*
+    `🚚 *Novo frete disponivel!*
 
 📍 Origem: ${origem}
 🏠 Destino: ${destino}
 📦 Material: ${carga}
 📅 ${data}
-💰 Você recebe: R$ ${valorPrestador}
+💰 Voce recebe: R$ ${valorPrestador}
 
 Quer pegar? Responda *SIM*`,
 
-  freteAceito: `Você ganhou o frete! ✅🎉
-Este serviço já está reservado pra você!
+  freteAceito: `Voce ganhou o frete! ✅🎉
+Este servico ja esta reservado pra voce!
 
-A confirmação chegará logo após o pagamento do cliente. Fique atento! 📱
+A confirmacao chegara logo apos o pagamento do cliente. Fique atento! 📱
 
-💰 Seu pagamento será liberado assim que o cliente confirmar o recebimento.`,
+💰 Seu pagamento sera liberado assim que o cliente confirmar o recebimento.`,
 
-  freteJaPego: `Esse frete já foi pego! 😉
+  freteJaPego: `Esse frete ja foi pego! 😉
 Fica de olho que sempre tem novos aparecendo! 🚚`,
 
   // Atendimento humano
@@ -201,109 +195,109 @@ Pode chamar ele direto:
 
 Ele vai te ajudar com tudo! 🙏`,
 
-  foraHorarioHumano: `Nosso time tá disponível de segunda a sexta, das 10h às 15h ⏰
+  foraHorarioHumano: `Nosso time ta disponivel de segunda a sexta, das 10h as 15h ⏰
 
-Mas você pode falar direto com o *Santos*, nosso especialista:
+Mas voce pode falar direto com o *Santos*, nosso especialista:
 📱 (11) 97142-9605
 
 Ou se preferir, o bot continua te atendendo 24h! 🚚`,
 
   // === CADASTRO DE PRESTADOR ===
 
-  cadastroInicio: `Que bom ter você com a Pegue! 🚚✨
+  cadastroInicio: `Que bom ter voce com a Pegue! 🚚✨
 
-Antes de começar, algumas informações importantes:
+Antes de comecar, algumas informacoes importantes:
 
-✅ Você precisa ter *18 anos ou mais*
-✅ Ter veículo próprio com no máximo *15 anos de uso*
-✅ Documentação em dia (CNH e documento do veículo)
+✅ Voce precisa ter *18 anos ou mais*
+✅ Ter veiculo proprio com no maximo *15 anos de uso*
+✅ Documentacao em dia (CNH e documento do veiculo)
 
-Vamos lá! Qual seu *nome completo*?`,
+Vamos la! Qual seu *nome completo*?`,
 
-  cadastroCpf: `Agora me passa seu *CPF* (somente números)`,
+  cadastroCpf: `Agora me passa seu *CPF* (somente numeros)`,
 
   cadastroEmail: `Agora me passa seu *email* 📧
-(vamos enviar uma cópia dos termos pra você)`,
+(vamos enviar uma copia dos termos pra voce)`,
 
   cadastroSelfie: `Agora preciso de uma *selfie sua segurando seu RG ou CNH aberto* 📸
 
-⚠️ O documento precisa estar *aberto e legível* na foto!
-Segure próximo ao rosto pra ficar bem claro.`,
+⚠️ O documento precisa estar *aberto e legivel* na foto!
+Segure proximo ao rosto pra ficar bem claro.`,
 
-  cadastroFotoPlaca: `Agora manda uma *foto da placa* do seu veículo 📸`,
+  cadastroFotoPlaca: `Agora manda uma *foto da placa* do seu veiculo 📸`,
 
-  cadastroFotoVeiculo: `Agora manda uma *foto do veículo inteiro* 🚗
-(de preferência mostrando o veículo de lado)`,
+  cadastroFotoVeiculo: `Agora manda uma *foto do veiculo inteiro* 🚗
+(de preferencia mostrando o veiculo de lado)`,
 
-  cadastroTipoVeiculo: `Qual o tipo do seu veículo?
+  cadastroTipoVeiculo: `Qual o tipo do seu veiculo?
 
 1️⃣ *Carro comum* (Kicks, Livina, Renegade, Nivus, etc)
-2️⃣ *Utilitário* (Strada, Saveiro, Courier)
+2️⃣ *Utilitario* (Strada, Saveiro, Courier)
 3️⃣ *HR* (Hyundai HR)
-4️⃣ *Caminhão Baú*`,
+4️⃣ *Caminhao Bau*`,
 
-  cadastroTermos: `📋 *TERMOS DE PARTICIPAÇÃO - PEGUE*
+  cadastroTermos: `📋 *TERMOS DE PARTICIPACAO - PEGUE*
 
-Leia com atenção antes de prosseguir:
+Leia com atencao antes de prosseguir:
 
 *1. SOBRE A PEGUE*
-A Pegue é uma plataforma de intermediação de serviços de frete e transporte. Não somos uma empresa de transporte. Conectamos clientes a prestadores de serviço independentes.
+A Pegue e uma plataforma de intermediacao de servicos de frete e transporte. Nao somos uma empresa de transporte. Conectamos clientes a prestadores de servico independentes.
 
-*2. VOCÊ COMO PRESTADOR*
-- Você é um prestador *independente*, não funcionário da Pegue
-- Você decide quais serviços aceitar e quando trabalhar
-- É sua responsabilidade manter veículo e documentação em dia
+*2. VOCE COMO PRESTADOR*
+- Voce e um prestador *independente*, nao funcionario da Pegue
+- Voce decide quais servicos aceitar e quando trabalhar
+- E sua responsabilidade manter veiculo e documentacao em dia
 
-*3. PROTOCOLO DE FOTOS (OBRIGATÓRIO)*
+*3. PROTOCOLO DE FOTOS (OBRIGATORIO)*
 - Fotografar TODOS os materiais na *coleta* antes de carregar
-- Fotografar TODOS os materiais na *entrega* após descarregar
+- Fotografar TODOS os materiais na *entrega* apos descarregar
 - Sem fotos = pagamento *BLOQUEADO*
-- As fotos servem como prova para proteger você e o cliente
+- As fotos servem como prova para proteger voce e o cliente
 
 *4. RESPONSABILIDADE POR DANOS*
-- O prestador é *responsável* por qualquer dano, avaria ou extravio de materiais durante o transporte
-- Em caso de dano comprovado, o valor será descontado dos seus recebíveis
+- O prestador e *responsavel* por qualquer dano, avaria ou extravio de materiais durante o transporte
+- Em caso de dano comprovado, o valor sera descontado dos seus recebiveis
 - Transporte com cuidado! Proteja os materiais adequadamente
 
 *5. PAGAMENTO*
-- Você recebe *88%* do valor do frete
-- O pagamento é liberado *após o cliente confirmar o recebimento* dos materiais
-- Quanto mais rápido a entrega for confirmada, mais rápido você recebe
+- Voce recebe *88%* do valor do frete
+- O pagamento e liberado *apos o cliente confirmar o recebimento* dos materiais
+- Quanto mais rapido a entrega for confirmada, mais rapido voce recebe
 
 *6. CANCELAMENTOS*
-- Cancelar um serviço já aceito *afeta seu score* na plataforma
-- Cancelamentos recorrentes podem levar à *desativação* da conta
+- Cancelar um servico ja aceito *afeta seu score* na plataforma
+- Cancelamentos recorrentes podem levar a *desativacao* da conta
 - Cancele apenas em casos de real impossibilidade
 
 *7. CONDUTA E ATENDIMENTO*
-- Trate todos os clientes com *respeito e educação*
-- Seja pontual nos horários combinados
-- Reclamações de clientes *reduzem seu score* e suas indicações
-- Comportamento inadequado resulta em *desativação imediata*
+- Trate todos os clientes com *respeito e educacao*
+- Seja pontual nos horarios combinados
+- Reclamacoes de clientes *reduzem seu score* e suas indicacoes
+- Comportamento inadequado resulta em *desativacao imediata*
 
 *8. SISTEMA DE SCORE*
-- Bom desempenho = *mais indicações* de frete
-- Cancelamentos, reclamações e danos = *menos indicações*
-- Score muito baixo = *desativação da plataforma*
+- Bom desempenho = *mais indicacoes* de frete
+- Cancelamentos, reclamacoes e danos = *menos indicacoes*
+- Score muito baixo = *desativacao da plataforma*
 
-*9. DESATIVAÇÃO*
+*9. DESATIVACAO*
 A Pegue pode desativar sua conta a qualquer momento em caso de:
 - Danos recorrentes a materiais de clientes
-- Reclamações graves ou reincidentes
+- Reclamacoes graves ou reincidentes
 - Cancelamentos excessivos
 - Comportamento inadequado
-- Documentação vencida ou irregular
+- Documentacao vencida ou irregular
 
 *10. DADOS E PRIVACIDADE*
-- Seus dados pessoais são usados apenas para o cadastro e operação da plataforma
-- Dados dos clientes são confidenciais e não devem ser compartilhados
+- Seus dados pessoais sao usados apenas para o cadastro e operacao da plataforma
+- Dados dos clientes sao confidenciais e nao devem ser compartilhados
 
 Para prosseguir com o cadastro, digite:
 *eu concordo*`,
 
-  cadastroConcluido: `Suas informações entraram em análise! ✅
+  cadastroConcluido: `Suas informacoes entraram em analise! ✅
 
-Em breve você receberá a confirmação para iniciarmos nossa grande parceria! 🚚✨
+Em breve voce recebera a confirmacao para iniciarmos nossa grande parceria! 🚚✨
 
 Fique atento ao WhatsApp 📱`,
 
@@ -332,66 +326,69 @@ Quando terminar, digite *PRONTO*
 
   fretistaColetaConfirmada: `Fotos de coleta registradas! ✅
 
-Agora é só fazer a entrega com cuidado!
+Agora e so fazer a entrega com cuidado!
 Quando chegar no destino, vou pedir as fotos de entrega 📸
 
 Bom trabalho! 🚚`,
 
   fretistaEntregaConfirmada: `Fotos de entrega registradas! ✅
 
-Aguardando confirmação do cliente para liberar seu pagamento 💰
-Assim que o cliente confirmar, você será notificado!`,
+Aguardando confirmacao do cliente para liberar seu pagamento 💰
+Assim que o cliente confirmar, voce sera notificado!`,
 
   clienteConfirmarEntrega: (carga: string) =>
     `Seu frete foi entregue! 📦✅
 
 Material: *${carga}*
 
-⚠️ *Antes de confirmar, verifique com atenção:*
+⚠️ *Antes de confirmar, verifique com atencao:*
 - Todos os itens foram entregues?
 - Algum item chegou com dano ou avaria?
-- Está tudo conforme o combinado?
+- Esta tudo conforme o combinado?
 
-Após sua confirmação, o pagamento do fretista será liberado.
+Apos sua confirmacao, o pagamento do fretista sera liberado.
 
-Está tudo certo com a entrega? 😊
+Esta tudo certo com a entrega? 😊
 
-1️⃣ *SIM* - Missão cumprida! ✅
-2️⃣ *NÃO* - Tenho dúvidas`,
+1️⃣ *SIM* - Missao cumprida! ✅
+2️⃣ *NAO* - Tenho duvidas`,
 
   clienteConfirmouEntrega: `Entrega confirmada! ✅🎉
 
-Pra gente continuar melhorando, me ajuda com uma avaliação rápida? 😊
+Pra gente continuar melhorando, me ajuda com uma avaliacao rapida? 😊
 
 De 1 a 5, como foi o *atendimento geral*?
-(1 = péssimo, 5 = excelente)`,
+(1 = pessimo, 5 = excelente)`,
 
-  clientePedirNotaPraticidade: `E de 1 a 5, como foi a *praticidade* do serviço?
-(facilidade de solicitar, rapidez, comunicação)`,
+  clientePedirNotaPraticidade: `E de 1 a 5, como foi a *praticidade* do servico?
+(facilidade de solicitar, rapidez, comunicacao)`,
 
   clientePedirNotaFretista: `De 1 a 5, o *fretista foi prestativo*?
-(educação, cuidado com os materiais, pontualidade)`,
+(educacao, cuidado com os materiais, pontualidade)`,
 
-  clientePedirSugestao: `Tem alguma *sugestão* pra gente melhorar? 😊
-Pode falar à vontade! Ou digite *PULAR* se preferir.`,
+  clientePedirSugestao: `Tem alguma *sugestao* pra gente melhorar? 😊
+Pode falar a vontade! Ou digite *PULAR* se preferir.`,
 
-  clienteAvaliacaoConcluida: `Obrigado pela avaliação! 🙏
+  clienteAvaliacaoConcluida: `Obrigado pela avaliacao! 🙏
 
-Sua opinião é muito importante pra gente!
+Sua opiniao e muito importante pra gente!
+
+Segue a gente no Instagram pra cupons exclusivos e novidades! 📱
+👉 instagram.com/chamepegue
 
 Relaxa. A gente leva. 🚚✨
-Qualquer dúvida, é só chamar!`,
+Qualquer duvida, e so chamar!`,
 
   clienteReclamouEntrega: `Sentimos muito pelo problema 😔
 
 Nosso especialista *Santos* vai entrar em contato pra resolver:
 📱 (11) 97142-9605
 
-Vamos cuidar disso pra você!`,
+Vamos cuidar disso pra voce!`,
 
   fretistaPagamentoLiberado: `Pagamento liberado! ✅💰
 
-O cliente confirmou a entrega. Seu pagamento será processado!
+O cliente confirmou a entrega. Seu pagamento sera processado!
 
 Obrigado pelo excelente trabalho! 🚚✨`,
 
@@ -400,7 +397,7 @@ Obrigado pelo excelente trabalho! 🚚✨`,
 Nosso especialista *Santos* vai entrar em contato:
 📱 (11) 97142-9605
 
-Pagamento fica retido até resolução.`,
+Pagamento fica retido ate resolucao.`,
 
   // === DASHBOARD FRETISTA ===
 
@@ -421,30 +418,32 @@ Pagamento fica retido até resolução.`,
 
 ${
   parseFloat(score) >= 8
-    ? "🏆 Excelente! Você está entre os melhores parceiros!"
+    ? "🏆 Excelente! Voce esta entre os melhores parceiros!"
     : parseFloat(score) >= 5
     ? "👍 Bom trabalho! Continue assim pra subir no ranking!"
-    : "⚠️ Atenção! Melhore seu atendimento pra receber mais indicações."
+    : "⚠️ Atencao! Melhore seu atendimento pra receber mais indicacoes."
 }
+
+Siga @chamepegue no Instagram pra vagas e novidades! 📱
 
 Pra ver novamente, digite *meu painel* a qualquer momento 😊`,
 
   // Erros e fallbacks
-  naoEntendi: `Desculpa, não entendi 😅
-Me conta o que você precisa que eu te ajudo!
+  naoEntendi: `Desculpa, nao entendi 😅
+Me conta o que voce precisa que eu te ajudo!
 
 Ou se preferir, fala direto com o *Santos*, nosso especialista:
 📱 (11) 97142-9605`,
 
   erroInterno: `Ops, tive um probleminha aqui 😅
-Mas já já normaliza!
+Mas ja ja normaliza!
 
-Enquanto isso, você pode falar direto com o *Santos*, nosso especialista:
+Enquanto isso, voce pode falar direto com o *Santos*, nosso especialista:
 📱 (11) 97142-9605`,
 
   obrigado: `Por nada! 😊
 Estamos aqui sempre que precisar.
 Relaxa. A gente leva. 🚚✨
 
-Qualquer dúvida, é só chamar!`,
+Qualquer duvida, e so chamar!`,
 };

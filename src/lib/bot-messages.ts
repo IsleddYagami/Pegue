@@ -69,9 +69,9 @@ E pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠`,
 
 Me conta sobre o local de entrega:
 
-1️⃣ *Casa ou terreo*
-2️⃣ *Predio com elevador* (+R$ 50)
-3️⃣ *Predio sem elevador / escada* (+R$ 30 por andar)`,
+1️⃣ *Local terreo*
+2️⃣ *Predio com elevador*
+3️⃣ *Predio sem elevador / escada*`,
 
   // Pergunta andar quando escolhe escada
   qualAndar: `Entendi, predio sem elevador! 🏢
@@ -86,15 +86,12 @@ Vai precisar de ajudante pra carregar? 😊
 1️⃣ *Nao*, consigo sozinho
 2️⃣ *Sim*, preciso de ajudante`,
 
-  // Orcamento com detalhes claros
+  // Orcamento com valor total
   orcamento: (
     origem: string,
     destino: string,
     carga: string,
-    distancia: string,
     veiculo: string,
-    base: string,
-    adicionaisTexto: string,
     total: string
   ) =>
     `Preparei seu orcamento! 📋
@@ -102,11 +99,8 @@ Vai precisar de ajudante pra carregar? 😊
 📍 *Retirada:* ${origem}
 🏠 *Destino:* ${destino}
 📦 *Material:* ${carga}
-📏 *Distancia:* ${distancia} km
 🚚 *Veiculo:* ${veiculo}
 
-💰 *Valor do frete:* R$ ${base}
-${adicionaisTexto}
 ✅ *Total: R$ ${total}*
 
 Pra quando voce precisa? Me manda a *data* e *horario* 📅`,

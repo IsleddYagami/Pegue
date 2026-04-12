@@ -453,7 +453,7 @@ async function handleDestino(phone: string, message: string) {
 async function handleTipoLocal(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
 
-  if (lower === "1" || lower.includes("casa") || lower.includes("terreo") || lower.includes("térreo")) {
+  if (lower === "1" || lower.includes("terreo") || lower.includes("térreo") || lower.includes("casa")) {
     // Terreo - sem adicional
     await updateSession(phone, {
       step: "aguardando_ajudante",
@@ -462,7 +462,7 @@ async function handleTipoLocal(phone: string, message: string) {
     });
     await sendMessage({
       to: phone,
-      message: MSG.precisaAjudante("Casa/terreo, anotado! ✅"),
+      message: MSG.precisaAjudante("Local terreo, anotado! ✅"),
     });
     return;
   }
@@ -476,7 +476,7 @@ async function handleTipoLocal(phone: string, message: string) {
     });
     await sendMessage({
       to: phone,
-      message: MSG.precisaAjudante("Predio com elevador, anotado! ✅\n📌 _Adicional de R$ 50 no frete_"),
+      message: MSG.precisaAjudante("Predio com elevador, anotado! ✅"),
     });
     return;
   }
@@ -506,7 +506,7 @@ async function handleAndar(phone: string, message: string) {
     });
     await sendMessage({
       to: phone,
-      message: MSG.precisaAjudante(`${andar}o andar por escada, anotado! ✅\n📌 _Adicional de R$ ${valorEscada} (${andar} andares x R$ 30)_`),
+      message: MSG.precisaAjudante(`${andar}o andar por escada, anotado! ✅`),
     });
     return;
   }
@@ -559,12 +559,7 @@ async function handleAjudante(phone: string, message: string) {
   const veiculo = session.veiculo_sugerido || "utilitario";
   const precos = calcularPrecos(distanciaKm, veiculo, precisaAjudante, session.andar || 0, false);
 
-  // Montar detalhes dos adicionais
-  let adicionaisTexto = "";
   const p = precos.padrao;
-  if (p.ajudante > 0) adicionaisTexto += `🙋 Ajudante: + R$ ${p.ajudante}\n`;
-  if (p.elevador > 0) adicionaisTexto += `🛗 Elevador: + R$ ${p.elevador}\n`;
-  if (p.escada > 0) adicionaisTexto += `🪜 Escada (${session.andar || 0} andares): + R$ ${p.escada}\n`;
 
   const veiculoNome: Record<string, string> = {
     utilitario: "Utilitario (Strada/Saveiro)",
@@ -584,10 +579,7 @@ async function handleAjudante(phone: string, message: string) {
       session.origem_endereco || "Origem",
       session.destino_endereco || "Destino",
       session.descricao_carga || "Material",
-      distanciaKm.toString(),
       veiculoNome[veiculo] || "Utilitario",
-      p.base.toString(),
-      adicionaisTexto,
       p.total.toString()
     ),
   });

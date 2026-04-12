@@ -836,7 +836,8 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
         valor_final: session.valor_estimado,
         valor_prestador: Math.round((session.valor_estimado || 0) * 0.8),
         valor_pegue: Math.round((session.valor_estimado || 0) * 0.2),
-        data_agendada: session.data_agendada,
+        // data_agendada salva como texto no campo periodo (data_agendada e tipo date no banco)
+        periodo: session.data_agendada,
         status: "pendente",
         canal_origem: "whatsapp",
       })

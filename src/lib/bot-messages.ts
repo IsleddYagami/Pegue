@@ -139,10 +139,14 @@ Estamos reservando a agenda!`,
     `O fretista *${nomePrestador}* ira entrar em contato para alinhar os detalhes da entrega 🚚
 📱 ${telPrestador}
 
-Segue o link pra pagamento seguro:
+Para garantir a data, conclua o pagamento:
 💳 ${linkPagamento}
 
-Obrigado por confiar no Pegue!
+💰 *Pix* ou *Cartao de debito* sem taxas
+💳 *Cartao de credito* taxas adicionais
+
+⏳ A reserva se mantem disponivel por *20 minutos*. Apos esse tempo, sera necessaria uma nova cotacao para verificar e garantir nova agenda.
+
 Relaxa. A gente leva. 🚚✨`,
 
   nenhumFretista: `Nosso especialista *Santos* logo enviara a confirmacao do seu frete! 😊

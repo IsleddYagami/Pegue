@@ -21,6 +21,7 @@ export type BotStep =
   | "cadastro_foto_veiculo"
   | "cadastro_placa"
   | "cadastro_tipo_veiculo"
+  | "cadastro_termos"
   | "cadastro_aguardando_aprovacao"
   | "fretista_coleta_fotos"
   | "fretista_entrega_fotos"

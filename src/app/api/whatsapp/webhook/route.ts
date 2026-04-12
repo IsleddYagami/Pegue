@@ -324,6 +324,9 @@ async function handleClienteMessage(
     case "cadastro_tipo_veiculo":
       await handleCadastroTipoVeiculo(phone, message);
       break;
+    case "cadastro_termos":
+      await handleCadastroTermos(phone, message);
+      break;
     case "cadastro_aguardando_aprovacao":
       await sendMessage({ to: phone, message: "Seu cadastro esta em analise! 😊 Te avisamos assim que for aprovado!" });
       break;
@@ -889,11 +892,31 @@ async function handleCadastroTipoVeiculo(phone: string, message: string) {
     return;
   }
 
+  // Salva tipo veiculo temporariamente e envia termos
+  await updateSession(phone, { step: "cadastro_termos", veiculo_sugerido: tipoVeiculo });
+  await sendMessage({ to: phone, message: MSG.cadastroTermos });
+}
+
+async function handleCadastroTermos(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const lower = message.toLowerCase().trim();
+
+  if (lower !== "eu concordo") {
+    await sendMessage({
+      to: phone,
+      message: "Para prosseguir, digite exatamente: *eu concordo*\n\nOu se tiver duvidas, fale com nosso especialista Santos:\n📱 (11) 97142-9605",
+    });
+    return;
+  }
+
   // Salva prestador no Supabase
   const nome = session.origem_endereco || "Prestador";
   const cpf = session.destino_endereco || "";
   const placa = session.periodo || "";
   const selfieUrl = session.foto_url || "";
+  const tipoVeiculo = session.veiculo_sugerido || "utilitario";
 
   const { error } = await supabase.from("prestadores").insert({
     telefone: phone,
@@ -908,10 +931,8 @@ async function handleCadastroTipoVeiculo(phone: string, message: string) {
   });
 
   if (error && error.code === "23505") {
-    // Ja existe
     await sendMessage({ to: phone, message: "Voce ja tem cadastro na Pegue! 😊 Em breve recebera indicacoes!" });
   } else {
-    // Salva veiculo
     const { data: prestador } = await supabase
       .from("prestadores")
       .select("id")

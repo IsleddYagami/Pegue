@@ -212,15 +212,20 @@ Ou se preferir, o bot continua te atendendo 24h! 🚚`,
 
   cadastroInicio: `Que bom ter voce com a Pegue! 🚚✨
 
-Vou te guiar no cadastro. E bem rapido!
+Antes de comecar, algumas informacoes importantes:
 
-Primeiro, qual seu *nome completo*?`,
+✅ Voce precisa ter *18 anos ou mais*
+✅ Ter veiculo proprio com no maximo *15 anos de uso*
+✅ Documentacao em dia (CNH e documento do veiculo)
+
+Vamos la! Qual seu *nome completo*?`,
 
   cadastroCpf: `Agora me passa seu *CPF* (somente numeros)`,
 
-  cadastroSelfie: `Agora preciso de uma *selfie sua segurando seu RG ou CNH* 📸
+  cadastroSelfie: `Agora preciso de uma *selfie sua segurando seu RG ou CNH aberto* 📸
 
-Isso e pra sua seguranca e dos nossos clientes!`,
+⚠️ O documento precisa estar *aberto e legivel* na foto!
+Segure proximo ao rosto pra ficar bem claro.`,
 
   cadastroFotoPlaca: `Agora manda uma *foto da placa* do seu veiculo 📸`,
 
@@ -233,6 +238,65 @@ Isso e pra sua seguranca e dos nossos clientes!`,
 2️⃣ *Utilitario* (Strada, Saveiro, Courier)
 3️⃣ *HR* (Hyundai HR)
 4️⃣ *Caminhao Bau*`,
+
+  cadastroTermos: `📋 *TERMOS DE PARTICIPACAO - PEGUE*
+
+Leia com atencao antes de prosseguir:
+
+*1. SOBRE A PEGUE*
+A Pegue e uma plataforma de intermediacao de servicos de frete e transporte. Nao somos uma empresa de transporte. Conectamos clientes a prestadores de servico independentes.
+
+*2. VOCE COMO PRESTADOR*
+- Voce e um prestador *independente*, nao funcionario da Pegue
+- Voce decide quais servicos aceitar e quando trabalhar
+- E sua responsabilidade manter veiculo e documentacao em dia
+
+*3. PROTOCOLO DE FOTOS (OBRIGATORIO)*
+- Fotografar TODOS os materiais na *coleta* antes de carregar
+- Fotografar TODOS os materiais na *entrega* apos descarregar
+- Sem fotos = pagamento *BLOQUEADO*
+- As fotos servem como prova para proteger voce e o cliente
+
+*4. RESPONSABILIDADE POR DANOS*
+- O prestador e *responsavel* por qualquer dano, avaria ou extravio de materiais durante o transporte
+- Em caso de dano comprovado, o valor sera descontado do seu pagamento
+- Transporte com cuidado! Proteja os materiais adequadamente
+
+*5. PAGAMENTO*
+- Voce recebe *80%* do valor do frete
+- O pagamento e liberado *apos confirmacao de entrega* com fotos
+- Pagamentos sao processados em ate 3 dias uteis
+
+*6. CANCELAMENTOS*
+- Cancelar um servico ja aceito *afeta seu score* na plataforma
+- Cancelamentos recorrentes podem levar a *desativacao* da conta
+- Cancele apenas em casos de real impossibilidade
+
+*7. CONDUTA E ATENDIMENTO*
+- Trate todos os clientes com *respeito e educacao*
+- Seja pontual nos horarios combinados
+- Reclamacoes de clientes *reduzem seu score* e suas indicacoes
+- Comportamento inadequado resulta em *desativacao imediata*
+
+*8. SISTEMA DE SCORE*
+- Bom desempenho = *mais indicacoes* de frete
+- Cancelamentos, reclamacoes e danos = *menos indicacoes*
+- Score muito baixo = *desativacao da plataforma*
+
+*9. DESATIVACAO*
+A Pegue pode desativar sua conta a qualquer momento em caso de:
+- Danos recorrentes a materiais de clientes
+- Reclamacoes graves ou reincidentes
+- Cancelamentos excessivos
+- Comportamento inadequado
+- Documentacao vencida ou irregular
+
+*10. DADOS E PRIVACIDADE*
+- Seus dados pessoais sao usados apenas para o cadastro e operacao da plataforma
+- Dados dos clientes sao confidenciais e nao devem ser compartilhados
+
+Para prosseguir com o cadastro, digite:
+*eu concordo*`,
 
   cadastroConcluido: `Cadastro recebido! ✅🎉
 

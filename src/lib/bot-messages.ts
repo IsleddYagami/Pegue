@@ -187,7 +187,9 @@ Quer pegar? Responda *SIM*`,
   freteAceito: `Voce ganhou o frete! ✅🎉
 Este servico ja esta reservado pra voce!
 
-A confirmacao chegara logo apos o pagamento do cliente. Fique atento! 📱`,
+A confirmacao chegara logo apos o pagamento do cliente. Fique atento! 📱
+
+💰 Seu pagamento sera liberado apos a confirmacao de entrega.`,
 
   freteJaPego: `Esse frete ja foi pego! 😉
 Fica de olho que sempre tem novos aparecendo! 🚚`,

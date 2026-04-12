@@ -37,7 +37,7 @@ export default function ParceiroPage() {
             trabalhar.
           </p>
           <a
-            href="https://wa.me/5511970363713?text=estou%20com%20a%20pegue"
+            href="https://wa.me/5511970363713?text=quero%20ser%20parceiro"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-3 rounded-full bg-[#C9A84C] px-8 py-4 text-lg font-bold text-[#0A0A0A] shadow-lg shadow-[#C9A84C]/20 transition-all hover:scale-105 hover:shadow-xl hover:shadow-[#C9A84C]/30"
@@ -46,7 +46,7 @@ export default function ParceiroPage() {
             Quero me cadastrar via WhatsApp
           </a>
           <p className="mt-4 text-sm text-gray-500">
-            Envie <strong className="text-[#C9A84C]">&quot;estou com a pegue&quot;</strong> no WhatsApp e
+            Envie <strong className="text-[#C9A84C]">&quot;quero ser parceiro&quot;</strong> no WhatsApp e
             comece agora
           </p>
         </div>
@@ -118,7 +118,7 @@ export default function ParceiroPage() {
                 step: "1",
                 icon: <Smartphone className="h-8 w-8" />,
                 title: "Envie no WhatsApp",
-                desc: 'Mande "estou com a pegue" pro nosso numero e o cadastro comeca automaticamente.',
+                desc: 'Mande "quero ser parceiro" no nosso WhatsApp e o cadastro comeca automaticamente.',
               },
               {
                 step: "2",
@@ -255,7 +255,7 @@ export default function ParceiroPage() {
           </p>
 
           <a
-            href="https://wa.me/5511970363713?text=estou%20com%20a%20pegue"
+            href="https://wa.me/5511970363713?text=quero%20ser%20parceiro"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-3 rounded-full bg-[#C9A84C] px-8 py-4 text-lg font-bold text-[#0A0A0A] shadow-lg shadow-[#C9A84C]/20 transition-all hover:scale-105 hover:shadow-xl hover:shadow-[#C9A84C]/30"
@@ -266,7 +266,7 @@ export default function ParceiroPage() {
           <p className="mt-4 text-sm text-gray-500">
             Envie{" "}
             <strong className="text-[#C9A84C]">
-              &quot;estou com a pegue&quot;
+              &quot;quero ser parceiro&quot;
             </strong>{" "}
             e siga as instrucoes
           </p>

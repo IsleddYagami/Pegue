@@ -235,9 +235,9 @@ async function handleClienteMessage(
     return;
   }
 
-  // Detecta "estou com a pegue" - inicia cadastro de prestador
+  // Detecta interesse em ser prestador
   const lower = message.toLowerCase().trim();
-  if (lower.includes("estou com a pegue")) {
+  if (lower.includes("quero ser parceiro") || lower.includes("ser parceiro") || lower.includes("estou com a pegue") || lower.includes("cadastro prestador")) {
     await createSession(phone);
     await updateSession(phone, { step: "cadastro_nome" });
     await sendMessage({ to: phone, message: MSG.cadastroInicio });

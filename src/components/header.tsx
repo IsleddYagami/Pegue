@@ -23,7 +23,7 @@ export function Header() {
         {/* Logo */}
         <Link href="/" className="flex items-center">
           <Image
-            src="/logo-pegue-horizontal.png"
+            src="/logo-pegue-novo.png"
             alt="Pegue - Solucoes em Transportes e Fretes"
             width={220}
             height={60}

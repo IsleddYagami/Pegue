@@ -10,11 +10,11 @@ export function Footer() {
           {/* Brand */}
           <div>
             <Image
-              src="/logo-pegue-horizontal.png"
+              src="/logo-pegue-novo.png"
               alt="Pegue"
-              width={140}
-              height={40}
-              className="h-9 w-auto"
+              width={180}
+              height={50}
+              className="h-12 w-auto"
             />
             <p className="mt-3 text-sm leading-relaxed">
               Frete e mudanca sem dor de cabeca.

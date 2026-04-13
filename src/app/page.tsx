@@ -16,11 +16,11 @@ export default function HomePage() {
       <section className="bg-[#0A0A0A] text-white">
         <div className="mx-auto flex max-w-4xl flex-col items-center px-4 py-20 text-center md:py-32">
           <Image
-            src="/logo-pegue.png"
+            src="/logo-pegue-novo.png"
             alt="Pegue"
-            width={180}
-            height={180}
-            className="mb-10 h-28 w-auto md:h-36"
+            width={280}
+            height={280}
+            className="mb-10 h-36 w-auto md:h-48"
             priority
           />
 

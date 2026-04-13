@@ -15,9 +15,12 @@ O que voce precisa?
 
 De onde vamos retirar o material?
 
-La embaixo, do lado de onde voce digita a mensagem, tem um icone de clipe 📎 - clica nele e depois em *Localizacao* 📍
+Voce pode:
+1️⃣ Mandar sua *localizacao* - clica no 📎 ao lado do campo de mensagem, depois em *Localizacao* 📍
+2️⃣ Digitar o *CEP* (ex: 06010-000)
+3️⃣ Digitar o *endereco* com rua e bairro
 
-Ou se preferir, me passa o *CEP* ou *endereco com rua e bairro* 🏠`,
+💡 Se a localizacao nao funcionar, verifique se o GPS do celular esta ligado e se o WhatsApp tem permissao de localizacao nas configuracoes do celular.`,
 
   guincho: `Para guincho, fala direto com nosso especialista *Santos*! 😊
 Ele vai te atender rapidinho:

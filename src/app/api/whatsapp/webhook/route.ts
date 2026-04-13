@@ -457,7 +457,34 @@ async function handleLocalizacao(
     return;
   }
 
-  await sendMessage({ to: phone, message: MSG.naoEntendi });
+  // Se tem mais de 5 caracteres, tenta geocodificar mesmo assim
+  if (message.length > 5) {
+    const coords = await geocodeAddress(message);
+    if (coords) {
+      await updateSession(phone, {
+        step: "aguardando_foto",
+        origem_endereco: message,
+        origem_lat: coords.lat,
+        origem_lng: coords.lng,
+      });
+      await sendMessage({ to: phone, message: MSG.enderecoRecebido(message) });
+      return;
+    }
+  }
+
+  await sendMessage({
+    to: phone,
+    message: `Nao consegui identificar o endereco 😅
+
+Tenta de uma dessas formas:
+📍 Manda sua *localizacao* pelo clipe 📎
+📮 Digita o *CEP* (ex: 06010-000)
+🏠 Digita *rua e bairro* (ex: Rua Augusta, Consolacao)
+
+💡 Se a localizacao nao funcionar:
+- Verifique se o *GPS esta ligado*
+- Configuracoes do celular > Apps > WhatsApp > Permissoes > *Localizacao* > Permitir`,
+  });
 }
 
 // STEP 2: Foto

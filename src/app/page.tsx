@@ -99,9 +99,10 @@ export default function HomePage() {
             <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />
           </a>
 
-          <p className="mt-3 text-sm text-gray-600">
-            Cotação Imediata.
-          </p>
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/40 bg-[#C9A84C]/10 px-6 py-2">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-[#C9A84C]"></span>
+            <span className="text-base font-semibold text-[#C9A84C]">Cotação Imediata</span>
+          </div>
         </div>
       </section>
 

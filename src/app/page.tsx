@@ -78,12 +78,12 @@ export default function HomePage() {
           />
 
           <h1 className="text-4xl font-extrabold leading-tight tracking-tight md:text-6xl lg:text-7xl">
-            Fretes sem{" "}
-            <span className="text-[#C9A84C]">dor de cabeca.</span>
+            Relaxa.{" "}
+            <span className="text-[#C9A84C]">A gente leva.</span>
           </h1>
 
-          <p className="mt-6 text-xl text-[#C9A84C] font-semibold md:text-2xl">
-            Com a PEGUE, ficou facil levar.
+          <p className="mt-6 text-lg text-gray-400 md:text-xl">
+            Fretes sem dor de cabeca. <span className="text-[#C9A84C] font-semibold">Com a PEGUE, ficou facil levar.</span>
           </p>
 
           <a

@@ -12,29 +12,59 @@ export default function HomePage() {
       <Header />
       <FloatingNotification />
 
-      {/* HERO - Negro absoluto com logo sombra */}
+      {/* HERO - Negro absoluto com logo sombra gigante + efeito vidro */}
       <section className="relative overflow-hidden text-white" style={{ background: "#000" }}>
-        {/* Logo gigante como sombra no fundo */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        {/* Logo GIGANTE como marca d'agua - ultra transparente */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ top: "-10%" }}>
           <Image
             src="/logo-pegue-novo.png"
             alt=""
-            width={900}
-            height={900}
-            className="h-[80vh] w-auto opacity-[0.04] blur-[1px]"
+            width={1400}
+            height={1400}
+            className="w-[120vw] max-w-none opacity-[0.025]"
+            style={{ filter: "brightness(0.3) saturate(0)" }}
             aria-hidden="true"
           />
         </div>
 
-        {/* Efeito vitrificado - reflexo de vidro */}
+        {/* Efeito reflexo prismatico diagonal - feixe de luz */}
         <div className="absolute inset-0 pointer-events-none" style={{
-          background: "linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 40%, rgba(255,255,255,0.015) 60%, transparent 100%)"
+          background: `
+            linear-gradient(
+              125deg,
+              transparent 0%,
+              transparent 35%,
+              rgba(201,168,76,0.03) 38%,
+              rgba(255,255,255,0.04) 40%,
+              rgba(201,168,76,0.02) 42%,
+              transparent 45%,
+              transparent 55%,
+              rgba(255,255,255,0.015) 58%,
+              rgba(201,168,76,0.01) 60%,
+              transparent 63%,
+              transparent 100%
+            )
+          `
         }} />
-        <div className="absolute top-0 left-0 right-0 h-px" style={{
-          background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.2), transparent)"
+
+        {/* Textura vitrificada - linhas horizontais sutis */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.008) 2px, rgba(255,255,255,0.008) 3px)",
+          backgroundSize: "100% 3px"
         }} />
-        <div className="absolute bottom-0 left-0 right-0 h-px" style={{
-          background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.1), transparent)"
+
+        {/* Brilho no canto superior */}
+        <div className="absolute pointer-events-none" style={{
+          top: "-20%",
+          right: "10%",
+          width: "50%",
+          height: "50%",
+          background: "radial-gradient(ellipse, rgba(201,168,76,0.04) 0%, transparent 60%)",
+        }} />
+
+        {/* Linha dourada topo */}
+        <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{
+          background: "linear-gradient(90deg, transparent 10%, rgba(201,168,76,0.3) 50%, transparent 90%)"
         }} />
 
         <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 py-20 text-center md:py-32">

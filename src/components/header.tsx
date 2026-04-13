@@ -19,15 +19,15 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#C9A84C]/20 bg-[#0A0A0A]/95 text-white backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+      <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center">
           <Image
             src="/logo-pegue-horizontal.png"
             alt="Pegue - Solucoes em Transportes e Fretes"
-            width={160}
-            height={45}
-            className="h-10 w-auto"
+            width={220}
+            height={60}
+            className="h-14 w-auto md:h-16"
             priority
           />
         </Link>

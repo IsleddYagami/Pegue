@@ -100,7 +100,7 @@ export default function HomePage() {
           </a>
 
           <p className="mt-3 text-sm text-gray-600">
-            Sem compromisso. Resposta em minutos.
+            Cotação Imediata.
           </p>
         </div>
       </section>

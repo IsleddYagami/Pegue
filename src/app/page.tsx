@@ -83,7 +83,10 @@ export default function HomePage() {
           </h1>
 
           <p className="mt-6 text-lg text-gray-400 md:text-xl">
-            Fretes na Pegue e simples assim! <span className="text-[#C9A84C] font-semibold">Com a PEGUE, ficou facil levar.</span>
+            Fretes sem dor de cabeça.
+          </p>
+          <p className="mt-2 text-xl font-semibold text-[#C9A84C] md:text-2xl">
+            Com a PEGUE, ficou fácil levar.
           </p>
 
           <a
@@ -107,7 +110,7 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-8 px-4 py-6 md:gap-16 md:py-8">
           {[
             { numero: "847", label: "fretes realizados" },
-            { numero: "4.9", label: "avaliacao no WhatsApp" },
+            { numero: "4.9", label: "avaliação no WhatsApp" },
             { numero: "23 min", label: "tempo medio de resposta" },
           ].map((item) => (
             <div key={item.label} className="text-center">
@@ -138,22 +141,22 @@ export default function HomePage() {
       {/* SERVICOS */}
       <section className="bg-[#000000] py-16 md:py-24">
         <div className="mx-auto max-w-5xl px-4">
-          <p className="mb-10 text-center text-lg text-gray-400">O dificil ficou facil.</p>
+          <p className="mb-10 text-center text-lg text-gray-400">O difícil ficou fácil.</p>
           <div className="grid gap-4 md:grid-cols-3">
             {[
               {
                 titulo: "Pequenos Fretes",
-                sub: "Movel, eletro, caixas. Levar ficou simples de verdade.",
+                sub: "Móvel, eletro, caixas. Levar ficou simples de verdade.",
                 destaque: true,
               },
               {
-                titulo: "Mudanca",
-                sub: "De um quarto a casa inteira. A forma facil de levar o que voce precisa.",
+                titulo: "Mudança",
+                sub: "De um quarto a casa inteira. A forma fácil de levar o que você precisa.",
                 destaque: false,
               },
               {
                 titulo: "Guincho",
-                sub: "Carro ou moto. Quando parece dificil, a PEGUE facilita.",
+                sub: "Carro ou moto. Quando parece difícil, a PEGUE facilita.",
                 destaque: false,
               },
             ].map((srv) => (
@@ -185,14 +188,14 @@ export default function HomePage() {
               className="w-full object-cover"
             />
           </div>
-          <p className="mt-4 text-center text-sm text-gray-500">O jeito facil de ter algo dificil.</p>
+          <p className="mt-4 text-center text-sm text-gray-500">O jeito fácil de ter algo difícil.</p>
         </div>
       </section>
 
       {/* COMO FUNCIONA - 3 passos, minimo texto */}
       <section className="bg-[#000000] py-16 md:py-24">
         <div className="mx-auto max-w-3xl px-4">
-          <p className="text-center text-lg text-gray-400">Fretes na Pegue e simples assim: voce chama, a gente leva!</p>
+          <p className="text-center text-lg text-gray-400">Fretes na Pegue é simples assim: você chama, a gente leva!</p>
 
           <div className="mt-10 flex flex-col items-center gap-8 md:flex-row md:gap-4">
             {[
@@ -220,7 +223,7 @@ export default function HomePage() {
       <section className="border-y border-gray-800 bg-[#000000] py-10">
         <div className="mx-auto flex max-w-2xl flex-col items-center px-4 text-center">
           <p className="text-sm text-gray-500">
-            Quando parece dificil, a PEGUE facilita.{" "}
+            Quando parece difícil, a PEGUE facilita.{" "}
             <span className="text-[#C9A84C]">Siga no Instagram</span>{" "}
             pra cupons exclusivos e novidades.
           </p>
@@ -239,12 +242,12 @@ export default function HomePage() {
       <section className="bg-[#000000] py-20 md:py-28">
         <div className="mx-auto flex max-w-2xl flex-col items-center px-4 text-center">
           <h2 className="text-3xl font-extrabold text-white md:text-4xl">
-            Nao carregue esse peso.{" "}
+            Não carregue esse peso.{" "}
             <span className="text-[#C9A84C]">Deixa com a PEGUE.</span>
           </h2>
 
           <p className="mt-4 text-base text-gray-500">
-            A forma facil de levar o que voce precisa. Resposta em minutos.
+            A forma fácil de levar o que você precisa. Resposta em minutos.
           </p>
 
           <a

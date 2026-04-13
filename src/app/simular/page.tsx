@@ -33,44 +33,19 @@ type ItemFoto = {
   analisando: boolean;
 };
 
-// Geocodificar via Nominatim
+// Geocodificar via API interna (proxy pro Nominatim + ViaCEP)
 async function geocodificar(
   endereco: string
 ): Promise<{ lat: number; lng: number; nome: string } | null> {
-  const cepClean = endereco.replace(/\D/g, "");
-  if (cepClean.length === 8) {
-    try {
-      const r = await fetch(`https://viacep.com.br/ws/${cepClean}/json/`);
-      const data = await r.json();
-      if (!data.erro && data.localidade) {
-        const q = `${data.logradouro || ""}, ${data.bairro || ""}, ${data.localidade}, ${data.uf}, Brasil`;
-        return await geocodificarNominatim(q, `${data.bairro || data.localidade}, ${data.localidade}`);
-      }
-    } catch {}
-  }
-  return await geocodificarNominatim(endereco + ", Sao Paulo, Brasil", endereco);
-}
-
-async function geocodificarNominatim(
-  query: string,
-  _nomeExibicao: string
-): Promise<{ lat: number; lng: number; nome: string } | null> {
   try {
-    const encoded = encodeURIComponent(query);
-    const r = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=1&countrycodes=br`,
-      { headers: { "Accept-Language": "pt-BR" } }
-    );
+    const r = await fetch(`/api/geocode?q=${encodeURIComponent(endereco)}`);
+    if (!r.ok) return null;
     const data = await r.json();
-    if (data && data.length > 0) {
-      return {
-        lat: parseFloat(data[0].lat),
-        lng: parseFloat(data[0].lon),
-        nome: data[0].display_name.split(",").slice(0, 3).join(",").trim(),
-      };
-    }
-  } catch {}
-  return null;
+    if (data.lat && data.lng) return data;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 async function reverseGeocode(lat: number, lng: number): Promise<string | null> {

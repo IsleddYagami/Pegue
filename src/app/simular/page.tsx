@@ -219,10 +219,24 @@ export default function SimularPage() {
     setCalculado(false);
 
     try {
-      if (gpsStatus !== "ok" || !origemLat || !origemLng) {
-        setErro("Permita o acesso ao GPS ou tente novamente.");
-        setCalculando(false);
-        return;
+      // Se nao tem GPS, tenta geocodificar o endereco digitado
+      if (!origemLat || !origemLng) {
+        if (origemNome && origemNome.length > 3) {
+          const localOrigem = await geocodificar(origemNome);
+          if (localOrigem) {
+            setOrigemLat(localOrigem.lat);
+            setOrigemLng(localOrigem.lng);
+            setOrigemNome(localOrigem.nome);
+          } else {
+            setErro("Não encontramos o endereço de origem. Verifique e tente novamente.");
+            setCalculando(false);
+            return;
+          }
+        } else {
+          setErro("Informe o endereço de origem ou ative o GPS.");
+          setCalculando(false);
+          return;
+        }
       }
 
       const localDestino = await geocodificar(destino);
@@ -232,7 +246,7 @@ export default function SimularPage() {
         return;
       }
 
-      const dist = calcularDistancia(origemLat, origemLng, localDestino.lat, localDestino.lng);
+      const dist = calcularDistancia(origemLat!, origemLng!, localDestino.lat, localDestino.lng);
       const p = calcularPrecos(dist, itens.length);
 
       setDistancia(dist);
@@ -388,27 +402,47 @@ export default function SimularPage() {
               )}
             </div>
 
-            {/* ORIGEM GPS */}
+            {/* ORIGEM */}
             <div className="rounded-xl border border-gray-800 bg-[#111111] p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Navigation size={16} className="text-[#C9A84C]" />
-                  <span className="text-xs font-semibold uppercase text-gray-500">Sua localizacao</span>
+                  <span className="text-xs font-semibold uppercase text-gray-500">De onde sai?</span>
                 </div>
-                {gpsStatus === "denied" && (
+                {gpsStatus !== "loading" && (
                   <button type="button" onClick={detectarLocalizacao} className="text-xs text-[#C9A84C] hover:underline">
-                    Tentar novamente
+                    📍 Usar GPS
                   </button>
                 )}
               </div>
               {gpsStatus === "loading" && (
                 <div className="mt-2 flex items-center gap-2 text-sm text-gray-400">
-                  <Loader2 size={14} className="animate-spin" /> Detectando...
+                  <Loader2 size={14} className="animate-spin" /> Detectando localização...
                 </div>
               )}
               {gpsStatus === "ok" && <p className="mt-2 text-sm text-white">{origemNome}</p>}
               {gpsStatus === "denied" && (
-                <p className="mt-2 text-xs text-red-400">GPS nao permitido. Habilite no navegador.</p>
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    value={origemNome}
+                    onChange={(e) => { setOrigemNome(e.target.value); setGpsStatus("ok"); setCalculado(false); }}
+                    placeholder="Digite o endereço ou CEP de origem"
+                    className="w-full rounded-lg border border-gray-700 bg-[#0A0A0A] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-[#C9A84C] focus:outline-none"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">GPS indisponível. Digite o endereço manualmente.</p>
+                </div>
+              )}
+              {gpsStatus === "idle" && (
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    value={origemNome}
+                    onChange={(e) => { setOrigemNome(e.target.value); setGpsStatus("ok"); setCalculado(false); }}
+                    placeholder="Digite o endereço ou CEP de origem"
+                    className="w-full rounded-lg border border-gray-700 bg-[#0A0A0A] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-[#C9A84C] focus:outline-none"
+                  />
+                </div>
               )}
             </div>
 

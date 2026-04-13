@@ -12,9 +12,32 @@ export default function HomePage() {
       <Header />
       <FloatingNotification />
 
-      {/* HERO - Minimalista, uma mensagem */}
-      <section className="bg-[#000000] bg-reflection text-white">
-        <div className="mx-auto flex max-w-4xl flex-col items-center px-4 py-20 text-center md:py-32">
+      {/* HERO - Negro absoluto com logo sombra */}
+      <section className="relative overflow-hidden text-white" style={{ background: "#000" }}>
+        {/* Logo gigante como sombra no fundo */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <Image
+            src="/logo-pegue-novo.png"
+            alt=""
+            width={900}
+            height={900}
+            className="h-[80vh] w-auto opacity-[0.04] blur-[1px]"
+            aria-hidden="true"
+          />
+        </div>
+
+        {/* Efeito vitrificado - reflexo de vidro */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: "linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 40%, rgba(255,255,255,0.015) 60%, transparent 100%)"
+        }} />
+        <div className="absolute top-0 left-0 right-0 h-px" style={{
+          background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.2), transparent)"
+        }} />
+        <div className="absolute bottom-0 left-0 right-0 h-px" style={{
+          background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.1), transparent)"
+        }} />
+
+        <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 py-20 text-center md:py-32">
           <Image
             src="/logo-pegue-novo.png"
             alt="Pegue"
@@ -118,7 +141,7 @@ export default function HomePage() {
       </section>
 
       {/* COMO FUNCIONA - 3 passos, minimo texto */}
-      <section className="bg-[#050505] py-16 md:py-24">
+      <section className="bg-[#000000] py-16 md:py-24">
         <div className="mx-auto max-w-3xl px-4">
           <p className="text-center text-sm text-gray-600">Simples assim.</p>
 

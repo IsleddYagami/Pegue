@@ -75,29 +75,48 @@ function calcularDistancia(lat1: number, lng1: number, lat2: number, lng2: numbe
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35 * 10) / 10;
 }
 
-function calcularPrecos(distanciaKm: number, totalItens: number) {
-  const PRECO_KM = 8;
-  const KM_MINIMO = 5;
-  const VALOR_MINIMO = 80;
-  const ADICIONAL_AJUDANTE = 80;
+// Formula calibrada com mercado SP: 30 * sqrt(km) + 148
+function calcularPrecoBase(km: number): number {
+  if (km <= 2) return 150;
+  return Math.round(30 * Math.sqrt(km) + 148);
+}
 
-  const kmCobrado = Math.max(distanciaKm, KM_MINIMO);
-  const precoBase = kmCobrado * PRECO_KM;
+function calcularPrecos(distanciaKm: number, totalItens: number, origemLocal: string = "") {
+  const base = calcularPrecoBase(distanciaKm);
 
-  // Ajuste por volume: mais itens = veiculo maior
-  const multVolume = totalItens <= 1 ? 1.0 : totalItens <= 3 ? 1.2 : totalItens <= 6 ? 1.5 : 1.8;
+  // Detecta se origem e Osasco (minimo R$150) ou demais (minimo R$170)
+  const ehOsasco = origemLocal.toLowerCase().includes("osasco");
+  const minimoBase = ehOsasco ? 150 : 170;
+
+  // Veiculo por volume
+  const multVeiculo = totalItens <= 1 ? 1.0 : totalItens <= 3 ? 1.3 : 1.75;
+
+  // Minimos por veiculo
+  const minimoUtil = minimoBase;
+  const minimoHR = Math.max(220, minimoBase);
+  const minimoCaminhao = 500;
+
+  const precoUtil = Math.max(Math.round(base * 1.0), minimoUtil);
+  const precoHR = Math.max(Math.round(base * 1.3), minimoHR);
+  const precoCaminhao = Math.max(Math.round(base * 1.75), minimoCaminhao);
+
+  // Economica = utilitario sem ajudante
+  // Padrao = veiculo sugerido + ajudante (HR se mais itens)
+  // Premium = caminhao bau + 2 ajudantes
+  const ajudante = distanciaKm <= 10 ? 80 : 100;
 
   return {
-    economica: Math.max(Math.round(precoBase * multVolume), VALOR_MINIMO),
-    padrao: Math.max(Math.round(precoBase * 1.6 * multVolume + ADICIONAL_AJUDANTE), VALOR_MINIMO + 80),
-    premium: Math.max(Math.round(precoBase * 2.0 * multVolume + ADICIONAL_AJUDANTE * 2), VALOR_MINIMO + 160),
+    economica: Math.max(precoUtil, minimoBase),
+    padrao: Math.max(totalItens <= 1 ? precoUtil + ajudante : precoHR + ajudante, minimoBase + ajudante),
+    premium: Math.max(precoCaminhao + ajudante * 2, minimoCaminhao),
   };
 }
 
 function melhorVeiculo(itens: ItemFoto[]): string {
   const veiculos = itens.map((i) => i.analise?.veiculo_sugerido || "utilitario");
   if (veiculos.includes("caminhao_bau")) return "Caminhao bau";
-  if (veiculos.includes("van")) return "Van";
+  if (veiculos.includes("hr")) return "HR";
+  if (veiculos.includes("van")) return "HR";
   return "Utilitario";
 }
 
@@ -246,7 +265,7 @@ export default function SimularPage() {
       }
 
       const dist = calcularDistancia(oLat!, oLng!, localDestino.lat, localDestino.lng);
-      const p = calcularPrecos(dist, itens.length);
+      const p = calcularPrecos(dist, itens.length, origemNome);
 
       setDistancia(dist);
       setDestinoNome(localDestino.nome);
@@ -464,7 +483,7 @@ export default function SimularPage() {
             {/* BOTAO */}
             <button
               type="submit"
-              disabled={!destino.trim() || (!origemNome.trim() && !origemLat) || calculando || algumAnalisando}
+              disabled={!destino.trim() || (!origemNome.trim() && !origemLat) || itens.length === 0 || calculando || algumAnalisando}
               className="w-full rounded-xl bg-[#C9A84C] py-4 text-lg font-bold text-[#0A0A0A] transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {calculando ? (
@@ -541,7 +560,7 @@ export default function SimularPage() {
                   <div className="flex items-center justify-between rounded-lg border border-gray-800 p-3">
                     <div>
                       <p className="text-sm font-semibold text-white">Economica</p>
-                      <p className="text-[11px] text-gray-500">Utilitario, sem ajudante</p>
+                      <p className="text-[11px] text-gray-500">Utilitario (Strada/Saveiro), sem ajudante</p>
                     </div>
                     <p className="text-xl font-extrabold text-[#C9A84C]">R$ {precos.economica}</p>
                   </div>
@@ -554,7 +573,7 @@ export default function SimularPage() {
                           Recomendado
                         </span>
                       </p>
-                      <p className="text-[11px] text-gray-400">Caminhao bau, 1 ajudante</p>
+                      <p className="text-[11px] text-gray-400">{melhorVeiculo(itens)}, com ajudante</p>
                     </div>
                     <p className="text-xl font-extrabold text-[#C9A84C]">R$ {precos.padrao}</p>
                   </div>
@@ -562,7 +581,7 @@ export default function SimularPage() {
                   <div className="flex items-center justify-between rounded-lg border border-gray-800 p-3">
                     <div>
                       <p className="text-sm font-semibold text-white">Premium</p>
-                      <p className="text-[11px] text-gray-500">Caminhao bau, 2 ajudantes</p>
+                      <p className="text-[11px] text-gray-500">Caminhao Bau, 2 ajudantes</p>
                     </div>
                     <p className="text-xl font-extrabold text-[#C9A84C]">R$ {precos.premium}</p>
                   </div>

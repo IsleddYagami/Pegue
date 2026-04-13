@@ -243,6 +243,12 @@ async function handleClienteMessage(
     return;
   }
 
+  // Dashboard do cliente
+  if (lower === "minha conta" || lower === "meu historico" || lower === "meus servicos") {
+    await handleDashboardCliente(phone);
+    return;
+  }
+
   // Detecta interesse em ser prestador
   if (lower.includes("parcerias pegue") || lower.includes("parceria pegue") || lower.includes("quero ser parceiro") || lower.includes("ser parceiro") || lower.includes("cadastro prestador")) {
     await createSession(phone);
@@ -1071,6 +1077,57 @@ async function handleDashboardFretista(phone: string) {
       faturamento.toFixed(2),
       statusTexto
     ),
+  });
+}
+
+// === DASHBOARD CLIENTE ===
+
+async function handleDashboardCliente(phone: string) {
+  const { data: cliente } = await supabase
+    .from("clientes")
+    .select("id, nome, nivel, total_corridas")
+    .eq("telefone", phone)
+    .single();
+
+  if (!cliente) {
+    await sendMessage({
+      to: phone,
+      message: "Voce ainda nao tem historico na Pegue 😊\n\nPra solicitar um frete, envie: *Oi*\n\n📱 Painel completo: pegue-eta.vercel.app/minha-conta",
+    });
+    return;
+  }
+
+  const { data: corridas } = await supabase
+    .from("corridas")
+    .select("valor_final, status, descricao_carga, destino_endereco, periodo")
+    .eq("cliente_id", cliente.id)
+    .order("criado_em", { ascending: false })
+    .limit(5);
+
+  const concluidas = corridas?.filter(c => c.status === "concluida") || [];
+  const totalGasto = concluidas.reduce((s, c) => s + (c.valor_final || 0), 0);
+
+  let historico = "";
+  if (corridas && corridas.length > 0) {
+    historico = "\n📋 *Ultimos servicos:*\n";
+    corridas.slice(0, 5).forEach(c => {
+      const status = c.status === "concluida" ? "✅" : c.status === "aceita" ? "🔄" : c.status === "paga" ? "💰" : "⏳";
+      historico += `${status} ${c.descricao_carga || "Frete"} → ${c.destino_endereco?.substring(0, 25) || "---"} | R$ ${c.valor_final || 0}\n`;
+    });
+  }
+
+  await sendMessage({
+    to: phone,
+    message: `📊 *Sua Conta - Pegue*
+
+👤 *${cliente.nome || "Cliente"}*
+🏷 Nivel: *${cliente.nivel || "Bronze"}*
+🚚 Servicos contratados: *${concluidas.length}*
+💰 Total investido: *R$ ${totalGasto.toFixed(0)}*
+${historico}
+📱 Painel completo: pegue-eta.vercel.app/minha-conta
+
+Pra ver novamente, digite *minha conta* 😊`,
   });
 }
 

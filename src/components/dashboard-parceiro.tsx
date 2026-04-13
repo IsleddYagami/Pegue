@@ -1,19 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Truck, Star, DollarSign, CheckCircle, AlertCircle, Clock, Loader2 } from "lucide-react";
+import {
+  Search, Truck, Star, DollarSign, CheckCircle, AlertCircle,
+  Clock, Loader2, TrendingUp, TrendingDown, Fuel, MapPin,
+  BarChart3, Target, Award, Package,
+} from "lucide-react";
 
 interface DashboardData {
   nome: string;
   score: number;
   totalFretes: number;
-  faturamento: number;
   status: string;
   disponivel: boolean;
-  veiculo?: {
-    tipo: string;
-    placa: string;
+  veiculo?: { tipo: string; placa: string };
+  financeiro: {
+    faturamentoTotal: number;
+    faturamentoMes: number;
+    faturamentoSemana: number;
+    faturamentoMesAnterior: number;
+    variacao: number;
+    combustivelEstimado: number;
+    lucroReal: number;
+    kmTotal: number;
   };
+  topRegioes: { nome: string; qtd: number }[];
+  historico: {
+    destino: string;
+    origem: string;
+    valor: number;
+    carga: string;
+    data: string;
+    status: string;
+  }[];
+  avaliacao: { media: number; total: number };
+  meta: { fretesMes: number; metaMensal: number; progressoMeta: number };
 }
 
 export function DashboardParceiro() {
@@ -34,20 +55,17 @@ export function DashboardParceiro() {
     }
 
     setLoading(true);
-
     try {
       const res = await fetch(`/api/dashboard-parceiro?phone=55${tel}`);
       const result = await res.json();
-
       if (res.ok && result.nome) {
         setData(result);
       } else {
-        setErro(result.error || "Parceiro nao encontrado. Verifique o numero.");
+        setErro(result.error || "Parceiro nao encontrado.");
       }
     } catch {
-      setErro("Erro de conexao. Tente novamente.");
+      setErro("Erro de conexao.");
     }
-
     setLoading(false);
   };
 
@@ -58,113 +76,238 @@ export function DashboardParceiro() {
     caminhao_bau: "Caminhao Bau",
   };
 
-  const getStatusIcon = (status: string, disponivel: boolean) => {
-    if (status === "aprovado" && disponivel) return <CheckCircle className="h-5 w-5 text-green-400" />;
-    if (status === "aprovado" && !disponivel) return <Clock className="h-5 w-5 text-yellow-400" />;
-    if (status === "pendente") return <Clock className="h-5 w-5 text-blue-400" />;
-    return <AlertCircle className="h-5 w-5 text-red-400" />;
+  const statusConfig = (status: string, disponivel: boolean) => {
+    if (status === "aprovado" && disponivel) return { icon: <CheckCircle className="h-4 w-4" />, texto: "Ativo", cor: "text-green-400 bg-green-400/10" };
+    if (status === "aprovado") return { icon: <Clock className="h-4 w-4" />, texto: "Pausado", cor: "text-yellow-400 bg-yellow-400/10" };
+    if (status === "pendente") return { icon: <Clock className="h-4 w-4" />, texto: "Em analise", cor: "text-blue-400 bg-blue-400/10" };
+    return { icon: <AlertCircle className="h-4 w-4" />, texto: "Inativo", cor: "text-red-400 bg-red-400/10" };
   };
 
-  const getStatusTexto = (status: string, disponivel: boolean) => {
-    if (status === "aprovado" && disponivel) return "Ativo";
-    if (status === "aprovado" && !disponivel) return "Pausado";
-    if (status === "pendente") return "Em analise";
-    return "Inativo";
-  };
+  const statusInfo = data ? statusConfig(data.status, data.disponivel) : null;
 
-  const getScoreColor = (score: number) => {
-    if (score >= 8) return "text-green-400";
-    if (score >= 5) return "text-yellow-400";
-    return "text-red-400";
-  };
-
-  const getScoreMsg = (score: number) => {
-    if (score >= 8) return "Excelente! Voce esta entre os melhores parceiros!";
-    if (score >= 5) return "Bom trabalho! Continue assim pra subir no ranking!";
-    return "Atencao! Melhore seu atendimento pra receber mais indicacoes.";
-  };
-
-  return (
-    <div className="mx-auto max-w-lg">
-      {!data ? (
-        <form onSubmit={handleBuscar} className="space-y-4">
-          <p className="mb-4 text-center text-gray-400">
-            Digite seu telefone pra acessar seu painel
-          </p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={telefone}
-              onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))}
-              className="flex-1 rounded-lg border border-gray-700 bg-[#1a1a1a] px-4 py-3 text-white placeholder-gray-500 focus:border-[#C9A84C] focus:outline-none"
-              placeholder="11999999999"
-              maxLength={11}
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex items-center gap-2 rounded-lg bg-[#C9A84C] px-6 py-3 font-bold text-[#0A0A0A] transition-all hover:scale-[1.02] disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
-              {loading ? "" : "Buscar"}
-            </button>
-          </div>
-          {erro && <p className="text-center text-sm text-red-400">{erro}</p>}
-        </form>
-      ) : (
-        <div className="space-y-4">
-          {/* Cabecalho */}
-          <div className="rounded-2xl border border-gray-800 bg-[#111111] p-6 text-center">
-            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[#C9A84C]/10">
-              <Truck className="h-8 w-8 text-[#C9A84C]" />
-            </div>
-            <h3 className="text-xl font-bold">{data.nome}</h3>
-            <div className="mt-2 flex items-center justify-center gap-2">
-              {getStatusIcon(data.status, data.disponivel)}
-              <span className="text-sm text-gray-400">{getStatusTexto(data.status, data.disponivel)}</span>
-            </div>
-            {data.veiculo && (
-              <p className="mt-1 text-sm text-gray-500">
-                {veiculoNomes[data.veiculo.tipo] || data.veiculo.tipo} - {data.veiculo.placa}
-              </p>
-            )}
-          </div>
-
-          {/* Metricas */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl border border-gray-800 bg-[#111111] p-4 text-center">
-              <Star className={`mx-auto mb-2 h-6 w-6 ${getScoreColor(data.score)}`} />
-              <p className={`text-2xl font-bold ${getScoreColor(data.score)}`}>{data.score.toFixed(1)}</p>
-              <p className="text-xs text-gray-500">Score</p>
-            </div>
-            <div className="rounded-xl border border-gray-800 bg-[#111111] p-4 text-center">
-              <Truck className="mx-auto mb-2 h-6 w-6 text-[#C9A84C]" />
-              <p className="text-2xl font-bold text-white">{data.totalFretes}</p>
-              <p className="text-xs text-gray-500">Fretes</p>
-            </div>
-            <div className="rounded-xl border border-gray-800 bg-[#111111] p-4 text-center">
-              <DollarSign className="mx-auto mb-2 h-6 w-6 text-green-400" />
-              <p className="text-2xl font-bold text-green-400">R$ {data.faturamento.toFixed(0)}</p>
-              <p className="text-xs text-gray-500">Faturado</p>
-            </div>
-          </div>
-
-          {/* Mensagem motivacional */}
-          <div className="rounded-xl border border-[#C9A84C]/20 bg-[#C9A84C]/5 p-4 text-center">
-            <p className="text-sm text-[#C9A84C]">
-              {data.score >= 8 ? "🏆" : data.score >= 5 ? "👍" : "⚠️"} {getScoreMsg(data.score)}
-            </p>
-          </div>
-
-          {/* Voltar */}
-          <button
-            onClick={() => { setData(null); setTelefone(""); }}
-            className="w-full rounded-lg border border-gray-700 py-3 text-sm text-gray-400 transition-all hover:border-[#C9A84C] hover:text-white"
-          >
-            Consultar outro numero
+  if (!data) {
+    return (
+      <form onSubmit={handleBuscar} className="mx-auto max-w-md space-y-4">
+        <p className="text-center text-gray-400">
+          Digite seu telefone pra acessar seu painel
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={telefone}
+            onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+            className="flex-1 rounded-lg border border-[#C9A84C]/30 bg-[#0A0A0A] px-4 py-3 text-white placeholder-gray-500 focus:border-[#C9A84C] focus:outline-none"
+            placeholder="11999999999"
+          />
+          <button type="submit" disabled={loading} className="flex items-center gap-2 rounded-lg bg-[#C9A84C] px-6 py-3 font-bold text-[#000000] transition-all hover:scale-[1.02] disabled:opacity-50">
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
           </button>
         </div>
-      )}
+        {erro && <p className="text-center text-sm text-red-400">{erro}</p>}
+      </form>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-6">
+      {/* Cabecalho */}
+      <div className="flex flex-col items-center gap-4 rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6 md:flex-row md:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#C9A84C]/10">
+            <Truck className="h-7 w-7 text-[#C9A84C]" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold">{data.nome}</h3>
+            {data.veiculo && (
+              <p className="text-sm text-gray-500">{veiculoNomes[data.veiculo.tipo] || data.veiculo.tipo} - {data.veiculo.placa}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {statusInfo && (
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${statusInfo.cor}`}>
+              {statusInfo.icon} {statusInfo.texto}
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A84C]/10 px-3 py-1 text-sm font-medium text-[#C9A84C]">
+            <Star className="h-4 w-4" /> {data.score.toFixed(1)}
+          </span>
+        </div>
+      </div>
+
+      {/* Meta mensal */}
+      <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Target className="h-5 w-5 text-[#C9A84C]" />
+            <span className="font-bold">Meta mensal</span>
+          </div>
+          <span className="text-sm text-gray-400">{data.meta.fretesMes} de {data.meta.metaMensal} fretes</span>
+        </div>
+        <div className="h-3 overflow-hidden rounded-full bg-[#1a1a1a]">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-[#C9A84C] to-[#e8c55a] transition-all duration-500"
+            style={{ width: `${data.meta.progressoMeta}%` }}
+          />
+        </div>
+        <p className="mt-2 text-xs text-gray-500">
+          {data.meta.progressoMeta >= 100
+            ? "🏆 Meta batida! Voce e demais!"
+            : `Faltam ${data.meta.metaMensal - data.meta.fretesMes} fretes pra bater a meta!`}
+        </p>
+      </div>
+
+      {/* Cards financeiros */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
+          <div className="mb-2 flex items-center gap-2 text-sm text-gray-400">
+            <DollarSign className="h-4 w-4 text-[#C9A84C]" /> Este mes
+          </div>
+          <p className="text-2xl font-bold text-[#C9A84C]">R$ {data.financeiro.faturamentoMes.toFixed(0)}</p>
+          {data.financeiro.variacao !== 0 && (
+            <p className={`mt-1 flex items-center gap-1 text-xs ${data.financeiro.variacao > 0 ? "text-green-400" : "text-red-400"}`}>
+              {data.financeiro.variacao > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              {data.financeiro.variacao > 0 ? "+" : ""}{data.financeiro.variacao}% vs mes anterior
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
+          <div className="mb-2 flex items-center gap-2 text-sm text-gray-400">
+            <DollarSign className="h-4 w-4 text-green-400" /> Semana
+          </div>
+          <p className="text-2xl font-bold text-white">R$ {data.financeiro.faturamentoSemana.toFixed(0)}</p>
+        </div>
+
+        <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
+          <div className="mb-2 flex items-center gap-2 text-sm text-gray-400">
+            <Fuel className="h-4 w-4 text-orange-400" /> Combustivel est.
+          </div>
+          <p className="text-2xl font-bold text-orange-400">R$ {data.financeiro.combustivelEstimado}</p>
+          <p className="mt-1 text-xs text-gray-500">{data.financeiro.kmTotal} km rodados</p>
+        </div>
+
+        <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
+          <div className="mb-2 flex items-center gap-2 text-sm text-gray-400">
+            <TrendingUp className="h-4 w-4 text-green-400" /> Lucro real
+          </div>
+          <p className="text-2xl font-bold text-green-400">R$ {data.financeiro.lucroReal.toFixed(0)}</p>
+          <p className="mt-1 text-xs text-gray-500">Faturamento - combustivel</p>
+        </div>
+      </div>
+
+      {/* Metricas extras */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5 text-center">
+          <Truck className="mx-auto mb-2 h-8 w-8 text-[#C9A84C]" />
+          <p className="text-3xl font-bold">{data.totalFretes}</p>
+          <p className="text-sm text-gray-400">Fretes realizados</p>
+        </div>
+        <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5 text-center">
+          <DollarSign className="mx-auto mb-2 h-8 w-8 text-[#C9A84C]" />
+          <p className="text-3xl font-bold text-[#C9A84C]">R$ {data.financeiro.faturamentoTotal.toFixed(0)}</p>
+          <p className="text-sm text-gray-400">Faturamento total</p>
+        </div>
+        <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5 text-center">
+          <Award className="mx-auto mb-2 h-8 w-8 text-[#C9A84C]" />
+          <p className="text-3xl font-bold">{data.avaliacao.media > 0 ? data.avaliacao.media.toFixed(1) : "---"}</p>
+          <p className="text-sm text-gray-400">Nota media ({data.avaliacao.total} avaliacoes)</p>
+        </div>
+      </div>
+
+      {/* Regioes + Historico */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Regioes mais atendidas */}
+        <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-[#C9A84C]" />
+            <h4 className="font-bold">Regioes mais atendidas</h4>
+          </div>
+          {data.topRegioes.length > 0 ? (
+            <div className="space-y-3">
+              {data.topRegioes.map((r, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#C9A84C]/10 text-xs font-bold text-[#C9A84C]">{i + 1}</span>
+                    <span className="text-sm">{r.nome}</span>
+                  </div>
+                  <span className="text-sm text-gray-400">{r.qtd} fretes</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">Nenhum frete concluido ainda</p>
+          )}
+        </div>
+
+        {/* Dicas da Pegue */}
+        <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-[#C9A84C]" />
+            <h4 className="font-bold">Dicas da Pegue</h4>
+          </div>
+          <div className="space-y-3">
+            <div className="rounded-lg bg-[#C9A84C]/5 p-3">
+              <p className="text-sm text-[#C9A84C]">💡 Regiao com mais demanda essa semana: <strong>Osasco e Zona Oeste SP</strong></p>
+            </div>
+            <div className="rounded-lg bg-[#C9A84C]/5 p-3">
+              <p className="text-sm text-[#C9A84C]">📸 Sempre tire fotos antes e depois - protege voce!</p>
+            </div>
+            <div className="rounded-lg bg-[#C9A84C]/5 p-3">
+              <p className="text-sm text-[#C9A84C]">⭐ Score alto = mais indicacoes. Capriche no atendimento!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Historico de fretes */}
+      <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Package className="h-5 w-5 text-[#C9A84C]" />
+          <h4 className="font-bold">Historico de fretes</h4>
+        </div>
+        {data.historico.length > 0 ? (
+          <div className="space-y-3">
+            {data.historico.map((h, i) => (
+              <div key={i} className="flex items-center justify-between rounded-lg border border-[#C9A84C]/10 bg-[#000000] p-4">
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{h.carga}</p>
+                  <p className="text-xs text-gray-500">{h.origem.substring(0, 30)} → {h.destino.substring(0, 30)}</p>
+                  <p className="text-xs text-gray-500">{h.data}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-[#C9A84C]">R$ {h.valor.toFixed(0)}</p>
+                  <span className={`text-xs ${h.status === "concluida" ? "text-green-400" : h.status === "pendente" ? "text-yellow-400" : "text-gray-400"}`}>
+                    {h.status === "concluida" ? "Concluido" : h.status === "aceita" ? "Aceito" : h.status === "paga" ? "Pago" : h.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">Nenhum frete registrado ainda. Comece a aceitar indicacoes!</p>
+        )}
+      </div>
+
+      {/* Motivacional */}
+      <div className="rounded-2xl border border-[#C9A84C]/30 bg-gradient-to-r from-[#C9A84C]/10 to-transparent p-6 text-center">
+        <p className="text-lg">
+          {data.score >= 8
+            ? "🏆 Excelente! Voce esta entre os melhores parceiros da Pegue!"
+            : data.score >= 5
+            ? "👍 Bom trabalho! Continue assim pra subir no ranking!"
+            : "⚠️ Melhore seu atendimento pra receber mais indicacoes!"}
+        </p>
+        <p className="mt-2 text-sm text-gray-400">Siga @chamepegue no Instagram pra vagas e novidades!</p>
+      </div>
+
+      {/* Voltar */}
+      <button
+        onClick={() => { setData(null); setTelefone(""); }}
+        className="w-full rounded-lg border border-[#C9A84C]/20 py-3 text-sm text-gray-400 transition-all hover:border-[#C9A84C] hover:text-white"
+      >
+        Consultar outro numero
+      </button>
     </div>
   );
 }

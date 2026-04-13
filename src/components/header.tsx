@@ -10,7 +10,7 @@ const navLinks = [
   { label: "Inicio", href: "/" },
   { label: "Simular Frete", href: "/simular" },
   { label: "Seja Parceiro", href: "/parceiro" },
-  { label: "Rastrear", href: "/rastrear" },
+  { label: "Minha Conta", href: "/minha-conta" },
   { label: "FAQ", href: "/faq" },
 ];
 

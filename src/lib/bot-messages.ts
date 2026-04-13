@@ -424,7 +424,8 @@ ${
     : "⚠️ Atencao! Melhore seu atendimento pra receber mais indicacoes."
 }
 
-Siga @chamepegue no Instagram pra vagas e novidades! 📱
+📱 Painel completo no site: pegue-eta.vercel.app/parceiro#dashboard
+📸 Siga @chamepegue no Instagram pra vagas e novidades!
 
 Pra ver novamente, digite *meu painel* a qualquer momento 😊`,
 

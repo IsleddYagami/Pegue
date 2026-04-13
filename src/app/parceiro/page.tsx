@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
+import { FormularioParceiro } from "@/components/formulario-parceiro";
+import { DashboardParceiro } from "@/components/dashboard-parceiro";
 import {
   Truck,
   Camera,
@@ -13,6 +15,7 @@ import {
   Smartphone,
   Car,
   MessageCircle,
+  BarChart3,
 } from "lucide-react";
 import { WHATSAPP_LINK } from "@/lib/constants";
 
@@ -243,48 +246,65 @@ export default function ParceiroPage() {
         </div>
       </section>
 
-      {/* CTA Final */}
-      <section className="border-t border-gray-800 bg-[#111111] py-16 md:py-24">
-        <div className="mx-auto max-w-3xl px-4 text-center">
-          <h2 className="mb-6 text-3xl font-bold md:text-4xl">
-            Pronto pra comecar?
+      {/* Cadastre-se */}
+      <section id="cadastro" className="border-t border-gray-800 bg-[#111111] py-16 md:py-24">
+        <div className="mx-auto max-w-5xl px-4">
+          <h2 className="mb-4 text-center text-3xl font-bold md:text-4xl">
+            Cadastre-se <span className="text-[#C9A84C]">agora</span>
           </h2>
-          <p className="mb-8 text-lg text-gray-400">
-            Cadastre-se agora pelo WhatsApp e comece a receber indicacoes de
-            fretes!
+          <p className="mb-12 text-center text-gray-400">
+            Escolha como prefere se cadastrar
           </p>
 
-          <a
-            href="https://wa.me/5511970363713?text=Parcerias%20Pegue"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 rounded-full bg-[#C9A84C] px-8 py-4 text-lg font-bold text-[#0A0A0A] shadow-lg shadow-[#C9A84C]/20 transition-all hover:scale-105 hover:shadow-xl hover:shadow-[#C9A84C]/30"
-          >
-            <MessageCircle className="h-6 w-6" />
-            Cadastrar pelo WhatsApp
-          </a>
-          <p className="mt-4 text-sm text-gray-500">
-            Envie{" "}
-            <strong className="text-[#C9A84C]">
-              &quot;Parcerias Pegue&quot;
-            </strong>{" "}
-            e siga as instrucoes
-          </p>
+          <div className="grid gap-8 md:grid-cols-2">
+            {/* Opcao 1: WhatsApp */}
+            <div className="rounded-2xl border border-gray-800 bg-[#0A0A0A] p-8">
+              <div className="mb-4 flex items-center gap-3">
+                <MessageCircle className="h-8 w-8 text-[#C9A84C]" />
+                <h3 className="text-xl font-bold">Pelo WhatsApp</h3>
+              </div>
+              <p className="mb-6 text-sm text-gray-400">
+                Cadastro completo pelo WhatsApp. Envie fotos, documentos e finalize tudo em uma conversa.
+              </p>
+              <a
+                href="https://wa.me/5511970363713?text=Parcerias%20Pegue"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-full bg-[#C9A84C] px-6 py-3 font-bold text-[#0A0A0A] transition-all hover:scale-105"
+              >
+                <MessageCircle className="h-5 w-5" />
+                Enviar &quot;Parcerias Pegue&quot;
+              </a>
+              <p className="mt-3 text-xs text-gray-500">Recomendado - cadastro completo em 2 minutos</p>
+            </div>
 
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-8 text-gray-500">
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-[#C9A84C]" />
-              <span className="text-sm">Cadastro seguro</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-[#C9A84C]" />
-              <span className="text-sm">Cadastro em 2 minutos</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-[#C9A84C]" />
-              <span className="text-sm">Sem taxas de adesao</span>
+            {/* Opcao 2: Formulario */}
+            <div className="rounded-2xl border border-gray-800 bg-[#0A0A0A] p-8">
+              <div className="mb-4 flex items-center gap-3">
+                <Smartphone className="h-8 w-8 text-[#C9A84C]" />
+                <h3 className="text-xl font-bold">Pelo site</h3>
+              </div>
+              <p className="mb-6 text-sm text-gray-400">
+                Preencha o pre-cadastro aqui e depois envie as fotos pelo WhatsApp.
+              </p>
+              <FormularioParceiro />
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Dashboard */}
+      <section id="dashboard" className="border-t border-gray-800 bg-[#0A0A0A] py-16 md:py-24">
+        <div className="mx-auto max-w-5xl px-4">
+          <h2 className="mb-4 text-center text-3xl font-bold md:text-4xl">
+            <BarChart3 className="mx-auto mb-2 h-10 w-10 text-[#C9A84C]" />
+            Seu <span className="text-[#C9A84C]">painel</span>
+          </h2>
+          <p className="mb-12 text-center text-gray-400">
+            Ja e parceiro? Acompanhe seu desempenho
+          </p>
+
+          <DashboardParceiro />
         </div>
       </section>
 

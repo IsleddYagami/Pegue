@@ -464,7 +464,7 @@ export default function SimularPage() {
             {/* BOTAO */}
             <button
               type="submit"
-              disabled={!destino.trim() || gpsStatus !== "ok" || calculando || algumAnalisando}
+              disabled={!destino.trim() || (!origemNome.trim() && !origemLat) || calculando || algumAnalisando}
               className="w-full rounded-xl bg-[#C9A84C] py-4 text-lg font-bold text-[#0A0A0A] transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {calculando ? (

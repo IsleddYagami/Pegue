@@ -13,7 +13,7 @@ export default function HomePage() {
       <FloatingNotification />
 
       {/* HERO - Minimalista, uma mensagem */}
-      <section className="bg-[#0A0A0A] text-white">
+      <section className="bg-[#000000] bg-reflection text-white">
         <div className="mx-auto flex max-w-4xl flex-col items-center px-4 py-20 text-center md:py-32">
           <Image
             src="/logo-pegue-novo.png"
@@ -50,7 +50,7 @@ export default function HomePage() {
       </section>
 
       {/* NUMEROS - Social proof sutil */}
-      <section className="border-y border-gray-800 bg-[#0A0A0A]">
+      <section className="border-y border-gray-800 bg-[#000000]">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-8 px-4 py-6 md:gap-16 md:py-8">
           {[
             { numero: "847", label: "fretes realizados" },
@@ -68,7 +68,7 @@ export default function HomePage() {
       </section>
 
       {/* SERVICOS - Visual, pouco texto */}
-      <section className="bg-[#0A0A0A] py-16 md:py-24">
+      <section className="bg-[#000000] py-16 md:py-24">
         <div className="mx-auto max-w-5xl px-4">
           <div className="grid gap-4 md:grid-cols-3">
             {[
@@ -118,7 +118,7 @@ export default function HomePage() {
       </section>
 
       {/* COMO FUNCIONA - 3 passos, minimo texto */}
-      <section className="bg-[#111111] py-16 md:py-24">
+      <section className="bg-[#050505] py-16 md:py-24">
         <div className="mx-auto max-w-3xl px-4">
           <p className="text-center text-sm text-gray-600">Simples assim.</p>
 
@@ -145,7 +145,7 @@ export default function HomePage() {
       </section>
 
       {/* INSTAGRAM - Sutil, vantagem clara */}
-      <section className="border-y border-gray-800 bg-[#0A0A0A] py-10">
+      <section className="border-y border-gray-800 bg-[#000000] py-10">
         <div className="mx-auto flex max-w-2xl flex-col items-center px-4 text-center">
           <p className="text-sm text-gray-500">
             Quem segue a Pegue no Instagram{" "}
@@ -164,7 +164,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA FINAL - Caloroso, sem pressao */}
-      <section className="bg-[#0A0A0A] py-20 md:py-28">
+      <section className="bg-[#000000] py-20 md:py-28">
         <div className="mx-auto flex max-w-2xl flex-col items-center px-4 text-center">
           <h2 className="text-3xl font-extrabold text-white md:text-4xl">
             Quando precisar,{" "}

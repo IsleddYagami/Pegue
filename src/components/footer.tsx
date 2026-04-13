@@ -4,7 +4,7 @@ import { WHATSAPP_LINK, INSTAGRAM_LINK, INSTAGRAM_HANDLE } from "@/lib/constants
 
 export function Footer() {
   return (
-    <footer className="bg-[#0A0A0A] text-gray-400">
+    <footer className="bg-[#000000] text-gray-400">
       <div className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid gap-8 md:grid-cols-3">
           {/* Brand */}

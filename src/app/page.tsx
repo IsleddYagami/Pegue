@@ -83,7 +83,7 @@ export default function HomePage() {
           </h1>
 
           <p className="mt-6 text-lg text-gray-400 md:text-xl">
-            Fretes sem dor de cabeca. <span className="text-[#C9A84C] font-semibold">Com a PEGUE, ficou facil levar.</span>
+            Fretes na Pegue e simples assim! <span className="text-[#C9A84C] font-semibold">Com a PEGUE, ficou facil levar.</span>
           </p>
 
           <a
@@ -192,7 +192,7 @@ export default function HomePage() {
       {/* COMO FUNCIONA - 3 passos, minimo texto */}
       <section className="bg-[#000000] py-16 md:py-24">
         <div className="mx-auto max-w-3xl px-4">
-          <p className="text-center text-lg text-gray-400">Simples assim: voce chama, a gente leva.</p>
+          <p className="text-center text-lg text-gray-400">Fretes na Pegue e simples assim: voce chama, a gente leva!</p>
 
           <div className="mt-10 flex flex-col items-center gap-8 md:flex-row md:gap-4">
             {[

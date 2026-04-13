@@ -78,12 +78,12 @@ export default function HomePage() {
           />
 
           <h1 className="text-4xl font-extrabold leading-tight tracking-tight md:text-6xl lg:text-7xl">
-            Relaxa.{" "}
-            <span className="text-[#C9A84C]">A gente leva.</span>
+            Fretes sem{" "}
+            <span className="text-[#C9A84C]">dor de cabeca.</span>
           </h1>
 
-          <p className="mt-4 text-lg text-gray-400 md:text-xl">
-            Frete e mudanca sem dor de cabeca.
+          <p className="mt-6 text-xl text-[#C9A84C] font-semibold md:text-2xl">
+            Com a PEGUE, ficou facil levar.
           </p>
 
           <a
@@ -120,27 +120,40 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* SERVICOS - Visual, pouco texto */}
+      {/* BANNER - Frota Pegue */}
+      <section className="bg-[#000000] py-8 md:py-12">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="relative overflow-hidden rounded-2xl border border-[#C9A84C]/20">
+            <Image
+              src="/banner-pegue-1.png"
+              alt="Com a PEGUE, ficou facil levar"
+              width={1400}
+              height={600}
+              className="w-full object-cover"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* SERVICOS */}
       <section className="bg-[#000000] py-16 md:py-24">
         <div className="mx-auto max-w-5xl px-4">
+          <p className="mb-10 text-center text-lg text-gray-400">O dificil ficou facil.</p>
           <div className="grid gap-4 md:grid-cols-3">
             {[
               {
-                img: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&h=700&fit=crop",
-                titulo: "Frete rapido",
-                sub: "Movel, eletro, caixas. No mesmo dia.",
+                titulo: "Pequenos Fretes",
+                sub: "Movel, eletro, caixas. Levar ficou simples de verdade.",
                 destaque: true,
               },
               {
-                img: "https://images.unsplash.com/photo-1600518464441-9154a4dea21b?w=600&h=700&fit=crop",
                 titulo: "Mudanca",
-                sub: "De um quarto a casa inteira.",
+                sub: "De um quarto a casa inteira. A forma facil de levar o que voce precisa.",
                 destaque: false,
               },
               {
-                img: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&h=700&fit=crop",
-                titulo: "Litoral e Interior SP",
-                sub: "Envio para qualquer cidade.",
+                titulo: "Guincho",
+                sub: "Carro ou moto. Quando parece dificil, a PEGUE facilita.",
                 destaque: false,
               },
             ].map((srv) => (
@@ -149,31 +162,37 @@ export default function HomePage() {
                 href={WHATSAPP_LINK}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`group relative overflow-hidden rounded-2xl ${srv.destaque ? "border-2 border-[#C9A84C]/30" : "border border-gray-800"} transition-all hover:border-[#C9A84C]/50`}
+                className={`group glass-card rounded-2xl p-8 text-center transition-all ${srv.destaque ? "border-2 border-[#C9A84C]/30" : ""}`}
               >
-                <div className="relative h-72 md:h-80">
-                  <Image
-                    src={srv.img}
-                    alt={srv.titulo}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/40 to-transparent" />
-                </div>
-                <div className="absolute bottom-0 p-5">
-                  <h3 className="text-lg font-bold text-white">{srv.titulo}</h3>
-                  <p className="mt-1 text-sm text-gray-400">{srv.sub}</p>
-                </div>
+                <h3 className="text-xl font-bold text-white">{srv.titulo}</h3>
+                <p className="mt-3 text-sm text-gray-400">{srv.sub}</p>
+                <span className="mt-4 inline-block text-sm font-medium text-[#C9A84C]">Solicitar →</span>
               </a>
             ))}
           </div>
         </div>
       </section>
 
+      {/* BANNER 2 - Veiculos */}
+      <section className="bg-[#000000] py-8 md:py-12">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="relative overflow-hidden rounded-2xl border border-[#C9A84C]/20">
+            <Image
+              src="/banner-pegue-2.png"
+              alt="PEGUE - Solucoes em Transportes e Fretes"
+              width={1400}
+              height={600}
+              className="w-full object-cover"
+            />
+          </div>
+          <p className="mt-4 text-center text-sm text-gray-500">O jeito facil de ter algo dificil.</p>
+        </div>
+      </section>
+
       {/* COMO FUNCIONA - 3 passos, minimo texto */}
       <section className="bg-[#000000] py-16 md:py-24">
         <div className="mx-auto max-w-3xl px-4">
-          <p className="text-center text-sm text-gray-600">Simples assim.</p>
+          <p className="text-center text-lg text-gray-400">Simples assim: voce chama, a gente leva.</p>
 
           <div className="mt-10 flex flex-col items-center gap-8 md:flex-row md:gap-4">
             {[
@@ -201,9 +220,9 @@ export default function HomePage() {
       <section className="border-y border-gray-800 bg-[#000000] py-10">
         <div className="mx-auto flex max-w-2xl flex-col items-center px-4 text-center">
           <p className="text-sm text-gray-500">
-            Quem segue a Pegue no Instagram{" "}
-            <span className="text-[#C9A84C]">sabe antes de todo mundo</span>{" "}
-            quando tem oferta e vaga de frete disponivel.
+            Quando parece dificil, a PEGUE facilita.{" "}
+            <span className="text-[#C9A84C]">Siga no Instagram</span>{" "}
+            pra cupons exclusivos e novidades.
           </p>
           <a
             href={INSTAGRAM_LINK}
@@ -220,12 +239,12 @@ export default function HomePage() {
       <section className="bg-[#000000] py-20 md:py-28">
         <div className="mx-auto flex max-w-2xl flex-col items-center px-4 text-center">
           <h2 className="text-3xl font-extrabold text-white md:text-4xl">
-            Quando precisar,{" "}
-            <span className="text-[#C9A84C]">e so chamar.</span>
+            Nao carregue esse peso.{" "}
+            <span className="text-[#C9A84C]">Deixa com a PEGUE.</span>
           </h2>
 
           <p className="mt-4 text-base text-gray-500">
-            A gente responde rapido. Pode ser por texto, audio ou foto.
+            A forma facil de levar o que voce precisa. Resposta em minutos.
           </p>
 
           <a

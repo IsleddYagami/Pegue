@@ -148,8 +148,13 @@ export default function SimularPage() {
   }, []);
 
   function detectarLocalizacao() {
-    if (!navigator.geolocation) { setGpsStatus("denied"); return; }
+    if (!navigator.geolocation) {
+      setGpsStatus("denied");
+      return;
+    }
     setGpsStatus("loading");
+
+    // Tenta com alta precisao primeiro
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         setOrigemLat(pos.coords.latitude);
@@ -158,7 +163,20 @@ export default function SimularPage() {
         setOrigemNome(nome || `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
         setGpsStatus("ok");
       },
-      () => setGpsStatus("denied"),
+      () => {
+        // Se falha com alta precisao, tenta sem
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            setOrigemLat(pos.coords.latitude);
+            setOrigemLng(pos.coords.longitude);
+            const nome = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+            setOrigemNome(nome || `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+            setGpsStatus("ok");
+          },
+          () => setGpsStatus("denied"),
+          { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 }
+        );
+      },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }
@@ -332,7 +350,12 @@ export default function SimularPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={() => {
+                      if (cameraInputRef.current) {
+                        cameraInputRef.current.value = "";
+                        cameraInputRef.current.click();
+                      }
+                    }}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-dashed ${itens.length === 0 ? "border-[#C9A84C]/40 bg-[#C9A84C]/5 py-10" : "border-gray-700 py-4"} text-[#C9A84C] transition-all hover:border-[#C9A84C]`}
                   >
                     <Camera size={itens.length === 0 ? 28 : 18} />
@@ -359,10 +382,11 @@ export default function SimularPage() {
               <input
                 ref={cameraInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png"
                 capture="environment"
                 onChange={handleFoto}
                 className="hidden"
+                key="camera-input"
               />
               <input
                 ref={fileInputRef}
@@ -371,6 +395,7 @@ export default function SimularPage() {
                 multiple
                 onChange={handleFoto}
                 className="hidden"
+                key="file-input"
               />
 
               {/* Lista de itens reconhecidos */}
@@ -409,37 +434,29 @@ export default function SimularPage() {
                   <Navigation size={16} className="text-[#C9A84C]" />
                   <span className="text-xs font-semibold uppercase text-gray-500">De onde sai?</span>
                 </div>
-                {gpsStatus !== "loading" && (
-                  <button type="button" onClick={detectarLocalizacao} className="text-xs text-[#C9A84C] hover:underline">
+                {gpsStatus === "loading" ? (
+                  <span className="flex items-center gap-1 text-xs text-gray-400">
+                    <Loader2 size={12} className="animate-spin" /> Buscando...
+                  </span>
+                ) : (
+                  <button type="button" onClick={detectarLocalizacao} className="flex items-center gap-1 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-3 py-1 text-xs font-medium text-[#C9A84C] hover:bg-[#C9A84C]/20 transition-all">
                     📍 Usar GPS
                   </button>
                 )}
               </div>
-              {gpsStatus === "loading" && (
+              {gpsStatus === "ok" && origemLat ? (
+                <p className="mt-2 text-sm text-white">{origemNome}</p>
+              ) : gpsStatus === "loading" ? (
                 <div className="mt-2 flex items-center gap-2 text-sm text-gray-400">
-                  <Loader2 size={14} className="animate-spin" /> Detectando localização...
+                  <Loader2 size={14} className="animate-spin" /> Detectando...
                 </div>
-              )}
-              {gpsStatus === "ok" && <p className="mt-2 text-sm text-white">{origemNome}</p>}
-              {gpsStatus === "denied" && (
+              ) : (
                 <div className="mt-2">
                   <input
                     type="text"
-                    value={origemNome}
-                    onChange={(e) => { setOrigemNome(e.target.value); setGpsStatus("ok"); setCalculado(false); }}
-                    placeholder="Digite o endereço ou CEP de origem"
-                    className="w-full rounded-lg border border-gray-700 bg-[#0A0A0A] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-[#C9A84C] focus:outline-none"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">GPS indisponível. Digite o endereço manualmente.</p>
-                </div>
-              )}
-              {gpsStatus === "idle" && (
-                <div className="mt-2">
-                  <input
-                    type="text"
-                    value={origemNome}
-                    onChange={(e) => { setOrigemNome(e.target.value); setGpsStatus("ok"); setCalculado(false); }}
-                    placeholder="Digite o endereço ou CEP de origem"
+                    defaultValue=""
+                    onBlur={(e) => { setOrigemNome(e.target.value); setCalculado(false); }}
+                    placeholder="Digite o endereço, bairro ou CEP de origem"
                     className="w-full rounded-lg border border-gray-700 bg-[#0A0A0A] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-[#C9A84C] focus:outline-none"
                   />
                 </div>

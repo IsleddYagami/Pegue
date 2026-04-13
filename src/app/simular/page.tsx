@@ -237,21 +237,27 @@ export default function SimularPage() {
     setCalculado(false);
 
     try {
-      // Se nao tem GPS, tenta geocodificar o endereco digitado
-      if (!origemLat || !origemLng) {
-        if (origemNome && origemNome.length > 3) {
+      // Resolve origem
+      let oLat = origemLat;
+      let oLng = origemLng;
+
+      if (!oLat || !oLng) {
+        if (origemNome && origemNome.length > 2) {
           const localOrigem = await geocodificar(origemNome);
           if (localOrigem) {
+            oLat = localOrigem.lat;
+            oLng = localOrigem.lng;
             setOrigemLat(localOrigem.lat);
             setOrigemLng(localOrigem.lng);
             setOrigemNome(localOrigem.nome);
+            setGpsStatus("ok");
           } else {
-            setErro("Não encontramos o endereço de origem. Verifique e tente novamente.");
+            setErro("Endereco de origem nao encontrado. Verifique e tente novamente.");
             setCalculando(false);
             return;
           }
         } else {
-          setErro("Informe o endereço de origem ou ative o GPS.");
+          setErro("Informe o endereco de origem ou ative o GPS.");
           setCalculando(false);
           return;
         }
@@ -259,12 +265,12 @@ export default function SimularPage() {
 
       const localDestino = await geocodificar(destino);
       if (!localDestino) {
-        setErro("Nao encontramos o destino. Verifique o nome da cidade, bairro ou CEP.");
+        setErro("Destino nao encontrado. Verifique o nome da cidade, bairro ou CEP.");
         setCalculando(false);
         return;
       }
 
-      const dist = calcularDistancia(origemLat!, origemLng!, localDestino.lat, localDestino.lng);
+      const dist = calcularDistancia(oLat!, oLng!, localDestino.lat, localDestino.lng);
       const p = calcularPrecos(dist, itens.length);
 
       setDistancia(dist);
@@ -444,18 +450,21 @@ export default function SimularPage() {
                   </button>
                 )}
               </div>
-              {gpsStatus === "ok" && origemLat ? (
-                <p className="mt-2 text-sm text-white">{origemNome}</p>
-              ) : gpsStatus === "loading" ? (
+              {gpsStatus === "loading" ? (
                 <div className="mt-2 flex items-center gap-2 text-sm text-gray-400">
                   <Loader2 size={14} className="animate-spin" /> Detectando...
+                </div>
+              ) : gpsStatus === "ok" && origemLat ? (
+                <div className="mt-2 flex items-center justify-between">
+                  <p className="text-sm text-white">{origemNome}</p>
+                  <button type="button" onClick={() => { setGpsStatus("idle"); setOrigemLat(null); setOrigemLng(null); setOrigemNome(""); }} className="text-xs text-gray-500 hover:text-[#C9A84C]">Alterar</button>
                 </div>
               ) : (
                 <div className="mt-2">
                   <input
                     type="text"
-                    defaultValue=""
-                    onBlur={(e) => { setOrigemNome(e.target.value); setCalculado(false); }}
+                    value={origemNome}
+                    onChange={(e) => { setOrigemNome(e.target.value); setOrigemLat(null); setOrigemLng(null); setCalculado(false); }}
                     placeholder="Digite o endereço, bairro ou CEP de origem"
                     className="w-full rounded-lg border border-gray-700 bg-[#0A0A0A] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-[#C9A84C] focus:outline-none"
                   />

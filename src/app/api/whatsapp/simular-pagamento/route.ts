@@ -56,6 +56,12 @@ export async function GET(req: NextRequest) {
       message: MSG.pagamentoConfirmado(prestador.nome, telFormatado),
     });
 
+    // Envia orientacoes apos pagamento
+    await sendMessage({
+      to: phone,
+      message: MSG.orientacoesCliente,
+    });
+
     // Envia detalhes do servico pro fretista
     await sendMessage({
       to: prestador.telefone,

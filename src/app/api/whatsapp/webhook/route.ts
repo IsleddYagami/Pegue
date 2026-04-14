@@ -961,9 +961,6 @@ async function handleConfirmacao(phone: string, message: string) {
       // Informa que esta reservando a agenda
       await sendMessage({ to: phone, message: MSG.freteRecebido });
 
-      // Envia orientacoes e protocolos ao cliente
-      await sendMessage({ to: phone, message: MSG.orientacoesCliente });
-
       // Dispara para fretistas e aguarda resposta
       await dispararParaFretistas(corridaId, session, phone);
     } else {

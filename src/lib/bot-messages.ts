@@ -479,8 +479,7 @@ Para garantir uma excelente experiencia e evitar transtornos:
 - Separe parafusos e pecas pequenas em saquinhos identificados
 
 ⚠️📸 *MUITO IMPORTANTE:*
-*Fotografe TODOS os seus itens ANTES da Coleta!*
-Isso protege voce e garante uma excelente experiencia para todos, evitando qualquer transtorno futuro. As fotos servem como registro do estado dos materiais antes do transporte.
+*Fotografe TODOS os seus itens ANTES da Coleta!* Isso garante uma excelente experiencia para todos, evitando qualquer transtorno futuro. As fotos servem como registro do estado dos materiais antes do transporte.
 
 ━━━━━━━━━━━━━━━━
 

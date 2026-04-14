@@ -468,29 +468,54 @@ Conte com a gente sempre! 🚚✨`,
 
   orientacoesCliente: `📋 *ORIENTACOES IMPORTANTES*
 
-Para garantir uma excelente experiencia no seu frete:
+Para garantir uma excelente experiencia e evitar transtornos:
+
+━━━━━━━━━━━━━━━━
 
 📸 *ANTES DA COLETA:*
-- Tenha todos os itens prontos e acessiveis
+- Tenha *todos os itens prontos e acessiveis* no momento da coleta
 - Desmonte moveis grandes se possivel (economiza espaco e tempo)
 - Embale itens frageis com plastico bolha ou cobertor
-- Separe parafusos e pecas pequenas em saquinhos
+- Separe parafusos e pecas pequenas em saquinhos identificados
+- *Fotografe seus itens ANTES do fretista carregar*
+
+━━━━━━━━━━━━━━━━
+
+⚠️ *EVITE ATRASOS (IMPORTANTE):*
+Atrasos podem gerar *custos extras* e ate o *cancelamento do servico*, sendo cobrado *taxa de locomoção*.
+
+- *Alinhe com a portaria* os dias agendados para coleta e entrega
+- Se for apartamento sem interfone, *tenha alguem na portaria* pra receber e autorizar o fretista
+- Libere acesso a elevador de carga (se houver) com antecedencia
+- Esteja no local no horario combinado
+
+━━━━━━━━━━━━━━━━
+
+🚫 *NAO ALTERE A COTACAO:*
+- *Nao inclua itens a mais* do que o cotado
+- *Nao altere a quantidade* de itens sem comunicar antes
+- Se precisar incluir mais itens, informe pelo WhatsApp *antes da coleta* pra recalcular o valor
+- Itens nao declarados podem ser recusados pelo fretista
+
+━━━━━━━━━━━━━━━━
 
 🏠 *NO LOCAL DE ENTREGA:*
 - Confirme que o acesso esta liberado (portaria, elevador, chave)
 - Se for predio, avise a portaria com antecedencia
-- Tenha alguem no local pra receber
+- Tenha alguem no local pra receber e conferir os itens
 
-⚠️ *CUIDADOS IMPORTANTES:*
-- Fotografe seus itens ANTES do fretista carregar
-- Confira se todos os itens foram entregues
-- Nao libere o pagamento sem verificar tudo
-- Qualquer problema, fale com nosso especialista Santos: (11) 97142-9605
+━━━━━━━━━━━━━━━━
 
 ✅ *APOS A ENTREGA:*
 - Voce recebera uma mensagem pra confirmar
-- Verifique com atencao antes de confirmar
+- *Confira se tudo esta bem no recebimento antes de dar confirmacao de servicos realizados com sucesso*
+- Apos sua confirmacao, o pagamento do fretista sera liberado
 - Sua avaliacao ajuda a manter a qualidade!
+
+━━━━━━━━━━━━━━━━
+
+❓ *Qualquer problema ou duvida:*
+Fale com nosso especialista Santos: (11) 97142-9605
 
 Relaxa. A gente leva. 🚚✨`,
 

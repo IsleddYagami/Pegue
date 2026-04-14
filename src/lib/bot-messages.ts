@@ -13,7 +13,7 @@ O que voce precisa?
 
   pedirLocalizacao: `Otimo! Vou te ajudar com seu frete! 🚚
 
-Mande a localizacao da sua coleta clicando no *clipe* 📎 ao lado de onde voce digita, depois clica em *Localizacao* 📍
+O local de retirada voce informa clicando no *clipe* 📎 ao lado de onde voce digita, ai clica em *Localizacao* 📍
 
 Ou se preferir, digite o *CEP* ou *endereco com rua e bairro*`,
 

@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
     const isFromMe = info.FromMe || false;
 
     const sourceMsg = info.Source?.message || {};
+    const pushName = info.PushName || "";
     const lat = sourceMsg.lat || sourceMsg.degreesLatitude || null;
     const lng = sourceMsg.lng || sourceMsg.degreesLongitude || null;
 
@@ -212,7 +213,7 @@ export async function POST(req: NextRequest) {
 
     // Fluxo do cliente
     try {
-      await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia, imageUrl);
+      await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia, imageUrl, pushName);
     } catch (flowError: any) {
       console.error("Erro no fluxo:", flowError?.message);
     }
@@ -236,8 +237,16 @@ async function handleClienteMessage(
   lat: number | null,
   lng: number | null,
   hasMedia: boolean,
-  imageUrl: string | null = null
+  imageUrl: string | null = null,
+  pushName: string = ""
 ) {
+  // Salva nome do WhatsApp se tiver
+  if (pushName && pushName.length > 1) {
+    await supabase
+      .from("clientes")
+      .update({ nome: pushName })
+      .eq("telefone", phone);
+  }
   if (isAtendente(message)) {
     await handleAtendente(phone);
     return;
@@ -328,7 +337,14 @@ async function handleClienteMessage(
   if (!session || isSaudacao(message)) {
     await createSession(phone);
     await updateSession(phone, { step: "aguardando_servico" });
-    await sendMessage({ to: phone, message: MSG.boasVindas });
+
+    // Personaliza com nome se tiver
+    const primeiroNome = pushName ? pushName.split(" ")[0] : "";
+    const saudacao = primeiroNome
+      ? `Oii ${primeiroNome}! 😊 Que bom ter voce aqui no Pegue! 🚚\nEstou aqui pra te ajudar com o que precisar.\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho* (carro ou moto)\n4️⃣ *Falar com nosso especialista Santos*`
+      : MSG.boasVindas;
+
+    await sendMessage({ to: phone, message: saudacao });
     return;
   }
 

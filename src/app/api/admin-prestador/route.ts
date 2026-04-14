@@ -110,6 +110,7 @@ Somente a palavra *PEGAR* confirma o aceite.
 ✅ *minha conta* → historico de servicos
 ⏸️ *modo ferias* → parar de receber indicacoes
 ▶️ *voltei* → retomar indicacoes
+❓ *esqueci* → ver todos os comandos
 
 Conte com a gente! 🚚✨`,
       });

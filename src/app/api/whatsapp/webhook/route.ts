@@ -262,6 +262,35 @@ async function handleClienteMessage(
     return;
   }
 
+  // Lista de comandos
+  if (lower === "esqueci" || lower === "comandos" || lower === "ajuda" || lower === "help") {
+    await sendMessage({
+      to: phone,
+      message: `📋 *COMANDOS PEGUE*
+
+*Para clientes:*
+✅ *Oi* → iniciar atendimento
+✅ *minha conta* → ver seu historico
+
+*Para parceiros:*
+✅ *PEGAR* → aceitar um frete
+✅ *meu painel* → ver seus dados e ranking
+✅ *meus gastos* → ver resumo financeiro do mes
+✅ *despesa [valor] [descricao]* → registrar gasto
+   Ex: *despesa 50 combustivel*
+⏸️ *modo ferias* → parar de receber indicacoes
+▶️ *voltei* → voltar a receber indicacoes
+
+*Para se cadastrar como parceiro:*
+🤝 *Parcerias Pegue* → iniciar cadastro
+
+*Precisa de ajuda?*
+📱 Fale com nosso especialista Santos:
+(11) 97142-9605`,
+    });
+    return;
+  }
+
   // Modo ferias
   if (lower === "modo ferias" || lower === "ativar modo ferias") {
     await handlePausarPrestador(phone);

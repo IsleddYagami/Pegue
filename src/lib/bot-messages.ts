@@ -76,10 +76,10 @@ Mande os *numeros* dos itens separados por virgula:
 21 - Tanquinho
 22 - Ventilador/Ar condicionado
 
-Exemplo: *1, 2, 4, 7, 9, 13, 15, 18x8*
-(significa 8 caixas)
+Exemplo: *1 2 4 7 9 13 15 18x8*
+(18x8 = 8 caixas)
 
-Ou se tiver algo diferente, escreva no final!`,
+Se tiver algo diferente, escreva no final!`,
 
   fotoItemAdicionado: (item: string, emoji: string, listaItens: string) =>
     `Vi! *${item}* ${emoji} Anotado! ✅

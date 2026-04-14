@@ -1209,9 +1209,12 @@ async function handleVerGastos(phone: string) {
     // Simplifica categorias
     let cat = "Outros";
     if (desc.includes("combustivel") || desc.includes("gasolina") || desc.includes("etanol") || desc.includes("diesel")) cat = "Combustivel";
-    else if (desc.includes("almoco") || desc.includes("janta") || desc.includes("lanche") || desc.includes("comida") || desc.includes("refeicao")) cat = "Alimentacao";
-    else if (desc.includes("pedagio") || desc.includes("estacionamento")) cat = "Pedagio/Estacionamento";
-    else if (desc.includes("manutencao") || desc.includes("oficina") || desc.includes("pneu") || desc.includes("oleo")) cat = "Manutencao";
+    else if (desc.includes("almoco") || desc.includes("janta") || desc.includes("lanche") || desc.includes("comida") || desc.includes("refeicao") || desc.includes("cafe")) cat = "Alimentacao";
+    else if (desc.includes("bebida") || desc.includes("agua") || desc.includes("suco") || desc.includes("refrigerante") || desc.includes("coca")) cat = "Bebidas";
+    else if (desc.includes("pedagio") || desc.includes("estacionamento") || desc.includes("zona azul") || desc.includes("parking")) cat = "Pedagio/Estac/Zona Azul";
+    else if (desc.includes("manutencao") || desc.includes("oficina") || desc.includes("pneu") || desc.includes("oleo") || desc.includes("troca") || desc.includes("lavagem")) cat = "Manutencao Veiculo";
+    else if (desc.includes("ajudante") || desc.includes("chapas") || desc.includes("carga") || desc.includes("descarga")) cat = "Ajudante/Chapas";
+    else if (desc.includes("celular") || desc.includes("internet") || desc.includes("recarga") || desc.includes("chip")) cat = "Celular/Internet";
     else cat = (d.payload as any).descricao || "Outros";
 
     categorias[cat] = (categorias[cat] || 0) + (d.payload as any).valor;

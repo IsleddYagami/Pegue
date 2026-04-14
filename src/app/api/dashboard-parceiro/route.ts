@@ -126,6 +126,50 @@ export async function GET(req: NextRequest) {
   const fretesMes = corridasMes.length;
   const progressoMeta = Math.min(Math.round((fretesMes / metaMensal) * 100), 100);
 
+  // === CONTROLE FINANCEIRO PESSOAL ===
+  const { data: despesas } = await supabase
+    .from("bot_logs")
+    .select("payload")
+    .filter("payload->>tipo", "eq", "despesa_pessoal")
+    .filter("payload->>phone", "eq", phone);
+
+  const mesAtualNum = new Date().getMonth() + 1;
+  const anoAtualNum = new Date().getFullYear();
+
+  const despesasMes = despesas
+    ? despesas.filter(d => {
+        const p = d.payload as any;
+        return p.mes === mesAtualNum && p.ano === anoAtualNum;
+      })
+    : [];
+
+  const totalGastosPessoais = despesasMes.reduce((s, d) => s + ((d.payload as any).valor || 0), 0);
+
+  const categoriaGastos: Record<string, number> = {};
+  despesasMes.forEach(d => {
+    const desc = ((d.payload as any).descricao || "Outros").toLowerCase();
+    let cat = "Outros";
+    if (desc.includes("combustivel") || desc.includes("gasolina") || desc.includes("etanol") || desc.includes("diesel")) cat = "Combustivel";
+    else if (desc.includes("almoco") || desc.includes("janta") || desc.includes("lanche") || desc.includes("comida") || desc.includes("refeicao") || desc.includes("cafe")) cat = "Alimentacao";
+    else if (desc.includes("pedagio") || desc.includes("estacionamento")) cat = "Pedagio/Estac.";
+    else if (desc.includes("manutencao") || desc.includes("oficina") || desc.includes("pneu") || desc.includes("oleo")) cat = "Manutencao";
+    else if (desc.includes("bebida") || desc.includes("agua") || desc.includes("suco") || desc.includes("refrigerante")) cat = "Bebidas";
+    else if (desc.includes("celular") || desc.includes("internet") || desc.includes("recarga")) cat = "Celular/Internet";
+    else cat = (d.payload as any).descricao || "Outros";
+    categoriaGastos[cat] = (categoriaGastos[cat] || 0) + (d.payload as any).valor;
+  });
+
+  const categoriasOrdenadas = Object.entries(categoriaGastos)
+    .sort((a, b) => b[1] - a[1])
+    .map(([nome, valor]) => ({ nome, valor, pct: totalGastosPessoais > 0 ? Math.round((valor / totalGastosPessoais) * 100) : 0 }));
+
+  const ultimasDespesas = despesasMes
+    .map(d => ({ descricao: (d.payload as any).descricao, valor: (d.payload as any).valor, data: (d.payload as any).data_sp || "" }))
+    .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+    .slice(0, 10);
+
+  const lucroLiquido = faturamentoMes - totalGastosPessoais;
+
   return NextResponse.json({
     nome: prestador.nome,
     score: prestador.score || 5.0,
@@ -153,6 +197,13 @@ export async function GET(req: NextRequest) {
       fretesMes,
       metaMensal,
       progressoMeta,
+    },
+    controlefinanceiro: {
+      totalGastosMes: totalGastosPessoais,
+      ganhosMes: faturamentoMes,
+      lucroLiquido,
+      categorias: categoriasOrdenadas,
+      ultimasDespesas,
     },
   });
 }

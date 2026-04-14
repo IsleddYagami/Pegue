@@ -35,6 +35,13 @@ interface DashboardData {
   }[];
   avaliacao: { media: number; total: number };
   meta: { fretesMes: number; metaMensal: number; progressoMeta: number };
+  controlefinanceiro: {
+    totalGastosMes: number;
+    ganhosMes: number;
+    lucroLiquido: number;
+    categorias: { nome: string; valor: number; pct: number }[];
+    ultimasDespesas: { descricao: string; valor: number; data: string }[];
+  };
 }
 
 export function DashboardParceiro() {
@@ -213,6 +220,85 @@ export function DashboardParceiro() {
           <p className="text-3xl font-bold">{data.avaliacao.media > 0 ? data.avaliacao.media.toFixed(1) : "---"}</p>
           <p className="text-sm text-gray-400">Nota media ({data.avaliacao.total} avaliacoes)</p>
         </div>
+      </div>
+
+      {/* CONTROLE FINANCEIRO */}
+      <div className="rounded-2xl border-2 border-[#C9A84C]/30 bg-[#C9A84C]/5 p-6">
+        <h4 className="mb-4 flex items-center gap-2 text-lg font-bold">
+          <DollarSign className="h-6 w-6 text-[#C9A84C]" /> Controle Financeiro Pessoal
+        </h4>
+
+        {/* Ganhos vs Gastos vs Lucro */}
+        <div className="mb-6 grid grid-cols-3 gap-3">
+          <div className="rounded-xl bg-[#0A0A0A] p-4 text-center">
+            <p className="text-xs text-gray-400">Ganhos (mes)</p>
+            <p className="text-xl font-bold text-green-400">R$ {data.controlefinanceiro.ganhosMes.toFixed(0)}</p>
+          </div>
+          <div className="rounded-xl bg-[#0A0A0A] p-4 text-center">
+            <p className="text-xs text-gray-400">Gastos (mes)</p>
+            <p className="text-xl font-bold text-red-400">R$ {data.controlefinanceiro.totalGastosMes.toFixed(0)}</p>
+          </div>
+          <div className="rounded-xl bg-[#0A0A0A] p-4 text-center">
+            <p className="text-xs text-gray-400">Lucro liquido</p>
+            <p className={`text-xl font-bold ${data.controlefinanceiro.lucroLiquido >= 0 ? "text-green-400" : "text-red-400"}`}>
+              R$ {data.controlefinanceiro.lucroLiquido.toFixed(0)}
+            </p>
+          </div>
+        </div>
+
+        {/* Grafico de categorias */}
+        {data.controlefinanceiro.categorias.length > 0 ? (
+          <div className="mb-4">
+            <p className="mb-3 text-sm font-medium text-gray-300">Com o que voce mais gasta:</p>
+
+            {/* Barra empilhada colorida */}
+            <div className="mb-3 flex h-8 overflow-hidden rounded-full">
+              {data.controlefinanceiro.categorias.map((c, i) => {
+                const cores = ["bg-[#C9A84C]", "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-orange-500", "bg-pink-500", "bg-cyan-500"];
+                return (
+                  <div
+                    key={i}
+                    className={`${cores[i % cores.length]} flex items-center justify-center text-[8px] font-bold text-white`}
+                    style={{ width: `${Math.max(c.pct, 5)}%` }}
+                    title={`${c.nome}: R$ ${c.valor.toFixed(2)} (${c.pct}%)`}
+                  >
+                    {c.pct >= 10 ? `${c.pct}%` : ""}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Legenda */}
+            <div className="flex flex-wrap gap-3">
+              {data.controlefinanceiro.categorias.map((c, i) => {
+                const cores = ["bg-[#C9A84C]", "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-orange-500", "bg-pink-500", "bg-cyan-500"];
+                return (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <div className={`h-3 w-3 rounded-full ${cores[i % cores.length]}`} />
+                    <span className="text-xs text-gray-400">{c.nome}: R$ {c.valor.toFixed(0)} ({c.pct}%)</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <p className="mb-4 text-sm text-gray-500">Nenhuma despesa registrada. No WhatsApp, envie: <strong className="text-[#C9A84C]">despesa 50 combustivel</strong></p>
+        )}
+
+        {/* Ultimas despesas */}
+        {data.controlefinanceiro.ultimasDespesas.length > 0 && (
+          <div>
+            <p className="mb-2 text-sm font-medium text-gray-300">Ultimas despesas:</p>
+            <div className="max-h-32 space-y-1 overflow-y-auto">
+              {data.controlefinanceiro.ultimasDespesas.map((d, i) => (
+                <div key={i} className="flex items-center justify-between rounded bg-[#0A0A0A] px-3 py-1.5 text-xs">
+                  <span className="text-gray-400">{d.descricao}</span>
+                  <span className="font-bold text-red-400">- R$ {d.valor.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Regioes + Historico */}

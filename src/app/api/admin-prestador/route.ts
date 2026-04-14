@@ -81,7 +81,7 @@ Conte com a gente! 🚚✨`,
 
 No momento todas as posicoes estao preenchidas na sua regiao.
 
-Tente novamente em alguns dias, estamos sempre abrindo novas vagas!
+Tente novamente em alguns dias, estamos sempre abrindo novas oportunidades!
 
 Obrigado e ate breve! 🚚✨`,
       });

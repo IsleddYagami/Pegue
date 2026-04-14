@@ -203,19 +203,19 @@ export default function HomePage() {
                   <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>Oi</p></div>
                 </div>
                 <div className="flex justify-start">
-                  <div className="rounded-xl rounded-bl-sm bg-[#111] px-3 py-1.5"><p>Oii! 😊 Mande sua localização 📍</p></div>
+                  <div className="rounded-xl rounded-bl-sm bg-[#1a1a1a] border border-[#333] px-3 py-1.5"><p>Oii! 😊 Mande sua localização 📍</p></div>
                 </div>
                 <div className="flex justify-end">
                   <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>📍 Osasco, SP</p></div>
                 </div>
                 <div className="flex justify-start">
-                  <div className="rounded-xl rounded-bl-sm bg-[#111] px-3 py-1.5"><p>Manda foto do material 📸</p></div>
+                  <div className="rounded-xl rounded-bl-sm bg-[#1a1a1a] border border-[#333] px-3 py-1.5"><p>Manda foto do material 📸</p></div>
                 </div>
                 <div className="flex justify-end">
                   <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>📸 [foto enviada]</p></div>
                 </div>
                 <div className="flex justify-start">
-                  <div className="rounded-xl rounded-bl-sm bg-[#111] px-3 py-1.5"><p>Vi que é um <strong>Sofá</strong> 🛋️ Pra onde?</p></div>
+                  <div className="rounded-xl rounded-bl-sm bg-[#1a1a1a] border border-[#333] px-3 py-1.5"><p>Vi que é um <strong>Sofá</strong> 🛋️ Pra onde?</p></div>
                 </div>
                 <div className="flex justify-end">
                   <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>Barra Funda, SP</p></div>

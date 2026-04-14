@@ -19,26 +19,36 @@ interface DashboardData {
   avaliacoes: { notaMedia: number; total: number; sugestoes: string[] };
 }
 
-const ADMIN_KEY = "pegue2026";
-
 export default function AdminPage() {
   const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
   const [enviandoLembrete, setEnviandoLembrete] = useState<string | null>(null);
+  const [senha, setSenha] = useState("");
+  const [autenticado, setAutenticado] = useState(false);
 
-  async function carregarDados() {
+  async function carregarDados(key?: string) {
+    const chave = key || senha;
     setLoading(true);
+    setErro("");
     try {
-      const r = await fetch(`/api/admin-dashboard?key=${ADMIN_KEY}`);
+      const r = await fetch(`/api/admin-dashboard?key=${chave}`);
       const result = await r.json();
-      if (r.ok) setData(result);
-      else setErro(result.error);
+      if (r.ok) {
+        setData(result);
+        setAutenticado(true);
+      } else {
+        setErro("Senha incorreta");
+        setAutenticado(false);
+      }
     } catch { setErro("Erro de conexao"); }
     setLoading(false);
   }
 
-  useEffect(() => { carregarDados(); }, []);
+  function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    carregarDados();
+  }
 
   async function enviarLembrete(phone: string) {
     setEnviandoLembrete(phone);
@@ -46,7 +56,7 @@ export default function AdminPage() {
       await fetch("/api/enviar-lembrete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, key: ADMIN_KEY }),
+        body: JSON.stringify({ phone, key: senha }),
       });
     } catch {}
     setEnviandoLembrete(null);
@@ -65,16 +75,41 @@ export default function AdminPage() {
     aguardando_data: "Escolhendo data", aguardando_confirmacao: "Confirmando",
   };
 
+  if (!autenticado) return (
+    <div className="flex min-h-screen items-center justify-center bg-[#000]">
+      <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4 rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-8">
+        <div className="text-center">
+          <Shield className="mx-auto mb-3 h-12 w-12 text-[#C9A84C]" />
+          <h2 className="text-xl font-bold">Painel <span className="text-[#C9A84C]">Pegue</span></h2>
+          <p className="mt-1 text-sm text-gray-500">Acesso restrito</p>
+        </div>
+        <input
+          type="password"
+          value={senha}
+          onChange={(e) => setSenha(e.target.value)}
+          placeholder="Digite a senha"
+          className="w-full rounded-lg border border-[#C9A84C]/30 bg-[#000] px-4 py-3 text-center text-white placeholder-gray-500 focus:border-[#C9A84C] focus:outline-none"
+          autoFocus
+        />
+        {erro && <p className="text-center text-sm text-red-400">{erro}</p>}
+        <button
+          type="submit"
+          disabled={loading || !senha}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#C9A84C] py-3 font-bold text-[#000] transition-all hover:scale-[1.02] disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Acessar"}
+        </button>
+      </form>
+    </div>
+  );
+
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center bg-[#000]">
       <Loader2 className="h-10 w-10 animate-spin text-[#C9A84C]" />
     </div>
   );
 
-  if (erro || !data) return (
-    <div className="flex min-h-screen items-center justify-center bg-[#000] text-red-400">{erro}</div>
-  );
-
+  if (!data) return null;
   const funilMax = Math.max(data.funil.iniciaramConversa, 1);
 
   return (
@@ -87,7 +122,7 @@ export default function AdminPage() {
             <p className="text-xs text-gray-500">Dashboard administrativo</p>
           </div>
         </div>
-        <button onClick={carregarDados} className="flex items-center gap-2 rounded-lg bg-[#C9A84C]/10 px-4 py-2 text-sm text-[#C9A84C] hover:bg-[#C9A84C]/20">
+        <button onClick={() => carregarDados()} className="flex items-center gap-2 rounded-lg bg-[#C9A84C]/10 px-4 py-2 text-sm text-[#C9A84C] hover:bg-[#C9A84C]/20">
           <RefreshCw className="h-4 w-4" /> Atualizar
         </button>
       </div>

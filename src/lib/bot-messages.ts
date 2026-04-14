@@ -432,6 +432,68 @@ ${
 
 Pra ver novamente, digite *meu painel* a qualquer momento 😊`,
 
+  // === POS PRIMEIRO FRETE - CLIENTE ===
+
+  primeiroFreteCliente: `🎉 *Parabens! Seu primeiro frete com a Pegue!*
+
+Obrigado por confiar em nossas solucoes! Estamos muito felizes em te atender. 🚚✨
+
+📋 *SUAS FERRAMENTAS PEGUE*
+
+Agora voce tem acesso ao seu painel pessoal! Veja o que pode fazer:
+
+━━━━━━━━━━━━━━━━
+
+📊 *SEU HISTORICO*
+Acompanhe todos os seus fretes, valores e fretistas.
+👉 Digite: *minha conta*
+
+🌐 *PAINEL NO SITE*
+Acesse graficos completos pelo navegador:
+👉 pegue-eta.vercel.app/minha-conta
+
+━━━━━━━━━━━━━━━━
+
+📱 *INSTAGRAM*
+Siga *@chamepegue* pra cupons exclusivos e novidades!
+👉 instagram.com/chamepegue
+
+━━━━━━━━━━━━━━━━
+
+*RESUMO DOS COMANDOS:*
+✅ *minha conta* → ver seu historico e fretes
+❓ *esqueci* → ver todos os comandos
+
+Conte com a gente sempre! 🚚✨`,
+
+  orientacoesCliente: `📋 *ORIENTACOES IMPORTANTES*
+
+Para garantir uma excelente experiencia no seu frete:
+
+📸 *ANTES DA COLETA:*
+- Tenha todos os itens prontos e acessiveis
+- Desmonte moveis grandes se possivel (economiza espaco e tempo)
+- Embale itens frageis com plastico bolha ou cobertor
+- Separe parafusos e pecas pequenas em saquinhos
+
+🏠 *NO LOCAL DE ENTREGA:*
+- Confirme que o acesso esta liberado (portaria, elevador, chave)
+- Se for predio, avise a portaria com antecedencia
+- Tenha alguem no local pra receber
+
+⚠️ *CUIDADOS IMPORTANTES:*
+- Fotografe seus itens ANTES do fretista carregar
+- Confira se todos os itens foram entregues
+- Nao libere o pagamento sem verificar tudo
+- Qualquer problema, fale com nosso especialista Santos: (11) 97142-9605
+
+✅ *APOS A ENTREGA:*
+- Voce recebera uma mensagem pra confirmar
+- Verifique com atencao antes de confirmar
+- Sua avaliacao ajuda a manter a qualidade!
+
+Relaxa. A gente leva. 🚚✨`,
+
   // Erros e fallbacks
   naoEntendi: `Desculpa, nao entendi 😅
 Me conta o que voce precisa que eu te ajudo!

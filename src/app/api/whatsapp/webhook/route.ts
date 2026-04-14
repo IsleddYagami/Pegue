@@ -875,6 +875,18 @@ async function handleConfirmacao(phone: string, message: string) {
       // Informa que esta reservando a agenda
       await sendMessage({ to: phone, message: MSG.freteRecebido });
 
+      // Verifica se e primeiro frete do cliente
+      const { data: corridasCliente } = await supabase
+        .from("corridas")
+        .select("id")
+        .eq("cliente_id", (await supabase.from("clientes").select("id").eq("telefone", phone).single()).data?.id || "")
+        .limit(2);
+
+      if (corridasCliente && corridasCliente.length <= 1) {
+        // Primeiro frete! Envia orientacoes
+        await sendMessage({ to: phone, message: MSG.orientacoesCliente });
+      }
+
       // Dispara para fretistas e aguarda resposta
       await dispararParaFretistas(corridaId, session, phone);
     } else {
@@ -1530,6 +1542,26 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
       .from("corridas")
       .update({ status: "concluida", entrega_em: new Date().toISOString() })
       .eq("id", session.corrida_id);
+
+    // Verifica se e primeiro frete concluido — envia mensagem especial
+    const { data: clienteData } = await supabase
+      .from("clientes")
+      .select("id, total_corridas")
+      .eq("telefone", phone)
+      .single();
+
+    if (clienteData) {
+      // Atualiza total de corridas
+      await supabase
+        .from("clientes")
+        .update({ total_corridas: (clienteData.total_corridas || 0) + 1 })
+        .eq("id", clienteData.id);
+
+      if ((clienteData.total_corridas || 0) === 0) {
+        // Primeiro frete concluido!
+        await sendMessage({ to: phone, message: MSG.primeiroFreteCliente });
+      }
+    }
 
     const { data: corrida } = await supabase
       .from("corridas")

@@ -32,7 +32,7 @@ export default function HomePage() {
           </h1>
 
           <p className="mt-3 text-xl font-semibold text-[#C9A84C] md:text-2xl">
-            Preço imediato. Pelo WhatsApp.
+            Preço na hora. Pelo WhatsApp.
           </p>
 
           <p className="mt-3 text-base text-gray-400">
@@ -269,7 +269,7 @@ export default function HomePage() {
           </h2>
 
           <p className="mt-4 text-lg text-gray-400">
-            Guincho e frete a partir de R$ 150. Preço imediato. Fretistas verificados.
+            Guincho e frete a partir de R$ 150. Preço na hora. Fretistas verificados.
           </p>
 
           <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer"

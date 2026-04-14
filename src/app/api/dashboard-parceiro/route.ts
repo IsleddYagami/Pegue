@@ -154,7 +154,8 @@ export async function GET(req: NextRequest) {
     else if (desc.includes("pedagio") || desc.includes("estacionamento")) cat = "Pedagio/Estac.";
     else if (desc.includes("manutencao") || desc.includes("oficina") || desc.includes("pneu") || desc.includes("oleo")) cat = "Manutencao";
     else if (desc.includes("bebida") || desc.includes("agua") || desc.includes("suco") || desc.includes("refrigerante")) cat = "Bebidas";
-    else if (desc.includes("celular") || desc.includes("internet") || desc.includes("recarga")) cat = "Celular/Internet";
+    else if (desc.includes("celular") || desc.includes("internet") || desc.includes("recarga") || desc.includes("chip")) cat = "Celular/Internet";
+    else if (desc.includes("carrinho") || desc.includes("palet") || desc.includes("ferramenta") || desc.includes("corda") || desc.includes("lona") || desc.includes("fita") || desc.includes("cobertor") || desc.includes("cinta") || desc.includes("roda")) cat = "Ferramentas/Materiais";
     else cat = (d.payload as any).descricao || "Outros";
     categoriaGastos[cat] = (categoriaGastos[cat] || 0) + (d.payload as any).valor;
   });

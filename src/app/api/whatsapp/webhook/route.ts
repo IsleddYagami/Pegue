@@ -1215,6 +1215,7 @@ async function handleVerGastos(phone: string) {
     else if (desc.includes("manutencao") || desc.includes("oficina") || desc.includes("pneu") || desc.includes("oleo") || desc.includes("troca") || desc.includes("lavagem")) cat = "Manutencao Veiculo";
     else if (desc.includes("ajudante") || desc.includes("chapas") || desc.includes("carga") || desc.includes("descarga")) cat = "Ajudante/Chapas";
     else if (desc.includes("celular") || desc.includes("internet") || desc.includes("recarga") || desc.includes("chip")) cat = "Celular/Internet";
+    else if (desc.includes("carrinho") || desc.includes("palet") || desc.includes("ferramenta") || desc.includes("corda") || desc.includes("lona") || desc.includes("fita") || desc.includes("cobertor") || desc.includes("cinta") || desc.includes("roda")) cat = "Ferramentas/Materiais";
     else cat = (d.payload as any).descricao || "Outros";
 
     categorias[cat] = (categorias[cat] || 0) + (d.payload as any).valor;

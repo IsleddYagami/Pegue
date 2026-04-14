@@ -204,7 +204,7 @@ export function DashboardParceiro() {
       </div>
 
       {/* Metricas extras */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5 text-center">
           <Truck className="mx-auto mb-2 h-8 w-8 text-[#C9A84C]" />
           <p className="text-3xl font-bold">{data.totalFretes}</p>
@@ -214,6 +214,11 @@ export function DashboardParceiro() {
           <DollarSign className="mx-auto mb-2 h-8 w-8 text-[#C9A84C]" />
           <p className="text-3xl font-bold text-[#C9A84C]">R$ {data.financeiro.faturamentoTotal.toFixed(0)}</p>
           <p className="text-sm text-gray-400">Faturamento total</p>
+        </div>
+        <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5 text-center">
+          <TrendingUp className="mx-auto mb-2 h-8 w-8 text-[#C9A84C]" />
+          <p className="text-3xl font-bold text-white">R$ {data.totalFretes > 0 ? Math.round(data.financeiro.faturamentoTotal / data.totalFretes) : 0}</p>
+          <p className="text-sm text-gray-400">Ticket medio</p>
         </div>
         <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5 text-center">
           <Award className="mx-auto mb-2 h-8 w-8 text-[#C9A84C]" />

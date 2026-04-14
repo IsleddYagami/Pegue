@@ -599,9 +599,14 @@ async function handleFoto(
     const itensEncontrados: string[] = [];
 
     for (const parte of partes) {
-      const caixasMatch = parte.match(/^18[x×]\s*(\d+)/i);
-      if (caixasMatch) {
-        itensEncontrados.push(`${caixasMatch[1]} Caixas`);
+      // Detecta NUMEROxQUANTIDADE (ex: 17x4 = 4 Poltronas, 18x5 = 5 Caixas)
+      const qtdMatch = parte.match(/^(\d+)[x×](\d+)/i);
+      if (qtdMatch) {
+        const itemNum = qtdMatch[1];
+        const qtd = qtdMatch[2];
+        if (ITENS_MUDANCA[itemNum]) {
+          itensEncontrados.push(`${qtd}x ${ITENS_MUDANCA[itemNum]}`);
+        }
         continue;
       }
       const num = parte.replace(/\D/g, "");

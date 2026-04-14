@@ -176,10 +176,10 @@ Responda *SIM* pra confirmar ou *NAO* pra ajustar algo.`,
   freteRecebido: `Seu frete foi recebido! 😊
 Estamos reservando a agenda!`,
 
-  freteConfirmadoEnviaPagamento: (linkPagamento: string) =>
-    `Agenda confirmada! ✅
+  freteConfirmadoEnviaPagamento: (linkPagamento: string, data: string) =>
+    `🎉 *Parabens! Voce garantiu a agenda para ${data}!*
 
-Para garantir a data, conclua o pagamento:
+Para confirmar, conclua o pagamento:
 💳 ${linkPagamento}
 
 💰 *Pix* sem taxas
@@ -512,58 +512,40 @@ Siga *@chamepegue* pra cupons exclusivos e novidades!
 
 Conte com a gente sempre! 🚚✨`,
 
-  orientacoesCliente: `📋 *ORIENTACOES IMPORTANTES*
+  orientacoesCliente: `📋 *ORIENTACOES PARA SEU FRETE*
 
-Para garantir uma excelente experiencia e evitar transtornos:
+📸📸📸📸📸📸📸📸📸📸
+*FOTOGRAFE TODOS os seus itens ANTES da Coleta!*
+Isso garante uma excelente experiencia para todos, evitando qualquer transtorno futuro. As fotos servem como registro do estado dos materiais antes do transporte.
+📸📸📸📸📸📸📸📸📸📸
 
-━━━━━━━━━━━━━━━━
-
-📸 *ANTES DA COLETA:*
-- Tenha *todos os itens prontos e acessiveis* no momento da coleta
-- Desmonte moveis grandes se possivel (economiza espaco e tempo)
+📦 *PREPARE SEUS ITENS*
+- Tenha tudo pronto e acessivel no momento da coleta
+- Desmonte moveis grandes se possivel
 - Embale itens frageis com plastico bolha ou cobertor
-- Separe parafusos e pecas pequenas em saquinhos identificados
+- Separe parafusos e pecas pequenas em saquinhos
 
-⚠️📸 *MUITO IMPORTANTE:*
-*Fotografe TODOS os seus itens ANTES da Coleta!* Isso garante uma excelente experiencia para todos, evitando qualquer transtorno futuro. As fotos servem como registro do estado dos materiais antes do transporte.
-
-━━━━━━━━━━━━━━━━
-
-⚠️ *EVITE ATRASOS (IMPORTANTE):*
-Atrasos podem gerar *custos extras* e ate o *cancelamento do servico*, sendo cobrado *taxa de locomoção*.
-
-- *Alinhe com a portaria* os dias agendados para coleta e entrega
-- Se for apartamento sem interfone, *tenha alguem na portaria* pra receber e autorizar o fretista
-- Libere acesso a elevador de carga (se houver) com antecedencia
+🕐 *EVITE ATRASOS*
+Atrasos podem gerar custos extras e ate cancelamento com taxa de locomocao.
 - Esteja no local no horario combinado
+- Alinhe com a portaria os dias agendados
+- Em predios sem interfone, tenha alguem embaixo pra receber o fretista
+- Libere elevador de carga com antecedencia
 
-━━━━━━━━━━━━━━━━
+🚫 *NAO ALTERE A COTACAO*
+- Nao inclua itens a mais do que o cotado
+- Nao altere a quantidade sem comunicar antes
+- Precisou incluir algo? Informe pelo WhatsApp antes da coleta
+- Itens nao declarados podem ser recusados
 
-🚫 *NAO ALTERE A COTACAO:*
-- *Nao inclua itens a mais* do que o cotado
-- *Nao altere a quantidade* de itens sem comunicar antes
-- Se precisar incluir mais itens, informe pelo WhatsApp *antes da coleta* pra recalcular o valor
-- Itens nao declarados podem ser recusados pelo fretista
+🏠 *NO LOCAL DE ENTREGA*
+- Confirme que o acesso esta liberado
+- Avise a portaria com antecedencia
+- Tenha alguem pra receber e conferir
 
-━━━━━━━━━━━━━━━━
-
-🏠 *NO LOCAL DE ENTREGA:*
-- Confirme que o acesso esta liberado (portaria, elevador, chave)
-- Se for predio, avise a portaria com antecedencia
-- Tenha alguem no local pra receber e conferir os itens
-
-━━━━━━━━━━━━━━━━
-
-✅ *APOS A ENTREGA:*
-- Voce recebera uma mensagem pra confirmar
-- *Confira se tudo esta bem no recebimento antes de dar confirmacao de servicos realizados com sucesso*
-- Apos sua confirmacao, o pagamento do fretista sera liberado
-- Sua avaliacao ajuda a manter a qualidade!
-
-━━━━━━━━━━━━━━━━
-
-❓ *Qualquer problema ou duvida:*
-Fale com nosso especialista Santos: (11) 97142-9605
+✅ *APOS A ENTREGA*
+- Confira se tudo esta bem antes de confirmar
+- Apos sua confirmacao o pagamento do fretista sera liberado
 
 Relaxa. A gente leva. 🚚✨`,
 

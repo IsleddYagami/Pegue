@@ -1804,13 +1804,22 @@ async function notificarResultadoDispatch(corridaId: string, vencedorPhone: stri
         .update({ prestador_id: prestador.id, status: "aceita" })
         .eq("id", corridaId);
 
-      // Notifica cliente com link de pagamento (sem dados do fretista ainda)
+      // Busca data da corrida
+      const { data: corridaData } = await supabase
+        .from("corridas")
+        .select("periodo, data_agendada")
+        .eq("id", corridaId)
+        .single();
+
+      const dataFrete = corridaData?.periodo || corridaData?.data_agendada || "a data combinada";
+
+      // Notifica cliente com link de pagamento
       // TODO: Gerar link Mercado Pago
       const linkPagamento = "https://pegue-eta.vercel.app/simular";
 
       await sendMessage({
         to: clientePhone,
-        message: MSG.freteConfirmadoEnviaPagamento(linkPagamento),
+        message: MSG.freteConfirmadoEnviaPagamento(linkPagamento, dataFrete),
       });
 
       await updateSession(clientePhone, { step: "aguardando_pagamento" });

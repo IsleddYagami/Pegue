@@ -133,6 +133,81 @@ export async function GET(req: NextRequest) {
         .forEach(a => sugestoes.push((a.payload as any).texto));
     }
 
+    // === GRAFICOS ===
+
+    // Contatos por hora do dia
+    const contatosPorHora: number[] = Array(24).fill(0);
+    todasSessoes.forEach(s => {
+      const hora = new Date(s.criado_em).getHours();
+      contatosPorHora[hora]++;
+    });
+    // Ajusta pro horario de SP (UTC-3)
+    const contatosPorHoraSP: number[] = Array(24).fill(0);
+    todasSessoes.forEach(s => {
+      const utcHour = new Date(s.criado_em).getUTCHours();
+      const spHour = (utcHour - 3 + 24) % 24;
+      contatosPorHoraSP[spHour]++;
+    });
+
+    // Contatos por dia da semana
+    const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+    const contatosPorDia: number[] = Array(7).fill(0);
+    todasSessoes.forEach(s => {
+      const dia = new Date(s.criado_em).getDay();
+      contatosPorDia[dia]++;
+    });
+
+    // Regioes mais atendidas
+    const regioes: Record<string, number> = {};
+    todasCorridas.forEach(c => {
+      if (c.destino_endereco) {
+        const partes = c.destino_endereco.split(",");
+        const regiao = partes.length > 1 ? partes[partes.length - 2]?.trim() : partes[0]?.trim();
+        if (regiao) regioes[regiao] = (regioes[regiao] || 0) + 1;
+      }
+    });
+    const topRegioes = Object.entries(regioes)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([nome, qtd]) => ({ nome, qtd }));
+
+    // Genero estimado pelo nome (PushName dos logs)
+    const { data: logsNomes } = await supabase
+      .from("bot_logs")
+      .select("payload")
+      .filter("payload->>debug", "eq", "handleClienteMessage")
+      .limit(200);
+
+    let masculino = 0;
+    let feminino = 0;
+    let indefinido = 0;
+    const nomesFemsComuns = ["maria", "ana", "julia", "fernanda", "patricia", "camila", "amanda", "bruna", "larissa", "leticia", "mariana", "gabriela", "carolina", "jessica", "aline", "vanessa", "tatiana", "priscila", "rafaela", "natalia", "daniela", "renata", "adriana", "luciana", "sandra", "monica", "simone", "carla", "claudia", "cristina"];
+    const nomesMascComuns = ["joao", "jose", "carlos", "paulo", "pedro", "lucas", "marcos", "rafael", "daniel", "gabriel", "andre", "rodrigo", "fernando", "ricardo", "eduardo", "bruno", "gustavo", "diego", "thiago", "felipe", "leonardo", "marcelo", "roberto", "antonio", "francisco", "fabio", "mauricio", "jorge", "sergio", "henrique"];
+
+    const nomesContados = new Set<string>();
+    if (logsNomes) {
+      logsNomes.forEach(l => {
+        const phone = (l.payload as any)?.phone;
+        if (phone && !nomesContados.has(phone)) {
+          nomesContados.add(phone);
+          // Nao temos nome no log, conta como indefinido
+          indefinido++;
+        }
+      });
+    }
+
+    // Tenta pelo nome dos clientes
+    if (clientes) {
+      clientes.forEach(c => {
+        if (c.nome) {
+          const primeiro = c.nome.toLowerCase().split(" ")[0];
+          if (nomesFemsComuns.includes(primeiro)) feminino++;
+          else if (nomesMascComuns.includes(primeiro)) masculino++;
+          else indefinido++;
+        }
+      });
+    }
+
     return NextResponse.json({
       resumo: {
         contatosHoje: sessoesHoje.length,
@@ -188,6 +263,12 @@ export async function GET(req: NextRequest) {
         notaMedia: Math.round(notaMedia * 10) / 10,
         total: totalAvaliacoes,
         sugestoes: sugestoes.slice(-10),
+      },
+      graficos: {
+        contatosPorHora: contatosPorHoraSP,
+        contatosPorDia: contatosPorDia.map((qtd, i) => ({ dia: diasSemana[i], qtd })),
+        topRegioes,
+        genero: { masculino, feminino, indefinido },
       },
     });
   } catch (error: any) {

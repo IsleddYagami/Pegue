@@ -17,6 +17,12 @@ interface DashboardData {
   prestadores: { total: number; ativos: number; pendentes: number; scoreMedio: number; lista: { nome: string; telefone: string; status: string; score: number; disponivel: boolean; fretes: number }[] };
   ultimasCorridas: { id: string; status: string; valor: number | null; comissao: number | null; carga: string | null; origem: string | null; destino: string | null; data: string; prestador: string | null }[];
   avaliacoes: { notaMedia: number; total: number; sugestoes: string[] };
+  graficos: {
+    contatosPorHora: number[];
+    contatosPorDia: { dia: string; qtd: number }[];
+    topRegioes: { nome: string; qtd: number }[];
+    genero: { masculino: number; feminino: number; indefinido: number };
+  };
 }
 
 export default function AdminPage() {
@@ -169,6 +175,103 @@ export default function AdminPage() {
             <div><p className="text-xs text-gray-500">Ticket medio</p><p className="text-xl font-bold">R$ {data.financeiro.ticketMedio}</p></div>
             <div><p className="text-xs text-gray-500">Corridas concluidas</p><p className="text-xl font-bold">{data.corridas.concluidas}</p></div>
           </div>
+        </div>
+      </div>
+
+      {/* GRAFICOS */}
+      <div className="mb-6 grid gap-4 md:grid-cols-2">
+        {/* Horarios mais movimentados */}
+        <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
+          <h3 className="mb-4 flex items-center gap-2 font-bold"><Clock className="h-5 w-5 text-[#C9A84C]" /> Horarios mais movimentados</h3>
+          <div className="flex items-end gap-1" style={{ height: "120px" }}>
+            {data.graficos.contatosPorHora.map((qtd, hora) => {
+              const max = Math.max(...data.graficos.contatosPorHora, 1);
+              const altura = (qtd / max) * 100;
+              return (
+                <div key={hora} className="group relative flex-1" title={`${hora}h: ${qtd} contatos`}>
+                  <div
+                    className="w-full rounded-t bg-[#C9A84C] transition-all hover:bg-[#e8c55a]"
+                    style={{ height: `${Math.max(altura, 2)}%` }}
+                  />
+                  {hora % 3 === 0 && <p className="mt-1 text-center text-[8px] text-gray-500">{hora}h</p>}
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:block rounded bg-[#C9A84C] px-1.5 py-0.5 text-[9px] font-bold text-[#000]">{qtd}</div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-center text-[10px] text-gray-500">Horario de SP (UTC-3)</p>
+        </div>
+
+        {/* Dias da semana */}
+        <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
+          <h3 className="mb-4 flex items-center gap-2 font-bold"><BarChart3 className="h-5 w-5 text-[#C9A84C]" /> Dias da semana</h3>
+          <div className="space-y-2">
+            {data.graficos.contatosPorDia.map((d, i) => {
+              const max = Math.max(...data.graficos.contatosPorDia.map(x => x.qtd), 1);
+              return (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="w-8 text-xs text-gray-400">{d.dia}</span>
+                  <div className="flex-1 h-4 rounded-full bg-[#1a1a1a]">
+                    <div className="h-full rounded-full bg-[#C9A84C] transition-all" style={{ width: `${(d.qtd / max) * 100}%` }} />
+                  </div>
+                  <span className="w-6 text-right text-xs font-bold">{d.qtd}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-6 grid gap-4 md:grid-cols-2">
+        {/* Regioes */}
+        <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
+          <h3 className="mb-4 flex items-center gap-2 font-bold"><TrendingUp className="h-5 w-5 text-[#C9A84C]" /> Regioes mais atendidas</h3>
+          {data.graficos.topRegioes.length > 0 ? (
+            <div className="space-y-2">
+              {data.graficos.topRegioes.map((r, i) => {
+                const max = Math.max(...data.graficos.topRegioes.map(x => x.qtd), 1);
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#C9A84C]/10 text-[9px] font-bold text-[#C9A84C]">{i + 1}</span>
+                    <span className="flex-1 text-sm truncate">{r.nome}</span>
+                    <div className="w-24 h-3 rounded-full bg-[#1a1a1a]">
+                      <div className="h-full rounded-full bg-[#C9A84C]" style={{ width: `${(r.qtd / max) * 100}%` }} />
+                    </div>
+                    <span className="w-6 text-right text-xs font-bold">{r.qtd}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">Sem dados ainda</p>
+          )}
+        </div>
+
+        {/* Genero */}
+        <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
+          <h3 className="mb-4 flex items-center gap-2 font-bold"><Users className="h-5 w-5 text-[#C9A84C]" /> Perfil dos clientes</h3>
+          {(() => {
+            const total = data.graficos.genero.masculino + data.graficos.genero.feminino + data.graficos.genero.indefinido;
+            if (total === 0) return <p className="text-sm text-gray-500">Sem dados ainda</p>;
+            const pctM = Math.round((data.graficos.genero.masculino / total) * 100);
+            const pctF = Math.round((data.graficos.genero.feminino / total) * 100);
+            const pctI = 100 - pctM - pctF;
+            return (
+              <div className="space-y-4">
+                <div className="flex h-6 overflow-hidden rounded-full">
+                  {pctM > 0 && <div className="bg-blue-500 flex items-center justify-center text-[9px] font-bold text-white" style={{ width: `${pctM}%` }}>{pctM}%</div>}
+                  {pctF > 0 && <div className="bg-pink-500 flex items-center justify-center text-[9px] font-bold text-white" style={{ width: `${pctF}%` }}>{pctF}%</div>}
+                  {pctI > 0 && <div className="bg-gray-600 flex items-center justify-center text-[9px] font-bold text-white" style={{ width: `${pctI}%` }}>{pctI}%</div>}
+                </div>
+                <div className="flex justify-center gap-6 text-sm">
+                  <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-blue-500" /><span>Masculino ({data.graficos.genero.masculino})</span></div>
+                  <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-pink-500" /><span>Feminino ({data.graficos.genero.feminino})</span></div>
+                  <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-gray-600" /><span>N/D ({data.graficos.genero.indefinido})</span></div>
+                </div>
+                <p className="text-center text-[10px] text-gray-500">*Estimativa baseada nos nomes dos clientes</p>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

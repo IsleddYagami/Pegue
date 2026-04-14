@@ -237,24 +237,25 @@ export default function HomePage() {
                 <div className="flex items-start gap-3">
                   <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">1</div>
                   <div>
-                    <p className="font-semibold">Mande "Oi" no WhatsApp</p>
-                    <p className="text-sm text-gray-400">Envie sua localização ou endereço</p>
+                    <p className="font-semibold">Localização</p>
+                    <p className="text-sm text-gray-400">Envie pelo GPS ou digite o endereço</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">2</div>
                   <div>
-                    <p className="font-semibold">Tire foto do material</p>
-                    <p className="text-sm text-gray-400">Nossa IA identifica e sugere o veículo</p>
+                    <p className="font-semibold">Tire a foto</p>
+                    <p className="text-sm text-gray-400">Nossa IA identifica o material na hora</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">3</div>
                   <div>
-                    <p className="font-semibold">Receba o preço na hora!</p>
-                    <p className="text-sm text-gray-400">Sem espera, sem formulários</p>
+                    <p className="font-semibold">Diga o destino e pronto!</p>
+                    <p className="text-sm text-gray-400">Receba o preço na hora</p>
                   </div>
                 </div>
+                <p className="mt-2 text-lg font-bold text-[#C9A84C]">Simples assim!</p>
               </div>
               <a
                 href={WHATSAPP_LINK}

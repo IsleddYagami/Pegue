@@ -85,7 +85,7 @@ export default function SimularPage() {
               </div>
 
               <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">1</div>
-              <h3 className="mb-2 text-xl font-bold">Mande o local</h3>
+              <h3 className="mb-2 text-xl font-bold">Localização</h3>
               <p className="text-sm text-gray-400">Envie sua localização pelo GPS ou digite o endereço</p>
               <div className="mt-3 inline-flex items-center gap-1 text-xs text-[#C9A84C]">
                 <Clock className="h-3 w-3" /> 10 segundos
@@ -137,8 +137,8 @@ export default function SimularPage() {
               </div>
 
               <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">3</div>
-              <h3 className="mb-2 text-xl font-bold">Receba o preço!</h3>
-              <p className="text-sm text-gray-400">Valor instantâneo. Confirmou? A gente reserva a agenda!</p>
+              <h3 className="mb-2 text-xl font-bold">Diga o destino e pronto!</h3>
+              <p className="text-sm text-gray-400">Receba o preço na hora. Simples assim!</p>
               <div className="mt-3 inline-flex items-center gap-1 text-xs text-[#C9A84C]">
                 <CheckCircle className="h-3 w-3" /> Valor na hora!
               </div>

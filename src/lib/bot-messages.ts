@@ -477,7 +477,10 @@ Para garantir uma excelente experiencia e evitar transtornos:
 - Desmonte moveis grandes se possivel (economiza espaco e tempo)
 - Embale itens frageis com plastico bolha ou cobertor
 - Separe parafusos e pecas pequenas em saquinhos identificados
-- *Fotografe seus itens ANTES do fretista carregar*
+
+⚠️📸 *MUITO IMPORTANTE:*
+*Fotografe TODOS os seus itens ANTES do fretista carregar!*
+Isso protege voce e garante uma excelente experiencia para todos, evitando qualquer transtorno futuro. As fotos servem como registro do estado dos materiais antes do transporte.
 
 ━━━━━━━━━━━━━━━━
 

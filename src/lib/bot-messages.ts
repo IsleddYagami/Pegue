@@ -387,21 +387,29 @@ Aguardando confirmacao do cliente para liberar seu pagamento 💰
 Assim que o cliente confirmar, voce sera notificado!`,
 
   clienteConfirmarEntrega: (carga: string) =>
-    `Seu frete foi entregue! 📦✅
+    `🎉 *Pegou, Chegou!!*
 
-Material: *${carga}*
+Seu frete foi entregue! 📦✅
 
-⚠️ *Antes de confirmar, verifique com atencao:*
-- Todos os itens foram entregues?
-- Algum item chegou com dano ou avaria?
-- Esta tudo conforme o combinado?
+📋 *Material:*
+${carga}
+
+━━━━━━━━━━━━━━━━
+
+⚠️ *Antes de confirmar, verifique:*
+
+📦 Todos os itens foram entregues?
+🔍 Algum item com dano ou avaria?
+✅ Esta tudo conforme o combinado?
+
+━━━━━━━━━━━━━━━━
 
 Apos sua confirmacao, o pagamento do fretista sera liberado.
 
-Esta tudo certo com a entrega? 😊
+*Esta tudo certo?*
 
-1️⃣ *SIM* - Missao cumprida! ✅
-2️⃣ *NAO* - Tenho duvidas`,
+1️⃣ *SIM* - Tudo certo, servicos concluidos com sucesso! ✅
+2️⃣ *NAO* - Tenho observacoes`,
 
   clienteConfirmouEntrega: `Entrega confirmada! ✅🎉
 

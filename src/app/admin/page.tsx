@@ -149,6 +149,54 @@ export default function AdminPage() {
         ))}
       </div>
 
+      {/* RECUPERAR CLIENTES - Carrinho abandonado */}
+      <div className="mb-6 rounded-xl border-2 border-[#C9A84C]/30 bg-[#0A0A0A] p-4 md:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="flex items-center gap-2 text-lg font-bold">
+            <AlertTriangle className="h-6 w-6 text-[#C9A84C]" />
+            Recuperar clientes ({data.abandonos.length})
+          </h3>
+          {data.abandonos.length > 0 && (
+            <button
+              onClick={async () => {
+                for (const a of data.abandonos) {
+                  await enviarLembrete(a.phone);
+                }
+              }}
+              className="flex items-center justify-center gap-2 rounded-lg bg-[#C9A84C] px-4 py-2 text-sm font-bold text-[#000] transition-all hover:scale-[1.02]"
+            >
+              <Send className="h-4 w-4" /> Enviar lembrete pra todos
+            </button>
+          )}
+        </div>
+        {data.abandonos.length > 0 ? (
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {data.abandonos.map((a, i) => (
+              <div key={i} className="flex flex-col gap-2 rounded-lg border border-[#C9A84C]/10 bg-[#000] p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{a.phone}</p>
+                  <p className="text-xs text-gray-500 truncate">
+                    Parou em: {stepNome[a.step] || a.step}
+                    {a.carga ? ` · ${a.carga}` : ""}
+                    {a.valor ? ` · R$ ${a.valor}` : ""}
+                  </p>
+                </div>
+                <button
+                  onClick={() => enviarLembrete(a.phone)}
+                  disabled={enviandoLembrete === a.phone}
+                  className="flex items-center justify-center gap-1 rounded-lg bg-[#C9A84C]/10 px-3 py-2 text-xs font-medium text-[#C9A84C] hover:bg-[#C9A84C]/20 disabled:opacity-50 shrink-0"
+                >
+                  {enviandoLembrete === a.phone ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                  Recuperar
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">Nenhum cliente abandonou a cotacao. Otimo! 🎉</p>
+        )}
+      </div>
+
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
           <h3 className="mb-4 flex items-center gap-2 font-bold"><Eye className="h-5 w-5 text-[#C9A84C]" /> Funil de conversao</h3>
@@ -303,24 +351,6 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {data.abandonos.length > 0 && (
-        <div className="mb-6 rounded-xl border border-red-800/30 bg-red-900/10 p-5">
-          <h3 className="mb-4 flex items-center gap-2 font-bold text-red-400"><AlertTriangle className="h-5 w-5" /> Abandonos ({data.abandonos.length})</h3>
-          <div className="space-y-2">
-            {data.abandonos.map((a, i) => (
-              <div key={i} className="flex items-center justify-between rounded-lg border border-red-800/20 bg-[#0A0A0A] p-3">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{a.phone}</p>
-                  <p className="text-xs text-gray-500">Parou em: {stepNome[a.step] || a.step}{a.carga ? ` | ${a.carga}` : ""}{a.valor ? ` | R$ ${a.valor}` : ""}</p>
-                </div>
-                <button onClick={() => enviarLembrete(a.phone)} disabled={enviandoLembrete === a.phone} className="flex items-center gap-1 rounded-lg bg-[#C9A84C]/10 px-3 py-2 text-xs text-[#C9A84C] hover:bg-[#C9A84C]/20 disabled:opacity-50">
-                  {enviandoLembrete === a.phone ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />} Lembrete
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">

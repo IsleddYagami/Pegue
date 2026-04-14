@@ -108,8 +108,8 @@ Somente a palavra *PEGAR* confirma o aceite.
 ✅ *despesa 50 combustivel* → registrar gasto
 ✅ *meus gastos* → ver resumo financeiro
 ✅ *minha conta* → historico de servicos
-⏸️ *pausar* → modo ferias (parar de receber indicacoes)
-▶️ *voltar* → retomar indicacoes
+⏸️ *modo ferias* → parar de receber indicacoes
+▶️ *voltei* → retomar indicacoes
 
 Conte com a gente! 🚚✨`,
       });

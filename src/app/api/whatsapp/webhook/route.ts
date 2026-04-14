@@ -262,13 +262,13 @@ async function handleClienteMessage(
     return;
   }
 
-  // Modo ferias - pausar/ativar
-  if (lower === "pausar" || lower === "ferias" || lower === "parar") {
+  // Modo ferias
+  if (lower === "modo ferias" || lower === "ativar modo ferias") {
     await handlePausarPrestador(phone);
     return;
   }
 
-  if (lower === "voltar" || lower === "ativar" || lower === "retomar") {
+  if (lower === "voltei") {
     await handleAtivarPrestador(phone);
     return;
   }
@@ -1158,7 +1158,7 @@ async function handlePausarPrestador(phone: string) {
   }
 
   if (!prestador.disponivel) {
-    await sendMessage({ to: phone, message: "Voce ja esta pausado! 😊\n\nPra voltar a receber indicacoes, digite *voltar*" });
+    await sendMessage({ to: phone, message: "Voce ja esta pausado! 😊\n\nPra voltar a receber indicacoes, digite *voltei*" });
     return;
   }
 
@@ -1175,7 +1175,7 @@ Voce nao recebera indicacoes de frete por enquanto.
 
 Aproveite o descanso! 😊
 
-Quando quiser voltar, basta digitar *voltar*
+Quando quiser voltar, basta digitar *voltei*
 
 Seus dados, score e historico continuam salvos.`,
   });

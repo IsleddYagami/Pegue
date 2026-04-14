@@ -13,14 +13,9 @@ O que voce precisa?
 
   pedirLocalizacao: `Otimo! Vou te ajudar com seu frete! 🚚
 
-De onde vamos retirar o material?
+Mande a localizacao da sua coleta clicando no *clipe* 📎 ao lado de onde voce digita, depois clica em *Localizacao* 📍
 
-Voce pode:
-1️⃣ Mandar sua *localizacao* - clica no 📎 ao lado do campo de mensagem, depois em *Localizacao* 📍
-2️⃣ Digitar o *CEP* (ex: 06010-000)
-3️⃣ Digitar o *endereco* com rua e bairro
-
-💡 Se a localizacao nao funcionar, verifique se o GPS do celular esta ligado e se o WhatsApp tem permissao de localizacao nas configuracoes do celular.`,
+Ou se preferir, digite o *CEP* ou *endereco com rua e bairro*`,
 
   guincho: `Para guincho, fala direto com nosso especialista *Santos*! 😊
 Ele vai te atender rapidinho:

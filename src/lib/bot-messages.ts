@@ -179,7 +179,7 @@ Relaxa. A gente leva. 🚚✨`,
 📅 ${data}
 💰 Voce recebe: R$ ${valorPrestador}
 
-Quer pegar? Responda *SIM*`,
+Quer pegar? Responda *PEGAR*`,
 
   freteAceito: `Voce ganhou o frete! ✅🎉
 Este servico ja esta reservado pra voce!

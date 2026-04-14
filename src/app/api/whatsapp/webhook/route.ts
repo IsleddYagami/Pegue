@@ -1521,12 +1521,11 @@ async function handlePrestadorResponse(prestadorPhone: string, message: string, 
     return; // Ignora silenciosamente
   }
 
-  // Aceita SOMENTE "sim", "s" ou "aceito" — nada mais
-  const aceitesValidos = ["sim", "s", "aceito", "aceitar", "quero", "pegar"];
-  if (!aceitesValidos.includes(lower) && !lower.startsWith("sim")) {
+  // Aceita SOMENTE "pegar"
+  if (lower !== "pegar") {
     await sendMessage({
       to: prestadorPhone,
-      message: "Pra aceitar o frete, responda exatamente *SIM*\n\n⚠️ Respostas automaticas nao sao aceitas. Voce precisa digitar manualmente.",
+      message: "Pra aceitar o frete, responda exatamente *PEGAR*\n\n⚠️ Respostas automaticas nao sao aceitas. Voce precisa digitar manualmente.",
     });
     return;
   }

@@ -96,9 +96,14 @@ Siga *@chamepegue* pra novidades e oportunidades!
 ⚡ *DICA IMPORTANTE:*
 O segredo e estar sempre atento ao WhatsApp! Quando um frete aparecer, *aceite o mais rapido possivel*. Outros parceiros tambem recebem a mesma indicacao — quem aceitar primeiro, leva o trabalho!
 
+*Como aceitar um frete:*
+Quando receber uma indicacao, basta digitar *PEGAR*
+Somente a palavra *PEGAR* confirma o aceite.
+
 ━━━━━━━━━━━━━━━━
 
 *RESUMO DOS COMANDOS:*
+✅ *PEGAR* → aceitar um frete
 ✅ *meu painel* → ver seus dados
 ✅ *despesa 50 combustivel* → registrar gasto
 ✅ *meus gastos* → ver resumo financeiro

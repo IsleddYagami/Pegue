@@ -80,6 +80,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "ignored" });
     }
 
+    // Filtra respostas automaticas do WhatsApp Business
+    const msgLower = (message || "").toLowerCase();
+    const ehAutoReply = [
+      "obrigado por entrar em contato", "agradecemos sua mensagem",
+      "retornaremos em breve", "mensagem automatica", "estamos indisponiveis",
+      "horario de atendimento", "aguarde um momento", "em breve retornaremos",
+      "obrigado pelo contato", "mensagem de ausencia", "fora do horario",
+    ].some(r => msgLower.includes(r));
+
+    if (ehAutoReply) {
+      return NextResponse.json({ status: "ignored_auto_reply" });
+    }
+
     const phoneNumber = from.replace("@s.whatsapp.net", "");
 
     // Foto - processa de acordo com o step
@@ -1488,10 +1501,32 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
 async function handlePrestadorResponse(prestadorPhone: string, message: string, corridaId: string) {
   const lower = message.toLowerCase().trim();
 
-  if (!lower.startsWith("sim") && lower !== "s") {
+  // Filtra respostas automaticas do WhatsApp Business
+  const respostasAutomaticas = [
+    "obrigado por entrar em contato",
+    "agradecemos sua mensagem",
+    "retornaremos em breve",
+    "mensagem automatica",
+    "no momento nao",
+    "estamos indisponiveis",
+    "horario de atendimento",
+    "aguarde um momento",
+    "em breve retornaremos",
+    "obrigado pelo contato",
+    "mensagem de ausencia",
+  ];
+
+  const ehRespostaAutomatica = respostasAutomaticas.some(r => lower.includes(r));
+  if (ehRespostaAutomatica) {
+    return; // Ignora silenciosamente
+  }
+
+  // Aceita SOMENTE "sim", "s" ou "aceito" — nada mais
+  const aceitesValidos = ["sim", "s", "aceito", "aceitar", "quero", "pegar"];
+  if (!aceitesValidos.includes(lower) && !lower.startsWith("sim")) {
     await sendMessage({
       to: prestadorPhone,
-      message: "Pra aceitar o frete, responda *SIM*",
+      message: "Pra aceitar o frete, responda exatamente *SIM*\n\n⚠️ Respostas automaticas nao sao aceitas. Voce precisa digitar manualmente.",
     });
     return;
   }

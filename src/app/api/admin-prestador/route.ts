@@ -93,6 +93,11 @@ Siga *@chamepegue* pra novidades e oportunidades!
 
 ━━━━━━━━━━━━━━━━
 
+⚡ *DICA IMPORTANTE:*
+O segredo e estar sempre atento ao WhatsApp! Quando um frete aparecer, *aceite o mais rapido possivel*. Outros parceiros tambem recebem a mesma indicacao — quem aceitar primeiro, leva o trabalho!
+
+━━━━━━━━━━━━━━━━
+
 *RESUMO DOS COMANDOS:*
 ✅ *meu painel* → ver seus dados
 ✅ *despesa 50 combustivel* → registrar gasto

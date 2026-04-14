@@ -481,13 +481,13 @@ Pra ver novamente, digite *meu painel* a qualquer momento 😊`,
 
   // === POS PRIMEIRO FRETE - CLIENTE ===
 
-  primeiroFreteCliente: `🎉 *Parabens! Seu primeiro frete com a Pegue!*
+  primeiroFreteCliente: `🎉 *Parabens! Seu primeiro frete com a Pegue foi concluido!*
 
-Obrigado por confiar em nossas solucoes! Estamos muito felizes em te atender. 🚚✨
+Obrigado por confiar em nossas solucoes! 🚚✨`,
 
-📋 *SUAS FERRAMENTAS PEGUE*
+  ferramentasCliente: `📋 *SUAS FERRAMENTAS PEGUE*
 
-Agora voce tem acesso ao seu painel pessoal! Veja o que pode fazer:
+Agora voce tem acesso ao seu painel pessoal!
 
 ━━━━━━━━━━━━━━━━
 
@@ -495,20 +495,30 @@ Agora voce tem acesso ao seu painel pessoal! Veja o que pode fazer:
 Acompanhe todos os seus fretes, valores e fretistas.
 👉 Digite: *minha conta*
 
+💰 *CONTROLE FINANCEIRO*
+Registre seus gastos e tenha controle total!
+👉 Digite: *despesa [valor] [descricao]*
+Ex: *despesa 50 combustivel*
+👉 Para ver resumo: *meus gastos*
+
+⚠️ _As informacoes ficam armazenadas por 30 dias_
+
+━━━━━━━━━━━━━━━━
+
 🌐 *PAINEL NO SITE*
 Acesse graficos completos pelo navegador:
 👉 pegue-eta.vercel.app/minha-conta
 
-━━━━━━━━━━━━━━━━
-
 📱 *INSTAGRAM*
-Siga *@chamepegue* pra cupons exclusivos e novidades!
+Siga *@chamepegue* pra cupons exclusivos!
 👉 instagram.com/chamepegue
 
 ━━━━━━━━━━━━━━━━
 
 *RESUMO DOS COMANDOS:*
-✅ *minha conta* → ver seu historico e fretes
+✅ *minha conta* → ver seu historico
+✅ *despesa 50 combustivel* → registrar gasto
+✅ *meus gastos* → ver resumo financeiro
 ❓ *esqueci* → ver todos os comandos
 
 Conte com a gente sempre! 🚚✨`,

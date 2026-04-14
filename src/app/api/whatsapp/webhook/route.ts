@@ -1649,6 +1649,7 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
       if ((clienteData.total_corridas || 0) === 0) {
         // Primeiro frete concluido!
         await sendMessage({ to: phone, message: MSG.primeiroFreteCliente });
+        await sendMessage({ to: phone, message: MSG.ferramentasCliente });
       }
     }
 

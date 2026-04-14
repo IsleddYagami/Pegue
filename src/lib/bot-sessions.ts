@@ -69,10 +69,10 @@ export async function getSession(phone: string): Promise<BotSession | null> {
 
   if (!data) return null;
 
-  // Expira sessao apos 2 horas
-  const duasHoras = 2 * 60 * 60 * 1000;
+  // Expira sessao apos 24 horas
+  const vinteQuatroHoras = 24 * 60 * 60 * 1000;
   const atualizado = new Date(data.atualizado_em).getTime();
-  if (Date.now() - atualizado > duasHoras) {
+  if (Date.now() - atualizado > vinteQuatroHoras) {
     await deleteSession(phone);
     return null;
   }

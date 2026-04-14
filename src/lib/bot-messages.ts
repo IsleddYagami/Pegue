@@ -431,11 +431,12 @@ Pode falar a vontade! Ou digite *PULAR* se preferir.`,
 
 Sua opiniao e muito importante pra gente!
 
-Segue a gente no Instagram pra cupons exclusivos e novidades! 📱
+Estamos te aguardando para a proxima juntos com a Pegue! 🚚✨
+
+Siga *@chamepegue* no Instagram pra cupons exclusivos!
 👉 instagram.com/chamepegue
 
-Relaxa. A gente leva. 🚚✨
-Qualquer duvida, e so chamar!`,
+Qualquer duvida, e so chamar! 😊`,
 
   clienteReclamouEntrega: `Sentimos muito pelo problema 😔
 

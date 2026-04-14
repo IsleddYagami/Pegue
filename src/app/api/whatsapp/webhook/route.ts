@@ -262,6 +262,17 @@ async function handleClienteMessage(
     return;
   }
 
+  // Modo ferias - pausar/ativar
+  if (lower === "pausar" || lower === "ferias" || lower === "parar") {
+    await handlePausarPrestador(phone);
+    return;
+  }
+
+  if (lower === "voltar" || lower === "ativar" || lower === "retomar") {
+    await handleAtivarPrestador(phone);
+    return;
+  }
+
   // Controle financeiro - registrar despesa
   if (lower.startsWith("despesa ") || lower.startsWith("gasto ")) {
     await handleRegistrarDespesa(phone, message);
@@ -1129,6 +1140,84 @@ async function handleDashboardFretista(phone: string) {
       faturamento.toFixed(2),
       statusTexto
     ),
+  });
+}
+
+// === MODO FERIAS / PAUSAR / ATIVAR ===
+
+async function handlePausarPrestador(phone: string) {
+  const { data: prestador } = await supabase
+    .from("prestadores")
+    .select("id, nome, disponivel")
+    .eq("telefone", phone)
+    .single();
+
+  if (!prestador) {
+    await sendMessage({ to: phone, message: "Voce nao tem cadastro de parceiro na Pegue. Para se cadastrar, envie *Parcerias Pegue*" });
+    return;
+  }
+
+  if (!prestador.disponivel) {
+    await sendMessage({ to: phone, message: "Voce ja esta pausado! 😊\n\nPra voltar a receber indicacoes, digite *voltar*" });
+    return;
+  }
+
+  await supabase
+    .from("prestadores")
+    .update({ disponivel: false })
+    .eq("id", prestador.id);
+
+  await sendMessage({
+    to: phone,
+    message: `⏸️ *Modo ferias ativado!*
+
+Voce nao recebera indicacoes de frete por enquanto.
+
+Aproveite o descanso! 😊
+
+Quando quiser voltar, basta digitar *voltar*
+
+Seus dados, score e historico continuam salvos.`,
+  });
+}
+
+async function handleAtivarPrestador(phone: string) {
+  const { data: prestador } = await supabase
+    .from("prestadores")
+    .select("id, nome, disponivel, status")
+    .eq("telefone", phone)
+    .single();
+
+  if (!prestador) {
+    await sendMessage({ to: phone, message: "Voce nao tem cadastro de parceiro na Pegue. Para se cadastrar, envie *Parcerias Pegue*" });
+    return;
+  }
+
+  if (prestador.status !== "aprovado") {
+    await sendMessage({ to: phone, message: "Seu cadastro ainda esta em analise. Aguarde a aprovacao! 😊" });
+    return;
+  }
+
+  if (prestador.disponivel) {
+    await sendMessage({ to: phone, message: "Voce ja esta ativo! 😊 Fique atento as indicacoes de frete!" });
+    return;
+  }
+
+  await supabase
+    .from("prestadores")
+    .update({ disponivel: true })
+    .eq("id", prestador.id);
+
+  await sendMessage({
+    to: phone,
+    message: `✅ *Voce esta de volta!*
+
+Bem-vindo de volta a familia Pegue! 🚚✨
+
+Voce ja pode receber indicacoes de frete novamente. Fique atento ao WhatsApp!
+
+Lembre-se: quem aceitar primeiro, leva o trabalho! ⚡
+Digite *PEGAR* pra aceitar um frete.`,
   });
 }
 

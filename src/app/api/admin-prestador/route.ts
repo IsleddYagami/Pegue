@@ -32,18 +32,38 @@ export async function POST(req: NextRequest) {
         .update({ status: "aprovado", disponivel: true })
         .eq("id", prestadorId);
 
-      // Notifica prestador
+      // Notifica prestador - mensagem completa
       await sendMessage({
         to: prestador.telefone,
         message: `🎉 *Parabens ${prestador.nome}!*
 
-Seu cadastro foi *aprovado*!
+Seu cadastro foi *aprovado*! Bem-vindo a familia Pegue! 🚚✨
 
-Voce ja comeca a receber indicacoes de fretes pelo WhatsApp. Fique atento! 📱
+A partir de agora voce recebe indicacoes de fretes pelo WhatsApp. Fique atento! 📱
 
-Para ver seu painel, digite *meu painel* a qualquer momento.
+📊 *SEU PAINEL PESSOAL*
+Digite *meu painel* pra ver:
+- Seus fretes realizados
+- Faturamento e lucro real
+- Score e ranking
+- Regioes mais atendidas
 
-Bem-vindo a Pegue! 🚚✨`,
+Voce tambem pode acessar pelo site:
+👉 pegue-eta.vercel.app/parceiro
+
+💰 *CONTROLE FINANCEIRO*
+Quer controlar seus gastos do dia a dia? E simples!
+Digite *despesa* seguido do valor e descricao.
+Exemplo: *despesa 50 combustivel*
+Ou: *despesa 12.90 almoco*
+
+Pra ver seu resumo financeiro, digite *meus gastos*
+
+📱 *SIGA NO INSTAGRAM*
+Siga @chamepegue pra novidades, vagas e dicas!
+👉 instagram.com/chamepegue
+
+Conte com a gente! 🚚✨`,
       });
 
       return NextResponse.json({ status: "aprovado" });

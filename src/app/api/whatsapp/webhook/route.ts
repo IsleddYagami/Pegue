@@ -249,6 +249,18 @@ async function handleClienteMessage(
     return;
   }
 
+  // Controle financeiro - registrar despesa
+  if (lower.startsWith("despesa ") || lower.startsWith("gasto ")) {
+    await handleRegistrarDespesa(phone, message);
+    return;
+  }
+
+  // Controle financeiro - ver gastos
+  if (lower === "meus gastos" || lower === "minhas despesas" || lower === "extrato") {
+    await handleVerGastos(phone);
+    return;
+  }
+
   // Detecta interesse em ser prestador
   if (lower.includes("parcerias pegue") || lower.includes("parceria pegue") || lower.includes("quero ser parceiro") || lower.includes("ser parceiro") || lower.includes("cadastro prestador")) {
     await createSession(phone);
@@ -1105,6 +1117,156 @@ async function handleDashboardFretista(phone: string) {
       statusTexto
     ),
   });
+}
+
+// === CONTROLE FINANCEIRO PESSOAL ===
+
+async function handleRegistrarDespesa(phone: string, message: string) {
+  // Formato: "despesa 50 combustivel" ou "gasto 12.90 almoco"
+  const partes = message.replace(/^(despesa|gasto)\s+/i, "").trim();
+  const match = partes.match(/^(\d+[.,]?\d*)\s*(.*)/);
+
+  if (!match) {
+    await sendMessage({
+      to: phone,
+      message: `Para registrar uma despesa, use o formato:\n\n*despesa [valor] [descricao]*\n\nExemplos:\n- despesa 50 combustivel\n- despesa 12.90 almoco\n- despesa 6.20 gasolina`,
+    });
+    return;
+  }
+
+  const valor = parseFloat(match[1].replace(",", "."));
+  const descricao = match[2] || "Despesa geral";
+
+  if (isNaN(valor) || valor <= 0) {
+    await sendMessage({ to: phone, message: "Valor invalido. Use: *despesa 50 combustivel*" });
+    return;
+  }
+
+  // Salva no Supabase
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "despesa_pessoal",
+      phone,
+      valor,
+      descricao,
+      data: new Date().toISOString(),
+      data_sp: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+      mes: new Date().getMonth() + 1,
+      ano: new Date().getFullYear(),
+    },
+  });
+
+  // Busca total do mes
+  const mesAtual = new Date().getMonth() + 1;
+  const anoAtual = new Date().getFullYear();
+
+  const { data: despesasMes } = await supabase
+    .from("bot_logs")
+    .select("payload")
+    .filter("payload->>tipo", "eq", "despesa_pessoal")
+    .filter("payload->>phone", "eq", phone);
+
+  const totalMes = despesasMes
+    ? despesasMes
+        .filter(d => {
+          const p = d.payload as any;
+          return p.mes === mesAtual && p.ano === anoAtual;
+        })
+        .reduce((s, d) => s + ((d.payload as any).valor || 0), 0)
+    : 0;
+
+  await sendMessage({
+    to: phone,
+    message: `✅ Despesa registrada!\n\n📝 ${descricao}: *R$ ${valor.toFixed(2)}*\n\n📊 Total de gastos este mes: *R$ ${totalMes.toFixed(2)}*\n\nPra ver o resumo completo, digite *meus gastos*`,
+  });
+}
+
+async function handleVerGastos(phone: string) {
+  const mesAtual = new Date().getMonth() + 1;
+  const anoAtual = new Date().getFullYear();
+  const nomeMes = ["", "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][mesAtual];
+
+  // Busca despesas do mes
+  const { data: despesas } = await supabase
+    .from("bot_logs")
+    .select("payload")
+    .filter("payload->>tipo", "eq", "despesa_pessoal")
+    .filter("payload->>phone", "eq", phone);
+
+  const despesasMes = despesas
+    ? despesas.filter(d => {
+        const p = d.payload as any;
+        return p.mes === mesAtual && p.ano === anoAtual;
+      })
+    : [];
+
+  const totalGastos = despesasMes.reduce((s, d) => s + ((d.payload as any).valor || 0), 0);
+
+  // Agrupa por categoria
+  const categorias: Record<string, number> = {};
+  despesasMes.forEach(d => {
+    const desc = ((d.payload as any).descricao || "Outros").toLowerCase();
+    // Simplifica categorias
+    let cat = "Outros";
+    if (desc.includes("combustivel") || desc.includes("gasolina") || desc.includes("etanol") || desc.includes("diesel")) cat = "Combustivel";
+    else if (desc.includes("almoco") || desc.includes("janta") || desc.includes("lanche") || desc.includes("comida") || desc.includes("refeicao")) cat = "Alimentacao";
+    else if (desc.includes("pedagio") || desc.includes("estacionamento")) cat = "Pedagio/Estacionamento";
+    else if (desc.includes("manutencao") || desc.includes("oficina") || desc.includes("pneu") || desc.includes("oleo")) cat = "Manutencao";
+    else cat = (d.payload as any).descricao || "Outros";
+
+    categorias[cat] = (categorias[cat] || 0) + (d.payload as any).valor;
+  });
+
+  // Busca ganhos do mes (corridas)
+  const { data: prestador } = await supabase
+    .from("prestadores")
+    .select("id")
+    .eq("telefone", phone)
+    .single();
+
+  let ganhosMes = 0;
+  if (prestador) {
+    const { data: corridas } = await supabase
+      .from("corridas")
+      .select("valor_prestador, criado_em")
+      .eq("prestador_id", prestador.id)
+      .eq("status", "concluida");
+
+    if (corridas) {
+      ganhosMes = corridas
+        .filter(c => {
+          const d = new Date(c.criado_em);
+          return d.getMonth() + 1 === mesAtual && d.getFullYear() === anoAtual;
+        })
+        .reduce((s, c) => s + (c.valor_prestador || 0), 0);
+    }
+  }
+
+  const lucro = ganhosMes - totalGastos;
+
+  let msg = `📊 *Seu Controle Financeiro*\n📅 ${nomeMes} ${anoAtual}\n\n`;
+  msg += `💰 Ganhos (fretes): *R$ ${ganhosMes.toFixed(2)}*\n`;
+  msg += `💸 Gastos totais: *R$ ${totalGastos.toFixed(2)}*\n`;
+  msg += `${lucro >= 0 ? "✅" : "⚠️"} Lucro: *R$ ${lucro.toFixed(2)}*\n`;
+
+  if (Object.keys(categorias).length > 0) {
+    msg += "\n📋 *Gastos por categoria:*\n";
+    Object.entries(categorias)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([cat, val]) => {
+        const pct = totalGastos > 0 ? Math.round((val / totalGastos) * 100) : 0;
+        msg += `- ${cat}: R$ ${val.toFixed(2)} (${pct}%)\n`;
+      });
+  }
+
+  if (despesasMes.length === 0) {
+    msg += "\nNenhuma despesa registrada este mes.\nPra registrar: *despesa [valor] [descricao]*";
+  }
+
+  msg += "\n\n💡 Registre seus gastos diarios pra ter controle total!";
+  msg += "\nExemplo: *despesa 6.20 gasolina*";
+
+  await sendMessage({ to: phone, message: msg });
 }
 
 // === DASHBOARD CLIENTE ===

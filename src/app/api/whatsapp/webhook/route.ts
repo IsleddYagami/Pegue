@@ -956,17 +956,8 @@ async function handleConfirmacao(phone: string, message: string) {
       // Informa que esta reservando a agenda
       await sendMessage({ to: phone, message: MSG.freteRecebido });
 
-      // Verifica se e primeiro frete do cliente
-      const { data: corridasCliente } = await supabase
-        .from("corridas")
-        .select("id")
-        .eq("cliente_id", (await supabase.from("clientes").select("id").eq("telefone", phone).single()).data?.id || "")
-        .limit(2);
-
-      if (corridasCliente && corridasCliente.length <= 1) {
-        // Primeiro frete! Envia orientacoes
-        await sendMessage({ to: phone, message: MSG.orientacoesCliente });
-      }
+      // Envia orientacoes e protocolos ao cliente
+      await sendMessage({ to: phone, message: MSG.orientacoesCliente });
 
       // Dispara para fretistas e aguarda resposta
       await dispararParaFretistas(corridaId, session, phone);

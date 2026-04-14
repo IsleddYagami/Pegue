@@ -1,6 +1,5 @@
-import Link from "next/link";
 import Image from "next/image";
-import { MessageCircle, Camera, CheckCircle, ArrowRight } from "lucide-react";
+import { MessageCircle, ArrowRight, CheckCircle, Shield, Clock, Star, Zap, Phone } from "lucide-react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { FloatingNotification } from "@/components/floating-notification";
@@ -12,181 +11,149 @@ export default function HomePage() {
       <Header />
       <FloatingNotification />
 
-      {/* HERO - Negro absoluto com logo sombra gigante + efeito vidro */}
+      {/* ===== HERO - 3 SEGUNDOS PRA CONVENCER ===== */}
       <section className="relative overflow-hidden text-white" style={{ background: "#000" }}>
-        {/* Logo GIGANTE como marca d'agua - ultra transparente */}
+        {/* Logo sombra gigante */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ top: "-10%" }}>
-          <Image
-            src="/logo-pegue-novo.png"
-            alt=""
-            width={1400}
-            height={1400}
-            className="w-[120vw] max-w-none opacity-[0.025]"
-            style={{ filter: "brightness(0.3) saturate(0)" }}
-            aria-hidden="true"
-          />
+          <Image src="/logo-pegue-novo.png" alt="" width={1400} height={1400} className="w-[120vw] max-w-none opacity-[0.025]" style={{ filter: "brightness(0.3) saturate(0)" }} aria-hidden="true" />
         </div>
 
-        {/* Efeito reflexo prismatico diagonal - feixe de luz */}
+        {/* Efeito vitrificado */}
         <div className="absolute inset-0 pointer-events-none" style={{
-          background: `
-            linear-gradient(
-              125deg,
-              transparent 0%,
-              transparent 35%,
-              rgba(201,168,76,0.03) 38%,
-              rgba(255,255,255,0.04) 40%,
-              rgba(201,168,76,0.02) 42%,
-              transparent 45%,
-              transparent 55%,
-              rgba(255,255,255,0.015) 58%,
-              rgba(201,168,76,0.01) 60%,
-              transparent 63%,
-              transparent 100%
-            )
-          `
+          background: "linear-gradient(125deg, transparent 0%, transparent 35%, rgba(201,168,76,0.03) 38%, rgba(255,255,255,0.04) 40%, rgba(201,168,76,0.02) 42%, transparent 45%, transparent 100%)"
         }} />
 
-        {/* Textura vitrificada - linhas horizontais sutis */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.008) 2px, rgba(255,255,255,0.008) 3px)",
-          backgroundSize: "100% 3px"
-        }} />
+        <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 py-16 text-center md:py-24">
+          <Image src="/logo-pegue-novo.png" alt="Pegue" width={200} height={200} className="mb-6 h-24 w-auto md:h-32" priority />
 
-        {/* Brilho no canto superior */}
-        <div className="absolute pointer-events-none" style={{
-          top: "-20%",
-          right: "10%",
-          width: "50%",
-          height: "50%",
-          background: "radial-gradient(ellipse, rgba(201,168,76,0.04) 0%, transparent 60%)",
-        }} />
-
-        {/* Linha dourada topo */}
-        <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{
-          background: "linear-gradient(90deg, transparent 10%, rgba(201,168,76,0.3) 50%, transparent 90%)"
-        }} />
-
-        <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 py-20 text-center md:py-32">
-          <Image
-            src="/logo-pegue-novo.png"
-            alt="Pegue"
-            width={280}
-            height={280}
-            className="mb-10 h-36 w-auto md:h-48"
-            priority
-          />
-
-          <h1 className="text-4xl font-extrabold leading-tight tracking-tight md:text-6xl lg:text-7xl">
-            Relaxa.{" "}
-            <span className="text-[#C9A84C]">A gente leva.</span>
+          {/* PRECO + VELOCIDADE = CONVERSAO */}
+          <h1 className="text-3xl font-extrabold leading-tight md:text-5xl lg:text-6xl">
+            Frete a partir de <span className="text-[#C9A84C]">R$ 160</span>
           </h1>
 
-          <p className="mt-6 text-lg text-gray-400 md:text-xl">
-            Fretes sem dor de cabeça.
-          </p>
-          <p className="mt-2 text-xl font-semibold text-[#C9A84C] md:text-2xl">
-            Com a PEGUE, ficou fácil levar.
+          <p className="mt-3 text-xl font-semibold text-[#C9A84C] md:text-2xl">
+            Preço na hora. Pelo WhatsApp.
           </p>
 
+          <p className="mt-3 text-base text-gray-400">
+            Sem app. Sem cadastro. Sem espera.
+          </p>
+
+          {/* BOTAO PRINCIPAL */}
           <a
             href={WHATSAPP_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            className="group mt-10 flex items-center gap-2 rounded-full bg-[#C9A84C] px-8 py-4 text-lg font-bold text-[#0A0A0A] transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(201,168,76,0.3)]"
+            className="group mt-8 flex items-center gap-3 rounded-full bg-[#C9A84C] px-10 py-5 text-xl font-bold text-[#000] shadow-lg shadow-[#C9A84C]/20 transition-all hover:scale-105 hover:shadow-xl hover:shadow-[#C9A84C]/30"
           >
-            Chamar no WhatsApp
-            <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />
+            <MessageCircle className="h-6 w-6" />
+            Quero meu preço agora
+            <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </a>
 
-          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/40 bg-[#C9A84C]/10 px-6 py-2">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-[#C9A84C]"></span>
-            <span className="text-base font-semibold text-[#C9A84C]">Cotação Imediata</span>
+          {/* PROVA SOCIAL RAPIDA */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm text-gray-400">
+            <span className="flex items-center gap-1"><Star className="h-4 w-4 text-[#C9A84C]" /> 4.9 avaliação</span>
+            <span className="flex items-center gap-1"><Shield className="h-4 w-4 text-[#C9A84C]" /> Fretistas verificados</span>
+            <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-[#C9A84C]" /> Resposta em 2 min</span>
           </div>
         </div>
       </section>
 
-      {/* NUMEROS - Social proof sutil */}
-      <section className="border-y border-gray-800 bg-[#000000]">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-8 px-4 py-6 md:gap-16 md:py-8">
+      {/* ===== PROVA SOCIAL - NUMEROS ===== */}
+      <section className="border-y border-[#C9A84C]/10 bg-[#000]">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-8 px-4 py-5 md:gap-16">
           {[
-            { numero: "847", label: "fretes realizados" },
-            { numero: "4.9", label: "avaliação no WhatsApp" },
-            { numero: "23 min", label: "tempo medio de resposta" },
+            { numero: "+850", label: "fretes realizados" },
+            { numero: "4.9", label: "nota dos clientes" },
+            { numero: "2 min", label: "preço na hora" },
           ].map((item) => (
             <div key={item.label} className="text-center">
-              <p className="text-2xl font-extrabold text-[#C9A84C] md:text-3xl">
-                {item.numero}
-              </p>
+              <p className="text-2xl font-extrabold text-[#C9A84C] md:text-3xl">{item.numero}</p>
               <p className="text-xs text-gray-500">{item.label}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* BANNER - Frota Pegue */}
-      <section className="bg-[#000000] py-8 md:py-12">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="relative overflow-hidden rounded-2xl border border-[#C9A84C]/20">
-            <Image
-              src="/banner-pegue-1.png"
-              alt="Com a PEGUE, ficou facil levar"
-              width={1400}
-              height={600}
-              className="w-full object-cover"
-            />
-          </div>
-        </div>
-      </section>
+      {/* ===== DOR + SOLUCAO ===== */}
+      <section className="bg-[#000] py-16 md:py-20">
+        <div className="mx-auto max-w-4xl px-4">
+          <h2 className="mb-10 text-center text-2xl font-extrabold md:text-4xl">
+            Seu frete pelo <span className="text-[#C9A84C]">WhatsApp</span>.
+            <br />
+            <span className="text-gray-400 text-lg md:text-2xl font-normal">Sem app, sem cadastro, sem complicação.</span>
+          </h2>
 
-      {/* SERVICOS */}
-      <section className="bg-[#000000] py-16 md:py-24">
-        <div className="mx-auto max-w-5xl px-4">
-          <p className="mb-10 text-center text-lg text-gray-400">O difícil ficou fácil.</p>
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              {
-                titulo: "Pequenos Fretes",
-                sub: "Móvel, eletro, caixas. Levar ficou simples de verdade.",
-                destaque: true,
-              },
-              {
-                titulo: "Mudança",
-                sub: "De um quarto a casa inteira. A forma fácil de levar o que você precisa.",
-                destaque: false,
-              },
-              {
-                titulo: "Guincho",
-                sub: "Carro ou moto. Quando parece difícil, a PEGUE facilita.",
-                destaque: false,
-              },
+              { titulo: "Pequenos Fretes", preco: "A partir de R$ 160", desc: "Móvel, eletro, caixas. No mesmo dia." },
+              { titulo: "Mudança Completa", preco: "A partir de R$ 500", desc: "De um quarto a casa inteira. A Pegue Resolve." },
+              { titulo: "Guincho", preco: "A partir de R$ 150", desc: "Carro ou moto. 24h. Rápido e seguro." },
             ].map((srv) => (
               <a
                 key={srv.titulo}
                 href={WHATSAPP_LINK}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`group glass-card rounded-2xl p-8 text-center transition-all ${srv.destaque ? "border-2 border-[#C9A84C]/30" : ""}`}
+                className="group rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6 text-center transition-all hover:border-[#C9A84C]/50 hover:shadow-lg hover:shadow-[#C9A84C]/5"
               >
-                <h3 className="text-xl font-bold text-white">{srv.titulo}</h3>
-                <p className="mt-3 text-sm text-gray-400">{srv.sub}</p>
-                <span className="mt-4 inline-block text-sm font-medium text-[#C9A84C]">Solicitar →</span>
+                <h3 className="text-lg font-bold text-white">{srv.titulo}</h3>
+                <p className="mt-2 text-2xl font-extrabold text-[#C9A84C]">{srv.preco}</p>
+                <p className="mt-2 text-sm text-gray-400">{srv.desc}</p>
+                <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#C9A84C]">
+                  <MessageCircle className="h-4 w-4" /> Solicitar agora
+                </span>
               </a>
             ))}
           </div>
         </div>
       </section>
 
-      {/* SIMULACAO DE CONVERSA WHATSAPP */}
-      <section className="bg-[#000000] py-16 md:py-24">
+      {/* ===== COMO FUNCIONA - VISUAL ===== */}
+      <section className="bg-[#000] py-8 md:py-12">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="overflow-hidden rounded-2xl border border-[#C9A84C]/20">
+            <Image src="/banner-passos.png" alt="3 passos: localização, foto, preço" width={1400} height={600} className="w-full object-cover" />
+          </div>
+        </div>
+      </section>
+
+      {/* ===== POR QUE A PEGUE? ===== */}
+      <section className="bg-[#000] py-16 md:py-20">
+        <div className="mx-auto max-w-4xl px-4">
+          <h2 className="mb-10 text-center text-2xl font-extrabold md:text-3xl">
+            Por que <span className="text-[#C9A84C]">escolher a Pegue</span>?
+          </h2>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {[
+              { icon: <Zap className="h-6 w-6" />, titulo: "Preço em 2 minutos", desc: "Manda foto, recebe o valor. Sem enrolação." },
+              { icon: <Shield className="h-6 w-6" />, titulo: "Fretistas verificados", desc: "Todos passam por aprovação. Nota 4.9." },
+              { icon: <MessageCircle className="h-6 w-6" />, titulo: "Tudo pelo WhatsApp", desc: "Sem baixar app. Sem cadastro. Sem complicação." },
+              { icon: <Star className="h-6 w-6" />, titulo: "A Pegue Resolve", desc: "Frete, mudança, guincho. Uma solução pra tudo." },
+            ].map((item, i) => (
+              <div key={i} className="flex items-start gap-4 rounded-xl border border-[#C9A84C]/10 bg-[#0A0A0A] p-5">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#C9A84C]/10 text-[#C9A84C]">{item.icon}</div>
+                <div>
+                  <h3 className="font-bold">{item.titulo}</h3>
+                  <p className="mt-1 text-sm text-gray-400">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== CONVERSA SIMULADA ===== */}
+      <section className="bg-[#000] py-16 md:py-20">
         <div className="mx-auto max-w-5xl px-4">
-          <h2 className="mb-4 text-center text-3xl font-extrabold md:text-4xl">
+          <h2 className="mb-4 text-center text-2xl font-extrabold md:text-3xl">
             Veja como é <span className="text-[#C9A84C]">rápido</span>
           </h2>
-          <p className="mb-12 text-center text-gray-400">Conversa real com nosso atendimento</p>
+          <p className="mb-10 text-center text-gray-400">Conversa real. 1 minuto.</p>
 
           <div className="grid gap-8 md:grid-cols-2 items-center">
-            {/* Conversa */}
             <div className="mx-auto w-full max-w-sm rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
               <div className="mb-4 flex items-center gap-3 border-b border-gray-800 pb-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#C9A84C]/20">
@@ -197,179 +164,122 @@ export default function HomePage() {
                   <p className="text-[10px] text-green-400">online agora</p>
                 </div>
               </div>
-
               <div className="space-y-2.5 text-sm">
-                <div className="flex justify-end">
-                  <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>Oi</p></div>
-                </div>
-                <div className="flex justify-start">
-                  <div className="rounded-xl rounded-bl-sm bg-[#2a2a2a] border border-[#444] px-3 py-2 text-white"><p>Oii! 😊 Mande sua localização 📍</p></div>
-                </div>
-                <div className="flex justify-end">
-                  <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>📍 Osasco, SP</p></div>
-                </div>
-                <div className="flex justify-start">
-                  <div className="rounded-xl rounded-bl-sm bg-[#2a2a2a] border border-[#444] px-3 py-2 text-white"><p>Manda foto do material 📸</p></div>
-                </div>
-                <div className="flex justify-end">
-                  <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>📸 [foto enviada]</p></div>
-                </div>
-                <div className="flex justify-start">
-                  <div className="rounded-xl rounded-bl-sm bg-[#2a2a2a] border border-[#444] px-3 py-2 text-white"><p>Vi que é um <strong>Sofá</strong> 🛋️ Pra onde?</p></div>
-                </div>
-                <div className="flex justify-end">
-                  <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>Barra Funda, SP</p></div>
-                </div>
+                <div className="flex justify-end"><div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>Oi</p></div></div>
+                <div className="flex justify-start"><div className="rounded-xl rounded-bl-sm bg-[#2a2a2a] border border-[#444] px-3 py-2 text-white"><p>Oii Maria! Mande sua localização 📍</p></div></div>
+                <div className="flex justify-end"><div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>📍 Osasco, SP</p></div></div>
+                <div className="flex justify-start"><div className="rounded-xl rounded-bl-sm bg-[#2a2a2a] border border-[#444] px-3 py-2 text-white"><p>Manda foto do material 📸</p></div></div>
+                <div className="flex justify-end"><div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>📸 [foto]</p></div></div>
+                <div className="flex justify-start"><div className="rounded-xl rounded-bl-sm bg-[#2a2a2a] border border-[#444] px-3 py-2 text-white"><p>Vi que é um *Sofá* 🛋️ Pra onde?</p></div></div>
+                <div className="flex justify-end"><div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>Barra Funda</p></div></div>
                 <div className="flex justify-start">
                   <div className="rounded-xl rounded-bl-sm border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-3 py-2">
-                    <p className="font-bold text-[#C9A84C]">✅ Total: R$ 248</p>
-                    <p className="text-[10px] text-gray-400">HR, sem ajudante · 17km</p>
+                    <p className="font-bold text-[#C9A84C]">✅ R$ 248</p>
+                    <p className="text-[10px] text-gray-400">17km · HR · sem ajudante</p>
                   </div>
                 </div>
               </div>
-              <p className="mt-3 text-center text-[10px] text-gray-500">Tempo desta conversa: <strong className="text-[#C9A84C]">1 minuto</strong></p>
+              <p className="mt-3 text-center text-[10px] text-gray-500">Tempo: <strong className="text-[#C9A84C]">1 minuto</strong></p>
             </div>
 
-            {/* Texto ao lado */}
             <div className="text-center md:text-left">
-              <h3 className="mb-4 text-2xl font-bold">Cotação em <span className="text-[#C9A84C]">1 minuto</span></h3>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">1</div>
-                  <div>
-                    <p className="font-semibold">Localização</p>
-                    <p className="text-sm text-gray-400">Envie pelo GPS ou digite o endereço</p>
+              <h3 className="mb-6 text-2xl font-bold">
+                Cotação em <span className="text-[#C9A84C]">1 minuto</span>
+              </h3>
+
+              <div className="space-y-4 mb-8">
+                {[
+                  { n: "1", t: "Manda \"Oi\" no WhatsApp", s: "A gente já te chama pelo nome" },
+                  { n: "2", t: "Tira a foto do material", s: "Nossa IA identifica tudo na hora" },
+                  { n: "3", t: "Diga o destino e pronto!", s: "Preço instantâneo" },
+                ].map((item) => (
+                  <div key={item.n} className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">{item.n}</div>
+                    <div>
+                      <p className="font-semibold">{item.t}</p>
+                      <p className="text-sm text-gray-400">{item.s}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">2</div>
-                  <div>
-                    <p className="font-semibold">Tire a foto</p>
-                    <p className="text-sm text-gray-400">Nossa IA identifica o material na hora</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">3</div>
-                  <div>
-                    <p className="font-semibold">Diga o destino e pronto!</p>
-                    <p className="text-sm text-gray-400">Receba o preço na hora</p>
-                  </div>
-                </div>
-                <p className="mt-2 text-lg font-bold text-[#C9A84C]">Simples assim!</p>
+                ))}
               </div>
-              <a
-                href={WHATSAPP_LINK}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#C9A84C] px-8 py-4 text-lg font-bold text-[#000] transition-all hover:scale-105"
-              >
-                <MessageCircle className="h-5 w-5" />
-                Quero meu preço agora
+
+              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-full bg-[#C9A84C] px-8 py-4 text-lg font-bold text-[#000] transition-all hover:scale-105">
+                <MessageCircle className="h-5 w-5" /> Quero meu preço agora
               </a>
             </div>
           </div>
         </div>
       </section>
 
-      {/* BANNER 2 - Veiculos */}
-      <section className="bg-[#000000] py-8 md:py-12">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="relative overflow-hidden rounded-2xl border border-[#C9A84C]/20">
-            <Image
-              src="/banner-pegue-2.png"
-              alt="PEGUE - Solucoes em Transportes e Fretes"
-              width={1400}
-              height={600}
-              className="w-full object-cover"
-            />
-          </div>
-          <p className="mt-4 text-center text-sm text-gray-500">O jeito fácil de ter algo difícil.</p>
-        </div>
-      </section>
-
-      {/* COMO FUNCIONA - Banner visual */}
-      <section className="bg-[#000000] py-8 md:py-12">
+      {/* ===== BANNER FROTA ===== */}
+      <section className="bg-[#000] py-8">
         <div className="mx-auto max-w-6xl px-4">
           <div className="overflow-hidden rounded-2xl border border-[#C9A84C]/20">
-            <Image
-              src="/banner-passos.png"
-              alt="Simples assim. 3 passos e pronto."
-              width={1400}
-              height={600}
-              className="w-full object-cover"
-            />
+            <Image src="/banner-pegue-1.png" alt="Frota Pegue" width={1400} height={600} className="w-full object-cover" />
           </div>
         </div>
       </section>
 
-      {/* COMO FUNCIONA - Texto backup acessibilidade */}
-      <section className="bg-[#000000] py-8">
-        <div className="mx-auto max-w-3xl px-4">
-          <div className="flex flex-col items-center gap-8 md:flex-row md:gap-4">
+      {/* ===== DEPOIMENTO / CONFIANCA ===== */}
+      <section className="bg-[#000] py-16 md:py-20">
+        <div className="mx-auto max-w-3xl px-4 text-center">
+          <h2 className="mb-10 text-2xl font-extrabold md:text-3xl">
+            Clientes que <span className="text-[#C9A84C]">confiam</span>
+          </h2>
+          <div className="grid gap-4 md:grid-cols-3">
             {[
-              { icon: MessageCircle, texto: "Manda um oi no WhatsApp" },
-              { icon: Camera, texto: "Envia a foto do material" },
-              { icon: CheckCircle, texto: "Recebe o valor na hora" },
-            ].map((step, i) => (
-              <div key={step.texto} className="flex flex-1 flex-col items-center text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10">
-                  <step.icon size={24} className="text-[#C9A84C]" />
+              { nome: "Camila S.", texto: "Cotei em 2 minutos e o preço foi justo. Recomendo!" },
+              { nome: "Rafael M.", texto: "Mudança completa sem stress. A Pegue resolve mesmo!" },
+              { nome: "Ana P.", texto: "Precisei de guincho de madrugada e me atenderam rápido." },
+            ].map((d, i) => (
+              <div key={i} className="rounded-xl border border-[#C9A84C]/10 bg-[#0A0A0A] p-5">
+                <div className="mb-2 flex justify-center gap-1">
+                  {[1,2,3,4,5].map(s => <Star key={s} className="h-4 w-4 fill-[#C9A84C] text-[#C9A84C]" />)}
                 </div>
-                {i < 2 && (
-                  <div className="my-2 hidden h-px w-full bg-gradient-to-r from-transparent via-[#C9A84C]/20 to-transparent md:block" />
-                )}
-                <p className="mt-3 text-sm font-medium text-gray-300">
-                  {step.texto}
-                </p>
+                <p className="text-sm text-gray-300">"{d.texto}"</p>
+                <p className="mt-3 text-xs font-bold text-[#C9A84C]">{d.nome}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* INSTAGRAM - Sutil, vantagem clara */}
-      <section className="border-y border-gray-800 bg-[#000000] py-10">
+      {/* ===== INSTAGRAM ===== */}
+      <section className="border-y border-[#C9A84C]/10 bg-[#000] py-8">
         <div className="mx-auto flex max-w-2xl flex-col items-center px-4 text-center">
-          <p className="text-sm text-gray-500">
-            Quando parece difícil, a PEGUE facilita.{" "}
-            <span className="text-[#C9A84C]">Siga no Instagram</span>{" "}
-            pra cupons exclusivos e novidades.
+          <p className="text-sm text-gray-400">
+            Siga <span className="font-bold text-[#C9A84C]">@chamepegue</span> no Instagram pra cupons exclusivos e novidades.
           </p>
-          <a
-            href={INSTAGRAM_LINK}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-4 rounded-full border border-[#C9A84C]/30 px-6 py-2.5 text-sm font-medium text-[#C9A84C] transition-all hover:bg-[#C9A84C]/10"
-          >
+          <a href={INSTAGRAM_LINK} target="_blank" rel="noopener noreferrer"
+            className="mt-3 rounded-full border border-[#C9A84C]/30 px-6 py-2 text-sm font-medium text-[#C9A84C] transition-all hover:bg-[#C9A84C]/10">
             Seguir {INSTAGRAM_HANDLE}
           </a>
         </div>
       </section>
 
-      {/* CTA FINAL - Caloroso, sem pressao */}
-      <section className="bg-[#000000] py-20 md:py-28">
-        <div className="mx-auto flex max-w-2xl flex-col items-center px-4 text-center">
-          <h2 className="text-3xl font-extrabold text-white md:text-4xl">
-            Não carregue esse peso.{" "}
-            <span className="text-[#C9A84C]">Deixa com a PEGUE.</span>
+      {/* ===== CTA FINAL ===== */}
+      <section className="bg-[#000] py-20 md:py-28">
+        <div className="mx-auto flex max-w-3xl flex-col items-center px-4 text-center">
+          <h2 className="text-3xl font-extrabold md:text-4xl">
+            Não carregue esse peso.
+          </h2>
+          <h2 className="mt-2 text-3xl font-extrabold text-[#C9A84C] md:text-4xl">
+            Deixa com a PEGUE.
           </h2>
 
-          <p className="mt-4 text-base text-gray-500">
-            A forma fácil de levar o que você precisa. Resposta em minutos.
+          <p className="mt-4 text-lg text-gray-400">
+            Frete a partir de R$ 160. Preço em 2 minutos. Fretistas verificados.
           </p>
 
-          <a
-            href={WHATSAPP_LINK}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group mt-8 flex items-center gap-2 rounded-full bg-[#C9A84C] px-8 py-4 text-lg font-bold text-[#0A0A0A] transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(201,168,76,0.3)]"
-          >
-            Chamar no WhatsApp
-            <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />
+          <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer"
+            className="group mt-8 flex items-center gap-3 rounded-full bg-[#C9A84C] px-10 py-5 text-xl font-bold text-[#000] shadow-lg shadow-[#C9A84C]/20 transition-all hover:scale-105">
+            <MessageCircle className="h-6 w-6" /> Chamar no WhatsApp
+            <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </a>
 
-          <p className="mt-3 text-xs text-gray-600">
-            Atendimento de seg a sab, 7h as 20h.
+          <p className="mt-4 text-sm text-gray-500">
+            A Pegue Resolve. Frete, mudança, guincho.
           </p>
         </div>
       </section>

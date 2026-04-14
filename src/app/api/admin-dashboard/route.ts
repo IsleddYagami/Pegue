@@ -22,7 +22,10 @@ export async function GET(req: NextRequest) {
       .from("bot_sessions")
       .select("phone, step, criado_em, atualizado_em, valor_estimado, descricao_carga, origem_endereco, destino_endereco");
 
-    const todasSessoes = sessoes || [];
+    // Filtra grupos e numeros invalidos (so aceita numeros 55...)
+    const todasSessoes = (sessoes || []).filter(s =>
+      s.phone.startsWith("55") && s.phone.length <= 15
+    );
     const sessoesHoje = todasSessoes.filter(s => new Date(s.criado_em) >= hoje);
     const sessoesSemana = todasSessoes.filter(s => new Date(s.criado_em) >= umaSemana);
     const sessoesMes = todasSessoes.filter(s => new Date(s.criado_em) >= umMes);
@@ -269,6 +272,21 @@ export async function GET(req: NextRequest) {
         contatosPorDia: contatosPorDia.map((qtd, i) => ({ dia: diasSemana[i], qtd })),
         topRegioes,
         genero: { masculino, feminino, indefinido },
+        ticketsPorFaixa: (() => {
+          const faixas = [
+            { label: "Ate R$200", min: 0, max: 200, qtd: 0 },
+            { label: "R$200-350", min: 200, max: 350, qtd: 0 },
+            { label: "R$350-500", min: 350, max: 500, qtd: 0 },
+            { label: "R$500-800", min: 500, max: 800, qtd: 0 },
+            { label: "R$800+", min: 800, max: 99999, qtd: 0 },
+          ];
+          todasCorridas.forEach(c => {
+            const v = c.valor_final || 0;
+            const f = faixas.find(f => v >= f.min && v < f.max);
+            if (f) f.qtd++;
+          });
+          return faixas.map(f => ({ label: f.label, qtd: f.qtd }));
+        })(),
       },
     });
   } catch (error: any) {

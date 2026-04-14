@@ -22,6 +22,7 @@ interface DashboardData {
     contatosPorDia: { dia: string; qtd: number }[];
     topRegioes: { nome: string; qtd: number }[];
     genero: { masculino: number; feminino: number; indefinido: number };
+    ticketsPorFaixa: { label: string; qtd: number }[];
   };
 }
 
@@ -66,6 +67,13 @@ export default function AdminPage() {
       });
     } catch {}
     setEnviandoLembrete(null);
+  }
+
+  function formatarTel(phone: string): string {
+    const d = phone.replace(/\D/g, "");
+    if (d.length === 13) return `(${d.slice(2, 4)}) ${d.slice(4, 9)}-${d.slice(9)}`;
+    if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+    return phone;
   }
 
   const statusCor: Record<string, string> = {
@@ -174,7 +182,7 @@ export default function AdminPage() {
             {data.abandonos.map((a, i) => (
               <div key={i} className="flex flex-col gap-2 rounded-lg border border-[#C9A84C]/10 bg-[#000] p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{a.phone}</p>
+                  <p className="text-sm font-medium truncate">{formatarTel(a.phone)}</p>
                   <p className="text-xs text-gray-500 truncate">
                     Parou em: {stepNome[a.step] || a.step}
                     {a.carga ? ` · ${a.carga}` : ""}
@@ -270,7 +278,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
         {/* Regioes */}
         <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
           <h3 className="mb-4 flex items-center gap-2 font-bold"><TrendingUp className="h-5 w-5 text-[#C9A84C]" /> Regioes mais atendidas</h3>
@@ -293,6 +301,25 @@ export default function AdminPage() {
           ) : (
             <p className="text-sm text-gray-500">Sem dados ainda</p>
           )}
+        </div>
+
+        {/* Ticket medio por faixa */}
+        <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
+          <h3 className="mb-4 flex items-center gap-2 font-bold"><DollarSign className="h-5 w-5 text-[#C9A84C]" /> Ticket medio por faixa</h3>
+          <div className="space-y-2">
+            {data.graficos.ticketsPorFaixa.map((t, i) => {
+              const max = Math.max(...data.graficos.ticketsPorFaixa.map(x => x.qtd), 1);
+              return (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="w-20 text-xs text-gray-400 shrink-0">{t.label}</span>
+                  <div className="flex-1 h-4 rounded-full bg-[#1a1a1a]">
+                    <div className="h-full rounded-full bg-[#C9A84C] transition-all" style={{ width: `${(t.qtd / max) * 100}%` }} />
+                  </div>
+                  <span className="w-6 text-right text-xs font-bold">{t.qtd}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Genero */}

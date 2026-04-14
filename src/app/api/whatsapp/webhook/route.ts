@@ -456,25 +456,31 @@ async function handleClienteMessage(
 async function handleEscolhaServico(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
 
-  if (lower === "1" || lower.includes("frete") || lower.includes("mudanc")) {
+  if (lower === "1" || lower.includes("pequeno") || lower.includes("frete")) {
     await updateSession(phone, { step: "aguardando_localizacao" });
     await sendMessage({ to: phone, message: MSG.pedirLocalizacao });
     return;
   }
 
-  if (lower === "2" || lower.includes("guincho")) {
+  if (lower === "2" || lower.includes("mudanca") || lower.includes("mudança")) {
+    await updateSession(phone, { step: "aguardando_localizacao" });
+    await sendMessage({ to: phone, message: MSG.pedirLocalizacao });
+    return;
+  }
+
+  if (lower === "3" || lower.includes("guincho")) {
     await sendMessage({ to: phone, message: MSG.guincho });
     return;
   }
 
-  if (lower === "3" || lower.includes("santos") || lower.includes("especialista")) {
+  if (lower === "4" || lower.includes("santos") || lower.includes("especialista")) {
     await handleAtendente(phone);
     return;
   }
 
   await sendMessage({
     to: phone,
-    message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Pequenos Fretes ou Mudanca\n2️⃣ Guincho (carro ou moto)\n3️⃣ Falar com nosso especialista Santos",
+    message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Pequenos Fretes\n2️⃣ Mudanca completa\n3️⃣ Guincho (carro ou moto)\n4️⃣ Falar com nosso especialista Santos",
   });
 }
 

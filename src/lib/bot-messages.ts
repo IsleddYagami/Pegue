@@ -7,9 +7,10 @@ Estou aqui pra te ajudar com o que precisar.
 
 O que voce precisa?
 
-1️⃣ *Pequenos Fretes ou Mudanca*
-2️⃣ *Guincho* (carro ou moto)
-3️⃣ *Falar com nosso especialista Santos*`,
+1️⃣ *Pequenos Fretes*
+2️⃣ *Mudanca completa*
+3️⃣ *Guincho* (carro ou moto)
+4️⃣ *Falar com nosso especialista Santos*`,
 
   pedirLocalizacao: `Otimo! Vou te ajudar com seu frete! 🚚
 

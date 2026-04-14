@@ -28,10 +28,35 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Corrige nomes comuns da Grande SP
+    let queryCorrigida = q;
+    const ql = q.toLowerCase().trim();
+    const correcoes: Record<string, string> = {
+      "sao bernardo": "Sao Bernardo do Campo, SP",
+      "são bernardo": "São Bernardo do Campo, SP",
+      "santo andre": "Santo Andre, SP",
+      "santo andré": "Santo André, SP",
+      "sao caetano": "Sao Caetano do Sul, SP",
+      "são caetano": "São Caetano do Sul, SP",
+      "maua": "Maua, SP",
+      "mauá": "Mauá, SP",
+      "embu": "Embu das Artes, SP",
+      "taboao": "Taboao da Serra, SP",
+      "taboão": "Taboão da Serra, SP",
+      "itapecerica": "Itapecerica da Serra, SP",
+      "ferraz": "Ferraz de Vasconcelos, SP",
+    };
+    for (const [chave, correcao] of Object.entries(correcoes)) {
+      if (ql === chave || ql.startsWith(chave + " ")) {
+        queryCorrigida = correcao;
+        break;
+      }
+    }
+
     // Busca Nominatim com contexto SP
-    const searchQuery = q.toLowerCase().includes("sp") || q.toLowerCase().includes("paulo")
-      ? q + ", Brasil"
-      : q + ", Sao Paulo, SP, Brasil";
+    const searchQuery = queryCorrigida.toLowerCase().includes("sp") || queryCorrigida.toLowerCase().includes("paulo")
+      ? queryCorrigida + ", Brasil"
+      : queryCorrigida + ", Sao Paulo, SP, Brasil";
 
     const result = await buscarNominatim(searchQuery);
     if (result) {

@@ -72,15 +72,45 @@ export async function geocodeAddress(
   address: string
 ): Promise<{ lat: number; lng: number } | null> {
   try {
-    // Se o endereco nao menciona cidade/estado, adiciona Sao Paulo
-    const lower = address.toLowerCase();
-    const temContexto = lower.includes("sp") || lower.includes("são paulo") ||
-      lower.includes("sao paulo") || lower.includes("santos") ||
-      lower.includes("guarulhos") || lower.includes("campinas") ||
-      lower.includes("osasco") || lower.includes("rio de janeiro") ||
-      lower.includes("rj") || lower.includes("/");
+    let addr = address.trim();
+    const lower = addr.toLowerCase();
 
-    const searchAddress = temContexto ? address : `${address}, São Paulo, SP`;
+    // Corrige nomes comuns da Grande SP que dao conflito
+    const correcoes: Record<string, string> = {
+      "sao bernardo": "Sao Bernardo do Campo, SP",
+      "são bernardo": "São Bernardo do Campo, SP",
+      "santo andre": "Santo Andre, SP, Grande Sao Paulo",
+      "santo andré": "Santo André, SP, Grande São Paulo",
+      "sao caetano": "Sao Caetano do Sul, SP",
+      "são caetano": "São Caetano do Sul, SP",
+      "maua": "Maua, SP, Grande Sao Paulo",
+      "mauá": "Mauá, SP, Grande São Paulo",
+      "diadema": "Diadema, SP, Grande Sao Paulo",
+      "itapecerica": "Itapecerica da Serra, SP",
+      "ferraz": "Ferraz de Vasconcelos, SP",
+      "francisco morato": "Francisco Morato, SP",
+      "franco da rocha": "Franco da Rocha, SP",
+      "embu": "Embu das Artes, SP",
+      "taboao": "Taboao da Serra, SP",
+      "taboão": "Taboão da Serra, SP",
+    };
+
+    for (const [chave, correcao] of Object.entries(correcoes)) {
+      if (lower === chave || lower.startsWith(chave + " ") || lower.startsWith(chave + ",")) {
+        addr = correcao;
+        break;
+      }
+    }
+
+    const lowerAddr = addr.toLowerCase();
+    const temContexto = lowerAddr.includes("sp") || lowerAddr.includes("são paulo") ||
+      lowerAddr.includes("sao paulo") || lowerAddr.includes("santos") ||
+      lowerAddr.includes("guarulhos") || lowerAddr.includes("campinas") ||
+      lowerAddr.includes("osasco") || lowerAddr.includes("rio de janeiro") ||
+      lowerAddr.includes("rj") || lowerAddr.includes("/") ||
+      lowerAddr.includes("grande");
+
+    const searchAddress = temContexto ? addr : `${addr}, São Paulo, SP`;
 
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchAddress)}&format=json&limit=1&countrycodes=br`,
@@ -135,10 +165,10 @@ function calcularPrecoBaseUtilitario(km: number): number {
 
 // Multiplicadores por veiculo sobre o preco base do utilitario
 const MULT_VEICULO: Record<string, number> = {
-  carro_comum: 0.85,  // 15% a menos que utilitario
+  carro_comum: 0.85,
   utilitario: 1.0,
-  hr: 1.3,
-  caminhao_bau: 1.75,
+  hr: 1.7,
+  caminhao_bau: 2.2,
 };
 
 // Minimos por veiculo (sem ajudante, terreo)

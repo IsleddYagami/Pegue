@@ -57,10 +57,13 @@ Bem-vindo a Pegue! 🚚✨`,
 
       await sendMessage({
         to: prestador.telefone,
-        message: `Oi ${prestador.nome}, infelizmente nao conseguimos aprovar seu cadastro no momento.
+        message: `Oi ${prestador.nome}, agradecemos muito seu interesse em ser parceiro da Pegue! 😊
 
-Se tiver duvidas, fale com nosso especialista Santos:
-📱 (11) 97142-9605`,
+No momento todas as posicoes estao preenchidas na sua regiao.
+
+Tente novamente em alguns dias, estamos sempre abrindo novas vagas!
+
+Obrigado e ate breve! 🚚✨`,
       });
 
       return NextResponse.json({ status: "rejeitado" });

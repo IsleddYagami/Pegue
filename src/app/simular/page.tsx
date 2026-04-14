@@ -63,76 +63,91 @@ export default function SimularPage() {
             Fácil e rápido. Preço rápido.
           </p>
 
-          {/* PASSO 1 */}
-          <div className="relative mb-6">
-            <div className="flex flex-col items-center gap-6 rounded-3xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-8 md:flex-row md:gap-10 md:p-10">
-              <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-2xl bg-[#C9A84C]">
-                <MapPin className="h-12 w-12 text-[#000000]" />
-              </div>
-              <div className="text-center md:text-left">
-                <div className="mb-1 text-sm font-bold text-[#C9A84C]">PASSO 1</div>
-                <h3 className="mb-3 text-2xl font-bold">Mande sua localização</h3>
-                <p className="text-gray-400">
-                  Abra o WhatsApp, mande <strong className="text-white">"Oi"</strong> e compartilhe sua localização pelo GPS.
-                  Ou se preferir, digite o endereço ou CEP. Assim a gente já sabe de onde sai o frete!
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#C9A84C]/10 px-4 py-1.5 text-sm text-[#C9A84C]">
-                  <Clock className="h-4 w-4" /> 10 segundos
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-center py-3">
-              <ArrowDown className="h-8 w-8 text-[#C9A84C]/30" />
-            </div>
-          </div>
+          {/* 3 BLOCOS LADO A LADO */}
+          <div className="grid gap-6 md:grid-cols-3">
 
-          {/* PASSO 2 */}
-          <div className="relative mb-6">
-            <div className="flex flex-col items-center gap-6 rounded-3xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-8 md:flex-row md:gap-10 md:p-10">
-              <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-2xl bg-[#C9A84C]">
-                <Camera className="h-12 w-12 text-[#000000]" />
-              </div>
-              <div className="text-center md:text-left">
-                <div className="mb-1 text-sm font-bold text-[#C9A84C]">PASSO 2</div>
-                <h3 className="mb-3 text-2xl font-bold">Tire foto do material</h3>
-                <p className="text-gray-400">
-                  Mande a foto do que precisa transportar. Pode ser uma ou várias, uma por uma.
-                  Nossa <strong className="text-white">IA identifica automaticamente</strong> o item,
-                  tamanho e melhor veículo — na hora!
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#C9A84C]/10 px-4 py-1.5 text-sm text-[#C9A84C]">
-                  <Clock className="h-4 w-4" /> 30 segundos
+            {/* PASSO 1 */}
+            <div className="group rounded-3xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6 text-center transition-all hover:border-[#C9A84C]/50">
+              {/* Ilustracao celular com GPS */}
+              <div className="mx-auto mb-6 h-48 w-48 rounded-2xl bg-[#111] p-4">
+                <div className="flex h-full flex-col items-center justify-center rounded-xl border border-[#333] bg-[#0A0A0A] p-3">
+                  <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-[#C9A84C]/20">
+                    <MapPin className="h-5 w-5 text-[#C9A84C]" />
+                  </div>
+                  <div className="mb-2 h-16 w-16 rounded-lg bg-[#1a1a1a] p-1">
+                    <div className="flex h-full w-full items-center justify-center rounded bg-[#C9A84C]/10">
+                      <MapPin className="h-8 w-8 text-[#C9A84C]" />
+                    </div>
+                  </div>
+                  <div className="h-2 w-20 rounded-full bg-[#C9A84C]/30"></div>
+                  <p className="mt-1 text-[8px] text-[#C9A84C]">Osasco, SP</p>
                 </div>
               </div>
-            </div>
-            <div className="flex justify-center py-3">
-              <ArrowDown className="h-8 w-8 text-[#C9A84C]/30" />
-            </div>
-          </div>
 
-          {/* PASSO 3 */}
-          <div className="relative">
-            <div className="flex flex-col items-center gap-6 rounded-3xl border-2 border-[#C9A84C]/40 bg-[#C9A84C]/5 p-8 md:flex-row md:gap-10 md:p-10">
-              <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-2xl bg-[#C9A84C]">
-                <DollarSign className="h-12 w-12 text-[#000000]" />
-              </div>
-              <div className="text-center md:text-left">
-                <div className="mb-1 text-sm font-bold text-[#C9A84C]">PASSO 3</div>
-                <h3 className="mb-3 text-2xl font-bold">Receba o preço — pronto!</h3>
-                <p className="text-gray-400">
-                  Informe o local de entrega e <strong className="text-white">receba o valor instantaneamente</strong>.
-                  Sem espera, sem formulários, sem enrolação.
-                  Confirmou? A gente já reserva a agenda!
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#C9A84C]/10 px-4 py-1.5 text-sm text-[#C9A84C]">
-                  <CheckCircle className="h-4 w-4" /> Valor na hora!
-                </div>
+              <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">1</div>
+              <h3 className="mb-2 text-xl font-bold">Mande o local</h3>
+              <p className="text-sm text-gray-400">Envie sua localização pelo GPS ou digite o endereço</p>
+              <div className="mt-3 inline-flex items-center gap-1 text-xs text-[#C9A84C]">
+                <Clock className="h-3 w-3" /> 10 segundos
               </div>
             </div>
+
+            {/* PASSO 2 */}
+            <div className="group rounded-3xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6 text-center transition-all hover:border-[#C9A84C]/50">
+              {/* Ilustracao celular com camera */}
+              <div className="mx-auto mb-6 h-48 w-48 rounded-2xl bg-[#111] p-4">
+                <div className="flex h-full flex-col items-center justify-center rounded-xl border border-[#333] bg-[#0A0A0A] p-3">
+                  <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-[#C9A84C]/20">
+                    <Camera className="h-5 w-5 text-[#C9A84C]" />
+                  </div>
+                  <div className="mb-2 h-16 w-20 rounded-lg border-2 border-dashed border-[#C9A84C]/40 bg-[#C9A84C]/5 p-1">
+                    <div className="flex h-full w-full flex-col items-center justify-center">
+                      <Camera className="h-6 w-6 text-[#C9A84C]/60" />
+                      <p className="text-[7px] text-[#C9A84C]/60">📸 foto</p>
+                    </div>
+                  </div>
+                  <div className="rounded bg-[#C9A84C]/10 px-2 py-0.5">
+                    <p className="text-[8px] text-[#C9A84C]">🛋️ Sofá detectado!</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">2</div>
+              <h3 className="mb-2 text-xl font-bold">Tire a foto</h3>
+              <p className="text-sm text-gray-400">Nossa IA identifica o item e sugere o melhor veículo</p>
+              <div className="mt-3 inline-flex items-center gap-1 text-xs text-[#C9A84C]">
+                <Clock className="h-3 w-3" /> 30 segundos
+              </div>
+            </div>
+
+            {/* PASSO 3 */}
+            <div className="group rounded-3xl border-2 border-[#C9A84C]/40 bg-[#C9A84C]/5 p-6 text-center transition-all hover:border-[#C9A84C]/60">
+              {/* Ilustracao celular com preco */}
+              <div className="mx-auto mb-6 h-48 w-48 rounded-2xl bg-[#111] p-4">
+                <div className="flex h-full flex-col items-center justify-center rounded-xl border border-[#333] bg-[#0A0A0A] p-3">
+                  <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-green-500/20">
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                  </div>
+                  <div className="mb-2 rounded-lg border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-4 py-2">
+                    <p className="text-lg font-extrabold text-[#C9A84C]">R$ 248</p>
+                  </div>
+                  <div className="h-2 w-16 rounded-full bg-green-500/30"></div>
+                  <p className="mt-1 text-[8px] text-green-400">✅ Pronto!</p>
+                </div>
+              </div>
+
+              <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">3</div>
+              <h3 className="mb-2 text-xl font-bold">Receba o preço!</h3>
+              <p className="text-sm text-gray-400">Valor instantâneo. Confirmou? A gente reserva a agenda!</p>
+              <div className="mt-3 inline-flex items-center gap-1 text-xs text-[#C9A84C]">
+                <CheckCircle className="h-3 w-3" /> Valor na hora!
+              </div>
+            </div>
+
           </div>
 
           {/* Tempo total */}
-          <div className="mt-10 text-center">
+          <div className="mt-12 text-center">
             <div className="inline-flex items-center gap-3 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-8 py-3">
               <Zap className="h-5 w-5 text-[#C9A84C]" />
               <span className="text-lg font-bold text-[#C9A84C]">Tempo total: menos de 2 minutos</span>

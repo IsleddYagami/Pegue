@@ -39,29 +39,65 @@ export async function POST(req: NextRequest) {
 
 Seu cadastro foi *aprovado*! Bem-vindo a familia Pegue! 🚚✨
 
-A partir de agora voce recebe indicacoes de fretes pelo WhatsApp. Fique atento! 📱
+A partir de agora voce recebe indicacoes de fretes direto aqui no WhatsApp. Fique atento! 📱`,
+      });
 
-📊 *SEU PAINEL PESSOAL*
-Digite *meu painel* pra ver:
-- Seus fretes realizados
-- Faturamento e lucro real
-- Score e ranking
-- Regioes mais atendidas
+      // Segunda mensagem - Ferramentas disponiveis
+      await sendMessage({
+        to: prestador.telefone,
+        message: `📋 *SUAS FERRAMENTAS PEGUE*
 
-Voce tambem pode acessar pelo site:
-👉 pegue-eta.vercel.app/parceiro
+Preparamos tudo pra voce ter o melhor controle do seu trabalho. Veja o que voce pode fazer aqui pelo WhatsApp:
+
+━━━━━━━━━━━━━━━━
+
+📊 *PAINEL PESSOAL*
+Acompanhe seus fretes, faturamento, score e ranking.
+👉 Digite: *meu painel*
+
+━━━━━━━━━━━━━━━━
 
 💰 *CONTROLE FINANCEIRO*
-Quer controlar seus gastos do dia a dia? E simples!
-Digite *despesa* seguido do valor e descricao.
-Exemplo: *despesa 50 combustivel*
-Ou: *despesa 12.90 almoco*
+Registre seus gastos do dia a dia e saiba seu lucro real!
 
-Pra ver seu resumo financeiro, digite *meus gastos*
+*Como registrar uma despesa:*
+👉 Digite: *despesa [valor] [descricao]*
 
-📱 *SIGA NO INSTAGRAM*
-Siga @chamepegue pra novidades, vagas e dicas!
+*Exemplos:*
+- *despesa 50 combustivel*
+- *despesa 12.90 almoco*
+- *despesa 6.20 zona azul*
+- *despesa 35 ajudante*
+- *despesa 150 carrinho transporte*
+- *despesa 180 troca oleo*
+- *despesa 7 agua*
+- *despesa 20 recarga celular*
+
+*Para ver seu resumo de gastos do mes:*
+👉 Digite: *meus gastos*
+
+Voce vera: ganhos x gastos x lucro e com o que mais gasta!
+
+━━━━━━━━━━━━━━━━
+
+🌐 *PAINEL NO SITE*
+Acesse graficos completos pelo navegador:
+👉 pegue-eta.vercel.app/parceiro
+(role ate "Seu painel" e digite seu telefone)
+
+━━━━━━━━━━━━━━━━
+
+📱 *INSTAGRAM*
+Siga *@chamepegue* pra novidades e oportunidades!
 👉 instagram.com/chamepegue
+
+━━━━━━━━━━━━━━━━
+
+*RESUMO DOS COMANDOS:*
+✅ *meu painel* → ver seus dados
+✅ *despesa 50 combustivel* → registrar gasto
+✅ *meus gastos* → ver resumo financeiro
+✅ *minha conta* → historico de servicos
 
 Conte com a gente! 🚚✨`,
       });

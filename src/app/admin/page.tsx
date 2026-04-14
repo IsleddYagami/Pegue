@@ -14,7 +14,11 @@ interface DashboardData {
   funil: { iniciaramConversa: number; enviaramFoto: number; receberamOrcamento: number; fecharam: number; taxaConversao: number };
   abandonos: { phone: string; step: string; ultimaAtividade: string; origem: string | null; destino: string | null; carga: string | null; valor: number | null }[];
   clientes: { total: number; novosMes: number };
-  prestadores: { total: number; ativos: number; pendentes: number; scoreMedio: number; lista: { nome: string; telefone: string; status: string; score: number; disponivel: boolean; fretes: number }[] };
+  prestadores: {
+    total: number; ativos: number; pendentes: number; scoreMedio: number;
+    pendentesDetalhados: { id: string; nome: string; telefone: string; cpf: string; veiculo: { tipo: string; placa: string } | null; dataAceite: string | null; email: string | null }[];
+    lista: { nome: string; telefone: string; status: string; score: number; disponivel: boolean; fretes: number }[];
+  };
   ultimasCorridas: { id: string; status: string; valor: number | null; comissao: number | null; carga: string | null; origem: string | null; destino: string | null; data: string; prestador: string | null }[];
   avaliacoes: { notaMedia: number; total: number; sugestoes: string[] };
   graficos: {
@@ -55,6 +59,17 @@ export default function AdminPage() {
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     carregarDados();
+  }
+
+  async function acaoPrestador(id: string, acao: "aprovar" | "rejeitar") {
+    try {
+      await fetch("/api/admin-prestador", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: senha, prestadorId: id, acao }),
+      });
+      carregarDados();
+    } catch {}
   }
 
   async function enviarLembrete(phone: string) {
@@ -156,6 +171,55 @@ export default function AdminPage() {
           </div>
         ))}
       </div>
+
+      {/* PRESTADORES PENDENTES - Aguardando aprovacao */}
+      {data.prestadores.pendentesDetalhados.length > 0 && (
+        <div className="mb-6 rounded-xl border-2 border-[#C9A84C]/40 bg-[#C9A84C]/5 p-4 md:p-5">
+          <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-[#C9A84C]">
+            <Shield className="h-6 w-6" />
+            Prestadores aguardando aprovacao ({data.prestadores.pendentesDetalhados.length})
+          </h3>
+          <div className="space-y-3">
+            {data.prestadores.pendentesDetalhados.map((p) => {
+              const veiculoNomes: Record<string, string> = {
+                carro_comum: "Carro Comum", utilitario: "Utilitario", hr: "HR", caminhao_bau: "Caminhao Bau",
+              };
+              return (
+                <div key={p.id} className="rounded-xl border border-[#C9A84C]/20 bg-[#000] p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex-1 space-y-1">
+                      <p className="text-lg font-bold">{p.nome}</p>
+                      <p className="text-sm text-gray-400">📱 {formatarTel(p.telefone)}</p>
+                      {p.cpf && <p className="text-sm text-gray-400">📋 CPF: {p.cpf.substring(0,3)}.***.***-{p.cpf.substring(9)}</p>}
+                      {p.email && <p className="text-sm text-gray-400">📧 {p.email}</p>}
+                      {p.veiculo && (
+                        <p className="text-sm text-gray-400">
+                          🚗 {veiculoNomes[p.veiculo.tipo] || p.veiculo.tipo} · Placa: {p.veiculo.placa}
+                        </p>
+                      )}
+                      {p.dataAceite && <p className="text-xs text-gray-500">Aceite termos: {p.dataAceite}</p>}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => acaoPrestador(p.id, "aprovar")}
+                        className="flex items-center gap-1 rounded-lg bg-green-500/20 px-4 py-2 text-sm font-bold text-green-400 hover:bg-green-500/30 transition-all"
+                      >
+                        <CheckCircle className="h-4 w-4" /> Aprovar
+                      </button>
+                      <button
+                        onClick={() => acaoPrestador(p.id, "rejeitar")}
+                        className="flex items-center gap-1 rounded-lg bg-red-500/20 px-4 py-2 text-sm font-bold text-red-400 hover:bg-red-500/30 transition-all"
+                      >
+                        <XCircle className="h-4 w-4" /> Rejeitar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* RECUPERAR CLIENTES - Carrinho abandonado */}
       <div className="mb-6 rounded-xl border-2 border-[#C9A84C]/30 bg-[#0A0A0A] p-4 md:p-5">

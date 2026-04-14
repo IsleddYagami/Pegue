@@ -97,6 +97,43 @@ export async function GET(req: NextRequest) {
     const totalPrestadores = prestadores?.length || 0;
     const prestadoresAtivos = prestadores?.filter(p => p.status === "aprovado" && p.disponivel).length || 0;
     const prestadoresPendentes = prestadores?.filter(p => p.status === "pendente").length || 0;
+
+    // Busca detalhes dos pendentes com veiculos
+    const pendentesDetalhados = [];
+    const pendentesRaw = prestadores?.filter(p => p.status === "pendente") || [];
+    for (const p of pendentesRaw) {
+      const { data: veiculos } = await supabase
+        .from("prestadores_veiculos")
+        .select("tipo, placa")
+        .eq("prestador_id", p.id)
+        .limit(1);
+
+      // Busca aceite dos termos
+      const { data: aceite } = await supabase
+        .from("bot_logs")
+        .select("payload")
+        .filter("payload->>tipo", "eq", "aceite_termos")
+        .filter("payload->>phone", "eq", p.telefone)
+        .limit(1);
+
+      // Busca fotos do cadastro nos logs
+      const { data: fotosLog } = await supabase
+        .from("bot_logs")
+        .select("payload")
+        .filter("payload->>tipo", "eq", "pre_cadastro_site")
+        .filter("payload->>telefone", "eq", p.telefone)
+        .limit(1);
+
+      pendentesDetalhados.push({
+        id: p.id,
+        nome: p.nome,
+        telefone: p.telefone,
+        cpf: (p as any).cpf || "",
+        veiculo: veiculos?.[0] || null,
+        dataAceite: aceite?.[0] ? (aceite[0].payload as any)?.data_hora_sp || (aceite[0].payload as any)?.data_hora : null,
+        email: aceite?.[0] ? (aceite[0].payload as any)?.email : null,
+      });
+    }
     const scoreMedio = prestadores && prestadores.length > 0
       ? prestadores.reduce((s, p) => s + (p.score || 0), 0) / prestadores.length
       : 0;
@@ -252,6 +289,7 @@ export async function GET(req: NextRequest) {
         ativos: prestadoresAtivos,
         pendentes: prestadoresPendentes,
         scoreMedio: Math.round(scoreMedio * 10) / 10,
+        pendentesDetalhados,
         lista: prestadores?.map(p => ({
           nome: p.nome,
           telefone: p.telefone,

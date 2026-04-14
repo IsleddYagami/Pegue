@@ -1024,13 +1024,21 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
 
     createDispatch(corridaId, clientePhone, telefones);
 
+    // Info ajudante
+    let ajudanteInfo = "*Sem ajudante*";
+    if (session.precisa_ajudante) {
+      // Verifica se tem 2 ajudantes pelo valor (se valor > base + 1 ajudante)
+      ajudanteInfo = "*Com ajudante*";
+    }
+
     const mensagem = MSG.novoFreteDisponivel(
       session.origem_endereco || "SP",
       session.destino_endereco || "Destino",
       session.descricao_carga || "Material",
       session.data_agendada || "A combinar",
       valorPrestador.toString(),
-      corridaId
+      corridaId,
+      ajudanteInfo
     );
 
     await sendMessageToMany(telefones, mensagem);

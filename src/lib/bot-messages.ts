@@ -213,7 +213,8 @@ Relaxa. A gente leva. 🚚✨`,
     carga: string,
     data: string,
     valorPrestador: string,
-    corridaId: string
+    corridaId: string,
+    ajudante: string
   ) =>
     `🚚 *Novo frete disponivel!*
 
@@ -221,6 +222,7 @@ Relaxa. A gente leva. 🚚✨`,
 🏠 Destino: ${destino}
 📦 Material: ${carga}
 📅 ${data}
+🙋 ${ajudante}
 💰 Voce recebe: R$ ${valorPrestador}
 
 Quer pegar? Responda *PEGAR*`,

@@ -857,6 +857,8 @@ async function handleAjudante(phone: string, message: string) {
   }
 
   await updateSession(phone, { precisa_ajudante: qtdAjudantes > 0 });
+  // Salva qtd ajudantes temporario no bot_logs pra usar na corrida
+  await supabase.from("bot_logs").insert({ payload: { tipo: "qtd_ajudantes", phone, qtd: qtdAjudantes } });
 
   // Calcular distancia
   let distanciaKm = 2;
@@ -1017,11 +1019,16 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
 
     createDispatch(corridaId, clientePhone, telefones);
 
-    // Info ajudante
+    // Info ajudante - busca da corrida
     let ajudanteInfo = "*Sem ajudante*";
     if (session.precisa_ajudante) {
-      // Verifica se tem 2 ajudantes pelo valor (se valor > base + 1 ajudante)
-      ajudanteInfo = "*Com ajudante*";
+      const { data: corridaInfo } = await supabase
+        .from("corridas")
+        .select("qtd_ajudantes")
+        .eq("id", corridaId)
+        .single();
+      const qtd = corridaInfo?.qtd_ajudantes || 1;
+      ajudanteInfo = `*Com ${qtd} ajudante${qtd > 1 ? "s" : ""}*`;
     }
 
     const mensagem = MSG.novoFreteDisponivel(
@@ -1885,6 +1892,10 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
         descricao_carga: session.descricao_carga,
         escada_origem: session.tem_escada,
         andares_origem: session.andar,
+        qtd_ajudantes: await (async () => {
+          const { data: qtdLog } = await supabase.from("bot_logs").select("payload").filter("payload->>tipo","eq","qtd_ajudantes").filter("payload->>phone","eq",session.phone).order("criado_em",{ascending:false}).limit(1);
+          return qtdLog?.[0] ? (qtdLog[0].payload as any).qtd : 0;
+        })(),
         plano: "padrao",
         valor_estimado: session.valor_estimado,
         valor_final: session.valor_estimado,

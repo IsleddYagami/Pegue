@@ -173,8 +173,9 @@ ${detalhes}
 Ta tudo certo? Posso confirmar? 😊
 Responda *SIM* pra confirmar ou *NAO* pra ajustar algo.`,
 
-  freteRecebido: `Seu frete foi recebido! 😊
-Estamos reservando a agenda!`,
+  freteRecebido: `Ok! Um momento, estamos preparando sua reserva 😊
+
+Logo ja sera confirmado!`,
 
   freteConfirmadoEnviaPagamento: (linkPagamento: string, data: string) =>
     `🎉 *Parabens! Voce garantiu a agenda para ${data}!*

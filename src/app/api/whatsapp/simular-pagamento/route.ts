@@ -62,16 +62,37 @@ export async function GET(req: NextRequest) {
       message: MSG.orientacoesCliente,
     });
 
+    // Busca nome do cliente e qtd ajudantes
+    const { data: clienteInfo } = await supabase
+      .from("clientes")
+      .select("nome")
+      .eq("telefone", phone)
+      .single();
+
+    const nomeCliente = clienteInfo?.nome || formatarTelefoneExibicao(phone);
+
+    let ajudanteInfo = "Sem ajudante";
+    if (corrida.qtd_ajudantes && corrida.qtd_ajudantes > 0) {
+      ajudanteInfo = `Com ${corrida.qtd_ajudantes} ajudante${corrida.qtd_ajudantes > 1 ? "s" : ""}`;
+    }
+
     // Envia detalhes do servico pro fretista
     await sendMessage({
       to: prestador.telefone,
       message: `✅ *Pagamento confirmado! Servico liberado!*
 
+👤 *Cliente:* ${nomeCliente}
+📱 *Contato:* ${formatarTelefoneExibicao(phone)}
+
+━━━━━━━━━━━━━━━━
+
 📍 *Retirada:* ${corrida.origem_endereco}
 🏠 *Entrega:* ${corrida.destino_endereco}
 📦 *Material:* ${corrida.descricao_carga}
 📅 *Data:* ${corrida.periodo || "A combinar"}
-📱 *Cliente:* ${formatarTelefoneExibicao(phone)}
+🙋 *${ajudanteInfo}*
+
+━━━━━━━━━━━━━━━━
 
 ⚠️ *PROTOCOLO OBRIGATORIO:*
 📸 Fotografe TODOS os itens na *COLETA*

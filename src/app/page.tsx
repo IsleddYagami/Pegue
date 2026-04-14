@@ -28,11 +28,11 @@ export default function HomePage() {
 
           {/* PRECO + VELOCIDADE = CONVERSAO */}
           <h1 className="text-3xl font-extrabold leading-tight md:text-5xl lg:text-6xl">
-            Frete a partir de <span className="text-[#C9A84C]">R$ 160</span>
+            Guincho e Frete a partir de <span className="text-[#C9A84C]">R$ 150</span>
           </h1>
 
           <p className="mt-3 text-xl font-semibold text-[#C9A84C] md:text-2xl">
-            Preço na hora. Pelo WhatsApp.
+            Preço imediato. Pelo WhatsApp.
           </p>
 
           <p className="mt-3 text-base text-gray-400">
@@ -269,7 +269,7 @@ export default function HomePage() {
           </h2>
 
           <p className="mt-4 text-lg text-gray-400">
-            Frete a partir de R$ 160. Preço em 2 minutos. Fretistas verificados.
+            Guincho e frete a partir de R$ 150. Preço imediato. Fretistas verificados.
           </p>
 
           <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer"

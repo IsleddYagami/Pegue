@@ -76,7 +76,9 @@ Mande os *numeros* dos itens separados por virgula:
 21 - Tanquinho
 22 - Ventilador/Ar condicionado
 
+Mande os numeros separados por *espaco*:
 Exemplo: *1 2 4 7 9 13 15 18x8*
+
 (18x8 = 8 caixas)
 
 Se tiver algo diferente, escreva no final!`,

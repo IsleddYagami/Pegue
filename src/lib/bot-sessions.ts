@@ -187,48 +187,13 @@ export function resolveDispatch(corridaId: string): string | null {
   const dispatch = dispatches.get(corridaId);
   if (!dispatch || dispatch.finalizado) return null;
 
-  const agora = Date.now();
-  const dentroJanela = agora - dispatch.iniciadoEm <= dispatch.janelaMs;
-
   if (dispatch.respostas.size === 0) return null;
 
-  // Se so tem 1 prestador, aceita direto sem esperar janela
-  if (dispatch.prestadores.length === 1 && dispatch.respostas.size === 1) {
-    const [phone] = dispatch.respostas.keys();
-    dispatch.vencedorPhone = phone;
-    dispatch.finalizado = true;
-    return phone;
-  }
-
-  if (dentroJanela && dispatch.respostas.size > 1) {
-    let menorValor = Infinity;
-    let vencedor = "";
-    for (const [phone, resp] of dispatch.respostas) {
-      if (resp.valor < menorValor) {
-        menorValor = resp.valor;
-        vencedor = phone;
-      }
-    }
-    dispatch.vencedorPhone = vencedor;
-    dispatch.finalizado = true;
-    return vencedor;
-  }
-
-  if (!dentroJanela) {
-    let primeiroTimestamp = Infinity;
-    let vencedor = "";
-    for (const [phone, resp] of dispatch.respostas) {
-      if (resp.timestamp < primeiroTimestamp) {
-        primeiroTimestamp = resp.timestamp;
-        vencedor = phone;
-      }
-    }
-    dispatch.vencedorPhone = vencedor;
-    dispatch.finalizado = true;
-    return vencedor;
-  }
-
-  return null;
+  // Primeiro a aceitar, leva! Sem esperar janela
+  const [phone] = dispatch.respostas.keys();
+  dispatch.vencedorPhone = phone;
+  dispatch.finalizado = true;
+  return phone;
 }
 
 export function finalizeDispatch(corridaId: string): void {

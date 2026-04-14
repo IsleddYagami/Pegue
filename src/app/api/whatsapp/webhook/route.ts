@@ -553,9 +553,86 @@ Tenta de uma dessas formas:
 }
 
 // STEP 2: Foto
+// Itens da lista rapida de mudanca
+const ITENS_MUDANCA: Record<string, string> = {
+  "1": "Geladeira", "2": "Fogao", "3": "Micro-ondas", "4": "Maquina de lavar",
+  "5": "Armario de cozinha", "6": "Mesa com cadeiras", "7": "Cama casal",
+  "8": "Cama solteiro", "9": "Guarda-roupa", "10": "Comoda", "11": "Colchao",
+  "12": "Escrivaninha", "13": "Sofa", "14": "Rack/Estante", "15": "TV",
+  "16": "Mesa de centro", "17": "Poltrona", "18": "Caixas", "19": "Bicicleta",
+  "20": "Maquina de costura", "21": "Tanquinho", "22": "Ventilador/Ar condicionado",
+};
+
 async function handleFoto(
   phone: string, message: string, hasMedia: boolean, imageUrl: string | null = null
 ) {
+  const lower = message.toLowerCase().trim();
+
+  // Opcao 2 - Lista rapida
+  if (lower === "2" || lower === "lista" || lower.includes("lista rapida")) {
+    await sendMessage({ to: phone, message: MSG.listaMudanca });
+    return;
+  }
+
+  // Opcao 1 - Foto (so texto, foto real e processada no topo do POST)
+  if (lower === "1" || lower === "foto") {
+    await sendMessage({ to: phone, message: "Manda a foto do material 📸" });
+    return;
+  }
+
+  // Opcao 3 ou texto livre
+  if (lower === "3" || lower === "texto" || lower === "descrever") {
+    await sendMessage({ to: phone, message: "Descreve os materiais que precisa transportar 😊\n\nEx: *geladeira, fogao, cama casal, 5 caixas*" });
+    return;
+  }
+
+  // Detecta numeros da lista (ex: 1, 3, 7, 9, 18x5)
+  const temNumeros = message.match(/\d+/g);
+  if (temNumeros && temNumeros.length >= 2) {
+    const partes = message.split(/[,\s]+/).filter(p => p.trim());
+    const itensEncontrados: string[] = [];
+
+    for (const parte of partes) {
+      const caixasMatch = parte.match(/^18[x×]\s*(\d+)/i);
+      if (caixasMatch) {
+        itensEncontrados.push(`${caixasMatch[1]} Caixas`);
+        continue;
+      }
+      const num = parte.replace(/\D/g, "");
+      if (ITENS_MUDANCA[num]) {
+        itensEncontrados.push(ITENS_MUDANCA[num]);
+      }
+    }
+
+    if (itensEncontrados.length > 0) {
+      const descricao = itensEncontrados.join(", ");
+
+      // Sugere veiculo baseado na quantidade
+      let veiculo = "utilitario";
+      if (itensEncontrados.length >= 8) veiculo = "caminhao_bau";
+      else if (itensEncontrados.length >= 3) veiculo = "hr";
+
+      await updateSession(phone, {
+        step: "aguardando_destino",
+        descricao_carga: descricao,
+        veiculo_sugerido: veiculo,
+      });
+
+      const veiculoNome: Record<string, string> = {
+        utilitario: "Utilitario (Strada/Saveiro)",
+        hr: "HR",
+        caminhao_bau: "Caminhao Bau",
+      };
+
+      await sendMessage({
+        to: phone,
+        message: `Anotado! ✅\n\n📦 *Seus itens:*\n${itensEncontrados.map(i => `- ${i}`).join("\n")}\n\n🚚 Veiculo sugerido: *${veiculoNome[veiculo]}*\n\nE pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠`,
+      });
+      return;
+    }
+  }
+
+  // Texto livre descrevendo itens
   if (message.length > 2) {
     await updateSession(phone, {
       step: "aguardando_destino",
@@ -567,7 +644,7 @@ async function handleFoto(
 
   await sendMessage({
     to: phone,
-    message: "Me manda uma foto do material ou descreve o que precisa levar 📸😊",
+    message: "Escolha como informar os materiais:\n\n1️⃣ *Mandar foto* 📸\n2️⃣ *Lista rapida de mudanca*\n3️⃣ *Descrever por texto*",
   });
 }
 

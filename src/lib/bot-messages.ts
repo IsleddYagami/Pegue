@@ -26,12 +26,59 @@ Pode chamar agora mesmo! 🚗`,
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅
 
-Pra ser mais rapido e facil, manda foto do material que precisa 📸`,
+Como prefere informar os materiais?
+
+1️⃣ *Mandar foto* 📸
+2️⃣ *Lista rapida de mudanca* (so escolher os itens)
+3️⃣ *Descrever por texto*`,
 
   enderecoRecebido: (endereco: string) =>
     `Anotado! Coleta em: ${endereco} ✅
 
-Pra ser mais rapido e facil, manda foto do material que precisa 📸`,
+Como prefere informar os materiais?
+
+1️⃣ *Mandar foto* 📸
+2️⃣ *Lista rapida de mudanca* (so escolher os itens)
+3️⃣ *Descrever por texto*`,
+
+  listaMudanca: `📋 *LISTA RAPIDA DE MUDANCA*
+
+Mande os *numeros* dos itens separados por virgula:
+
+*COZINHA:*
+1 - Geladeira
+2 - Fogao
+3 - Micro-ondas
+4 - Maquina de lavar
+5 - Armario de cozinha
+6 - Mesa com cadeiras
+
+*QUARTO:*
+7 - Cama casal
+8 - Cama solteiro
+9 - Guarda-roupa
+10 - Comoda
+11 - Colchao
+12 - Escrivaninha
+
+*SALA:*
+13 - Sofa
+14 - Rack / Estante
+15 - TV
+16 - Mesa de centro
+17 - Poltrona
+
+*OUTROS:*
+18 - Caixas (quantas? ex: 18x5)
+19 - Bicicleta
+20 - Maquina de costura
+21 - Tanquinho
+22 - Ventilador/Ar condicionado
+
+Exemplo: *1, 2, 4, 7, 9, 13, 15, 18x8*
+(significa 8 caixas)
+
+Ou se tiver algo diferente, escreva no final!`,
 
   fotoItemAdicionado: (item: string, emoji: string, listaItens: string) =>
     `Vi! *${item}* ${emoji} Anotado! ✅

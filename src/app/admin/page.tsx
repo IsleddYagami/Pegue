@@ -119,8 +119,8 @@ export default function AdminPage() {
   const funilMax = Math.max(data.funil.iniciaramConversa, 1);
 
   return (
-    <div className="min-h-screen bg-[#000] p-4 text-white md:p-6">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="min-h-screen bg-[#000] px-3 py-4 text-white md:p-6 overflow-x-hidden">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Shield className="h-8 w-8 text-[#C9A84C]" />
           <div>
@@ -133,7 +133,7 @@ export default function AdminPage() {
         </button>
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-5">
         {[
           { icon: <MessageCircle className="h-5 w-5" />, label: "Contatos hoje", valor: data.resumo.contatosHoje, cor: "text-blue-400" },
           { icon: <Truck className="h-5 w-5" />, label: "Fretes fechados", valor: data.corridas.total, cor: "text-[#C9A84C]" },
@@ -143,13 +143,13 @@ export default function AdminPage() {
         ].map((card, i) => (
           <div key={i} className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-4">
             <div className={`mb-2 ${card.cor}`}>{card.icon}</div>
-            <p className="text-2xl font-extrabold">{card.valor}</p>
-            <p className="text-xs text-gray-500">{card.label}</p>
+            <p className="text-xl font-extrabold md:text-2xl">{card.valor}</p>
+            <p className="text-[10px] text-gray-500 md:text-xs">{card.label}</p>
           </div>
         ))}
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
           <h3 className="mb-4 flex items-center gap-2 font-bold"><Eye className="h-5 w-5 text-[#C9A84C]" /> Funil de conversao</h3>
           <div className="space-y-3">
@@ -179,11 +179,11 @@ export default function AdminPage() {
       </div>
 
       {/* GRAFICOS */}
-      <div className="mb-6 grid gap-4 md:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Horarios mais movimentados */}
         <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
           <h3 className="mb-4 flex items-center gap-2 font-bold"><Clock className="h-5 w-5 text-[#C9A84C]" /> Horarios mais movimentados</h3>
-          <div className="flex items-end gap-1" style={{ height: "120px" }}>
+          <div className="flex items-end gap-[2px] md:gap-1" style={{ height: "100px" }}>
             {data.graficos.contatosPorHora.map((qtd, hora) => {
               const max = Math.max(...data.graficos.contatosPorHora, 1);
               const altura = (qtd / max) * 100;
@@ -222,7 +222,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Regioes */}
         <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
           <h3 className="mb-4 flex items-center gap-2 font-bold"><TrendingUp className="h-5 w-5 text-[#C9A84C]" /> Regioes mais atendidas</h3>
@@ -263,7 +263,7 @@ export default function AdminPage() {
                   {pctF > 0 && <div className="bg-pink-500 flex items-center justify-center text-[9px] font-bold text-white" style={{ width: `${pctF}%` }}>{pctF}%</div>}
                   {pctI > 0 && <div className="bg-gray-600 flex items-center justify-center text-[9px] font-bold text-white" style={{ width: `${pctI}%` }}>{pctI}%</div>}
                 </div>
-                <div className="flex justify-center gap-6 text-sm">
+                <div className="flex flex-wrap justify-center gap-3 text-xs md:gap-6 md:text-sm">
                   <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-blue-500" /><span>Masculino ({data.graficos.genero.masculino})</span></div>
                   <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-pink-500" /><span>Feminino ({data.graficos.genero.feminino})</span></div>
                   <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-gray-600" /><span>N/D ({data.graficos.genero.indefinido})</span></div>
@@ -275,7 +275,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
           <h3 className="mb-3 flex items-center gap-2 font-bold"><MessageCircle className="h-5 w-5 text-[#C9A84C]" /> Contatos WhatsApp</h3>
           <div className="space-y-2 text-sm">
@@ -322,7 +322,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      <div className="mb-6 grid gap-4 md:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
           <h3 className="mb-4 flex items-center gap-2 font-bold"><Package className="h-5 w-5 text-[#C9A84C]" /> Ultimas corridas</h3>
           <div className="max-h-96 space-y-2 overflow-y-auto">

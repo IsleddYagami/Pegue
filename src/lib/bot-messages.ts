@@ -76,8 +76,9 @@ Qual andar? Me manda o numero`,
 
 Vai precisar de ajudante pra carregar? 😊
 
-1️⃣ *Nao*, consigo sozinho
-2️⃣ *Sim*, preciso de ajudante`,
+1️⃣ *Nao*, sem ajudante
+2️⃣ *Sim*, 1 ajudante
+3️⃣ *Sim*, 2 ajudantes`,
 
   orcamento: (
     origem: string,

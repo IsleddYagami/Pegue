@@ -752,21 +752,23 @@ async function handleAjudante(phone: string, message: string) {
   if (!session) return;
 
   const lower = message.toLowerCase().trim();
-  let precisaAjudante = false;
+  let qtdAjudantes = 0;
 
-  if (lower === "1" || lower.includes("nao") || lower === "n" || lower.includes("não") || lower.includes("sozinho")) {
-    precisaAjudante = false;
-  } else if (lower === "2" || lower.includes("sim") || lower === "s" || lower.includes("preciso") || lower.includes("ajudante")) {
-    precisaAjudante = true;
+  if (lower === "1" || lower.includes("nao") || lower === "n" || lower.includes("não") || lower.includes("sem")) {
+    qtdAjudantes = 0;
+  } else if (lower === "2" || lower === "1 ajudante" || (lower.includes("sim") && !lower.includes("2"))) {
+    qtdAjudantes = 1;
+  } else if (lower === "3" || lower === "2 ajudantes" || lower.includes("2 ajudante") || lower.includes("dois")) {
+    qtdAjudantes = 2;
   } else {
     await sendMessage({
       to: phone,
-      message: "Vai precisar de ajudante? 😊\n\n1️⃣ *Nao*, consigo sozinho\n2️⃣ *Sim*, preciso de ajudante",
+      message: "Vai precisar de ajudante? 😊\n\n1️⃣ *Nao*, sem ajudante\n2️⃣ *Sim*, 1 ajudante\n3️⃣ *Sim*, 2 ajudantes",
     });
     return;
   }
 
-  await updateSession(phone, { precisa_ajudante: precisaAjudante });
+  await updateSession(phone, { precisa_ajudante: qtdAjudantes > 0 });
 
   // Calcular distancia
   let distanciaKm = 2;
@@ -786,9 +788,14 @@ async function handleAjudante(phone: string, message: string) {
   // TODO: salvar temElevador na sessao (por ora nao temos campo)
 
   const veiculo = session.veiculo_sugerido || "utilitario";
-  const precos = calcularPrecos(distanciaKm, veiculo, precisaAjudante, session.andar || 0, false);
+  const precos = calcularPrecos(distanciaKm, veiculo, qtdAjudantes > 0, session.andar || 0, false);
 
-  const p = precos.padrao;
+  // Adiciona segundo ajudante se necessario
+  const ajudanteExtra = qtdAjudantes === 2 ? (distanciaKm <= 10 ? 80 : 100) : 0;
+  const p = {
+    ...precos.padrao,
+    total: precos.padrao.total + ajudanteExtra,
+  };
 
   const veiculoNome: Record<string, string> = {
     utilitario: "Utilitario (Strada/Saveiro)",

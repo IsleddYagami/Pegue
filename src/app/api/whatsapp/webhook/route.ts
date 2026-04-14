@@ -804,7 +804,7 @@ async function handleAjudante(phone: string, message: string) {
   };
 
   await updateSession(phone, {
-    step: "concluido",
+    step: "aguardando_data",
     distancia_km: distanciaKm,
     valor_estimado: p.total,
   });
@@ -818,15 +818,6 @@ async function handleAjudante(phone: string, message: string) {
       veiculoNome[veiculo] || "Utilitario",
       p.total.toString()
     ),
-  });
-
-  // Temporario: direciona pro Santos ate Mercado Pago estar pronto
-  await sendMessage({
-    to: phone,
-    message: `Para prosseguir, fale com nosso especialista *Santos*:
-📱 (11) 97142-9605
-
-Ele vai finalizar tudo pra voce! 😊`,
   });
 }
 

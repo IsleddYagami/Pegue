@@ -177,6 +177,99 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* SIMULACAO DE CONVERSA WHATSAPP */}
+      <section className="bg-[#000000] py-16 md:py-24">
+        <div className="mx-auto max-w-5xl px-4">
+          <h2 className="mb-4 text-center text-3xl font-extrabold md:text-4xl">
+            Veja como é <span className="text-[#C9A84C]">rápido</span>
+          </h2>
+          <p className="mb-12 text-center text-gray-400">Conversa real com nosso atendimento</p>
+
+          <div className="grid gap-8 md:grid-cols-2 items-center">
+            {/* Conversa */}
+            <div className="mx-auto w-full max-w-sm rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
+              <div className="mb-4 flex items-center gap-3 border-b border-gray-800 pb-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#C9A84C]/20">
+                  <Image src="/logo-pegue-novo.png" alt="Pegue" width={24} height={24} className="h-5 w-auto" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold">PEGUE</p>
+                  <p className="text-[10px] text-green-400">online agora</p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5 text-sm">
+                <div className="flex justify-end">
+                  <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>Oi</p></div>
+                </div>
+                <div className="flex justify-start">
+                  <div className="rounded-xl rounded-bl-sm bg-[#111] px-3 py-1.5"><p>Oii! 😊 Mande sua localização 📍</p></div>
+                </div>
+                <div className="flex justify-end">
+                  <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>📍 Osasco, SP</p></div>
+                </div>
+                <div className="flex justify-start">
+                  <div className="rounded-xl rounded-bl-sm bg-[#111] px-3 py-1.5"><p>Manda foto do material 📸</p></div>
+                </div>
+                <div className="flex justify-end">
+                  <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>📸 [foto enviada]</p></div>
+                </div>
+                <div className="flex justify-start">
+                  <div className="rounded-xl rounded-bl-sm bg-[#111] px-3 py-1.5"><p>Vi que é um <strong>Sofá</strong> 🛋️ Pra onde?</p></div>
+                </div>
+                <div className="flex justify-end">
+                  <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>Barra Funda, SP</p></div>
+                </div>
+                <div className="flex justify-start">
+                  <div className="rounded-xl rounded-bl-sm border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-3 py-2">
+                    <p className="font-bold text-[#C9A84C]">✅ Total: R$ 248</p>
+                    <p className="text-[10px] text-gray-400">HR, sem ajudante · 17km</p>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-3 text-center text-[10px] text-gray-500">Tempo desta conversa: <strong className="text-[#C9A84C]">1 minuto</strong></p>
+            </div>
+
+            {/* Texto ao lado */}
+            <div className="text-center md:text-left">
+              <h3 className="mb-4 text-2xl font-bold">Cotação em <span className="text-[#C9A84C]">1 minuto</span></h3>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">1</div>
+                  <div>
+                    <p className="font-semibold">Mande "Oi" no WhatsApp</p>
+                    <p className="text-sm text-gray-400">Envie sua localização ou endereço</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">2</div>
+                  <div>
+                    <p className="font-semibold">Tire foto do material</p>
+                    <p className="text-sm text-gray-400">Nossa IA identifica e sugere o veículo</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">3</div>
+                  <div>
+                    <p className="font-semibold">Receba o preço na hora!</p>
+                    <p className="text-sm text-gray-400">Sem espera, sem formulários</p>
+                  </div>
+                </div>
+              </div>
+              <a
+                href={WHATSAPP_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#C9A84C] px-8 py-4 text-lg font-bold text-[#000] transition-all hover:scale-105"
+              >
+                <MessageCircle className="h-5 w-5" />
+                Quero meu preço agora
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* BANNER 2 - Veiculos */}
       <section className="bg-[#000000] py-8 md:py-12">
         <div className="mx-auto max-w-6xl px-4">

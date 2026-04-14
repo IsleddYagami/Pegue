@@ -256,7 +256,7 @@ async function handleClienteMessage(
   }
 
   // Controle financeiro - ver gastos
-  if (lower === "meus gastos" || lower === "minhas despesas" || lower === "extrato") {
+  if (lower === "meus gastos" || lower === "minhas despesas" || lower === "extrato" || lower === "gastos" || lower === "despesas" || lower === "meu extrato") {
     await handleVerGastos(phone);
     return;
   }

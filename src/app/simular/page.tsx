@@ -23,20 +23,34 @@ export default function SimularPage() {
     <div className="min-h-screen bg-[#000000] text-white">
       <Header />
 
-      {/* HERO - Urgencia */}
-      <section className="relative overflow-hidden py-16 md:py-24" style={{ background: "#000" }}>
-        <div className="relative mx-auto max-w-4xl px-4 text-center">
+      {/* BANNER TUTORIAL - Grande no topo */}
+      <section style={{ background: "#000" }}>
+        <div className="mx-auto max-w-7xl">
+          <Image
+            src="/banner-passos-claro.png"
+            alt="Localização, tire a foto, diga o destino e pronto. Simples assim!"
+            width={1920}
+            height={800}
+            className="w-full"
+            priority
+          />
+        </div>
+      </section>
+
+      {/* CTA rapido */}
+      <section className="py-10 md:py-14" style={{ background: "#000" }}>
+        <div className="mx-auto max-w-3xl px-4 text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-4 py-2">
             <span className="h-2 w-2 animate-pulse rounded-full bg-[#C9A84C]"></span>
             <span className="text-sm font-semibold text-[#C9A84C]">Cotação Imediata</span>
           </div>
 
-          <h1 className="mb-4 text-4xl font-extrabold leading-tight md:text-6xl">
+          <h1 className="mb-4 text-3xl font-extrabold leading-tight md:text-5xl">
             Preço na hora.{" "}
             <span className="text-[#C9A84C]">Sem espera.</span>
           </h1>
 
-          <p className="mb-8 text-xl text-gray-400">
+          <p className="mb-6 text-lg text-gray-400">
             3 passos. 2 minutos. Tudo pelo WhatsApp.
           </p>
 
@@ -50,36 +64,10 @@ export default function SimularPage() {
             Quero meu preço agora
             <ArrowRight className="h-5 w-5" />
           </a>
-        </div>
-      </section>
 
-      {/* TUTORIAL - 3 passos visuais */}
-      <section className="border-t border-[#C9A84C]/10 py-16 md:py-24" style={{ background: "#000" }}>
-        <div className="mx-auto max-w-5xl px-4">
-          <h2 className="mb-4 text-center text-3xl font-extrabold md:text-4xl">
-            É simples assim!
-          </h2>
-          <p className="mb-16 text-center text-lg text-gray-400">
-            Fácil e rápido. Preço rápido.
-          </p>
-
-          {/* Banner visual com os 3 passos */}
-          <div className="overflow-hidden rounded-2xl border border-[#C9A84C]/20">
-            <Image
-              src="/banner-passos-gold.png"
-              alt="Localização, tire a foto, diga o destino e pronto. Simples assim!"
-              width={1400}
-              height={600}
-              className="w-full object-cover"
-            />
-          </div>
-
-          {/* Tempo total */}
-          <div className="mt-10 text-center">
-            <div className="inline-flex items-center gap-3 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-8 py-3">
-              <Zap className="h-5 w-5 text-[#C9A84C]" />
-              <span className="text-lg font-bold text-[#C9A84C]">Tempo total: menos de 2 minutos</span>
-            </div>
+          <div className="mt-6 inline-flex items-center gap-3 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-8 py-3">
+            <Zap className="h-5 w-5 text-[#C9A84C]" />
+            <span className="text-base font-bold text-[#C9A84C]">Tempo total: menos de 2 minutos</span>
           </div>
         </div>
       </section>

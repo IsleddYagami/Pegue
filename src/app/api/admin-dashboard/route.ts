@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   const senha = req.nextUrl.searchParams.get("key");
 
   // Protecao basica - so Fabio acessa
-  if (senha !== "pegue2026") {
+  if (senha !== "P3gu32026@@") {
     return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
   }
 

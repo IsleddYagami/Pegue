@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   try {
     const { phone, key } = await req.json();
 
-    if (key !== "pegue2026") {
+    if (key !== "P3gu32026@@") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
     }
 

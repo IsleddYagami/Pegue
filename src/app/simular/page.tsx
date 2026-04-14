@@ -63,91 +63,19 @@ export default function SimularPage() {
             Fácil e rápido. Preço rápido.
           </p>
 
-          {/* 3 BLOCOS LADO A LADO */}
-          <div className="grid gap-6 md:grid-cols-3">
-
-            {/* PASSO 1 */}
-            <div className="group rounded-3xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6 text-center transition-all hover:border-[#C9A84C]/50">
-              {/* Ilustracao celular com GPS */}
-              <div className="mx-auto mb-6 h-48 w-48 rounded-2xl bg-[#111] p-4">
-                <div className="flex h-full flex-col items-center justify-center rounded-xl border border-[#333] bg-[#0A0A0A] p-3">
-                  <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-[#C9A84C]/20">
-                    <MapPin className="h-5 w-5 text-[#C9A84C]" />
-                  </div>
-                  <div className="mb-2 h-16 w-16 rounded-lg bg-[#1a1a1a] p-1">
-                    <div className="flex h-full w-full items-center justify-center rounded bg-[#C9A84C]/10">
-                      <MapPin className="h-8 w-8 text-[#C9A84C]" />
-                    </div>
-                  </div>
-                  <div className="h-2 w-20 rounded-full bg-[#C9A84C]/30"></div>
-                  <p className="mt-1 text-[8px] text-[#C9A84C]">Osasco, SP</p>
-                </div>
-              </div>
-
-              <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">1</div>
-              <h3 className="mb-2 text-xl font-bold">Localização</h3>
-              <p className="text-sm text-gray-400">Envie sua localização pelo GPS ou digite o endereço</p>
-              <div className="mt-3 inline-flex items-center gap-1 text-xs text-[#C9A84C]">
-                <Clock className="h-3 w-3" /> 10 segundos
-              </div>
-            </div>
-
-            {/* PASSO 2 */}
-            <div className="group rounded-3xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6 text-center transition-all hover:border-[#C9A84C]/50">
-              {/* Ilustracao celular com camera */}
-              <div className="mx-auto mb-6 h-48 w-48 rounded-2xl bg-[#111] p-4">
-                <div className="flex h-full flex-col items-center justify-center rounded-xl border border-[#333] bg-[#0A0A0A] p-3">
-                  <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-[#C9A84C]/20">
-                    <Camera className="h-5 w-5 text-[#C9A84C]" />
-                  </div>
-                  <div className="mb-2 h-16 w-20 rounded-lg border-2 border-dashed border-[#C9A84C]/40 bg-[#C9A84C]/5 p-1">
-                    <div className="flex h-full w-full flex-col items-center justify-center">
-                      <Camera className="h-6 w-6 text-[#C9A84C]/60" />
-                      <p className="text-[7px] text-[#C9A84C]/60">📸 foto</p>
-                    </div>
-                  </div>
-                  <div className="rounded bg-[#C9A84C]/10 px-2 py-0.5">
-                    <p className="text-[8px] text-[#C9A84C]">🛋️ Sofá detectado!</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">2</div>
-              <h3 className="mb-2 text-xl font-bold">Tire a foto</h3>
-              <p className="text-sm text-gray-400">Nossa IA identifica o item e sugere o melhor veículo</p>
-              <div className="mt-3 inline-flex items-center gap-1 text-xs text-[#C9A84C]">
-                <Clock className="h-3 w-3" /> 30 segundos
-              </div>
-            </div>
-
-            {/* PASSO 3 */}
-            <div className="group rounded-3xl border-2 border-[#C9A84C]/40 bg-[#C9A84C]/5 p-6 text-center transition-all hover:border-[#C9A84C]/60">
-              {/* Ilustracao celular com preco */}
-              <div className="mx-auto mb-6 h-48 w-48 rounded-2xl bg-[#111] p-4">
-                <div className="flex h-full flex-col items-center justify-center rounded-xl border border-[#333] bg-[#0A0A0A] p-3">
-                  <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-green-500/20">
-                    <CheckCircle className="h-5 w-5 text-green-400" />
-                  </div>
-                  <div className="mb-2 rounded-lg border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-4 py-2">
-                    <p className="text-lg font-extrabold text-[#C9A84C]">R$ 248</p>
-                  </div>
-                  <div className="h-2 w-16 rounded-full bg-green-500/30"></div>
-                  <p className="mt-1 text-[8px] text-green-400">✅ Pronto!</p>
-                </div>
-              </div>
-
-              <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-bold text-[#000]">3</div>
-              <h3 className="mb-2 text-xl font-bold">Diga o destino e pronto!</h3>
-              <p className="text-sm text-gray-400">Receba o preço na hora. Simples assim!</p>
-              <div className="mt-3 inline-flex items-center gap-1 text-xs text-[#C9A84C]">
-                <CheckCircle className="h-3 w-3" /> Valor na hora!
-              </div>
-            </div>
-
+          {/* Banner visual com os 3 passos */}
+          <div className="overflow-hidden rounded-2xl border border-[#C9A84C]/20">
+            <Image
+              src="/banner-passos-gold.png"
+              alt="Localização, tire a foto, diga o destino e pronto. Simples assim!"
+              width={1400}
+              height={600}
+              className="w-full object-cover"
+            />
           </div>
 
           {/* Tempo total */}
-          <div className="mt-12 text-center">
+          <div className="mt-10 text-center">
             <div className="inline-flex items-center gap-3 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-8 py-3">
               <Zap className="h-5 w-5 text-[#C9A84C]" />
               <span className="text-lg font-bold text-[#C9A84C]">Tempo total: menos de 2 minutos</span>

@@ -287,12 +287,25 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* COMO FUNCIONA - 3 passos, minimo texto */}
-      <section className="bg-[#000000] py-16 md:py-24">
-        <div className="mx-auto max-w-3xl px-4">
-          <p className="text-center text-lg text-gray-400">Fretes na Pegue é simples assim: você chama, a gente leva!</p>
+      {/* COMO FUNCIONA - Banner visual */}
+      <section className="bg-[#000000] py-8 md:py-12">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="overflow-hidden rounded-2xl border border-[#C9A84C]/20">
+            <Image
+              src="/banner-passos.png"
+              alt="Simples assim. 3 passos e pronto."
+              width={1400}
+              height={600}
+              className="w-full object-cover"
+            />
+          </div>
+        </div>
+      </section>
 
-          <div className="mt-10 flex flex-col items-center gap-8 md:flex-row md:gap-4">
+      {/* COMO FUNCIONA - Texto backup acessibilidade */}
+      <section className="bg-[#000000] py-8">
+        <div className="mx-auto max-w-3xl px-4">
+          <div className="flex flex-col items-center gap-8 md:flex-row md:gap-4">
             {[
               { icon: MessageCircle, texto: "Manda um oi no WhatsApp" },
               { icon: Camera, texto: "Envia a foto do material" },

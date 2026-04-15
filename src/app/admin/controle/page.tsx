@@ -71,7 +71,7 @@ export default function ControlePage() {
     const chave = key || senha;
     setLoading(true);
     try {
-      const r = await fetch(`/api/admin-config?key=${chave}`);
+      const r = await fetch(`/api/admin-config?key=${encodeURIComponent(chave)}`);
       if (r.ok) {
         const data = await r.json();
         setConfigs(data);

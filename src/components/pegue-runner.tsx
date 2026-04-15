@@ -1711,7 +1711,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillText("Toque = Pular  |  SP e Osasco!", W / 2, H * 0.82);
       }
 
-      // === GAME OVER ===
+      // === GAME OVER (so mostra score, botoes ficam no overlay React) ===
       if (g.gameOver) {
         ctx.fillStyle = "rgba(0,0,0,0.85)";
         ctx.fillRect(0, 0, W, H);
@@ -1719,45 +1719,28 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillStyle = "#FF4444";
         ctx.font = "bold 26px Arial";
         ctx.textAlign = "center";
-        ctx.fillText("BATEU! 💥", W / 2, H * 0.22);
+        ctx.fillText("BATEU! 💥", W / 2, H * 0.18);
 
         ctx.fillStyle = "#FFF";
         ctx.font = "bold 44px Arial";
-        ctx.fillText(`${g.score}`, W / 2, H * 0.34);
+        ctx.fillText(`${g.score}`, W / 2, H * 0.28);
         ctx.font = "13px Arial";
         ctx.fillStyle = "#888";
-        ctx.fillText("pontos", W / 2, H * 0.39);
+        ctx.fillText("pontos", W / 2, H * 0.33);
 
         ctx.fillStyle = "#C9A84C";
         ctx.font = "13px Arial";
-        ctx.fillText(`📏 ${Math.floor(g.distance)}m  •  ${(g.speed * 10).toFixed(0)} km/h`, W / 2, H * 0.46);
+        ctx.fillText(`📏 ${Math.floor(g.distance)}m  •  ${(g.speed * 10).toFixed(0)} km/h`, W / 2, H * 0.39);
 
         if (g.score >= g.highScore && g.score > 0) {
           ctx.fillStyle = "#FFD700";
           ctx.font = "bold 18px Arial";
-          ctx.fillText("🏆 NOVO RECORDE!", W / 2, H * 0.53);
+          ctx.fillText("🏆 NOVO RECORDE!", W / 2, H * 0.45);
         } else {
           ctx.fillStyle = "#888";
           ctx.font = "13px Arial";
-          ctx.fillText(`Recorde: ${g.highScore}`, W / 2, H * 0.53);
+          ctx.fillText(`Recorde: ${g.highScore}`, W / 2, H * 0.45);
         }
-
-        ctx.fillStyle = "#C9A84C";
-        ctx.beginPath();
-        ctx.roundRect(W / 2 - 100, H * 0.61 - 22, 200, 44, 12);
-        ctx.fill();
-        ctx.fillStyle = "#000";
-        ctx.font = "bold 16px Arial";
-        ctx.fillText("JOGAR DE NOVO", W / 2, H * 0.61 + 6);
-
-        ctx.strokeStyle = "#C9A84C";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(W / 2 - 100, H * 0.73 - 22, 200, 44, 12);
-        ctx.stroke();
-        ctx.fillStyle = "#C9A84C";
-        ctx.font = "bold 14px Arial";
-        ctx.fillText("VOLTAR PRO MAPA", W / 2, H * 0.73 + 6);
       }
 
       animRef.current = requestAnimationFrame(loop);
@@ -1775,13 +1758,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     function handle(e: TouchEvent | MouseEvent) {
       e.preventDefault();
       const g = gameRef.current;
-      const H = canvas!.height;
-      if (g.gameOver) {
-        const cy = "touches" in e ? (e as TouchEvent).changedTouches?.[0]?.clientY : (e as MouseEvent).clientY;
-        if (cy && cy > H * 0.7) { onClose(); return; }
-        startGame();
-        return;
-      }
+      if (g.gameOver) return; // bloqueado - usa overlay React
       if (!g.started) { startGame(); return; }
       jump();
     }
@@ -1805,7 +1782,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   return (
     <div className="fixed inset-0 z-50 bg-black">
       <canvas ref={canvasRef} className="h-full w-full" />
-      <button onClick={onClose} className="absolute right-3 top-3 z-50 rounded-full bg-black/50 p-2 text-white backdrop-blur">✕</button>
+      {/* Botao fechar - escondido durante game over ate salvar */}
+      {!(gameState === "gameover" && !scoreSaved) && (
+        <button onClick={onClose} className="absolute right-3 top-3 z-50 rounded-full bg-black/50 p-2 text-white backdrop-blur">✕</button>
+      )}
 
       {gameState === "menu" && (
         <button
@@ -1816,37 +1796,54 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         </button>
       )}
 
+      {/* GAME OVER - Overlay fullscreen obrigatorio */}
       {gameState === "gameover" && !showRanking && (
-        <div className="absolute bottom-4 left-1/2 z-50 w-[90%] max-w-sm -translate-x-1/2" onClick={(e) => e.stopPropagation()}>
-          <div className="rounded-xl border border-[#C9A84C]/30 bg-black/90 p-4 backdrop-blur">
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-2xl border border-[#C9A84C]/30 bg-black/95 p-6 backdrop-blur">
             {!scoreSaved ? (
-              <div className="space-y-3">
-                <p className="text-center text-xs text-gray-400">Salve sua pontuacao no ranking!</p>
+              <div className="space-y-4">
+                <p className="text-center text-lg font-bold text-[#C9A84C]">Digite seu nome para continuar</p>
+                <p className="text-center text-xs text-gray-500">Sua pontuacao sera salva no ranking</p>
                 <input
                   type="text"
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
                   placeholder="Seu nome ou apelido"
                   maxLength={20}
-                  className="w-full rounded-lg border border-[#C9A84C]/30 bg-[#111] px-4 py-2.5 text-center text-sm text-white focus:border-[#C9A84C] focus:outline-none"
+                  autoFocus
+                  className="w-full rounded-lg border-2 border-[#C9A84C]/50 bg-[#111] px-4 py-3 text-center text-base text-white focus:border-[#C9A84C] focus:outline-none"
                   onKeyDown={(e) => { if (e.key === "Enter") saveScore(); }}
                 />
                 <button
                   onClick={saveScore}
                   disabled={!playerName.trim()}
-                  className="w-full rounded-lg bg-[#C9A84C] py-2.5 text-sm font-bold text-black disabled:opacity-40"
+                  className="w-full rounded-lg bg-[#C9A84C] py-3 text-base font-bold text-black disabled:opacity-40"
                 >
-                  Salvar no Ranking
+                  Salvar e Continuar
                 </button>
               </div>
             ) : (
-              <div className="space-y-3 text-center">
-                <p className="text-sm text-green-400">✅ Pontuacao salva!</p>
+              <div className="space-y-4 text-center">
+                <p className="text-lg text-green-400">✅ Pontuacao salva!</p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => startGame()}
+                    className="flex-1 rounded-lg bg-[#C9A84C] py-3 text-sm font-bold text-black"
+                  >
+                    Jogar de Novo
+                  </button>
+                  <button
+                    onClick={() => { fetchRanking(); setShowRanking(true); }}
+                    className="flex-1 rounded-lg border border-[#C9A84C]/50 py-3 text-sm font-bold text-[#C9A84C]"
+                  >
+                    🏆 Ranking
+                  </button>
+                </div>
                 <button
-                  onClick={() => { fetchRanking(); setShowRanking(true); }}
-                  className="w-full rounded-lg border border-[#C9A84C]/50 py-2.5 text-sm font-bold text-[#C9A84C]"
+                  onClick={onClose}
+                  className="w-full rounded-lg border border-gray-700 py-2.5 text-sm font-bold text-gray-400"
                 >
-                  🏆 Ver Ranking
+                  Voltar pro Mapa
                 </button>
               </div>
             )}

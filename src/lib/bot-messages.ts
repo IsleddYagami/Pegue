@@ -420,7 +420,7 @@ O cliente esta conferindo os materiais.
 
 Assim que ele confirmar, voce sera liberado e seu pagamento processado.
 
-Nao saia do local ate receber a confirmacao!`,
+Aguarde ate *20 minutos*. Se o cliente nao confirmar nesse tempo, voce pode se retirar e aguardar o andamento das tratativas.`,
 
   lembreteConfirmacao: `⏳ *Lembrete!*
 

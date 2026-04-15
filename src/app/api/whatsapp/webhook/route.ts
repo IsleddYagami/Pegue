@@ -1743,24 +1743,37 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
             message: MSG.clienteConfirmarEntrega(corrida.descricao_carga || "seus materiais"),
           });
 
-          // Lembrete apos 15 min se cliente nao responder
+          // Lembrete apos 10 min se cliente nao responder
           setTimeout(async () => {
             const sessaoCliente = await getSession(clienteTel);
             if (sessaoCliente?.step === "aguardando_confirmacao_entrega") {
               await sendMessage({ to: clienteTel, message: MSG.lembreteConfirmacao });
             }
-          }, 15 * 60 * 1000);
+          }, 10 * 60 * 1000);
 
-          // Notifica Santos apos 30 min sem resposta
+          // Apos 20 min: libera fretista + notifica Santos
           setTimeout(async () => {
             const sessaoCliente = await getSession(clienteTel);
             if (sessaoCliente?.step === "aguardando_confirmacao_entrega") {
+              // Libera fretista
+              await sendMessage({
+                to: phone,
+                message: `⏳ *20 minutos sem confirmacao do cliente.*\n\nVoce pode se retirar do local. Aguarde o andamento das tratativas.\n\nSeu pagamento sera processado assim que o cliente confirmar.\n\nQualquer duvida, fale com Santos: (11) 97142-9605`,
+              });
+
+              // Notifica Santos
               await sendMessage({
                 to: "5511970363713",
-                message: `⚠️ *Cliente nao confirmou entrega ha 30 min!*\n\nCliente: ${clienteTel}\nFretista aguardando no local.\n\nVerifique!`,
+                message: `⚠️ *Cliente nao confirmou entrega ha 20 min!*\n\nCliente: ${clienteTel}\nFretista liberado do local.\n\nVerifique e resolva!`,
+              });
+
+              // Ultimo lembrete pro cliente
+              await sendMessage({
+                to: clienteTel,
+                message: `⚠️ *O fretista aguardou 20 minutos e precisou se retirar.*\n\nPor favor, confirme se a entrega esta correta:\n\n1️⃣ *SIM* - Tudo certo, servicos concluidos com sucesso! ✅\n2️⃣ *NAO* - Tenho observacoes\n\nOu fale com nosso especialista Santos: (11) 97142-9605`,
               });
             }
-          }, 30 * 60 * 1000);
+          }, 20 * 60 * 1000);
         }
       }
     }

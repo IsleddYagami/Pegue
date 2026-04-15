@@ -97,7 +97,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     });
     // Precarrega imagem do caminhao (HR por padrao)
     const img = new window.Image();
-    img.src = "/truck-hr.png";
+    img.src = "/truck-trucado.png";
     img.onload = () => { truckImgRef.current = img; };
   }, []);
 

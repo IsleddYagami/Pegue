@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ status: "ja_processado" });
         }
 
-        // Atualiza corrida como paga
+        // Atualiza corrida como paga (rastreio ativa depois, na coleta)
         await supabase
           .from("corridas")
           .update({
@@ -114,6 +114,8 @@ Seu pagamento so sera processado apos a confirmacao do cliente.
 
 Bom trabalho! 🚚✨`,
             });
+
+            // Rastreio sera ativado na coleta (quando fretista digitar PRONTO)
           }
         }
       }

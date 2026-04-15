@@ -493,6 +493,33 @@ Nosso especialista *Santos* vai entrar em contato:
 
 Pagamento fica retido ate resolucao.`,
 
+  // === RASTREIO ===
+
+  rastreioLinkFretista: (link: string) =>
+    `📍 *Rastreamento ativo!*
+
+Abra este link no celular pra compartilhar sua localizacao com o cliente em tempo real:
+👉 ${link}
+
+⚠️ *Mantenha a pagina aberta durante o transporte!*
+Quando voce chegar no destino, o sistema detecta automaticamente.`,
+
+  rastreioLinkCliente: (link: string, nomeFretista: string) =>
+    `📍 *Acompanhe seu frete em tempo real!*
+
+Veja onde o *${nomeFretista}* esta no mapa:
+👉 ${link}
+
+🚚 Atualizacoes a cada 30 segundos
+Quando o fretista chegar, voce recebe uma notificacao aqui!`,
+
+  fretistaChegouDestino: `📍 *O fretista chegou no endereco de entrega!*
+
+Confira se esta tudo certo com os materiais. O fretista esta no local aguardando.
+
+1️⃣ *SIM* - Tudo certo, servicos concluidos! ✅
+2️⃣ *NAO* - Tenho observacoes`,
+
   // === DASHBOARD FRETISTA ===
 
   dashboardFretista: (

@@ -1661,7 +1661,11 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
 
     await supabase
       .from("corridas")
-      .update({ status: "concluida", entrega_em: new Date().toISOString() })
+      .update({
+        status: "concluida",
+        entrega_em: new Date().toISOString(),
+        rastreio_ativo: false,
+      })
       .eq("id", session.corrida_id);
 
     // Verifica se e primeiro frete concluido — envia mensagem especial
@@ -1734,6 +1738,48 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
     if (tipo === "coleta") {
       await updateSession(phone, { step: "concluido" });
       await sendMessage({ to: phone, message: MSG.fretistaColetaConfirmada });
+
+      // === ATIVA RASTREIO EM TEMPO REAL ===
+      // Fretista coletou os itens, agora vai dirigir pro destino
+      const sessionData = await getSession(phone);
+      if (sessionData?.corrida_id) {
+        // Ativa rastreio
+        await supabase
+          .from("corridas")
+          .update({ rastreio_ativo: true })
+          .eq("id", sessionData.corrida_id);
+
+        // Busca dados pra montar links
+        const { data: corridaRastreio } = await supabase
+          .from("corridas")
+          .select("rastreio_token, codigo, cliente_id, prestador_id, clientes(telefone), prestadores(nome)")
+          .eq("id", sessionData.corrida_id)
+          .single();
+
+        if (corridaRastreio?.rastreio_token) {
+          const rastreioToken = corridaRastreio.rastreio_token;
+          const codigoCorrida = corridaRastreio.codigo;
+          const baseUrl = "https://pegue-eta.vercel.app";
+          const nomePrestador = (corridaRastreio.prestadores as any)?.nome || "Fretista";
+
+          // Link pro fretista (GPS sender)
+          const linkFretista = `${baseUrl}/rastrear/motorista/${rastreioToken}`;
+          await sendMessage({
+            to: phone,
+            message: MSG.rastreioLinkFretista(linkFretista),
+          });
+
+          // Link pro cliente (mapa tempo real)
+          const clienteTel = (corridaRastreio.clientes as any)?.telefone;
+          if (clienteTel) {
+            const linkCliente = `${baseUrl}/rastrear/${codigoCorrida}?t=${rastreioToken}`;
+            await sendMessage({
+              to: clienteTel,
+              message: MSG.rastreioLinkCliente(linkCliente, nomePrestador),
+            });
+          }
+        }
+      }
     } else {
       // Entrega concluída
       await updateSession(phone, { step: "concluido" });

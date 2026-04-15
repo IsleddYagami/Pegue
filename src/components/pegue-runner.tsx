@@ -35,7 +35,7 @@ interface Particle {
 
 interface Landmark {
   x: number;
-  type: "pontilhao" | "ponte_estaiada" | "ponte_metalica" | "copan" | "masp" | "fabrica";
+  type: "pontilhao" | "ponte_estaiada" | "ponte_metalica" | "copan" | "masp" | "fabrica" | "neo_quimica";
   width: number;
   height: number;
 }
@@ -440,6 +440,86 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.textAlign = "center";
       ctx.fillText("OTIMIZI", lm.x + lm.width / 2, baseY - 66);
     }
+
+    else if (lm.type === "neo_quimica") {
+      // Neo Quimica Arena - Corinthians
+      const cx = lm.x + lm.width / 2;
+
+      // Estrutura principal - formato de arena oval
+      ctx.fillStyle = "#E8E8E8";
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 50, lm.width / 2, 70, 0, Math.PI, 0);
+      ctx.lineTo(lm.x + lm.width, baseY);
+      ctx.lineTo(lm.x, baseY);
+      ctx.closePath();
+      ctx.fill();
+
+      // Fachada - paineis brancos
+      ctx.fillStyle = "#F5F5F5";
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 50, lm.width / 2 - 5, 65, 0, Math.PI, 0);
+      ctx.lineTo(lm.x + lm.width - 5, baseY - 5);
+      ctx.lineTo(lm.x + 5, baseY - 5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Linhas verticais da fachada
+      ctx.strokeStyle = "#CCC";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < lm.width; i += 15) {
+        const fx = lm.x + i;
+        const fy = baseY - 50 - Math.sqrt(Math.max(0, 1 - Math.pow((fx - cx) / (lm.width / 2), 2))) * 65;
+        ctx.beginPath();
+        ctx.moveTo(fx, fy);
+        ctx.lineTo(fx, baseY - 5);
+        ctx.stroke();
+      }
+
+      // Teto - borda superior escura
+      ctx.strokeStyle = "#999";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 50, lm.width / 2, 70, 0, Math.PI, 0);
+      ctx.stroke();
+
+      // Abertura superior (teto aberto do estadio)
+      ctx.fillStyle = "#4a7a4a";
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 55, lm.width / 4, 25, 0, Math.PI, 0);
+      ctx.fill();
+
+      // Painel lateral LED (faixa preta)
+      ctx.fillStyle = "#111";
+      ctx.fillRect(lm.x + 15, baseY - 35, lm.width - 30, 16);
+
+      // Texto NEO QUIMICA ARENA
+      ctx.fillStyle = "#00AAFF";
+      ctx.font = "bold 7px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("NEO QUIMICA ARENA", cx, baseY - 24);
+
+      // Escudo Corinthians simplificado (circulo preto/branco)
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.arc(cx, baseY - 80, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#FFF";
+      ctx.beginPath();
+      ctx.arc(cx, baseY - 80, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#000";
+      ctx.font = "bold 8px Arial";
+      ctx.fillText("C", cx, baseY - 77);
+
+      // Torres de iluminacao
+      for (const tx of [lm.x + 10, lm.x + lm.width - 10]) {
+        ctx.fillStyle = "#888";
+        ctx.fillRect(tx - 2, baseY - 130, 4, 80);
+        // Refletores
+        ctx.fillStyle = gameRef.current.nightMode ? "#FFD700" : "#DDD";
+        ctx.fillRect(tx - 6, baseY - 135, 12, 6);
+      }
+    }
   }
 
   // === DRAW ITEM ===
@@ -577,6 +657,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       { x: 3200, type: "copan", width: 50, height: 150 },
       { x: 4000, type: "masp", width: 70, height: 85 },
       { x: 5000, type: "ponte_estaiada", width: 180, height: 160 },
+      { x: 6000, type: "neo_quimica", width: 200, height: 140 },
     ];
     setGameState("playing");
     setDisplayScore(0);
@@ -657,7 +738,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       g.landmarks.forEach((lm) => {
         const lx = lm.x - g.groundOffset * 0.15;
         // Recicla quando sai da tela
-        const totalWidth = 6000;
+        const totalWidth = 7000;
         const adjustedX = ((lx % totalWidth) + totalWidth) % totalWidth - 200;
         const drawLm = { ...lm, x: adjustedX };
         if (adjustedX > -200 && adjustedX < W + 200) {

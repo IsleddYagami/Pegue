@@ -63,22 +63,28 @@ function ClienteTrackingInner() {
       navigator.vibrate([300, 200, 300, 200, 500]);
     }
 
-    // Toca som de notificacao usando Web Audio API
+    // Toca som de notificacao usando Web Audio API (3 vezes)
     try {
       const ctx = new AudioContext();
-      const notas = [523, 659, 784, 1047]; // Do-Mi-Sol-Do (acorde alegre)
-      notas.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = freq;
-        gain.gain.value = 0.3;
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3 + i * 0.15);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(ctx.currentTime + i * 0.15);
-        osc.stop(ctx.currentTime + 0.4 + i * 0.15);
-      });
+      const repeticoes = 3;
+      const duracaoBloco = 0.8; // segundos por repeticao
+
+      for (let r = 0; r < repeticoes; r++) {
+        const offset = r * duracaoBloco;
+        const notas = [523, 659, 784, 1047]; // Do-Mi-Sol-Do
+        notas.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.value = freq;
+          gain.gain.value = 0.5;
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + offset + 0.3 + i * 0.15);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + offset + i * 0.15);
+          osc.stop(ctx.currentTime + offset + 0.4 + i * 0.15);
+        });
+      }
     } catch {}
 
     // Notificacao do navegador (se permitido)

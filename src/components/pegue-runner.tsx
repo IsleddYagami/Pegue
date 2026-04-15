@@ -1576,10 +1576,18 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             else if (type === "radar") { width = 30; height = 72; }
 
             g.obstacles.push({ x: W + 20, width, height, type, vy: 0, flashTimer: 0, multado: false });
-            let spawnDelay = 60 + Math.random() * 60;
-            if (g.speed > 6) spawnDelay *= 0.8;
-            if (g.phase > 2) spawnDelay *= 0.85; // mais obstaculos em fases avancadas
-            if (type === "radar") spawnDelay += 40;
+            // Fase 1: bem espaçado (prazer inicial). Fases seguintes: mais apertado
+            let spawnDelay: number;
+            if (g.phase === 1) {
+              spawnDelay = 100 + Math.random() * 80; // bem generoso
+            } else if (g.phase === 2) {
+              spawnDelay = 75 + Math.random() * 65;
+            } else if (g.phase === 3) {
+              spawnDelay = 60 + Math.random() * 50;
+            } else {
+              spawnDelay = 45 + Math.random() * 40; // fases 4+: intenso
+            }
+            if (type === "radar") spawnDelay += 50;
             g.nextSpawn = spawnDelay;
           }
         }

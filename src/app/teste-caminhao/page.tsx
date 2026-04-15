@@ -12,130 +12,145 @@ function drawMotorista(ctx: CanvasRenderingContext2D, x: number, y: number, flip
   const dir = flip ? -1 : 1;
   ctx.save();
 
-  // Braco pra fora da janela com mao
-  ctx.fillStyle = "#C48B5C";
-  // Braco (manga da camisa)
-  ctx.fillStyle = "#C9A84C";
-  ctx.fillRect(x + dir * 4, y + 13, dir * 6, 4.5);
-  // Antebraco (pele)
-  ctx.fillStyle = "#C48B5C";
-  ctx.fillRect(x + dir * 9, y + 13, dir * 6, 4);
-  // Mao
+  // === ESTILO FUNKO POP - cabecao, olhos enormes, corpo minusculo ===
+
+  // Bracinho pra fora da janela
+  ctx.fillStyle = "#C9A84C"; // manga
+  ctx.fillRect(x + dir * 5, y + 16, dir * 5, 3.5);
+  ctx.fillStyle = "#D2996B"; // pele
+  ctx.fillRect(x + dir * 9, y + 16, dir * 5, 3);
+  // Maozinha redonda
   ctx.fillStyle = "#D2996B";
   ctx.beginPath();
-  ctx.arc(x + dir * 15, y + 15, 2.8, 0, Math.PI * 2);
-  ctx.fill();
-  // Dedos (polegar pra cima - joinha)
-  ctx.fillStyle = "#D2996B";
-  ctx.fillRect(x + dir * 14, y + 10, 2.5, 5);
-  ctx.beginPath();
-  ctx.arc(x + dir * 15.2, y + 10, 1.3, 0, Math.PI * 2);
+  ctx.arc(x + dir * 14, y + 17.5, 2.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // Corpo (camisa polo Pegue)
+  // Corpinho minusculo (camisa Pegue)
   ctx.fillStyle = "#C9A84C";
   ctx.beginPath();
-  ctx.roundRect(x - 5, y + 8, 10, 12, 2);
+  ctx.roundRect(x - 4, y + 12, 8, 8, 2);
   ctx.fill();
-  // Gola da camisa
+  ctx.fillStyle = "#000";
+  ctx.font = "bold 4px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("P", x, y + 18);
+
+  // Pescocinho
+  ctx.fillStyle = "#D2996B";
+  ctx.fillRect(x - 2, y + 10, 4, 3);
+
+  // === CABECAO (proporcao Funko: cabeca = 2x o corpo) ===
+  // Cabeca grande redonda
+  ctx.fillStyle = "#D2996B";
+  ctx.beginPath();
+  ctx.arc(x, y + 1, 11, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Brilho na testa (estilo vinil Funko)
+  ctx.fillStyle = "rgba(255,255,255,0.12)";
+  ctx.beginPath();
+  ctx.ellipse(x - 3, y - 5, 5, 3, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Orelhinhas
+  ctx.fillStyle = "#C48B5C";
+  ctx.beginPath();
+  ctx.arc(x - 10, y + 2, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x + 10, y + 2, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Cabelo escuro por baixo do bone
+  ctx.fillStyle = "#1a0e05";
+  ctx.beginPath();
+  ctx.arc(x, y + 1, 11, 0.6, Math.PI - 0.6);
+  ctx.fill();
+
+  // Bone Funko (grandao)
+  ctx.fillStyle = "#1a1a1a";
+  ctx.beginPath();
+  ctx.arc(x, y - 3, 11.5, Math.PI, 0);
+  ctx.fill();
+  // Aba do bone (grande, curvada)
+  ctx.fillStyle = "#111";
+  ctx.beginPath();
+  ctx.ellipse(x + dir * 8, y - 3.5, 8, 3, dir * 0.15, 0, Math.PI * 2);
+  ctx.fill();
+  // Botao topo
+  ctx.fillStyle = "#C9A84C";
+  ctx.beginPath();
+  ctx.arc(x, y - 14, 2, 0, Math.PI * 2);
+  ctx.fill();
+  // Logo P no bone (grande)
+  ctx.fillStyle = "#C9A84C";
+  ctx.font = "bold 9px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("P", x + dir * 1, y - 4);
+
+  // === OLHOS ENORMES FUNKO ===
+  // Olho esquerdo - circulao preto com pupila branca
+  const eyeX1 = x - 4;
+  const eyeX2 = x + 4;
+  const eyeY = y + 1;
+
+  // Olho esquerdo
   ctx.fillStyle = "#000";
   ctx.beginPath();
-  ctx.moveTo(x - 3, y + 8);
-  ctx.lineTo(x, y + 11);
-  ctx.lineTo(x + 3, y + 8);
-  ctx.stroke();
+  ctx.arc(eyeX1, eyeY, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  // Iris
+  ctx.fillStyle = "#3D2B1F";
+  ctx.beginPath();
+  ctx.arc(eyeX1 + dir * 0.5, eyeY, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+  // Pupila
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.arc(eyeX1 + dir * 0.5, eyeY, 2, 0, Math.PI * 2);
+  ctx.fill();
+  // Brilho (tipico Funko - 2 pontos brancos)
+  ctx.fillStyle = "#FFF";
+  ctx.beginPath();
+  ctx.arc(eyeX1 - 1, eyeY - 1.5, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(eyeX1 + 1.5, eyeY + 1, 0.8, 0, Math.PI * 2);
+  ctx.fill();
 
-  // Pescoco
+  // Olho direito
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.arc(eyeX2, eyeY, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#3D2B1F";
+  ctx.beginPath();
+  ctx.arc(eyeX2 + dir * 0.5, eyeY, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.arc(eyeX2 + dir * 0.5, eyeY, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#FFF";
+  ctx.beginPath();
+  ctx.arc(eyeX2 - 1, eyeY - 1.5, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(eyeX2 + 1.5, eyeY + 1, 0.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Narizinho minusculo (Funko quase nao tem nariz)
   ctx.fillStyle = "#C48B5C";
-  ctx.fillRect(x - 2, y + 6, 4, 4);
-
-  // Cabeca (formato mais realista - oval)
-  ctx.fillStyle = "#D2996B";
   ctx.beginPath();
-  ctx.ellipse(x, y + 1, 7, 8, 0, 0, Math.PI * 2);
+  ctx.arc(x + dir * 0.5, y + 4, 1.2, 0, Math.PI * 2);
   ctx.fill();
 
-  // Orelha
-  ctx.fillStyle = "#C48B5C";
-  ctx.beginPath();
-  ctx.ellipse(x - dir * 6.5, y + 2, 2.5, 3.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#B07A4A";
-  ctx.beginPath();
-  ctx.ellipse(x - dir * 6.5, y + 2, 1.2, 2, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Cabelo nas laterais (por baixo do bone)
-  ctx.fillStyle = "#2a1a0a";
-  ctx.fillRect(x - 6, y + 0, 2, 5);
-  ctx.fillRect(x + 4, y + 0, 2, 5);
-
-  // Bone realista
-  ctx.fillStyle = "#1a1a1a";
-  // Topo do bone (copa)
-  ctx.beginPath();
-  ctx.ellipse(x, y - 4, 8, 5, 0, Math.PI, 0);
-  ctx.fill();
-  // Botao no topo
-  ctx.fillStyle = "#C9A84C";
-  ctx.beginPath();
-  ctx.arc(x, y - 8.5, 1.5, 0, Math.PI * 2);
-  ctx.fill();
-  // Aba curvada
-  ctx.fillStyle = "#111";
-  ctx.beginPath();
-  ctx.ellipse(x + dir * 6, y - 4, 7, 2.5, dir * 0.2, 0, Math.PI * 2);
-  ctx.fill();
-  // Logo P bordado no bone
-  ctx.fillStyle = "#C9A84C";
-  ctx.font = "bold 7px Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("P", x + dir * 1, y - 2);
-
-  // Oculos de sol
-  ctx.fillStyle = "#111";
-  // Lente
-  ctx.beginPath();
-  ctx.ellipse(x + dir * 3, y + 0, 4, 3, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Armacao
-  ctx.strokeStyle = "#333";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(x - 1, y + 0);
-  ctx.lineTo(x + dir * 7, y - 0.5);
-  ctx.stroke();
-  // Reflexo no oculos
-  ctx.fillStyle = "rgba(255,255,255,0.15)";
-  ctx.beginPath();
-  ctx.ellipse(x + dir * 2, y - 1, 1.5, 1, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Nariz
-  ctx.fillStyle = "#B8854A";
-  ctx.beginPath();
-  ctx.moveTo(x + dir * 2, y + 1);
-  ctx.lineTo(x + dir * 4, y + 3.5);
-  ctx.lineTo(x + dir * 1, y + 3.5);
-  ctx.closePath();
-  ctx.fill();
-
-  // Barba/cavanhaque leve
-  ctx.fillStyle = "rgba(40,25,10,0.3)";
-  ctx.beginPath();
-  ctx.ellipse(x + dir * 1, y + 6, 4, 2.5, 0, 0, Math.PI);
-  ctx.fill();
-
-  // Sorriso
+  // Sorriso pequeno
   ctx.strokeStyle = "#9B6540";
   ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.arc(x + dir * 2, y + 4.5, 3, 0.1, Math.PI * 0.5);
+  ctx.arc(x, y + 6, 3.5, 0.2, Math.PI - 0.2);
   ctx.stroke();
-
-  // Dente aparecendo no sorriso
-  ctx.fillStyle = "#FFF";
-  ctx.fillRect(x + dir * 1.5, y + 5, 2.5, 1.5);
 
   ctx.restore();
 }

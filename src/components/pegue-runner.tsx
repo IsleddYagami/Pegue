@@ -131,7 +131,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       soundsRef.current[f] = a;
     });
     const img = new window.Image();
-    img.src = "/truck-trucado.png";
+    img.src = "/truck-strada.png";
     img.onload = () => { truckImgRef.current = img; };
   }, []);
 

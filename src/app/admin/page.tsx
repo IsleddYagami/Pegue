@@ -151,9 +151,14 @@ export default function AdminPage() {
             <p className="text-xs text-gray-500">Dashboard administrativo</p>
           </div>
         </div>
-        <button onClick={() => carregarDados()} className="flex items-center gap-2 rounded-lg bg-[#C9A84C]/10 px-4 py-2 text-sm text-[#C9A84C] hover:bg-[#C9A84C]/20">
-          <RefreshCw className="h-4 w-4" /> Atualizar
+        <div className="flex gap-2">
+          <a href="/admin/operacao" className="flex items-center gap-2 rounded-lg bg-[#C9A84C] px-4 py-2 text-sm font-bold text-[#000] hover:scale-[1.02] transition-all">
+            <DollarSign className="h-4 w-4" /> Operacao
+          </a>
+          <button onClick={() => carregarDados()} className="flex items-center gap-2 rounded-lg bg-[#C9A84C]/10 px-4 py-2 text-sm text-[#C9A84C] hover:bg-[#C9A84C]/20">
+            <RefreshCw className="h-4 w-4" /> Atualizar
         </button>
+        </div>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-5">

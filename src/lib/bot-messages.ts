@@ -281,6 +281,12 @@ Segure proximo ao rosto pra ficar bem claro.`,
   cadastroFotoVeiculo: `Agora manda uma *foto do veiculo inteiro* 🚗
 (de preferencia mostrando o veiculo de lado)`,
 
+  cadastroChavePix: `Agora me passa sua *chave Pix* pra receber os pagamentos 💰
+
+Pode ser CPF, email, telefone ou chave aleatoria.
+
+⚡ Se tiver *Mercado Pago*, informe o email da conta MP pra receber na hora!`,
+
   cadastroTipoVeiculo: `Qual o tipo do seu veiculo?
 
 1️⃣ *Carro comum* (Kicks, Livina, Renegade, Nivus, etc)

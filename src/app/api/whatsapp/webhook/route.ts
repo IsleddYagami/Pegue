@@ -418,6 +418,9 @@ async function handleClienteMessage(
     case "cadastro_placa":
       await handleCadastroPlaca(phone, message);
       break;
+    case "cadastro_chave_pix":
+      await handleCadastroChavePix(phone, message);
+      break;
     case "cadastro_tipo_veiculo":
       await handleCadastroTipoVeiculo(phone, message);
       break;
@@ -1120,7 +1123,20 @@ async function handleCadastroPlaca(phone: string, message: string) {
     await sendMessage({ to: phone, message: "Me passa a placa do veiculo, por favor 😊" });
     return;
   }
-  await updateSession(phone, { step: "cadastro_tipo_veiculo", periodo: message.toUpperCase() });
+  await updateSession(phone, { step: "cadastro_chave_pix", periodo: message.toUpperCase() });
+  await sendMessage({ to: phone, message: MSG.cadastroChavePix });
+}
+
+async function handleCadastroChavePix(phone: string, message: string) {
+  if (message.length < 5) {
+    await sendMessage({ to: phone, message: "Me passa sua chave Pix (CPF, email, telefone ou chave aleatoria) 😊" });
+    return;
+  }
+  // Salva chave Pix no bot_logs (sera usada no pagamento)
+  await supabase.from("bot_logs").insert({
+    payload: { tipo: "chave_pix_prestador", phone, chave_pix: message.trim() },
+  });
+  await updateSession(phone, { step: "cadastro_tipo_veiculo" });
   await sendMessage({ to: phone, message: MSG.cadastroTipoVeiculo });
 }
 

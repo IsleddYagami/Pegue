@@ -155,6 +155,9 @@ export default function AdminPage() {
           <a href="/admin/operacao" className="flex items-center gap-2 rounded-lg bg-[#C9A84C] px-4 py-2 text-sm font-bold text-[#000] hover:scale-[1.02] transition-all">
             <DollarSign className="h-4 w-4" /> Operacao
           </a>
+          <a href="/admin/controle" className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-400 hover:bg-red-500/20 transition-all">
+            <Shield className="h-4 w-4" /> Controle
+          </a>
           <button onClick={() => carregarDados()} className="flex items-center gap-2 rounded-lg bg-[#C9A84C]/10 px-4 py-2 text-sm text-[#C9A84C] hover:bg-[#C9A84C]/20">
             <RefreshCw className="h-4 w-4" /> Atualizar
         </button>

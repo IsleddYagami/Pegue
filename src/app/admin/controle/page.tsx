@@ -71,13 +71,17 @@ export default function ControlePage() {
     const chave = key || senha;
     setLoading(true);
     try {
-      const r = await fetch(`/api/admin-config?key=${encodeURIComponent(chave)}`);
-      if (r.ok) {
-        const data = await r.json();
+      const r = await fetch("/api/admin-config?key=" + encodeURIComponent(chave));
+      const data = await r.json();
+      if (Array.isArray(data) && data.length > 0) {
         setConfigs(data);
         setAutenticado(true);
+      } else {
+        alert("Senha incorreta");
       }
-    } catch {}
+    } catch (e) {
+      alert("Erro de conexao");
+    }
     setLoading(false);
   }
 

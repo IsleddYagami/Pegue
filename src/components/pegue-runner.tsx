@@ -198,6 +198,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       const img = truckImgRef.current;
       const drawW = 140;
       const drawH = (img.height / img.width) * drawW;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, x - 20, ty - drawH + TRUCK_SIZE + 10, drawW, drawH);
     } else {
       ctx.fillStyle = "#C9A84C";
@@ -1076,15 +1078,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     if (!ctx) return;
 
     function resize() {
-      if (!canvas || !ctx) return;
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      canvas.style.width = window.innerWidth + "px";
-      canvas.style.height = window.innerHeight + "px";
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
+      if (!canvas) return;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     }
     resize();
     window.addEventListener("resize", resize);

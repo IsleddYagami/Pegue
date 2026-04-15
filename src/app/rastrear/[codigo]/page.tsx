@@ -52,25 +52,30 @@ function ClienteTrackingInner() {
   const [chegou, setChegou] = useState(false);
   const channelRef = useRef<any>(null);
   const alertaTocouRef = useRef(false);
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Destrava audio ao primeiro toque na tela
+  // Precarrega o som e destrava no primeiro toque
   useEffect(() => {
-    function desbloquearAudio() {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new AudioContext();
-      }
-      if (audioCtxRef.current.state === "suspended") {
-        audioCtxRef.current.resume();
+    const audio = new Audio("/notificacao.wav");
+    audio.preload = "auto";
+    audio.volume = 1.0;
+    audioRef.current = audio;
+
+    // Mobile exige interacao pra desbloquear audio
+    function desbloquear() {
+      if (audioRef.current) {
+        audioRef.current.play().then(() => {
+          audioRef.current!.pause();
+          audioRef.current!.currentTime = 0;
+        }).catch(() => {});
       }
     }
-    document.addEventListener("touchstart", desbloquearAudio, { once: false });
-    document.addEventListener("click", desbloquearAudio, { once: false });
-    // Tenta criar logo
-    desbloquearAudio();
+    document.addEventListener("touchstart", desbloquear, { once: true });
+    document.addEventListener("click", desbloquear, { once: true });
+
     return () => {
-      document.removeEventListener("touchstart", desbloquearAudio);
-      document.removeEventListener("click", desbloquearAudio);
+      document.removeEventListener("touchstart", desbloquear);
+      document.removeEventListener("click", desbloquear);
     };
   }, []);
 
@@ -84,34 +89,10 @@ function ClienteTrackingInner() {
       navigator.vibrate([500, 300, 500, 300, 800]);
     }
 
-    // Toca som usando AudioContext ja desbloqueado
-    try {
-      const ctx = audioCtxRef.current || new AudioContext();
-      audioCtxRef.current = ctx;
-
-      if (ctx.state === "suspended") ctx.resume();
-
-      const repeticoes = 3;
-      const duracaoBloco = 0.9;
-
-      for (let r = 0; r < repeticoes; r++) {
-        const offset = r * duracaoBloco;
-        const notas = [523, 659, 784, 1047]; // Do-Mi-Sol-Do
-        notas.forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = "triangle"; // mais forte que sine
-          osc.frequency.value = freq;
-          gain.gain.value = 1.0; // volume maximo
-          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + offset + 0.35 + i * 0.15);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(ctx.currentTime + offset + i * 0.15);
-          osc.stop(ctx.currentTime + offset + 0.45 + i * 0.15);
-        });
-      }
-    } catch (e) {
-      console.error("Erro audio:", e);
+    // Toca o som
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
     }
 
     // Notificacao do navegador (se permitido)

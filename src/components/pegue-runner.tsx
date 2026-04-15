@@ -78,6 +78,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const [playerName, setPlayerName] = useState("");
   const [scoreSaved, setScoreSaved] = useState(false);
   const animRef = useRef<number>(0);
+  const truckImgRef = useRef<HTMLImageElement | null>(null);
 
   // Carrega sons e highscore
   useEffect(() => {
@@ -94,6 +95,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       a.volume = 0.6;
       soundsRef.current[f] = a;
     });
+    // Precarrega imagem do caminhao (HR por padrao)
+    const img = new window.Image();
+    img.src = "/truck-hr.png";
+    img.onload = () => { truckImgRef.current = img; };
   }, []);
 
   // Carrega ranking
@@ -139,168 +144,33 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     } catch {}
   }
 
-  // === DESENHO DO CAMINHAO ===
+  // === DESENHO DO CAMINHAO (usando PNG) ===
   function drawTruck(ctx: CanvasRenderingContext2D, x: number, y: number, running: boolean) {
     const g = gameRef.current;
     const bounce = running && !g.isJumping ? Math.sin(g.frameCount * 0.3) * 1.5 : 0;
     const ty = y + bounce;
-    g.wheelAngle += g.speed * 0.15;
-
-    ctx.save();
 
     // Sombra
-    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillStyle = "rgba(0,0,0,0.2)";
     ctx.beginPath();
-    ctx.ellipse(x + 24, ty + TRUCK_SIZE + 5, 26, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 35, ty + TRUCK_SIZE + 8, 35, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Chassi inferior
-    ctx.fillStyle = "#1a1a1a";
-    ctx.fillRect(x - 4, ty + 30, 52, 8);
-
-    // Carroceria bau (corpo principal)
-    const grad = ctx.createLinearGradient(x + 12, ty, x + 12, ty + 28);
-    grad.addColorStop(0, "#D4AF37");
-    grad.addColorStop(0.5, "#C9A84C");
-    grad.addColorStop(1, "#B8963F");
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.roundRect(x + 10, ty + 2, 36, 28, 3);
-    ctx.fill();
-
-    // Borda da carroceria
-    ctx.strokeStyle = "#8B7530";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(x + 10, ty + 2, 36, 28, 3);
-    ctx.stroke();
-
-    // Texto PEGUE
-    ctx.fillStyle = "#000";
-    ctx.font = "bold 8px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("PEGUE", x + 28, ty + 18);
-
-    // Linha decorativa na carroceria
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(x + 13, ty + 24);
-    ctx.lineTo(x + 43, ty + 24);
-    ctx.stroke();
-
-    // Cabine
-    const cabGrad = ctx.createLinearGradient(x, ty + 6, x + 14, ty + 6);
-    cabGrad.addColorStop(0, "#2a2a2a");
-    cabGrad.addColorStop(1, "#3a3a3a");
-    ctx.fillStyle = cabGrad;
-    ctx.beginPath();
-    ctx.roundRect(x - 2, ty + 6, 16, 24, [4, 0, 0, 2]);
-    ctx.fill();
-
-    // Janela
-    const winGrad = ctx.createLinearGradient(x + 1, ty + 8, x + 1, ty + 18);
-    winGrad.addColorStop(0, "#5BC0DE");
-    winGrad.addColorStop(1, "#87CEEB");
-    ctx.fillStyle = winGrad;
-    ctx.beginPath();
-    ctx.roundRect(x + 1, ty + 8, 10, 10, 2);
-    ctx.fill();
-    // Reflexo na janela
-    ctx.fillStyle = "rgba(255,255,255,0.3)";
-    ctx.fillRect(x + 2, ty + 9, 3, 5);
-
-    // Para-choque dianteiro
-    ctx.fillStyle = "#C9A84C";
-    ctx.fillRect(x - 4, ty + 26, 6, 4);
-
-    // Farol
-    ctx.fillStyle = g.nightMode ? "#FFD700" : "#FFF";
-    ctx.beginPath();
-    ctx.arc(x - 3, ty + 22, 3, 0, Math.PI * 2);
-    ctx.fill();
-    if (g.nightMode) {
-      ctx.fillStyle = "rgba(255,215,0,0.04)";
-      ctx.beginPath();
-      ctx.moveTo(x - 3, ty + 18);
-      ctx.lineTo(x - 100, ty - 30);
-      ctx.lineTo(x - 100, ty + 60);
-      ctx.closePath();
-      ctx.fill();
+    // Desenha imagem PNG do caminhao
+    if (truckImgRef.current) {
+      const img = truckImgRef.current;
+      const drawW = 90;
+      const drawH = (img.height / img.width) * drawW;
+      ctx.drawImage(img, x - 10, ty - drawH + TRUCK_SIZE + 5, drawW, drawH);
+    } else {
+      // Fallback simples enquanto imagem carrega
+      ctx.fillStyle = "#C9A84C";
+      ctx.fillRect(x, ty, 70, TRUCK_SIZE);
+      ctx.fillStyle = "#000";
+      ctx.font = "bold 10px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("PEGUE", x + 35, ty + 25);
     }
-
-    // Lanterna traseira
-    ctx.fillStyle = "#FF3333";
-    ctx.beginPath();
-    ctx.arc(x + 46, ty + 22, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Rodas traseiras (duplas)
-    for (const wx of [x + 36, x + 40]) {
-      ctx.fillStyle = "#111";
-      ctx.beginPath();
-      ctx.arc(wx, ty + 38, 7.5, 0, Math.PI * 2);
-      ctx.fill();
-      // Pneu
-      ctx.strokeStyle = "#333";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(wx, ty + 38, 6, 0, Math.PI * 2);
-      ctx.stroke();
-      // Calota
-      ctx.fillStyle = "#555";
-      ctx.beginPath();
-      ctx.arc(wx, ty + 38, 3, 0, Math.PI * 2);
-      ctx.fill();
-      // Raios girando
-      ctx.strokeStyle = "#777";
-      ctx.lineWidth = 1;
-      for (let r = 0; r < 3; r++) {
-        const a = g.wheelAngle + (r * Math.PI * 2) / 3;
-        ctx.beginPath();
-        ctx.moveTo(wx, ty + 38);
-        ctx.lineTo(wx + Math.cos(a) * 5, ty + 38 + Math.sin(a) * 5);
-        ctx.stroke();
-      }
-    }
-
-    // Roda dianteira
-    ctx.fillStyle = "#111";
-    ctx.beginPath();
-    ctx.arc(x + 4, ty + 38, 6.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#333";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(x + 4, ty + 38, 5, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = "#555";
-    ctx.beginPath();
-    ctx.arc(x + 4, ty + 38, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    for (let r = 0; r < 3; r++) {
-      const a = g.wheelAngle + (r * Math.PI * 2) / 3;
-      ctx.strokeStyle = "#777";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x + 4, ty + 38);
-      ctx.lineTo(x + 4 + Math.cos(a) * 4, ty + 38 + Math.sin(a) * 4);
-      ctx.stroke();
-    }
-
-    // Fumaca do escapamento
-    if (running) {
-      ctx.fillStyle = "rgba(150,150,150,0.3)";
-      for (let i = 0; i < 3; i++) {
-        const sx = x + 48 + i * 8 + Math.sin(g.frameCount * 0.1 + i) * 3;
-        const sy = ty + 26 - i * 4 + Math.cos(g.frameCount * 0.15 + i) * 2;
-        ctx.beginPath();
-        ctx.arc(sx, sy, 3 + i * 1.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    ctx.restore();
   }
 
   // === PONTOS TURISTICOS ===

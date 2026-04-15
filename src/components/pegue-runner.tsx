@@ -196,9 +196,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
 
     if (truckImgRef.current) {
       const img = truckImgRef.current;
-      const drawW = 90;
+      const drawW = 140;
       const drawH = (img.height / img.width) * drawW;
-      ctx.drawImage(img, x - 10, ty - drawH + TRUCK_SIZE + 5, drawW, drawH);
+      ctx.drawImage(img, x - 20, ty - drawH + TRUCK_SIZE + 10, drawW, drawH);
     } else {
       ctx.fillStyle = "#C9A84C";
       ctx.fillRect(x, ty, 70, TRUCK_SIZE);

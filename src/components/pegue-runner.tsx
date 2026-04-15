@@ -73,6 +73,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const [gameState, setGameState] = useState<"menu" | "playing" | "gameover">("menu");
   const [displayScore, setDisplayScore] = useState(0);
   const [displayHighScore, setDisplayHighScore] = useState(0);
+  const [showRanking, setShowRanking] = useState(false);
+  const [ranking, setRanking] = useState<{ nome: string; score: number; distancia: number }[]>([]);
+  const [playerName, setPlayerName] = useState("");
+  const [scoreSaved, setScoreSaved] = useState(false);
   const animRef = useRef<number>(0);
 
   // Carrega sons e highscore
@@ -90,6 +94,42 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       a.volume = 0.6;
       soundsRef.current[f] = a;
     });
+  }, []);
+
+  // Carrega ranking
+  async function fetchRanking() {
+    try {
+      const r = await fetch("/api/ranking");
+      const data = await r.json();
+      setRanking(data);
+    } catch {}
+  }
+
+  // Salva score
+  async function saveScore() {
+    if (!playerName.trim() || scoreSaved) return;
+    const g = gameRef.current;
+    try {
+      await fetch("/api/ranking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: playerName.trim(),
+          score: g.score,
+          distancia: Math.floor(g.distance),
+        }),
+      });
+      setScoreSaved(true);
+      localStorage.setItem("pegue_runner_name", playerName.trim());
+      fetchRanking();
+    } catch {}
+  }
+
+  // Carrega nome salvo e ranking inicial
+  useEffect(() => {
+    const savedName = localStorage.getItem("pegue_runner_name");
+    if (savedName) setPlayerName(savedName);
+    fetchRanking();
   }, []);
 
   function playSound(name: string) {
@@ -661,6 +701,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     ];
     setGameState("playing");
     setDisplayScore(0);
+    setScoreSaved(false);
+    setShowRanking(false);
   }, []);
 
   const jump = useCallback(() => {
@@ -1034,6 +1076,116 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     <div className="fixed inset-0 z-50 bg-black">
       <canvas ref={canvasRef} className="h-full w-full" />
       <button onClick={onClose} className="absolute right-3 top-3 z-50 rounded-full bg-black/50 p-2 text-white backdrop-blur">✕</button>
+
+      {/* Botao ranking no menu */}
+      {gameState === "menu" && (
+        <button
+          onClick={(e) => { e.stopPropagation(); fetchRanking(); setShowRanking(true); }}
+          className="absolute bottom-8 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-[#C9A84C]/50 bg-black/80 px-6 py-3 text-sm font-bold text-[#C9A84C] backdrop-blur"
+        >
+          🏆 Ver Ranking
+        </button>
+      )}
+
+      {/* Overlay de Game Over com input de nome */}
+      {gameState === "gameover" && !showRanking && (
+        <div className="absolute bottom-4 left-1/2 z-50 w-[90%] max-w-sm -translate-x-1/2" onClick={(e) => e.stopPropagation()}>
+          <div className="rounded-xl border border-[#C9A84C]/30 bg-black/90 p-4 backdrop-blur">
+            {!scoreSaved ? (
+              <div className="space-y-3">
+                <p className="text-center text-xs text-gray-400">Salve sua pontuacao no ranking!</p>
+                <input
+                  type="text"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  placeholder="Seu nome ou apelido"
+                  maxLength={20}
+                  className="w-full rounded-lg border border-[#C9A84C]/30 bg-[#111] px-4 py-2.5 text-center text-sm text-white focus:border-[#C9A84C] focus:outline-none"
+                  onKeyDown={(e) => { if (e.key === "Enter") saveScore(); }}
+                />
+                <button
+                  onClick={saveScore}
+                  disabled={!playerName.trim()}
+                  className="w-full rounded-lg bg-[#C9A84C] py-2.5 text-sm font-bold text-black disabled:opacity-40"
+                >
+                  Salvar no Ranking
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3 text-center">
+                <p className="text-sm text-green-400">✅ Pontuacao salva!</p>
+                <button
+                  onClick={() => { fetchRanking(); setShowRanking(true); }}
+                  className="w-full rounded-lg border border-[#C9A84C]/50 py-2.5 text-sm font-bold text-[#C9A84C]"
+                >
+                  🏆 Ver Ranking
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Ranking */}
+      {showRanking && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/95 p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-2xl border border-[#C9A84C]/30 bg-[#0A0A0A] p-5">
+            <h2 className="mb-4 text-center text-xl font-bold text-white">
+              🏆 <span className="text-[#C9A84C]">Ranking</span> Pegue Runner
+            </h2>
+
+            <div className="max-h-[50vh] space-y-1.5 overflow-y-auto">
+              {ranking.length === 0 && (
+                <p className="py-8 text-center text-sm text-gray-500">Nenhum score ainda. Seja o primeiro!</p>
+              )}
+              {ranking.map((r, i) => (
+                <div
+                  key={i}
+                  className={`flex items-center justify-between rounded-lg px-3 py-2 ${
+                    i === 0 ? "bg-[#C9A84C]/20 border border-[#C9A84C]/40" :
+                    i === 1 ? "bg-gray-800/50 border border-gray-700" :
+                    i === 2 ? "bg-orange-900/20 border border-orange-800/30" :
+                    "bg-[#111]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`w-6 text-center text-sm font-bold ${
+                      i === 0 ? "text-[#FFD700]" :
+                      i === 1 ? "text-[#C0C0C0]" :
+                      i === 2 ? "text-[#CD7F32]" :
+                      "text-gray-500"
+                    }`}>
+                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-white">{r.nome}</p>
+                      <p className="text-xs text-gray-500">{r.distancia}m</p>
+                    </div>
+                  </div>
+                  <p className={`text-sm font-bold ${i === 0 ? "text-[#C9A84C]" : "text-white"}`}>
+                    {r.score}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setShowRanking(false)}
+                className="flex-1 rounded-lg bg-[#C9A84C] py-2.5 text-sm font-bold text-black"
+              >
+                {gameState === "gameover" ? "Jogar de Novo" : "Fechar"}
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 rounded-lg border border-gray-700 py-2.5 text-sm font-bold text-gray-400"
+              >
+                Voltar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,9 +4,10 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import TrackingMap from "@/components/tracking-map";
+import PegueRunner from "@/components/pegue-runner";
 import {
   MapPin, Truck, CheckCircle, Circle, Clock, Package,
-  AlertTriangle, Navigation, RefreshCw,
+  AlertTriangle, Navigation, RefreshCw, Gamepad2,
 } from "lucide-react";
 
 interface CorridaData {
@@ -50,6 +51,7 @@ function ClienteTrackingInner() {
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<string>("");
   const [erro, setErro] = useState("");
   const [chegou, setChegou] = useState(false);
+  const [jogoAberto, setJogoAberto] = useState(false);
   const channelRef = useRef<any>(null);
   const alertaTocouRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -83,6 +85,7 @@ function ClienteTrackingInner() {
   function alertaChegada() {
     if (alertaTocouRef.current) return;
     alertaTocouRef.current = true;
+    setJogoAberto(false); // Fecha o jogo se estiver aberto
 
     // Vibra o celular (pulsos fortes)
     if ("vibrate" in navigator) {
@@ -295,6 +298,11 @@ function ClienteTrackingInner() {
     },
   ];
 
+  // Mini-game fullscreen
+  if (jogoAberto) {
+    return <PegueRunner onClose={() => setJogoAberto(false)} />;
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-[#000]">
       {/* Header */}
@@ -362,6 +370,17 @@ function ClienteTrackingInner() {
             <Clock className="mx-auto mb-1 h-6 w-6 text-yellow-400" />
             <p className="text-sm text-yellow-400">Aguardando fretista iniciar rastreio...</p>
           </div>
+        )}
+
+        {/* Botao do mini-game */}
+        {!chegou && corrida.rastreio_ativo && (
+          <button
+            onClick={() => setJogoAberto(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#C9A84C]/30 bg-[#C9A84C]/10 py-3 text-sm font-bold text-[#C9A84C] transition-all hover:bg-[#C9A84C]/20 active:scale-95"
+          >
+            <Gamepad2 className="h-5 w-5" />
+            Jogar enquanto espera
+          </button>
         )}
 
         {/* Card do fretista */}

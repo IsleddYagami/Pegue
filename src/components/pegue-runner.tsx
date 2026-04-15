@@ -934,84 +934,179 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.beginPath(); ctx.arc(mx - 6 - (fc2 % 10), my - 12, 3, 0, Math.PI * 2); ctx.fill();
     }
     else if (obs.type === "boss") {
-      // BOSS - Guincho/Caminhao CET grande
+      // BOSS - Guincho CET (redesenhado)
       const bx = obs.x;
       const by = groundY + (obs.vy || 0);
       const flashing = obs.flashTimer && obs.flashTimer > 0;
+      const fc = gameRef.current.frameCount;
+      const shake = flashing ? Math.sin(fc * 0.5) * 3 : 0;
 
-      // Rodas grandes
+      ctx.save();
+      ctx.translate(shake, 0);
+
+      // === Sombra ===
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.beginPath();
+      ctx.ellipse(bx + 60, by + 2, 55, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // === Rodas (4 rodas - eixo duplo traseiro) ===
+      const wheelY = by - 10;
+      // Traseiras (eixo duplo)
+      for (const wx of [bx + 15, bx + 28]) {
+        ctx.fillStyle = "#111";
+        ctx.beginPath(); ctx.arc(wx, wheelY, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#333";
+        ctx.beginPath(); ctx.arc(wx, wheelY, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#555";
+        ctx.beginPath(); ctx.arc(wx, wheelY, 3, 0, Math.PI * 2); ctx.fill();
+      }
+      // Dianteira
       ctx.fillStyle = "#111";
-      ctx.beginPath(); ctx.arc(bx + 20, by - 10, 14, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(bx + 95, by - 10, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(bx + 95, wheelY, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#333";
+      ctx.beginPath(); ctx.arc(bx + 95, wheelY, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#555";
+      ctx.beginPath(); ctx.arc(bx + 95, wheelY, 3, 0, Math.PI * 2); ctx.fill();
+
+      // === Chassi ===
       ctx.fillStyle = "#444";
-      ctx.beginPath(); ctx.arc(bx + 20, by - 10, 8, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(bx + 95, by - 10, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(bx + 5, by - 18, 108, 8);
 
-      // Carroceria
-      ctx.fillStyle = flashing ? "#FF6600" : "#E8A800";
-      ctx.fillRect(bx + 5, by - 55, 110, 40);
+      // === Plataforma do guincho (parte de tras) ===
+      ctx.fillStyle = flashing ? "#FF8800" : "#E8E8E8";
+      ctx.fillRect(bx, by - 28, 55, 12);
+      // Rampa inclinada
+      ctx.fillStyle = flashing ? "#FF7700" : "#DDD";
+      ctx.beginPath();
+      ctx.moveTo(bx - 8, by - 16);
+      ctx.lineTo(bx, by - 28);
+      ctx.lineTo(bx, by - 16);
+      ctx.closePath();
+      ctx.fill();
+      // Grades laterais
+      ctx.strokeStyle = "#999";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(bx + 2, by - 28, 51, 12);
 
-      // Cabine
-      ctx.fillStyle = "#CC8800";
-      ctx.fillRect(bx + 85, by - 65, 30, 50);
-      // Janela cabine
-      ctx.fillStyle = "#87CEEB88";
-      ctx.fillRect(bx + 90, by - 60, 20, 18);
-
-      // Faixa CET
+      // === Cabine ===
       ctx.fillStyle = "#FFF";
-      ctx.fillRect(bx + 10, by - 45, 70, 14);
-      ctx.fillStyle = "#CC0000";
-      ctx.font = "bold 10px Arial";
+      ctx.beginPath();
+      ctx.roundRect(bx + 58, by - 52, 52, 36, [8, 8, 0, 0]);
+      ctx.fill();
+      // Faixa amarela CET
+      ctx.fillStyle = "#FFD700";
+      ctx.fillRect(bx + 58, by - 30, 52, 14);
+      // Texto CET
+      ctx.fillStyle = "#000";
+      ctx.font = "bold 11px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("CET", bx + 45, by - 35);
+      ctx.fillText("CET", bx + 84, by - 20);
+      // Para-brisa
+      ctx.fillStyle = "#87CEEB";
+      ctx.beginPath();
+      ctx.roundRect(bx + 92, by - 48, 16, 20, [0, 6, 0, 0]);
+      ctx.fill();
+      ctx.fillStyle = "#6AB0D6";
+      ctx.fillRect(bx + 99, by - 48, 1, 20);
+      // Janela lateral
+      ctx.fillStyle = "#87CEEB";
+      ctx.fillRect(bx + 62, by - 48, 26, 16);
+      ctx.fillStyle = "#6AB0D6";
+      ctx.fillRect(bx + 74, by - 48, 1, 16);
 
-      // Guincho/braco mecanico
-      ctx.strokeStyle = "#888";
+      // === Braco mecanico do guincho ===
+      ctx.strokeStyle = "#E8A800";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(bx + 45, by - 28);
+      const armAngle = Math.sin(fc * 0.02) * 0.15;
+      ctx.lineTo(bx + 30, by - 65 + Math.sin(fc * 0.03) * 3);
+      ctx.stroke();
+      ctx.strokeStyle = "#CC9900";
       ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.moveTo(bx + 15, by - 55);
-      ctx.lineTo(bx - 10, by - 80);
-      ctx.lineTo(bx + 20, by - 80);
+      ctx.moveTo(bx + 30, by - 65 + Math.sin(fc * 0.03) * 3);
+      ctx.lineTo(bx + 15, by - 55);
       ctx.stroke();
       // Gancho
-      ctx.strokeStyle = "#666";
+      ctx.strokeStyle = "#888";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(bx + 20, by - 80);
-      ctx.lineTo(bx + 20, by - 65);
+      ctx.moveTo(bx + 15, by - 55);
+      ctx.lineTo(bx + 15, by - 42);
       ctx.stroke();
       ctx.beginPath();
-      ctx.arc(bx + 20, by - 63, 4, 0, Math.PI);
+      ctx.arc(bx + 15, by - 40, 4, 0, Math.PI);
       ctx.stroke();
 
-      // Sirene (pisca)
-      const sireneOn = gameRef.current.frameCount % 20 < 10;
-      ctx.fillStyle = sireneOn ? "#FF0000" : "#0000FF";
-      ctx.beginPath();
-      ctx.arc(bx + 100, by - 68, 5, 0, Math.PI * 2);
-      ctx.fill();
-      // Halo sirene
-      ctx.fillStyle = sireneOn ? "rgba(255,0,0,0.2)" : "rgba(0,0,255,0.2)";
-      ctx.beginPath();
-      ctx.arc(bx + 100, by - 68, 12, 0, Math.PI * 2);
-      ctx.fill();
+      // === Sirenes (2, piscando alternado) ===
+      const s1 = fc % 24 < 12;
+      // Sirene esquerda
+      ctx.fillStyle = s1 ? "#FF0000" : "#440000";
+      ctx.beginPath(); ctx.arc(bx + 65, by - 55, 5, 0, Math.PI * 2); ctx.fill();
+      if (s1) {
+        ctx.fillStyle = "rgba(255,0,0,0.25)";
+        ctx.beginPath(); ctx.arc(bx + 65, by - 55, 14, 0, Math.PI * 2); ctx.fill();
+      }
+      // Sirene direita
+      ctx.fillStyle = !s1 ? "#0044FF" : "#000044";
+      ctx.beginPath(); ctx.arc(bx + 100, by - 55, 5, 0, Math.PI * 2); ctx.fill();
+      if (!s1) {
+        ctx.fillStyle = "rgba(0,68,255,0.25)";
+        ctx.beginPath(); ctx.arc(bx + 100, by - 55, 14, 0, Math.PI * 2); ctx.fill();
+      }
 
-      // Barra de vida do boss
+      // === Farol traseiro ===
+      ctx.fillStyle = "#FF0000";
+      ctx.fillRect(bx - 8, by - 24, 4, 6);
+
+      // === Para-choque dianteiro ===
+      ctx.fillStyle = "#333";
+      ctx.fillRect(bx + 108, by - 18, 5, 10);
+
+      ctx.restore();
+
+      // === Barra de vida (fora do shake) ===
       if (obs.bossHP && obs.bossHP > 0) {
-        const hpPercent = 1 - ((obs.bossHits || 0) / obs.bossHP);
-        const barW = 80;
-        ctx.fillStyle = "#333";
-        ctx.fillRect(bx + 15, by - 90, barW, 8);
-        ctx.fillStyle = hpPercent > 0.5 ? "#00CC00" : hpPercent > 0.25 ? "#CCCC00" : "#CC0000";
-        ctx.fillRect(bx + 15, by - 90, barW * hpPercent, 8);
-        ctx.strokeStyle = "#FFF";
-        ctx.lineWidth = 1;
-        ctx.strokeRect(bx + 15, by - 90, barW, 8);
+        const hits = obs.bossHits || 0;
+        const hpPercent = 1 - (hits / obs.bossHP);
+        const barW = 100;
+        const barX = bx + 10;
+        const barY = by - 80;
+        // Fundo
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.beginPath();
+        ctx.roundRect(barX - 5, barY - 18, barW + 10, 28, 6);
+        ctx.fill();
+        // Label
         ctx.fillStyle = "#FFF";
-        ctx.font = "bold 7px Arial";
+        ctx.font = "bold 9px Arial";
         ctx.textAlign = "center";
-        ctx.fillText(`BOSS x${obs.bossHP - (obs.bossHits || 0)}`, bx + 55, by - 95);
+        ctx.fillText(`GUINCHO CET  ×${obs.bossHP - hits}`, barX + barW / 2, barY - 6);
+        // Barra
+        ctx.fillStyle = "#333";
+        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 8, 3); ctx.fill();
+        ctx.fillStyle = hpPercent > 0.5 ? "#00CC00" : hpPercent > 0.25 ? "#CCCC00" : "#CC0000";
+        ctx.beginPath(); ctx.roundRect(barX, barY, barW * hpPercent, 8, 3); ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.3)";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 8, 3); ctx.stroke();
+      }
+
+      // === Instrucao piscante quando perto ===
+      if (obs.x < 250 && !obs.multado && !flashing) {
+        const blink = fc % 30 < 20;
+        if (blink) {
+          ctx.fillStyle = "rgba(255,50,50,0.9)";
+          ctx.beginPath();
+          ctx.roundRect(bx + 20, by - 105, 80, 22, 6);
+          ctx.fill();
+          ctx.fillStyle = "#FFF";
+          ctx.font = "bold 12px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("PULE! ⬆️", bx + 60, by - 89);
+        }
       }
     }
     else if (obs.type === "radar") {
@@ -1621,10 +1716,18 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // Move obstaculos
         g.obstacles = g.obstacles.filter((o) => {
           if (o.type === "boss") {
-            // Boss se move ate posicao fixa e fica la
-            if (o.x > W * 0.6) o.x -= g.speed * 0.5;
-            // Boss oscila verticalmente
-            o.vy = Math.sin(g.frameCount * 0.03) * 0.8;
+            // Boss aproxima, recua apos hit, volta a aproximar
+            const targetX = 120; // perto do carro (carro em X=60)
+            if (o.flashTimer && o.flashTimer > 0) {
+              // Recuando apos hit
+              o.x += 3;
+            } else if (o.x > targetX) {
+              o.x -= g.speed * 0.6;
+            }
+            if (o.x > W + 200) o.x = W + 200;
+            // Reset multado quando termina o recuo (permite proximo hit)
+            if (o.flashTimer === 1) o.multado = false;
+            o.vy = Math.sin(g.frameCount * 0.04) * 1;
           } else {
             o.x -= g.speed;
           }
@@ -1682,32 +1785,32 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             continue;
           }
 
-          // BOSS - pular sobre ele da hit, no chao = game over
+          // BOSS - pular por cima dele = hit, bater nele no chao = game over
           if (obs.type === "boss") {
-            if (tR > obs.x && tL < obs.x + obs.width) {
-              if (g.isJumping && g.truckVY > 0 && !obs.multado) {
-                // Hit no boss (caindo de cima)
+            const bossNear = obs.x < 200 && obs.x > 30;
+            if (bossNear && tR > obs.x - 10 && tL < obs.x + obs.width + 10) {
+              if (g.isJumping && !obs.multado) {
+                // Pulou com sucesso = HIT no boss!
                 obs.multado = true;
                 obs.bossHits = (obs.bossHits || 0) + 1;
-                obs.flashTimer = 15;
-                g.truckVY = JUMP_FORCE * 0.7; // bounce
+                obs.flashTimer = 40; // recua por 40 frames
+                g.truckVY = JUMP_FORCE * 0.6; // bounce
                 playSound("game-star");
                 spawnParticles(obs.x + 60, obsGY - 40, "#FF6600", 15);
+                spawnParticles(obs.x + 60, obsGY - 40, "#FFFF00", 10);
                 const hitsLeft = (obs.bossHP || 3) - obs.bossHits!;
                 if (hitsLeft <= 0) {
-                  // Boss derrotado!
                   g.bossDefeated = true;
                   g.obstacles = g.obstacles.filter((o) => o.type !== "boss");
-                  showStatus("BOSS DERROTADO!", 60);
+                  showStatus("BOSS DERROTADO! 💥", 70);
                   playSound("game-combo");
                   spawnParticles(obs.x + 60, obsGY - 30, "#C9A84C", 30);
-                  spawnParticles(obs.x + 60, obsGY - 30, "#FF0000", 20);
+                  spawnParticles(obs.x + 60, obsGY - 30, "#FF0000", 25);
                 } else {
-                  showStatus(`BOSS: ${hitsLeft} PULOS!`, 40);
+                  showStatus(`PULE! FALTA ${hitsLeft}x`, 30);
                 }
-                setTimeout(() => { obs.multado = false; }, 500); // cooldown
-              } else if (!g.isJumping && tBot > obsGY - obs.height + 10) {
-                // Bateu no boss no chao
+              } else if (!g.isJumping && tR > obs.x + 5 && tBot > obsGY - obs.height + 15) {
+                // Nao pulou, bateu no boss
                 g.gameOver = true;
                 g.running = false;
                 playSound("game-over");
@@ -1719,6 +1822,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
                 }
                 setGameState("gameover");
               }
+            }
+            // Texto de instrucao quando boss se aproxima
+            if (obs.x < 350 && obs.x > 200 && !obs.multado) {
+              showStatus("⚠️ PULE SOBRE O BOSS!", 5);
             }
             continue;
           }

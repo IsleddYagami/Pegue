@@ -58,6 +58,106 @@ function drawMotorista(ctx: CanvasRenderingContext2D, x: number, y: number, flip
   ctx.restore();
 }
 
+// Desenha materiais de mudanca empilhados
+function drawMateriais(ctx: CanvasRenderingContext2D, x: number, y: number, tipo: "bau" | "aberto" | "grande") {
+  if (tipo === "aberto") {
+    // Materiais na carroceria aberta (Strada)
+    // Geladeira
+    ctx.fillStyle = "#DDD";
+    ctx.fillRect(x, y - 18, 10, 20);
+    ctx.fillStyle = "#BBB";
+    ctx.fillRect(x + 1, y - 16, 8, 8);
+    ctx.fillRect(x + 1, y - 6, 8, 5);
+    ctx.fillStyle = "#999";
+    ctx.fillRect(x + 8, y - 12, 1, 3);
+    ctx.fillRect(x + 8, y - 4, 1, 2);
+
+    // Caixas empilhadas
+    ctx.fillStyle = "#8B4513";
+    ctx.fillRect(x + 12, y - 10, 9, 11);
+    ctx.fillStyle = "#DAA520";
+    ctx.fillRect(x + 15, y - 10, 1, 11);
+    ctx.fillRect(x + 12, y - 5, 9, 1);
+
+    ctx.fillStyle = "#A0522D";
+    ctx.fillRect(x + 13, y - 16, 7, 8);
+    ctx.fillStyle = "#DAA520";
+    ctx.fillRect(x + 15.5, y - 16, 1, 8);
+
+    // Colchao enrolado (rosa)
+    ctx.fillStyle = "#D4A0A0";
+    ctx.beginPath();
+    ctx.ellipse(x + 5, y - 22, 8, 3, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#B08080";
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    // Vassoura/rodo
+    ctx.strokeStyle = "#8B7530";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x + 20, y - 20);
+    ctx.lineTo(x + 22, y + 2);
+    ctx.stroke();
+  } else if (tipo === "bau") {
+    // Materiais vistos pela porta traseira do bau (HR)
+    // Sofa visto de lado
+    ctx.fillStyle = "#6B4226";
+    ctx.fillRect(x - 4, y + 8, 14, 12);
+    ctx.fillStyle = "#8B5A2B";
+    ctx.fillRect(x - 4, y + 6, 14, 4);
+    // Almofadas
+    ctx.fillStyle = "#7B4A2A";
+    ctx.fillRect(x - 2, y + 10, 5, 8);
+    ctx.fillRect(x + 4, y + 10, 5, 8);
+
+    // Caixas atras
+    ctx.fillStyle = "#8B4513";
+    ctx.fillRect(x + 12, y + 10, 8, 10);
+    ctx.fillStyle = "#DAA520";
+    ctx.fillRect(x + 15, y + 10, 1, 10);
+
+    ctx.fillStyle = "#A0522D";
+    ctx.fillRect(x + 10, y + 4, 10, 8);
+    ctx.fillStyle = "#DAA520";
+    ctx.fillRect(x + 14, y + 4, 1, 8);
+
+    // Geladeira no fundo
+    ctx.fillStyle = "#CCC";
+    ctx.fillRect(x + 22, y + 2, 8, 18);
+    ctx.fillStyle = "#AAA";
+    ctx.fillRect(x + 23, y + 3, 6, 7);
+    ctx.fillRect(x + 23, y + 11, 6, 5);
+  } else {
+    // Grande (trucado) - materiais na parte de cima do bau
+    // Colchao amarrado em cima
+    ctx.fillStyle = "#D4A0A0";
+    ctx.fillRect(x, y - 6, 30, 5);
+    ctx.strokeStyle = "#B08080";
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(x, y - 6, 30, 5);
+    // Cordas amarrando
+    ctx.strokeStyle = "#8B7530";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + 5, y - 6); ctx.lineTo(x + 5, y + 4);
+    ctx.moveTo(x + 25, y - 6); ctx.lineTo(x + 25, y + 4);
+    ctx.stroke();
+
+    // Mesa de pernas pra cima
+    ctx.fillStyle = "#6B4226";
+    ctx.fillRect(x + 6, y - 12, 18, 3);
+    ctx.fillRect(x + 8, y - 18, 2, 6);
+    ctx.fillRect(x + 20, y - 18, 2, 6);
+
+    // Cadeira
+    ctx.fillStyle = "#555";
+    ctx.fillRect(x + 32, y - 10, 6, 8);
+    ctx.fillRect(x + 32, y - 16, 6, 3);
+  }
+}
+
 function drawHR(ctx: CanvasRenderingContext2D, x: number, y: number, frame: number) {
   const bounce = Math.sin(frame * 0.15) * 1;
   const ty = y + bounce;
@@ -67,6 +167,9 @@ function drawHR(ctx: CanvasRenderingContext2D, x: number, y: number, frame: numb
   ctx.beginPath();
   ctx.ellipse(x + 28, ty + 46, 30, 5, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  // Materiais vistos pela traseira do bau
+  drawMateriais(ctx, x - 6, ty, "bau");
 
   // Carroceria BAU
   const grad = ctx.createLinearGradient(x - 6, ty, x - 6, ty + 30);
@@ -80,11 +183,18 @@ function drawHR(ctx: CanvasRenderingContext2D, x: number, y: number, frame: numb
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
+  // Porta traseira aberta do bau (mostra que ta carregado)
+  ctx.fillStyle = "#B8963F";
+  ctx.fillRect(x - 8, ty + 4, 4, 28);
+  ctx.strokeStyle = "#8B7530";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x - 8, ty + 4, 4, 28);
+
   // Texto PEGUE no bau
   ctx.fillStyle = "#000";
   ctx.font = "bold 7px Arial";
   ctx.textAlign = "center";
-  ctx.fillText("PEGUE", x + 11, ty + 21);
+  ctx.fillText("PEGUE", x + 14, ty + 21);
   // Linha decorativa
   ctx.strokeStyle = "#00000044";
   ctx.lineWidth = 0.5;
@@ -189,17 +299,8 @@ function drawStrada(ctx: CanvasRenderingContext2D, x: number, y: number, frame: 
   ctx.lineWidth = 1;
   ctx.strokeRect(x - 4, ty + 12, 26, 18);
 
-  // Pacotes na carroceria
-  ctx.fillStyle = "#8B4513";
-  ctx.fillRect(x, ty + 6, 9, 10);
-  ctx.fillStyle = "#A0522D";
-  ctx.fillRect(x + 8, ty + 3, 8, 12);
-  ctx.fillStyle = "#6B3410";
-  ctx.fillRect(x + 14, ty + 8, 6, 7);
-  // Fitas
-  ctx.fillStyle = "#DAA520";
-  ctx.fillRect(x + 3, ty + 6, 1, 10);
-  ctx.fillRect(x + 11, ty + 3, 1, 12);
+  // Materiais de mudanca na carroceria
+  drawMateriais(ctx, x - 2, ty + 12, "aberto");
 
   // Cabine Strada
   ctx.fillStyle = "#E8E8E8";
@@ -267,6 +368,9 @@ function drawTrucado(ctx: CanvasRenderingContext2D, x: number, y: number, frame:
   ctx.beginPath();
   ctx.ellipse(x + 30, ty + 50, 36, 6, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  // Materiais em cima do bau
+  drawMateriais(ctx, x - 8, ty, "grande");
 
   // BAU grande
   const grad = ctx.createLinearGradient(x - 10, ty, x - 10, ty + 34);

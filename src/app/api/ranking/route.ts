@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const { data } = await supabase
     .from("ranking_pegue_runner")
-    .select("nome, score, distancia, criado_em")
+    .select("nome, score, distancia, entregas, criado_em")
     .order("score", { ascending: false })
     .limit(20);
 
@@ -17,20 +17,22 @@ export async function GET() {
 // POST - salva novo score
 export async function POST(req: NextRequest) {
   try {
-    const { nome, score, distancia } = await req.json();
+    const { nome, score, distancia, entregas } = await req.json();
 
     if (!nome || !score) {
       return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
     }
 
-    // Limita nome a 20 chars e sanitiza
     const nomeLimpo = nome.trim().substring(0, 20).replace(/[<>]/g, "");
 
-    await supabase.from("ranking_pegue_runner").insert({
+    const insertData: Record<string, unknown> = {
       nome: nomeLimpo,
       score: Math.floor(score),
       distancia: Math.floor(distancia),
-    });
+    };
+    if (entregas !== undefined) insertData.entregas = Math.floor(entregas);
+
+    await supabase.from("ranking_pegue_runner").insert(insertData);
 
     return NextResponse.json({ ok: true });
   } catch (error: any) {

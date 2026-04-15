@@ -19,10 +19,12 @@ interface Obstacle {
   x: number;
   width: number;
   height: number;
-  type: "barreira" | "buraco" | "cone" | "pedra" | "motoqueiro" | "motoboy" | "radar";
-  vy?: number; // motoqueiro weaving
-  flashTimer?: number; // radar flash
-  multado?: boolean; // radar already triggered
+  type: "barreira" | "buraco" | "cone" | "pedra" | "motoqueiro" | "motoboy" | "radar" | "boss";
+  vy?: number;
+  flashTimer?: number;
+  multado?: boolean;
+  bossHP?: number; // boss hit points (pulos pra derrotar)
+  bossHits?: number;
 }
 
 interface Item {
@@ -107,15 +109,27 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     // Rodovia (zona de descanso)
     restActive: false,
     restTimer: 0,
-    nextRestFrame: 3000, // ~50s a 60fps
+    nextRestFrame: 2400, // ~40s a 60fps
+    // Sistema de fases
+    phase: 1,
+    phaseState: "desafio" as "desafio" | "rodovia" | "boss" | "entrega",
+    phaseTimer: 0,
+    deliveries: 0,
+    bossActive: false,
+    bossDefeated: false,
+    // Clima
+    raining: false,
+    raindrops: [] as { x: number; y: number; speed: number; len: number }[],
   });
 
   const [gameState, setGameState] = useState<"menu" | "tutorial" | "playing" | "gameover">("menu");
   const [tutorialStep, setTutorialStep] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [displayHighScore, setDisplayHighScore] = useState(0);
+  const [displayPhase, setDisplayPhase] = useState(1);
+  const [displayDeliveries, setDisplayDeliveries] = useState(0);
   const [showRanking, setShowRanking] = useState(false);
-  const [ranking, setRanking] = useState<{ nome: string; score: number; distancia: number }[]>([]);
+  const [ranking, setRanking] = useState<{ nome: string; score: number; distancia: number; entregas?: number }[]>([]);
   const [playerName, setPlayerName] = useState("");
   const [scoreSaved, setScoreSaved] = useState(false);
   const animRef = useRef<number>(0);
@@ -155,7 +169,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       await fetch("/api/ranking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: playerName.trim(), score: g.score, distancia: Math.floor(g.distance) }),
+        body: JSON.stringify({ nome: playerName.trim(), score: g.score, distancia: Math.floor(g.distance), entregas: g.deliveries }),
       });
       setScoreSaved(true);
       localStorage.setItem("pegue_runner_name", playerName.trim());
@@ -919,6 +933,87 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.fillStyle = "rgba(150,150,150,0.3)";
       ctx.beginPath(); ctx.arc(mx - 6 - (fc2 % 10), my - 12, 3, 0, Math.PI * 2); ctx.fill();
     }
+    else if (obs.type === "boss") {
+      // BOSS - Guincho/Caminhao CET grande
+      const bx = obs.x;
+      const by = groundY + (obs.vy || 0);
+      const flashing = obs.flashTimer && obs.flashTimer > 0;
+
+      // Rodas grandes
+      ctx.fillStyle = "#111";
+      ctx.beginPath(); ctx.arc(bx + 20, by - 10, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(bx + 95, by - 10, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#444";
+      ctx.beginPath(); ctx.arc(bx + 20, by - 10, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(bx + 95, by - 10, 8, 0, Math.PI * 2); ctx.fill();
+
+      // Carroceria
+      ctx.fillStyle = flashing ? "#FF6600" : "#E8A800";
+      ctx.fillRect(bx + 5, by - 55, 110, 40);
+
+      // Cabine
+      ctx.fillStyle = "#CC8800";
+      ctx.fillRect(bx + 85, by - 65, 30, 50);
+      // Janela cabine
+      ctx.fillStyle = "#87CEEB88";
+      ctx.fillRect(bx + 90, by - 60, 20, 18);
+
+      // Faixa CET
+      ctx.fillStyle = "#FFF";
+      ctx.fillRect(bx + 10, by - 45, 70, 14);
+      ctx.fillStyle = "#CC0000";
+      ctx.font = "bold 10px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("CET", bx + 45, by - 35);
+
+      // Guincho/braco mecanico
+      ctx.strokeStyle = "#888";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(bx + 15, by - 55);
+      ctx.lineTo(bx - 10, by - 80);
+      ctx.lineTo(bx + 20, by - 80);
+      ctx.stroke();
+      // Gancho
+      ctx.strokeStyle = "#666";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(bx + 20, by - 80);
+      ctx.lineTo(bx + 20, by - 65);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(bx + 20, by - 63, 4, 0, Math.PI);
+      ctx.stroke();
+
+      // Sirene (pisca)
+      const sireneOn = gameRef.current.frameCount % 20 < 10;
+      ctx.fillStyle = sireneOn ? "#FF0000" : "#0000FF";
+      ctx.beginPath();
+      ctx.arc(bx + 100, by - 68, 5, 0, Math.PI * 2);
+      ctx.fill();
+      // Halo sirene
+      ctx.fillStyle = sireneOn ? "rgba(255,0,0,0.2)" : "rgba(0,0,255,0.2)";
+      ctx.beginPath();
+      ctx.arc(bx + 100, by - 68, 12, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Barra de vida do boss
+      if (obs.bossHP && obs.bossHP > 0) {
+        const hpPercent = 1 - ((obs.bossHits || 0) / obs.bossHP);
+        const barW = 80;
+        ctx.fillStyle = "#333";
+        ctx.fillRect(bx + 15, by - 90, barW, 8);
+        ctx.fillStyle = hpPercent > 0.5 ? "#00CC00" : hpPercent > 0.25 ? "#CCCC00" : "#CC0000";
+        ctx.fillRect(bx + 15, by - 90, barW * hpPercent, 8);
+        ctx.strokeStyle = "#FFF";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx + 15, by - 90, barW, 8);
+        ctx.fillStyle = "#FFF";
+        ctx.font = "bold 7px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(`BOSS x${obs.bossHP - (obs.bossHits || 0)}`, bx + 55, by - 95);
+      }
+    }
     else if (obs.type === "radar") {
       // Radar / Lombada eletronica - classico de SP
       const rx = obs.x + obs.width / 2;
@@ -1145,8 +1240,13 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       combo: 0, comboTimer: 0, flashTimer: 0, nightMode: false,
       terrainScale: 0, radarFlash: 0, tunnelAlpha: 0, inTunnel: false,
       statusText: "", statusTimer: 0,
-      restActive: false, restTimer: 0, nextRestFrame: 3000,
+      restActive: false, restTimer: 0, nextRestFrame: 2400,
+      phase: 1, phaseState: "desafio", phaseTimer: 0,
+      deliveries: 0, bossActive: false, bossDefeated: false,
+      raining: false, raindrops: [],
     });
+    setDisplayPhase(1);
+    setDisplayDeliveries(0);
     g.clouds = Array.from({ length: 5 }, () => ({
       x: Math.random() * 800, y: 20 + Math.random() * 80,
       w: 40 + Math.random() * 60, speed: 0.3 + Math.random() * 0.5,
@@ -1222,7 +1322,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       const slopeDelta = getTerrainY(64 + g.groundOffset) - getTerrainY(56 + g.groundOffset);
       const slopeAngle = Math.atan2(-slopeDelta * g.terrainScale, 8);
 
-      if (g.distance > 500) g.nightMode = true;
+      // nightMode controlado pelo sistema de fases (fase 3+)
 
       // === FUNDO ===
       if (g.nightMode) {
@@ -1371,30 +1471,92 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         g.truckY += g.truckVY;
         if (g.truckY >= 0) { g.truckY = 0; g.truckVY = 0; g.isJumping = false; }
 
-        // === RODOVIA (zona de descanso) ===
-        if (!g.restActive && g.frameCount >= g.nextRestFrame) {
-          g.restActive = true;
-          g.restTimer = 420; // ~7 segundos a 60fps
-          showStatus("🛣️ RODOVIA - RELAXA!", 80);
+        // === SISTEMA DE FASES ===
+        g.phaseTimer++;
+
+        // Chuva a partir da fase 2
+        if (g.phase >= 2 && !g.raining) {
+          g.raining = true;
+          g.raindrops = Array.from({ length: 80 }, () => ({
+            x: Math.random() * W, y: Math.random() * H,
+            speed: 8 + Math.random() * 6, len: 8 + Math.random() * 12,
+          }));
         }
-        if (g.restActive) {
-          g.restTimer--;
-          if (g.restTimer <= 0) {
-            g.restActive = false;
-            g.nextRestFrame = g.frameCount + 3000; // proxima em ~50s
-            showStatus("SAINDO DA RODOVIA...", 50);
-          }
+        // Atualiza gotas de chuva
+        if (g.raining) {
+          g.raindrops.forEach((d) => {
+            d.y += d.speed;
+            d.x -= 2;
+            if (d.y > H) { d.y = -10; d.x = Math.random() * W; }
+            if (d.x < 0) d.x = W;
+          });
         }
 
-        // Spawn obstaculos (pausado na rodovia)
-        if (!g.restActive) {
+        // Noite a partir da fase 3
+        if (g.phase >= 3) g.nightMode = true;
+        else if (g.phase < 3) g.nightMode = false;
+
+        // Transicoes de fase
+        const DESAFIO_FRAMES = 2400; // ~40s
+        const RODOVIA_FRAMES = 420;  // ~7s
+        const ENTREGA_FRAMES = 180;  // ~3s animacao
+
+        if (g.phaseState === "desafio" && g.phaseTimer >= DESAFIO_FRAMES) {
+          g.phaseState = "rodovia";
+          g.phaseTimer = 0;
+          g.restActive = true;
+          showStatus("🛣️ RODOVIA - RELAXA!", 80);
+        }
+        else if (g.phaseState === "rodovia" && g.phaseTimer >= RODOVIA_FRAMES) {
+          g.phaseState = "boss";
+          g.phaseTimer = 0;
+          g.restActive = false;
+          g.bossActive = true;
+          g.bossDefeated = false;
+          // Spawn boss
+          const bossHP = Math.min(2 + g.phase, 6); // mais HP nas fases avancadas
+          g.obstacles.push({
+            x: W + 50, width: 120, height: 70,
+            type: "boss", vy: 0, flashTimer: 0, multado: false,
+            bossHP, bossHits: 0,
+          });
+          showStatus(`⚠️ BOSS - FASE ${g.phase}!`, 80);
+          playSound("game-combo");
+        }
+        else if (g.phaseState === "boss" && g.bossDefeated) {
+          g.phaseState = "entrega";
+          g.phaseTimer = 0;
+          g.bossActive = false;
+          g.deliveries++;
+          g.score += 100 * g.phase;
+          setDisplayScore(g.score);
+          setDisplayDeliveries(g.deliveries);
+          showStatus(`📦 ENTREGA ${g.deliveries} CONCLUIDA! +${100 * g.phase}`, 90);
+          playSound("game-star");
+          spawnParticles(W / 2, baseGroundY - 50, "#C9A84C", 30);
+          spawnParticles(W / 2, baseGroundY - 50, "#00FF00", 20);
+        }
+        else if (g.phaseState === "entrega" && g.phaseTimer >= ENTREGA_FRAMES) {
+          // Proxima fase
+          g.phase++;
+          g.phaseState = "desafio";
+          g.phaseTimer = 0;
+          g.speed += 0.5; // cada fase fica mais rapida
+          setDisplayPhase(g.phase);
+          showStatus(`🚚 FASE ${g.phase} - NOVA ENTREGA!`, 70);
+          playSound("game-combo");
+        }
+
+        // Spawn obstaculos (pausado na rodovia e entrega)
+        const canSpawn = g.phaseState === "desafio";
+        if (canSpawn) {
           g.nextSpawn--;
           if (g.nextSpawn <= 0) {
             const allTypes: Obstacle["type"][] = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "motoboy", "radar"];
             let pool: Obstacle["type"][];
-            if (g.distance < 100) {
+            if (g.phase === 1 && g.phaseTimer < 600) {
               pool = ["barreira", "cone", "buraco", "pedra"];
-            } else if (g.distance < 300) {
+            } else if (g.phase <= 2) {
               pool = ["barreira", "cone", "buraco", "pedra", "pedra", "motoqueiro", "motoboy"];
             } else {
               pool = allTypes;
@@ -1411,16 +1573,18 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             else if (type === "radar") { width = 30; height = 72; }
 
             g.obstacles.push({ x: W + 20, width, height, type, vy: 0, flashTimer: 0, multado: false });
-            g.nextSpawn = 60 + Math.random() * 60;
-            if (g.speed > 6) g.nextSpawn *= 0.8;
-            if (type === "radar") g.nextSpawn += 40;
+            let spawnDelay = 60 + Math.random() * 60;
+            if (g.speed > 6) spawnDelay *= 0.8;
+            if (g.phase > 2) spawnDelay *= 0.85; // mais obstaculos em fases avancadas
+            if (type === "radar") spawnDelay += 40;
+            g.nextSpawn = spawnDelay;
           }
         }
 
-        // Spawn semaforos (pausado na rodovia)
-        if (!g.restActive) {
+        // Spawn semaforos (so no desafio)
+        if (canSpawn) {
           g.nextTrafficLight--;
-          if (g.nextTrafficLight <= 0 && g.distance > 80) {
+          if (g.nextTrafficLight <= 0 && g.phaseTimer > 300) {
             g.trafficLights.push({
               x: W + 30,
               state: Math.random() > 0.4 ? "red" : "green",
@@ -1445,12 +1609,17 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
 
         // Move obstaculos
         g.obstacles = g.obstacles.filter((o) => {
-          o.x -= g.speed;
-          // Motoqueiro weaving
+          if (o.type === "boss") {
+            // Boss se move ate posicao fixa e fica la
+            if (o.x > W * 0.6) o.x -= g.speed * 0.5;
+            // Boss oscila verticalmente
+            o.vy = Math.sin(g.frameCount * 0.03) * 0.8;
+          } else {
+            o.x -= g.speed;
+          }
           if (o.type === "motoqueiro" && o.vy !== undefined) {
             o.vy = Math.sin(g.frameCount * 0.08 + o.x * 0.02) * 0.5;
           }
-          // Radar flash timer
           if (o.flashTimer && o.flashTimer > 0) o.flashTimer--;
           return o.x + o.width > -60;
         });
@@ -1481,11 +1650,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           const obsGY = baseGroundY - obsTerrainOffset;
 
           if (obs.type === "radar") {
-            // Radar: nao mata, mas multa (-30pts) ou bonus (+15pts)
             if (!obs.multado && tR > obs.x && tL < obs.x + obs.width) {
               obs.multado = true;
               if (!g.isJumping) {
-                // MULTADO!
                 g.score = Math.max(0, g.score - 30);
                 setDisplayScore(g.score);
                 obs.flashTimer = 20;
@@ -1494,12 +1661,52 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
                 playSound("game-over");
                 spawnParticles(obs.x + 15, obsGY - 50, "#FF0000", 8);
               } else {
-                // ESCAPOU!
                 g.score += 15;
                 setDisplayScore(g.score);
                 showStatus("ESCAPOU! +15", 40);
                 playSound("game-star");
                 spawnParticles(obs.x + 15, obsGY - 50, "#00FF00", 8);
+              }
+            }
+            continue;
+          }
+
+          // BOSS - pular sobre ele da hit, no chao = game over
+          if (obs.type === "boss") {
+            if (tR > obs.x && tL < obs.x + obs.width) {
+              if (g.isJumping && g.truckVY > 0 && !obs.multado) {
+                // Hit no boss (caindo de cima)
+                obs.multado = true;
+                obs.bossHits = (obs.bossHits || 0) + 1;
+                obs.flashTimer = 15;
+                g.truckVY = JUMP_FORCE * 0.7; // bounce
+                playSound("game-star");
+                spawnParticles(obs.x + 60, obsGY - 40, "#FF6600", 15);
+                const hitsLeft = (obs.bossHP || 3) - obs.bossHits!;
+                if (hitsLeft <= 0) {
+                  // Boss derrotado!
+                  g.bossDefeated = true;
+                  g.obstacles = g.obstacles.filter((o) => o.type !== "boss");
+                  showStatus("BOSS DERROTADO!", 60);
+                  playSound("game-combo");
+                  spawnParticles(obs.x + 60, obsGY - 30, "#C9A84C", 30);
+                  spawnParticles(obs.x + 60, obsGY - 30, "#FF0000", 20);
+                } else {
+                  showStatus(`BOSS: ${hitsLeft} PULOS!`, 40);
+                }
+                setTimeout(() => { obs.multado = false; }, 500); // cooldown
+              } else if (!g.isJumping && tBot > obsGY - obs.height + 10) {
+                // Bateu no boss no chao
+                g.gameOver = true;
+                g.running = false;
+                playSound("game-over");
+                spawnParticles(tL + 20, truckGroundY - 20, "#C9A84C", 20);
+                if (g.score > g.highScore) {
+                  g.highScore = g.score;
+                  localStorage.setItem("pegue_runner_highscore", g.score.toString());
+                  setDisplayHighScore(g.score);
+                }
+                setGameState("gameover");
               }
             }
             continue;
@@ -1648,6 +1855,41 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillText(g.statusText, W / 2, H * 0.45 - yOffset);
       }
 
+      // === CHUVA ===
+      if (g.raining && g.running) {
+        ctx.strokeStyle = "rgba(150,180,255,0.4)";
+        ctx.lineWidth = 1;
+        g.raindrops.forEach((d) => {
+          ctx.beginPath();
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d.x - 2, d.y + d.len);
+          ctx.stroke();
+        });
+        // Overlay escuro da chuva
+        ctx.fillStyle = "rgba(0,0,30,0.15)";
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // === ANIMACAO ENTREGA ===
+      if (g.phaseState === "entrega" && g.running) {
+        const progress = g.phaseTimer / 180;
+        // Caixa descendo
+        const boxY = baseGroundY - 80 - Math.sin(progress * Math.PI) * 60;
+        ctx.fillStyle = "#C9A84C";
+        ctx.fillRect(W * 0.65 - 15, boxY - 15, 30, 30);
+        ctx.fillStyle = "#8B7530";
+        ctx.fillRect(W * 0.65 - 1, boxY - 15, 2, 30);
+        ctx.fillRect(W * 0.65 - 15, boxY - 1, 30, 2);
+        // Texto
+        ctx.fillStyle = "#00FF00";
+        ctx.font = "bold 18px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(`ENTREGA ${g.deliveries}`, W / 2, baseGroundY - 120);
+        ctx.fillStyle = "#C9A84C";
+        ctx.font = "bold 14px Arial";
+        ctx.fillText("CONCLUIDA!", W / 2, baseGroundY - 100);
+      }
+
       // === BANNER RODOVIA ===
       if (g.restActive && g.running) {
         // Placa de rodovia verde
@@ -1699,6 +1941,19 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillText(`x${Math.min(g.combo, 5)} COMBO!`, W / 2, 26);
       }
 
+      // Fase e entregas
+      ctx.fillStyle = "#C9A84C";
+      ctx.font = "bold 12px Arial";
+      ctx.textAlign = "center";
+      if (g.combo <= 1) {
+        ctx.fillText(`FASE ${g.phase}  |  📦 ${g.deliveries} entrega${g.deliveries !== 1 ? "s" : ""}`, W / 2, 26);
+      }
+      if (g.combo > 1) {
+        ctx.font = "bold 16px Arial";
+        ctx.fillText(`x${Math.min(g.combo, 5)} COMBO!`, W / 2, 26);
+      }
+
+      // Recorde e velocidade
       ctx.fillStyle = "#C9A84C";
       ctx.font = "12px Arial";
       ctx.textAlign = "right";
@@ -1706,6 +1961,14 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.fillStyle = "#666";
       ctx.font = "10px Arial";
       ctx.fillText(`${(g.speed * 10).toFixed(0)} km/h`, W - 15, 44);
+
+      // Indicador de chuva
+      if (g.raining) {
+        ctx.fillStyle = "#6688CC";
+        ctx.font = "10px Arial";
+        ctx.textAlign = "left";
+        ctx.fillText("🌧️ Chuva", 80, 44);
+      }
 
       // === MENU / TUTORIAL (fundo escuro, overlays React cuidam do conteudo) ===
       if (!g.started && !g.gameOver) {
@@ -1732,7 +1995,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
 
         ctx.fillStyle = "#C9A84C";
         ctx.font = "13px Arial";
-        ctx.fillText(`📏 ${Math.floor(g.distance)}m  •  ${(g.speed * 10).toFixed(0)} km/h`, W / 2, H * 0.39);
+        ctx.fillText(`📏 ${Math.floor(g.distance)}m  •  📦 ${g.deliveries} entrega${g.deliveries !== 1 ? "s" : ""}  •  Fase ${g.phase}`, W / 2, H * 0.39);
 
         if (g.score >= g.highScore && g.score > 0) {
           ctx.fillStyle = "#FFD700";
@@ -1981,7 +2244,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
                     </span>
                     <div>
                       <p className="text-sm font-bold text-white">{r.nome}</p>
-                      <p className="text-xs text-gray-500">{r.distancia}m</p>
+                      <p className="text-xs text-gray-500">{r.distancia}m{r.entregas ? ` • 📦${r.entregas}` : ""}</p>
                     </div>
                   </div>
                   <p className={`text-sm font-bold ${i === 0 ? "text-[#C9A84C]" : "text-white"}`}>{r.score}</p>

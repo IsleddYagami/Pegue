@@ -1407,7 +1407,11 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       const baseGroundY = H * GROUND_HEIGHT;
 
       // Terreno escala progressivamente
-      g.terrainScale = Math.min(1, g.distance / 200);
+      // Terreno progride por fase: 1=reto, 2=leve, 3=médio, 4+=intenso
+      if (g.phase === 1) g.terrainScale = Math.min(0.1, g.distance / 1000);
+      else if (g.phase === 2) g.terrainScale = Math.min(0.35, 0.1 + g.phaseTimer / 3000);
+      else if (g.phase === 3) g.terrainScale = Math.min(0.65, 0.35 + g.phaseTimer / 3000);
+      else g.terrainScale = Math.min(1, 0.65 + (g.phase - 3) * 0.12);
 
       // Calcula altura do terreno na posicao do caminhao
       const truckTerrainOffset = getTerrainY(60 + g.groundOffset) * g.terrainScale;

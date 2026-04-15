@@ -398,20 +398,46 @@ ${carga}
 
 ━━━━━━━━━━━━━━━━
 
-⚠️ *Antes de confirmar, verifique:*
+⚠️ *CONFIRA AGORA com o fretista ainda no local:*
 
-📦 Todos os itens foram entregues?
+📦 Todos os itens chegaram?
 🔍 Algum item com dano ou avaria?
 ✅ Esta tudo conforme o combinado?
 
 ━━━━━━━━━━━━━━━━
 
-Apos sua confirmacao, o pagamento do fretista sera liberado.
+⏳ *O fretista esta aguardando sua confirmacao para ser liberado.*
+Por favor, confira rapidamente.
 
 *Esta tudo certo?*
 
 1️⃣ *SIM* - Tudo certo, servicos concluidos com sucesso! ✅
 2️⃣ *NAO* - Tenho observacoes`,
+
+  fretistaAguardarConfirmacao: `⏳ *Aguarde no local!*
+
+O cliente esta conferindo os materiais.
+
+Assim que ele confirmar, voce sera liberado e seu pagamento processado.
+
+Nao saia do local ate receber a confirmacao!`,
+
+  lembreteConfirmacao: `⏳ *Lembrete!*
+
+Seu fretista ainda esta aguardando no local.
+Por favor, confira os materiais e confirme a entrega.
+
+1️⃣ *SIM* - Tudo certo, servicos concluidos com sucesso! ✅
+2️⃣ *NAO* - Tenho observacoes`,
+
+  fretistaPagamentoRapido: (valor: string, metodo: string) =>
+    `✅ *Liberado! Bom trabalho!* 🚚✨
+
+Seu pagamento esta sendo processado:
+💰 *R$ ${valor}*
+${metodo === "mp" ? "⚡ Via Mercado Pago - receba em instantes!" : "🏦 Via Pix - receba em ate 1 dia util"}
+
+Obrigado pelo excelente servico!`,
 
   clienteConfirmouEntrega: `Entrega confirmada! ✅🎉
 
@@ -447,11 +473,12 @@ Nosso especialista *Santos* vai entrar em contato pra resolver:
 
 Vamos cuidar disso pra voce!`,
 
-  fretistaPagamentoLiberado: `Pagamento liberado! ✅💰
+  fretistaPagamentoLiberado: `✅ *Liberado! Bom trabalho!* 🚚✨
 
-O cliente confirmou a entrega. Seu pagamento sera processado!
+O cliente confirmou a entrega.
+Seu pagamento esta sendo processado!
 
-Obrigado pelo excelente trabalho! 🚚✨`,
+Obrigado pelo excelente servico!`,
 
   fretistaProblemaNaEntrega: `⚠️ O cliente reportou um problema na entrega.
 

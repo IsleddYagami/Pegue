@@ -99,6 +99,13 @@ export async function GET(req: NextRequest) {
 📸 Fotografe TODOS os itens na *ENTREGA*
 🚫 Sem fotos = pagamento *BLOQUEADO*
 
+━━━━━━━━━━━━━━━━
+
+⏳ *IMPORTANTE - APOS A ENTREGA:*
+Apos descarregar, *aguarde no local* ate o cliente conferir e confirmar que esta tudo certo.
+Seu pagamento so sera processado apos a confirmacao do cliente.
+*Nao saia do local sem a confirmacao!*
+
 Bom trabalho! 🚚✨`,
     });
   }

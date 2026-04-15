@@ -1719,9 +1719,11 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
       await updateSession(phone, { step: "concluido" });
       await sendMessage({ to: phone, message: MSG.fretistaColetaConfirmada });
     } else {
-      // Entrega concluída - notifica fretista e pede confirmação do cliente
+      // Entrega concluída
       await updateSession(phone, { step: "concluido" });
-      await sendMessage({ to: phone, message: MSG.fretistaEntregaConfirmada });
+
+      // Avisa fretista pra aguardar no local
+      await sendMessage({ to: phone, message: MSG.fretistaAguardarConfirmacao });
 
       // Busca corrida pra encontrar o cliente
       const session = await getSession(phone);
@@ -1734,12 +1736,31 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
 
         if (corrida?.clientes) {
           const clienteTel = (corrida.clientes as any).telefone;
-          // Muda sessão do cliente pra aguardar confirmação
+          // Muda sessao do cliente pra aguardar confirmacao
           await updateSession(clienteTel, { step: "aguardando_confirmacao_entrega" });
           await sendMessage({
             to: clienteTel,
             message: MSG.clienteConfirmarEntrega(corrida.descricao_carga || "seus materiais"),
           });
+
+          // Lembrete apos 15 min se cliente nao responder
+          setTimeout(async () => {
+            const sessaoCliente = await getSession(clienteTel);
+            if (sessaoCliente?.step === "aguardando_confirmacao_entrega") {
+              await sendMessage({ to: clienteTel, message: MSG.lembreteConfirmacao });
+            }
+          }, 15 * 60 * 1000);
+
+          // Notifica Santos apos 30 min sem resposta
+          setTimeout(async () => {
+            const sessaoCliente = await getSession(clienteTel);
+            if (sessaoCliente?.step === "aguardando_confirmacao_entrega") {
+              await sendMessage({
+                to: "5511970363713",
+                message: `⚠️ *Cliente nao confirmou entrega ha 30 min!*\n\nCliente: ${clienteTel}\nFretista aguardando no local.\n\nVerifique!`,
+              });
+            }
+          }, 30 * 60 * 1000);
         }
       }
     }

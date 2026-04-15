@@ -104,9 +104,14 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     inTunnel: false,
     statusText: "" as string,
     statusTimer: 0,
+    // Rodovia (zona de descanso)
+    restActive: false,
+    restTimer: 0,
+    nextRestFrame: 3000, // ~50s a 60fps
   });
 
-  const [gameState, setGameState] = useState<"menu" | "playing" | "gameover">("menu");
+  const [gameState, setGameState] = useState<"menu" | "tutorial" | "playing" | "gameover">("menu");
+  const [tutorialStep, setTutorialStep] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [displayHighScore, setDisplayHighScore] = useState(0);
   const [showRanking, setShowRanking] = useState(false);
@@ -1140,6 +1145,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       combo: 0, comboTimer: 0, flashTimer: 0, nightMode: false,
       terrainScale: 0, radarFlash: 0, tunnelAlpha: 0, inTunnel: false,
       statusText: "", statusTimer: 0,
+      restActive: false, restTimer: 0, nextRestFrame: 3000,
     });
     g.clouds = Array.from({ length: 5 }, () => ({
       x: Math.random() * 800, y: 20 + Math.random() * 80,
@@ -1365,45 +1371,63 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         g.truckY += g.truckVY;
         if (g.truckY >= 0) { g.truckY = 0; g.truckVY = 0; g.isJumping = false; }
 
-        // Spawn obstaculos (variedade expandida)
-        g.nextSpawn--;
-        if (g.nextSpawn <= 0) {
-          const allTypes: Obstacle["type"][] = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "motoboy", "radar"];
-          // Peso por distancia: mais variedade conforme avanca
-          let pool: Obstacle["type"][];
-          if (g.distance < 100) {
-            pool = ["barreira", "cone", "buraco", "pedra"];
-          } else if (g.distance < 300) {
-            pool = ["barreira", "cone", "buraco", "pedra", "pedra", "motoqueiro", "motoboy"];
-          } else {
-            pool = allTypes;
+        // === RODOVIA (zona de descanso) ===
+        if (!g.restActive && g.frameCount >= g.nextRestFrame) {
+          g.restActive = true;
+          g.restTimer = 420; // ~7 segundos a 60fps
+          showStatus("🛣️ RODOVIA - RELAXA!", 80);
+        }
+        if (g.restActive) {
+          g.restTimer--;
+          if (g.restTimer <= 0) {
+            g.restActive = false;
+            g.nextRestFrame = g.frameCount + 3000; // proxima em ~50s
+            showStatus("SAINDO DA RODOVIA...", 50);
           }
-          const type = pool[Math.floor(Math.random() * pool.length)];
-          let width = 25, height = 30;
-
-          if (type === "barreira") { width = Math.random() > 0.5 ? 50 : 25; height = 25 + Math.random() * 25; }
-          else if (type === "cone") { width = 20; height = 25; }
-          else if (type === "buraco") { width = 40 + Math.random() * 20; height = 6; }
-          else if (type === "pedra") { width = 25 + Math.random() * 15; height = 15 + Math.random() * 15; }
-          else if (type === "motoqueiro") { width = 45; height = 35; }
-          else if (type === "motoboy") { width = 45; height = 40; }
-          else if (type === "radar") { width = 30; height = 72; }
-
-          g.obstacles.push({ x: W + 20, width, height, type, vy: 0, flashTimer: 0, multado: false });
-          g.nextSpawn = 60 + Math.random() * 60;
-          if (g.speed > 6) g.nextSpawn *= 0.8;
-          if (type === "radar") g.nextSpawn += 40; // radares mais espacados
         }
 
-        // Spawn semaforos
-        g.nextTrafficLight--;
-        if (g.nextTrafficLight <= 0 && g.distance > 80) {
-          g.trafficLights.push({
-            x: W + 30,
-            state: Math.random() > 0.4 ? "red" : "green",
-            passed: false,
-          });
-          g.nextTrafficLight = 200 + Math.random() * 150;
+        // Spawn obstaculos (pausado na rodovia)
+        if (!g.restActive) {
+          g.nextSpawn--;
+          if (g.nextSpawn <= 0) {
+            const allTypes: Obstacle["type"][] = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "motoboy", "radar"];
+            let pool: Obstacle["type"][];
+            if (g.distance < 100) {
+              pool = ["barreira", "cone", "buraco", "pedra"];
+            } else if (g.distance < 300) {
+              pool = ["barreira", "cone", "buraco", "pedra", "pedra", "motoqueiro", "motoboy"];
+            } else {
+              pool = allTypes;
+            }
+            const type = pool[Math.floor(Math.random() * pool.length)];
+            let width = 25, height = 30;
+
+            if (type === "barreira") { width = Math.random() > 0.5 ? 50 : 25; height = 25 + Math.random() * 25; }
+            else if (type === "cone") { width = 20; height = 25; }
+            else if (type === "buraco") { width = 40 + Math.random() * 20; height = 6; }
+            else if (type === "pedra") { width = 25 + Math.random() * 15; height = 15 + Math.random() * 15; }
+            else if (type === "motoqueiro") { width = 55; height = 45; }
+            else if (type === "motoboy") { width = 55; height = 50; }
+            else if (type === "radar") { width = 30; height = 72; }
+
+            g.obstacles.push({ x: W + 20, width, height, type, vy: 0, flashTimer: 0, multado: false });
+            g.nextSpawn = 60 + Math.random() * 60;
+            if (g.speed > 6) g.nextSpawn *= 0.8;
+            if (type === "radar") g.nextSpawn += 40;
+          }
+        }
+
+        // Spawn semaforos (pausado na rodovia)
+        if (!g.restActive) {
+          g.nextTrafficLight--;
+          if (g.nextTrafficLight <= 0 && g.distance > 80) {
+            g.trafficLights.push({
+              x: W + 30,
+              state: Math.random() > 0.4 ? "red" : "green",
+              passed: false,
+            });
+            g.nextTrafficLight = 200 + Math.random() * 150;
+          }
         }
 
         // Spawn itens
@@ -1624,6 +1648,24 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillText(g.statusText, W / 2, H * 0.45 - yOffset);
       }
 
+      // === BANNER RODOVIA ===
+      if (g.restActive && g.running) {
+        // Placa de rodovia verde
+        ctx.fillStyle = "rgba(0,100,0,0.85)";
+        ctx.beginPath();
+        ctx.roundRect(W / 2 - 90, 65, 180, 32, 6);
+        ctx.fill();
+        ctx.strokeStyle = "#FFF";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(W / 2 - 88, 67, 176, 28, 5);
+        ctx.stroke();
+        ctx.fillStyle = "#FFF";
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("🛣️ RODOVIA", W / 2, 86);
+      }
+
       // === HUD ===
       ctx.fillStyle = "rgba(0,0,0,0.75)";
       ctx.fillRect(0, 0, W, 56);
@@ -1665,50 +1707,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.font = "10px Arial";
       ctx.fillText(`${(g.speed * 10).toFixed(0)} km/h`, W - 15, 44);
 
-      // === MENU ===
+      // === MENU / TUTORIAL (fundo escuro, overlays React cuidam do conteudo) ===
       if (!g.started && !g.gameOver) {
-        ctx.fillStyle = "rgba(0,0,0,0.8)";
+        ctx.fillStyle = "rgba(0,0,0,0.85)";
         ctx.fillRect(0, 0, W, H);
-
-        ctx.fillStyle = "#C9A84C";
-        ctx.font = "bold 30px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("PEGUE RUNNER", W / 2, H * 0.22);
-
-        ctx.font = "18px Arial";
-        ctx.fillText("🚚", W / 2, H * 0.16);
-
-        ctx.fillStyle = "#FFF";
-        ctx.font = "14px Arial";
-        ctx.fillText("Desvie dos obstaculos e colete pacotes!", W / 2, H * 0.29);
-
-        ctx.fillStyle = "#C9A84C";
-        ctx.font = "11px Arial";
-        const items = [
-          "📦 Pacote = 10 pts",
-          "💰 Moeda = 25 pts",
-          "🏆 Logo Pegue = 50 pts",
-          "🏍️ Desvie dos motoqueiros!",
-          "📷 Pule o radar!",
-          "🚦 Vermelho = Pule! Verde = +20",
-          "🌄 Ladeiras, pontes e tuneis!",
-        ];
-        items.forEach((t, i) => {
-          ctx.fillStyle = i < 3 ? "#C9A84C" : "#888";
-          ctx.fillText(t, W / 2, H * 0.36 + i * 22);
-        });
-
-        ctx.fillStyle = "#C9A84C";
-        ctx.beginPath();
-        ctx.roundRect(W / 2 - 100, H * 0.72 - 24, 200, 48, 14);
-        ctx.fill();
-        ctx.fillStyle = "#000";
-        ctx.font = "bold 18px Arial";
-        ctx.fillText("TOQUE PRA JOGAR", W / 2, H * 0.72 + 6);
-
-        ctx.fillStyle = "#555";
-        ctx.font = "11px Arial";
-        ctx.fillText("Toque = Pular  |  SP e Osasco!", W / 2, H * 0.82);
       }
 
       // === GAME OVER (so mostra score, botoes ficam no overlay React) ===
@@ -1759,7 +1761,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       e.preventDefault();
       const g = gameRef.current;
       if (g.gameOver) return; // bloqueado - usa overlay React
-      if (!g.started) { startGame(); return; }
+      if (!g.started) return; // usa overlay React (menu/tutorial)
       jump();
     }
 
@@ -1787,13 +1789,113 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         <button onClick={onClose} className="absolute right-3 top-3 z-50 rounded-full bg-black/50 p-2 text-white backdrop-blur">✕</button>
       )}
 
+      {/* MENU INICIAL */}
       {gameState === "menu" && (
-        <button
-          onClick={(e) => { e.stopPropagation(); fetchRanking(); setShowRanking(true); }}
-          className="absolute bottom-8 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-[#C9A84C]/50 bg-black/80 px-6 py-3 text-sm font-bold text-[#C9A84C] backdrop-blur"
-        >
-          🏆 Ver Ranking
-        </button>
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
+          <p className="mb-2 text-4xl">🚚</p>
+          <h1 className="mb-2 text-3xl font-bold text-[#C9A84C]">PEGUE RUNNER</h1>
+          <p className="mb-6 text-sm text-gray-400">Pelas ruas de SP e Osasco!</p>
+          <button
+            onClick={() => { setGameState("tutorial"); setTutorialStep(0); }}
+            className="mb-4 w-56 rounded-xl bg-[#C9A84C] py-4 text-lg font-bold text-black"
+          >
+            JOGAR
+          </button>
+          <button
+            onClick={() => { fetchRanking(); setShowRanking(true); }}
+            className="w-56 rounded-xl border border-[#C9A84C]/50 py-3 text-sm font-bold text-[#C9A84C]"
+          >
+            🏆 Ver Ranking
+          </button>
+        </div>
+      )}
+
+      {/* TUTORIAL - 5 slides */}
+      {gameState === "tutorial" && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-2xl border border-[#C9A84C]/30 bg-black/95 p-6 backdrop-blur">
+            {tutorialStep === 0 && (
+              <div className="space-y-4 text-center">
+                <p className="text-5xl">👆</p>
+                <h2 className="text-xl font-bold text-[#C9A84C]">TOQUE = PULAR</h2>
+                <p className="text-sm text-gray-300">Toque em qualquer lugar da tela para pular os obstaculos</p>
+                <p className="text-xs text-gray-500">No computador: Espaco ou Seta pra cima</p>
+              </div>
+            )}
+            {tutorialStep === 1 && (
+              <div className="space-y-4 text-center">
+                <p className="text-5xl">📦💰🏆</p>
+                <h2 className="text-xl font-bold text-[#C9A84C]">COLETE ITENS</h2>
+                <div className="space-y-1 text-sm text-gray-300">
+                  <p>📦 Pacote = <span className="text-[#C9A84C]">10 pts</span></p>
+                  <p>💰 Moeda = <span className="text-[#C9A84C]">25 pts</span></p>
+                  <p>🏆 Logo Pegue = <span className="text-[#C9A84C]">50 pts</span></p>
+                </div>
+              </div>
+            )}
+            {tutorialStep === 2 && (
+              <div className="space-y-4 text-center">
+                <p className="text-5xl">🚦</p>
+                <h2 className="text-xl font-bold text-[#C9A84C]">SEMAFORO</h2>
+                <div className="space-y-2 text-sm">
+                  <p className="text-red-400">🔴 Vermelho = <span className="font-bold">PULE!</span> (senao bate)</p>
+                  <p className="text-green-400">🟢 Verde = <span className="font-bold">+20 pts</span> bonus!</p>
+                </div>
+              </div>
+            )}
+            {tutorialStep === 3 && (
+              <div className="space-y-4 text-center">
+                <p className="text-5xl">📷</p>
+                <h2 className="text-xl font-bold text-[#C9A84C]">RADAR</h2>
+                <div className="space-y-2 text-sm">
+                  <p className="text-red-400">No chao = <span className="font-bold">MULTADO! -30 pts</span></p>
+                  <p className="text-green-400">Pulou = <span className="font-bold">ESCAPOU! +15 pts</span></p>
+                </div>
+              </div>
+            )}
+            {tutorialStep === 4 && (
+              <div className="space-y-4 text-center">
+                <p className="text-5xl">🏍️🛣️🌉</p>
+                <h2 className="text-xl font-bold text-[#C9A84C]">AVENTURA SP!</h2>
+                <div className="space-y-1 text-sm text-gray-300">
+                  <p>🏍️ Desvie dos motoqueiros e motoboys</p>
+                  <p>🛣️ Rodovia = zona de descanso</p>
+                  <p>🌉 Pontes, tuneis e ladeiras</p>
+                </div>
+              </div>
+            )}
+
+            {/* Indicador de pagina */}
+            <div className="mt-5 flex justify-center gap-2">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className={`h-2 w-2 rounded-full ${i === tutorialStep ? "bg-[#C9A84C]" : "bg-gray-600"}`} />
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                if (tutorialStep < 4) {
+                  setTutorialStep(tutorialStep + 1);
+                } else {
+                  setGameState("playing");
+                  startGame();
+                }
+              }}
+              className="mt-5 w-full rounded-xl bg-[#C9A84C] py-3 text-base font-bold text-black"
+            >
+              {tutorialStep < 4 ? "Proximo" : "COMECAR!"}
+            </button>
+
+            {tutorialStep > 0 && (
+              <button
+                onClick={() => setTutorialStep(tutorialStep - 1)}
+                className="mt-2 w-full py-2 text-sm text-gray-500"
+              >
+                Voltar
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {/* GAME OVER - Overlay fullscreen obrigatorio */}

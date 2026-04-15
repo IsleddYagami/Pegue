@@ -52,22 +52,47 @@ function ClienteTrackingInner() {
   const [chegou, setChegou] = useState(false);
   const channelRef = useRef<any>(null);
   const alertaTocouRef = useRef(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // Destrava audio ao primeiro toque na tela
+  useEffect(() => {
+    function desbloquearAudio() {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioContext();
+      }
+      if (audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume();
+      }
+    }
+    document.addEventListener("touchstart", desbloquearAudio, { once: false });
+    document.addEventListener("click", desbloquearAudio, { once: false });
+    // Tenta criar logo
+    desbloquearAudio();
+    return () => {
+      document.removeEventListener("touchstart", desbloquearAudio);
+      document.removeEventListener("click", desbloquearAudio);
+    };
+  }, []);
 
   // Alerta sonoro + vibracao quando fretista chega
   function alertaChegada() {
-    if (alertaTocouRef.current) return; // Toca so uma vez
+    if (alertaTocouRef.current) return;
     alertaTocouRef.current = true;
 
-    // Vibra o celular (3 pulsos)
+    // Vibra o celular (pulsos fortes)
     if ("vibrate" in navigator) {
-      navigator.vibrate([300, 200, 300, 200, 500]);
+      navigator.vibrate([500, 300, 500, 300, 800]);
     }
 
-    // Toca som de notificacao usando Web Audio API (3 vezes)
+    // Toca som usando AudioContext ja desbloqueado
     try {
-      const ctx = new AudioContext();
+      const ctx = audioCtxRef.current || new AudioContext();
+      audioCtxRef.current = ctx;
+
+      if (ctx.state === "suspended") ctx.resume();
+
       const repeticoes = 3;
-      const duracaoBloco = 0.8; // segundos por repeticao
+      const duracaoBloco = 0.9;
 
       for (let r = 0; r < repeticoes; r++) {
         const offset = r * duracaoBloco;
@@ -75,17 +100,19 @@ function ClienteTrackingInner() {
         notas.forEach((freq, i) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
-          osc.type = "sine";
+          osc.type = "triangle"; // mais forte que sine
           osc.frequency.value = freq;
-          gain.gain.value = 0.5;
-          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + offset + 0.3 + i * 0.15);
+          gain.gain.value = 1.0; // volume maximo
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + offset + 0.35 + i * 0.15);
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(ctx.currentTime + offset + i * 0.15);
-          osc.stop(ctx.currentTime + offset + 0.4 + i * 0.15);
+          osc.stop(ctx.currentTime + offset + 0.45 + i * 0.15);
         });
       }
-    } catch {}
+    } catch (e) {
+      console.error("Erro audio:", e);
+    }
 
     // Notificacao do navegador (se permitido)
     if ("Notification" in window && Notification.permission === "granted") {

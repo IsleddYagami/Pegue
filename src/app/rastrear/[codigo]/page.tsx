@@ -51,12 +51,55 @@ function ClienteTrackingInner() {
   const [erro, setErro] = useState("");
   const [chegou, setChegou] = useState(false);
   const channelRef = useRef<any>(null);
+  const alertaTocouRef = useRef(false);
+
+  // Alerta sonoro + vibracao quando fretista chega
+  function alertaChegada() {
+    if (alertaTocouRef.current) return; // Toca so uma vez
+    alertaTocouRef.current = true;
+
+    // Vibra o celular (3 pulsos)
+    if ("vibrate" in navigator) {
+      navigator.vibrate([300, 200, 300, 200, 500]);
+    }
+
+    // Toca som de notificacao usando Web Audio API
+    try {
+      const ctx = new AudioContext();
+      const notas = [523, 659, 784, 1047]; // Do-Mi-Sol-Do (acorde alegre)
+      notas.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.value = 0.3;
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3 + i * 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + i * 0.15);
+        osc.stop(ctx.currentTime + 0.4 + i * 0.15);
+      });
+    } catch {}
+
+    // Notificacao do navegador (se permitido)
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("🚚 Pegue - Fretista chegou!", {
+        body: "O fretista chegou no endereco de entrega. Confira seus materiais!",
+        icon: "/logo-pegue-novo.png",
+      });
+    }
+  }
 
   // Carrega dados iniciais
   useEffect(() => {
     if (!token) {
       setErro("Link invalido - token ausente");
       return;
+    }
+
+    // Pede permissao de notificacao
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
     }
 
     fetch(`/api/rastreio?token=${token}`)
@@ -84,6 +127,7 @@ function ClienteTrackingInner() {
         }
         if (data.chegou_destino) {
           setChegou(true);
+          alertaChegada();
         }
 
         // Inicia Realtime subscription
@@ -127,6 +171,7 @@ function ClienteTrackingInner() {
             setDistanciaRestante(Math.round(dist * 10) / 10);
             if (dist < 0.2) {
               setChegou(true);
+              alertaChegada();
             }
           }
         }

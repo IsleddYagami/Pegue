@@ -507,11 +507,11 @@ Quando voce chegar no destino, o sistema detecta automaticamente.`,
   rastreioLinkCliente: (link: string, nomeFretista: string) =>
     `📍 *Acompanhe seu frete em tempo real!*
 
-Veja onde o *${nomeFretista}* esta no mapa:
+Veja onde *${nomeFretista}* esta no mapa:
 👉 ${link}
 
 🚚 Atualizacoes a cada 30 segundos
-Quando o fretista chegar, voce recebe uma notificacao aqui!`,
+Quando chegar no destino, voce recebe uma notificacao aqui!`,
 
   fretistaChegouDestino: `📍 *O fretista chegou no endereco de entrega!*
 

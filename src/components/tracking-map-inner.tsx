@@ -14,9 +14,12 @@ interface TrackingMapInnerProps {
 // Icones customizados
 const truckIcon = L.divIcon({
   className: "custom-marker",
-  html: `<div style="background:#C9A84C;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:18px;">🚚</div>`,
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
+  html: `<div style="display:flex;flex-direction:column;align-items:center;">
+    <div style="background:#C9A84C;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:bold;color:#000;margin-bottom:2px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.4);">PEGUE</div>
+    <div style="background:#C9A84C;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:18px;">🚚</div>
+  </div>`,
+  iconSize: [50, 54],
+  iconAnchor: [25, 54],
 });
 
 const origemIcon = L.divIcon({

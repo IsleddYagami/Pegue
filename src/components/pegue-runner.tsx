@@ -741,110 +741,178 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.fill();
     }
     else if (obs.type === "motoqueiro") {
-      // Motoqueiro cortando o transito - cultura SP
+      // Motoqueiro cortando o transito - cultura SP (maior e mais claro)
       const mx = obs.x;
       const my = groundY;
-      // Roda traseira
-      ctx.fillStyle = "#222";
-      ctx.beginPath(); ctx.arc(mx + 5, my - 5, 7, 0, Math.PI * 2); ctx.fill();
-      // Roda dianteira
-      ctx.beginPath(); ctx.arc(mx + 35, my - 5, 7, 0, Math.PI * 2); ctx.fill();
-      // Aro
-      ctx.strokeStyle = "#555";
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(mx + 5, my - 5, 5, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(mx + 35, my - 5, 5, 0, Math.PI * 2); ctx.stroke();
-      // Corpo da moto
+      // Pneu traseiro
+      ctx.fillStyle = "#111";
+      ctx.beginPath(); ctx.arc(mx + 6, my - 8, 10, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "#333";
+      ctx.beginPath(); ctx.arc(mx + 6, my - 8, 6, 0, Math.PI * 2); ctx.fill();
+      // Pneu dianteiro
+      ctx.fillStyle = "#111";
+      ctx.beginPath(); ctx.arc(mx + 48, my - 8, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#333";
+      ctx.beginPath(); ctx.arc(mx + 48, my - 8, 6, 0, Math.PI * 2); ctx.fill();
+      // Quadro/chassi da moto
+      ctx.fillStyle = "#222";
       ctx.beginPath();
-      ctx.moveTo(mx + 5, my - 12);
-      ctx.lineTo(mx + 15, my - 20);
-      ctx.lineTo(mx + 30, my - 18);
-      ctx.lineTo(mx + 38, my - 12);
-      ctx.lineTo(mx + 35, my - 8);
-      ctx.lineTo(mx + 5, my - 8);
+      ctx.moveTo(mx + 6, my - 16);
+      ctx.lineTo(mx + 18, my - 28);
+      ctx.lineTo(mx + 40, my - 26);
+      ctx.lineTo(mx + 50, my - 16);
+      ctx.lineTo(mx + 46, my - 12);
+      ctx.lineTo(mx + 8, my - 12);
       ctx.closePath();
       ctx.fill();
-      // Tanque
+      // Tanque vermelho
       ctx.fillStyle = "#CC0000";
       ctx.beginPath();
-      ctx.ellipse(mx + 20, my - 16, 8, 4, -0.1, 0, Math.PI * 2);
+      ctx.ellipse(mx + 28, my - 24, 12, 5, -0.1, 0, Math.PI * 2);
       ctx.fill();
-      // Piloto - capacete
+      ctx.fillStyle = "#AA0000";
+      ctx.beginPath();
+      ctx.ellipse(mx + 28, my - 22, 10, 3, 0, 0, Math.PI);
+      ctx.fill();
+      // Motor
+      ctx.fillStyle = "#555";
+      ctx.fillRect(mx + 16, my - 18, 14, 6);
+      // Escapamento
+      ctx.fillStyle = "#888";
+      ctx.fillRect(mx - 2, my - 14, 12, 3);
+      ctx.beginPath();
+      ctx.arc(mx - 2, my - 12, 2, 0, Math.PI * 2);
+      ctx.fill();
+      // Piloto - corpo inclinado pra frente
       ctx.fillStyle = "#111";
       ctx.beginPath();
-      ctx.arc(mx + 18, my - 28, 7, 0, Math.PI * 2);
-      ctx.fill();
-      // Viseira
-      ctx.fillStyle = "#333";
-      ctx.fillRect(mx + 20, my - 30, 6, 5);
-      // Corpo do piloto
-      ctx.fillStyle = "#222";
-      ctx.fillRect(mx + 14, my - 22, 8, 8);
-      // Guidao
-      ctx.strokeStyle = "#666";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(mx + 30, my - 20);
-      ctx.lineTo(mx + 34, my - 26);
-      ctx.stroke();
-      // Escapamento fumaca
-      if (gameRef.current.frameCount % 4 < 2) {
-        ctx.fillStyle = "rgba(150,150,150,0.3)";
-        ctx.beginPath();
-        ctx.arc(mx - 5, my - 8, 3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(mx - 12, my - 10, 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-    else if (obs.type === "motoboy") {
-      // Motoboy de delivery - muito SP!
-      const mx = obs.x;
-      const my = groundY;
-      // Rodas
-      ctx.fillStyle = "#222";
-      ctx.beginPath(); ctx.arc(mx + 5, my - 5, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(mx + 35, my - 5, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "#555";
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(mx + 5, my - 5, 5, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(mx + 35, my - 5, 5, 0, Math.PI * 2); ctx.stroke();
-      // Corpo moto
-      ctx.fillStyle = "#444";
-      ctx.beginPath();
-      ctx.moveTo(mx + 5, my - 12);
-      ctx.lineTo(mx + 15, my - 18);
-      ctx.lineTo(mx + 30, my - 16);
-      ctx.lineTo(mx + 38, my - 12);
-      ctx.lineTo(mx + 35, my - 8);
-      ctx.lineTo(mx + 5, my - 8);
+      ctx.moveTo(mx + 20, my - 28);
+      ctx.lineTo(mx + 32, my - 36);
+      ctx.lineTo(mx + 36, my - 30);
+      ctx.lineTo(mx + 24, my - 24);
       ctx.closePath();
       ctx.fill();
-      // BAU DE DELIVERY (laranja/vermelho - iFood style)
+      // Capacete preto grande
+      ctx.fillStyle = "#111";
+      ctx.beginPath();
+      ctx.arc(mx + 26, my - 40, 9, 0, Math.PI * 2);
+      ctx.fill();
+      // Viseira reflexiva
+      ctx.fillStyle = "#4488CC";
+      ctx.beginPath();
+      ctx.arc(mx + 29, my - 39, 6, -0.5, 0.8);
+      ctx.lineTo(mx + 29, my - 36);
+      ctx.closePath();
+      ctx.fill();
+      // Bracos no guidao
+      ctx.strokeStyle = "#111";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(mx + 32, my - 34);
+      ctx.lineTo(mx + 42, my - 30);
+      ctx.stroke();
+      // Guidao
+      ctx.strokeStyle = "#777";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(mx + 42, my - 34);
+      ctx.lineTo(mx + 46, my - 28);
+      ctx.stroke();
+      // Farol dianteiro
+      ctx.fillStyle = "#FFDD44";
+      ctx.beginPath();
+      ctx.arc(mx + 50, my - 20, 3, 0, Math.PI * 2);
+      ctx.fill();
+      // Fumaca do escapamento
+      const fc = gameRef.current.frameCount;
+      ctx.fillStyle = "rgba(150,150,150,0.4)";
+      ctx.beginPath(); ctx.arc(mx - 8 - (fc % 10), my - 12, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(150,150,150,0.2)";
+      ctx.beginPath(); ctx.arc(mx - 18 - (fc % 15), my - 14, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(mx - 26 - (fc % 12), my - 16, 2, 0, Math.PI * 2); ctx.fill();
+    }
+    else if (obs.type === "motoboy") {
+      // Motoboy de delivery - muito SP! (maior e mais claro)
+      const mx = obs.x;
+      const my = groundY;
+      // Pneu traseiro
+      ctx.fillStyle = "#111";
+      ctx.beginPath(); ctx.arc(mx + 6, my - 8, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#333";
+      ctx.beginPath(); ctx.arc(mx + 6, my - 8, 6, 0, Math.PI * 2); ctx.fill();
+      // Pneu dianteiro
+      ctx.fillStyle = "#111";
+      ctx.beginPath(); ctx.arc(mx + 48, my - 8, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#333";
+      ctx.beginPath(); ctx.arc(mx + 48, my - 8, 6, 0, Math.PI * 2); ctx.fill();
+      // Quadro da moto
+      ctx.fillStyle = "#333";
+      ctx.beginPath();
+      ctx.moveTo(mx + 6, my - 16);
+      ctx.lineTo(mx + 18, my - 26);
+      ctx.lineTo(mx + 40, my - 24);
+      ctx.lineTo(mx + 50, my - 16);
+      ctx.lineTo(mx + 46, my - 12);
+      ctx.lineTo(mx + 8, my - 12);
+      ctx.closePath();
+      ctx.fill();
+      // Motor
+      ctx.fillStyle = "#555";
+      ctx.fillRect(mx + 16, my - 18, 14, 5);
+      // Piloto corpo
+      ctx.fillStyle = "#222";
+      ctx.beginPath();
+      ctx.moveTo(mx + 20, my - 26);
+      ctx.lineTo(mx + 30, my - 34);
+      ctx.lineTo(mx + 34, my - 28);
+      ctx.lineTo(mx + 24, my - 22);
+      ctx.closePath();
+      ctx.fill();
+      // Capacete VERMELHO (delivery)
       ctx.fillStyle = "#E84C3D";
-      ctx.fillRect(mx + 2, my - 36, 18, 16);
+      ctx.beginPath();
+      ctx.arc(mx + 24, my - 38, 9, 0, Math.PI * 2);
+      ctx.fill();
+      // Viseira
+      ctx.fillStyle = "#222";
+      ctx.beginPath();
+      ctx.arc(mx + 27, my - 37, 6, -0.5, 0.8);
+      ctx.lineTo(mx + 27, my - 34);
+      ctx.closePath();
+      ctx.fill();
+      // Bracos
+      ctx.strokeStyle = "#222";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(mx + 30, my - 32);
+      ctx.lineTo(mx + 42, my - 28);
+      ctx.stroke();
+      // BAU DE DELIVERY grande (vermelho iFood)
+      ctx.fillStyle = "#E84C3D";
+      ctx.beginPath();
+      ctx.roundRect(mx - 4, my - 48, 24, 20, 3);
+      ctx.fill();
+      // Borda do bau
       ctx.fillStyle = "#C0392B";
-      ctx.fillRect(mx + 2, my - 36, 18, 3);
+      ctx.fillRect(mx - 4, my - 48, 24, 4);
       // Logo no bau
       ctx.fillStyle = "#FFF";
-      ctx.font = "bold 5px Arial";
+      ctx.font = "bold 7px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("FOME", mx + 11, my - 25);
-      // Piloto com capacete
-      ctx.fillStyle = "#E84C3D"; // capacete vermelho do app
+      ctx.fillText("iFood", mx + 8, my - 33);
+      // Suporte do bau
+      ctx.fillStyle = "#666";
+      ctx.fillRect(mx + 8, my - 28, 3, 4);
+      ctx.fillRect(mx + 14, my - 28, 3, 4);
+      // Farol
+      ctx.fillStyle = "#FFDD44";
       ctx.beginPath();
-      ctx.arc(mx + 20, my - 26, 6, 0, Math.PI * 2);
+      ctx.arc(mx + 50, my - 20, 3, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "#222";
-      ctx.fillRect(mx + 22, my - 28, 5, 4);
-      // Corpo
-      ctx.fillStyle = "#333";
-      ctx.fillRect(mx + 16, my - 21, 8, 7);
-      // Mochila termica nas costas
-      ctx.fillStyle = "#E84C3D";
-      ctx.fillRect(mx + 8, my - 28, 8, 10);
+      // Fumaca
+      const fc2 = gameRef.current.frameCount;
+      ctx.fillStyle = "rgba(150,150,150,0.3)";
+      ctx.beginPath(); ctx.arc(mx - 6 - (fc2 % 10), my - 12, 3, 0, Math.PI * 2); ctx.fill();
     }
     else if (obs.type === "radar") {
       // Radar / Lombada eletronica - classico de SP
@@ -891,47 +959,92 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   // === DRAW TRAFFIC LIGHT ===
   function drawTrafficLight(ctx: CanvasRenderingContext2D, tl: TrafficLight, groundY: number) {
     const tx = tl.x;
+    const g = gameRef.current;
+    const isRed = tl.state === "red";
+
     // Poste
     ctx.fillStyle = "#555";
-    ctx.fillRect(tx + 7, groundY - 75, 5, 75);
+    ctx.fillRect(tx + 10, groundY - 90, 6, 90);
     // Braco horizontal
-    ctx.fillRect(tx - 5, groundY - 75, 30, 4);
-    // Caixa do semaforo
-    ctx.fillStyle = "#222";
+    ctx.fillRect(tx - 5, groundY - 90, 36, 5);
+
+    // Caixa do semaforo (maior)
+    ctx.fillStyle = "#1a1a1a";
     ctx.beginPath();
-    ctx.roundRect(tx - 2, groundY - 100, 22, 50, 4);
+    ctx.roundRect(tx - 4, groundY - 130, 34, 70, 6);
     ctx.fill();
     ctx.strokeStyle = "#444";
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(tx - 2, groundY - 100, 22, 50, 4);
+    ctx.roundRect(tx - 4, groundY - 130, 34, 70, 6);
     ctx.stroke();
+
     // Luz vermelha
-    ctx.fillStyle = tl.state === "red" ? "#FF0000" : "#330000";
+    ctx.fillStyle = isRed ? "#FF0000" : "#330000";
     ctx.beginPath();
-    ctx.arc(tx + 9, groundY - 90, 6, 0, Math.PI * 2);
+    ctx.arc(tx + 13, groundY - 115, 9, 0, Math.PI * 2);
     ctx.fill();
-    if (tl.state === "red") {
-      ctx.fillStyle = "rgba(255,0,0,0.2)";
+    if (isRed) {
+      // Halo vermelho pulsante
+      const pulse = 0.15 + Math.sin(g.frameCount * 0.15) * 0.1;
+      ctx.fillStyle = `rgba(255,0,0,${pulse})`;
       ctx.beginPath();
-      ctx.arc(tx + 9, groundY - 90, 10, 0, Math.PI * 2);
+      ctx.arc(tx + 13, groundY - 115, 18, 0, Math.PI * 2);
       ctx.fill();
     }
-    // Luz amarela
+
+    // Luz amarela (sempre apagada)
     ctx.fillStyle = "#332200";
     ctx.beginPath();
-    ctx.arc(tx + 9, groundY - 76, 6, 0, Math.PI * 2);
+    ctx.arc(tx + 13, groundY - 95, 9, 0, Math.PI * 2);
     ctx.fill();
+
     // Luz verde
-    ctx.fillStyle = tl.state === "green" ? "#00FF00" : "#003300";
+    ctx.fillStyle = !isRed ? "#00FF00" : "#003300";
     ctx.beginPath();
-    ctx.arc(tx + 9, groundY - 62, 6, 0, Math.PI * 2);
+    ctx.arc(tx + 13, groundY - 75, 9, 0, Math.PI * 2);
     ctx.fill();
-    if (tl.state === "green") {
-      ctx.fillStyle = "rgba(0,255,0,0.2)";
+    if (!isRed) {
+      ctx.fillStyle = "rgba(0,255,0,0.15)";
       ctx.beginPath();
-      ctx.arc(tx + 9, groundY - 62, 10, 0, Math.PI * 2);
+      ctx.arc(tx + 13, groundY - 75, 16, 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    // === TEXTO INSTRUCAO (grande e claro) ===
+    if (!tl.passed) {
+      if (isRed) {
+        // Fundo do aviso
+        const blink = Math.sin(g.frameCount * 0.2) > 0;
+        if (blink) {
+          ctx.fillStyle = "rgba(255,0,0,0.85)";
+          ctx.beginPath();
+          ctx.roundRect(tx - 18, groundY - 160, 62, 24, 6);
+          ctx.fill();
+          ctx.fillStyle = "#FFF";
+          ctx.font = "bold 14px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("PULE!", tx + 13, groundY - 143);
+        }
+      } else {
+        ctx.fillStyle = "rgba(0,180,0,0.85)";
+        ctx.beginPath();
+        ctx.roundRect(tx - 18, groundY - 155, 62, 22, 6);
+        ctx.fill();
+        ctx.fillStyle = "#FFF";
+        ctx.font = "bold 12px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("+20 PTS", tx + 13, groundY - 139);
+      }
+    }
+
+    // Faixa de parada no chao (vermelho) ou faixa livre (verde)
+    if (isRed) {
+      ctx.fillStyle = "rgba(255,0,0,0.4)";
+      ctx.fillRect(tx - 15, groundY - 3, 56, 6);
+    } else {
+      ctx.fillStyle = "rgba(0,255,0,0.3)";
+      ctx.fillRect(tx - 15, groundY - 3, 56, 6);
     }
   }
 

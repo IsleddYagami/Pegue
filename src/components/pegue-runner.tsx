@@ -1440,9 +1440,12 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       // === UPDATE ===
       if (g.running && !g.gameOver) {
         g.frameCount++;
-        g.speed += SPEED_INCREMENT;
-        g.groundOffset += g.speed;
-        g.distance += g.speed * 0.1;
+        const isEntregaCutscene = g.phaseState === "entrega";
+        if (!isEntregaCutscene) {
+          g.speed += SPEED_INCREMENT;
+          g.groundOffset += g.speed;
+          g.distance += g.speed * 0.1;
+        }
         g.comboTimer = Math.max(0, g.comboTimer - 1);
         if (g.comboTimer === 0) g.combo = 0;
         g.flashTimer = Math.max(0, g.flashTimer - 1);
@@ -1499,7 +1502,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // Transicoes de fase
         const DESAFIO_FRAMES = 2400; // ~40s
         const RODOVIA_FRAMES = 420;  // ~7s
-        const ENTREGA_FRAMES = 180;  // ~3s animacao
+        const ENTREGA_FRAMES = 330;  // ~5.5s cutscene
 
         if (g.phaseState === "desafio" && g.phaseTimer >= DESAFIO_FRAMES) {
           g.phaseState = "rodovia";
@@ -1870,24 +1873,164 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillRect(0, 0, W, H);
       }
 
-      // === ANIMACAO ENTREGA ===
+      // === CUTSCENE ENTREGA ===
       if (g.phaseState === "entrega" && g.running) {
-        const progress = g.phaseTimer / 180;
-        // Caixa descendo
-        const boxY = baseGroundY - 80 - Math.sin(progress * Math.PI) * 60;
+        const t = g.phaseTimer;
+        const total = 330;
+        const cx = W * 0.55;
+        const gy = truckGroundY;
+
+        // Fundo semi-escuro pra destacar a cena
+        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.fillRect(0, 0, W, H);
+
+        // === Casa/Local de entrega ===
+        // Parede
+        ctx.fillStyle = "#D4C4A0";
+        ctx.fillRect(cx + 40, gy - 80, 70, 80);
+        // Telhado
+        ctx.fillStyle = "#8B4513";
+        ctx.beginPath();
+        ctx.moveTo(cx + 30, gy - 80);
+        ctx.lineTo(cx + 75, gy - 110);
+        ctx.lineTo(cx + 120, gy - 80);
+        ctx.closePath();
+        ctx.fill();
+        // Porta
+        ctx.fillStyle = "#6B3410";
+        ctx.fillRect(cx + 60, gy - 50, 20, 50);
+        // Macaneta
         ctx.fillStyle = "#C9A84C";
-        ctx.fillRect(W * 0.65 - 15, boxY - 15, 30, 30);
-        ctx.fillStyle = "#8B7530";
-        ctx.fillRect(W * 0.65 - 1, boxY - 15, 2, 30);
-        ctx.fillRect(W * 0.65 - 15, boxY - 1, 30, 2);
-        // Texto
-        ctx.fillStyle = "#00FF00";
-        ctx.font = "bold 18px Arial";
+        ctx.beginPath();
+        ctx.arc(cx + 76, gy - 25, 2, 0, Math.PI * 2);
+        ctx.fill();
+        // Janela
+        ctx.fillStyle = "#87CEEB";
+        ctx.fillRect(cx + 88, gy - 65, 15, 15);
+        ctx.strokeStyle = "#6B3410";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cx + 88, gy - 65, 15, 15);
+        ctx.beginPath();
+        ctx.moveTo(cx + 95.5, gy - 65);
+        ctx.lineTo(cx + 95.5, gy - 50);
+        ctx.stroke();
+        // Numero da casa
+        ctx.fillStyle = "#333";
+        ctx.font = "bold 8px Arial";
         ctx.textAlign = "center";
-        ctx.fillText(`ENTREGA ${g.deliveries}`, W / 2, baseGroundY - 120);
-        ctx.fillStyle = "#C9A84C";
-        ctx.font = "bold 14px Arial";
-        ctx.fillText("CONCLUIDA!", W / 2, baseGroundY - 100);
+        ctx.fillText("42", cx + 70, gy - 55);
+
+        // === Pessoa recebendo (aparece apos 1s) ===
+        if (t > 60) {
+          const personX = cx + 35;
+          // Corpo
+          ctx.fillStyle = "#3366CC";
+          ctx.fillRect(personX - 5, gy - 35, 10, 20);
+          // Cabeca
+          ctx.fillStyle = "#FFCC99";
+          ctx.beginPath();
+          ctx.arc(personX, gy - 42, 7, 0, Math.PI * 2);
+          ctx.fill();
+          // Cabelo
+          ctx.fillStyle = "#333";
+          ctx.beginPath();
+          ctx.arc(personX, gy - 45, 7, Math.PI, 0);
+          ctx.fill();
+          // Sorriso
+          ctx.strokeStyle = "#333";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(personX, gy - 40, 3, 0.1, Math.PI - 0.1);
+          ctx.stroke();
+          // Pernas
+          ctx.fillStyle = "#444";
+          ctx.fillRect(personX - 4, gy - 15, 3, 15);
+          ctx.fillRect(personX + 1, gy - 15, 3, 15);
+
+          // Braco acenando (animado)
+          if (t > 120) {
+            const waveAngle = Math.sin(t * 0.12) * 0.4;
+            ctx.save();
+            ctx.translate(personX + 5, gy - 30);
+            ctx.rotate(-1.2 + waveAngle);
+            ctx.fillStyle = "#FFCC99";
+            ctx.fillRect(0, 0, 3, 15);
+            // Mao
+            ctx.beginPath();
+            ctx.arc(1.5, 16, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+
+        // === Pacote sendo entregue (voa do carro ate a pessoa) ===
+        if (t > 30 && t < 150) {
+          const p = Math.min(1, (t - 30) / 100);
+          const startX = 100;
+          const endX = cx + 30;
+          const pkgX = startX + (endX - startX) * p;
+          const pkgY = gy - 50 - Math.sin(p * Math.PI) * 80;
+          ctx.fillStyle = "#C9A84C";
+          ctx.fillRect(pkgX - 12, pkgY - 12, 24, 24);
+          ctx.fillStyle = "#8B7530";
+          ctx.fillRect(pkgX - 1, pkgY - 12, 2, 24);
+          ctx.fillRect(pkgX - 12, pkgY - 1, 24, 2);
+        }
+
+        // === Confetti (apos entrega) ===
+        if (t > 150) {
+          const confettiColors = ["#C9A84C", "#FF6600", "#00CC00", "#FF0066", "#3366FF", "#FFCC00"];
+          for (let i = 0; i < 25; i++) {
+            const seed = i * 137.5;
+            const confX = (W * 0.3 + Math.sin(seed) * W * 0.4 + t * 0.3 * Math.cos(seed * 0.7)) % W;
+            const confY = ((seed * 3 + t * (1.5 + Math.sin(seed) * 0.5)) % (gy + 20));
+            const rot = t * 0.05 + seed;
+            ctx.save();
+            ctx.translate(confX, confY);
+            ctx.rotate(rot);
+            ctx.fillStyle = confettiColors[i % confettiColors.length];
+            ctx.fillRect(-4, -2, 8, 4);
+            ctx.restore();
+          }
+        }
+
+        // === Textos de comemoracao ===
+        if (t > 80) {
+          const scale = Math.min(1, (t - 80) / 30);
+          ctx.save();
+          ctx.translate(W / 2, gy - 160);
+          ctx.scale(scale, scale);
+
+          // Fundo do texto
+          ctx.fillStyle = "rgba(0,0,0,0.7)";
+          ctx.beginPath();
+          ctx.roundRect(-120, -25, 240, 65, 12);
+          ctx.fill();
+          ctx.strokeStyle = "#C9A84C";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(-120, -25, 240, 65, 12);
+          ctx.stroke();
+
+          ctx.fillStyle = "#00FF00";
+          ctx.font = "bold 22px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText(`ENTREGA ${g.deliveries}`, 0, 0);
+          ctx.fillStyle = "#C9A84C";
+          ctx.font = "bold 16px Arial";
+          ctx.fillText("CONCLUIDA! 🎉", 0, 25);
+
+          ctx.restore();
+        }
+
+        // Bonus text
+        if (t > 200 && t < 300) {
+          const alpha = Math.min(1, (t - 200) / 20) * Math.min(1, (300 - t) / 20);
+          ctx.fillStyle = `rgba(201,168,76,${alpha})`;
+          ctx.font = "bold 18px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText(`+${100 * g.phase} PONTOS!`, W / 2, gy - 200);
+        }
       }
 
       // === BANNER RODOVIA ===

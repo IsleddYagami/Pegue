@@ -11,8 +11,8 @@ const GRAVITY = 0.6;
 const JUMP_FORCE = -12;
 const GROUND_HEIGHT = 0.75;
 const TRUCK_SIZE = 44;
-const INITIAL_SPEED = 4;
-const SPEED_INCREMENT = 0.002;
+const INITIAL_SPEED = 3.5; // mais lento pra fase 1 ser tranquila
+const SPEED_INCREMENT = 0.001; // sobe mais devagar dentro da fase
 
 // === INTERFACES ===
 interface Obstacle {
@@ -1622,7 +1622,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             type: "boss", vy: 0, flashTimer: 0, multado: false,
             bossHP, bossHits: 0,
           });
-          showStatus(`⚠️ BOSS - FASE ${g.phase}!`, 80);
+          const bossNomes: Record<number, string> = { 1: "TRANQUILO", 2: "ESQUENTANDO", 3: "CORRERIA", 4: "CACHORRO LOUCO", 5: "PILOTO DE CORRIDA" };
+          showStatus(`⚠️ BOSS - ${bossNomes[g.phase] || "FASE " + g.phase}!`, 80);
           playSound("game-combo");
         }
         else if (g.phaseState === "boss" && g.bossDefeated) {
@@ -1643,25 +1644,46 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           g.phase++;
           g.phaseState = "desafio";
           g.phaseTimer = 0;
-          g.speed += 0.5; // cada fase fica mais rapida
+          // Velocidade aumenta por fase (progressao suave)
+          if (g.phase === 2) g.speed += 0.3;
+          else if (g.phase === 3) g.speed += 0.5;
+          else if (g.phase === 4) g.speed += 0.7;
+          else g.speed += 1.0; // fase 5+ piloto de corrida
           setDisplayPhase(g.phase);
-          showStatus(`🚚 FASE ${g.phase} - NOVA ENTREGA!`, 70);
+          const nomesFase: Record<number, string> = {
+            2: "🚚 ESQUENTANDO!",
+            3: "🔥 CORRERIA!",
+            4: "🐕 CACHORRO LOUCO!",
+            5: "🏎️ PILOTO DE CORRIDA!",
+          };
+          showStatus(nomesFase[g.phase] || `🏎️ FASE ${g.phase} - INSANO!`, 80);
           playSound("game-combo");
         }
 
         // Spawn obstaculos (pausado na rodovia e entrega)
+        // DIFICULDADE POR FASE:
+        // 1 = Tranquilo (poucos obstaculos simples, bem espacados)
+        // 2 = Esquentando (mais variedade, espacamento medio)
+        // 3 = Correria (tudo aparece, espacamento curto)
+        // 4 = Cachorro Louco (spam de obstaculos, velocidade alta)
+        // 5+ = Piloto de Corrida (insano, so pra lenda)
         const canSpawn = g.phaseState === "desafio";
         if (canSpawn) {
           g.nextSpawn--;
           if (g.nextSpawn <= 0) {
-            const allTypes: Obstacle["type"][] = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "motoboy", "radar"];
             let pool: Obstacle["type"][];
-            if (g.phase === 1 && g.phaseTimer < 600) {
-              pool = ["barreira", "cone", "buraco", "pedra"];
-            } else if (g.phase <= 2) {
-              pool = ["barreira", "cone", "buraco", "pedra", "pedra", "motoqueiro", "motoboy"];
+            if (g.phase === 1) {
+              // Fase 1: so cones e buracos (facil de entender)
+              pool = ["cone", "buraco", "cone", "buraco", "pedra"];
+            } else if (g.phase === 2) {
+              // Fase 2: adiciona barreiras e motoqueiro
+              pool = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "cone"];
+            } else if (g.phase === 3) {
+              // Fase 3: tudo, incluindo motoboy
+              pool = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "motoboy", "radar"];
             } else {
-              pool = allTypes;
+              // Fase 4+: tudo com mais frequencia de dificeis
+              pool = ["barreira", "buraco", "pedra", "motoqueiro", "motoboy", "radar", "motoqueiro", "motoboy"];
             }
             const type = pool[Math.floor(Math.random() * pool.length)];
             let width = 25, height = 30;
@@ -1675,32 +1697,41 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             else if (type === "radar") { width = 30; height = 72; }
 
             g.obstacles.push({ x: W + 20, width, height, type, vy: 0, flashTimer: 0, multado: false });
-            // Fase 1: bem espaçado (prazer inicial). Fases seguintes: mais apertado
+
+            // Espacamento entre obstaculos por fase
             let spawnDelay: number;
             if (g.phase === 1) {
-              spawnDelay = 100 + Math.random() * 80; // bem generoso
+              // TRANQUILO: muito espaco pra reagir (150-280 frames = 2.5-4.7s entre obstaculos)
+              spawnDelay = 150 + Math.random() * 130;
             } else if (g.phase === 2) {
-              spawnDelay = 75 + Math.random() * 65;
+              // ESQUENTANDO: espaco medio (100-190 frames = 1.7-3.2s)
+              spawnDelay = 100 + Math.random() * 90;
             } else if (g.phase === 3) {
-              spawnDelay = 60 + Math.random() * 50;
+              // CORRERIA: mais apertado (70-130 frames = 1.2-2.2s)
+              spawnDelay = 70 + Math.random() * 60;
+            } else if (g.phase === 4) {
+              // CACHORRO LOUCO: pouco espaco (50-100 frames = 0.8-1.7s)
+              spawnDelay = 50 + Math.random() * 50;
             } else {
-              spawnDelay = 45 + Math.random() * 40; // fases 4+: intenso
+              // PILOTO DE CORRIDA: spam (35-75 frames = 0.6-1.3s)
+              spawnDelay = 35 + Math.random() * 40;
             }
-            if (type === "radar") spawnDelay += 50;
+            if (type === "radar") spawnDelay += 60; // radares sempre mais espacados
             g.nextSpawn = spawnDelay;
           }
         }
 
-        // Spawn semaforos (so no desafio)
-        if (canSpawn) {
+        // Spawn semaforos (so a partir da fase 2)
+        if (canSpawn && g.phase >= 2) {
           g.nextTrafficLight--;
-          if (g.nextTrafficLight <= 0 && g.phaseTimer > 300) {
+          const semaforoDelay = g.phase <= 2 ? 300 : g.phase <= 3 ? 200 : 120;
+          if (g.nextTrafficLight <= 0 && g.phaseTimer > 400) {
             g.trafficLights.push({
               x: W + 30,
-              state: Math.random() > 0.4 ? "red" : "green",
+              state: Math.random() > (g.phase >= 4 ? 0.55 : 0.4) ? "red" : "green",
               passed: false,
             });
-            g.nextTrafficLight = 200 + Math.random() * 150;
+            g.nextTrafficLight = semaforoDelay + Math.random() * 100;
           }
         }
 
@@ -2208,7 +2239,15 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.font = "bold 12px Arial";
       ctx.textAlign = "center";
       if (g.combo <= 1) {
-        ctx.fillText(`FASE ${g.phase}  |  📦 ${g.deliveries} entrega${g.deliveries !== 1 ? "s" : ""}`, W / 2, 26);
+        const nomeFaseHUD: Record<number, string> = {
+          1: "TRANQUILO",
+          2: "ESQUENTANDO",
+          3: "CORRERIA",
+          4: "CACHORRO LOUCO",
+          5: "PILOTO DE CORRIDA",
+        };
+        const faseNome = nomeFaseHUD[g.phase] || `FASE ${g.phase}`;
+        ctx.fillText(`${faseNome}  |  📦 ${g.deliveries}`, W / 2, 26);
       }
       if (g.combo > 1) {
         ctx.font = "bold 16px Arial";
@@ -2257,7 +2296,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
 
         ctx.fillStyle = "#C9A84C";
         ctx.font = "13px Arial";
-        ctx.fillText(`📏 ${Math.floor(g.distance)}m  •  📦 ${g.deliveries} entrega${g.deliveries !== 1 ? "s" : ""}  •  Fase ${g.phase}`, W / 2, H * 0.39);
+        const goFaseNome: Record<number, string> = { 1: "Tranquilo", 2: "Esquentando", 3: "Correria", 4: "Cachorro Louco", 5: "Piloto de Corrida" };
+        ctx.fillText(`📏 ${Math.floor(g.distance)}m  •  📦 ${g.deliveries}  •  ${goFaseNome[g.phase] || "Fase " + g.phase}`, W / 2, H * 0.39);
 
         if (g.score >= g.highScore && g.score > 0) {
           ctx.fillStyle = "#FFD700";

@@ -11,8 +11,8 @@ const GRAVITY = 0.6;
 const JUMP_FORCE = -12;
 const GROUND_HEIGHT = 0.75;
 const TRUCK_SIZE = 44;
-const INITIAL_SPEED = 3.5; // mais lento pra fase 1 ser tranquila
-const SPEED_INCREMENT = 0.001; // sobe mais devagar dentro da fase
+const INITIAL_SPEED = 4.2; // velocidade confortavel pra fase 1
+const SPEED_INCREMENT = 0.0012; // sobe gradualmente dentro da fase
 
 // === INTERFACES ===
 interface Obstacle {
@@ -118,9 +118,14 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     bossActive: false,
     bossDefeated: false,
     // Boss nova mecanica: boss joga obstaculos, sobreviva 10s
-    bossTimer: 0, // frames restantes do boss (600 = 10s)
-    bossSpawnTimer: 0, // timer pra proximo obstaculo do boss
-    bossDerrotaTimer: 0, // animacao da derrota do boss
+    bossTimer: 0,
+    bossSpawnTimer: 0,
+    bossDerrotaTimer: 0,
+    bossType: "guincho" as "guincho" | "guarda", // tipo do boss da fase
+    // Boss 2 - Guarda Rodoviario: 3 multas = eliminado
+    guardaMultas: 0,
+    // Notas de dollar voando na entrega
+    dollarNotes: [] as { x: number; y: number; speed: number; angle: number }[],
     // Clima
     raining: false,
     raindrops: [] as { x: number; y: number; speed: number; len: number }[],
@@ -938,11 +943,12 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.beginPath(); ctx.arc(mx - 6 - (fc2 % 10), my - 12, 3, 0, Math.PI * 2); ctx.fill();
     }
     else if (obs.type === "boss") {
-      // BOSS - Guincho CET (redesenhado)
+      // BOSS - Guincho CET ou Guarda Rodoviario
       const bx = obs.x;
       const by = groundY + (obs.vy || 0);
       const flashing = obs.flashTimer && obs.flashTimer > 0;
       const fc = gameRef.current.frameCount;
+      const isGuarda = gameRef.current.bossType === "guarda";
       const shake = flashing ? Math.sin(fc * 0.5) * 3 : 0;
 
       ctx.save();
@@ -998,14 +1004,14 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.beginPath();
       ctx.roundRect(bx + 58, by - 52, 52, 36, [8, 8, 0, 0]);
       ctx.fill();
-      // Faixa amarela CET
-      ctx.fillStyle = "#FFD700";
+      // Faixa colorida
+      ctx.fillStyle = isGuarda ? "#1565C0" : "#FFD700";
       ctx.fillRect(bx + 58, by - 30, 52, 14);
-      // Texto CET
-      ctx.fillStyle = "#000";
-      ctx.font = "bold 11px Arial";
+      // Texto
+      ctx.fillStyle = isGuarda ? "#FFF" : "#000";
+      ctx.font = "bold 10px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("CET", bx + 84, by - 20);
+      ctx.fillText(isGuarda ? "PRF" : "CET", bx + 84, by - 20);
       // Para-brisa
       ctx.fillStyle = "#87CEEB";
       ctx.beginPath();
@@ -1089,7 +1095,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.font = "bold 9px Arial";
         ctx.textAlign = "center";
         if (g2.phaseState === "boss_derrota") {
-          ctx.fillText("PNEU FURADO!", barX + barW / 2, barY - 6);
+          ctx.fillText(g2.bossType === "guincho" ? "PNEU FURADO!" : "FOI EMBORA!", barX + barW / 2, barY - 6);
+        } else if (g2.bossType === "guarda") {
+          ctx.fillText(`MULTAS: ${g2.guardaMultas}/3  |  ${secondsLeft}s`, barX + barW / 2, barY - 6);
         } else {
           ctx.fillText(`DESVIE! ${secondsLeft}s`, barX + barW / 2, barY - 6);
         }
@@ -1349,6 +1357,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       phase: 1, phaseState: "desafio", phaseTimer: 0,
       deliveries: 0, bossActive: false, bossDefeated: false,
       bossTimer: 0, bossSpawnTimer: 0, bossDerrotaTimer: 0,
+      bossType: "guincho", guardaMultas: 0, dollarNotes: [],
       raining: false, raindrops: [],
     });
     setDisplayPhase(1);
@@ -1629,7 +1638,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           g.bossTimer = 600; // 10 segundos a 60fps
           g.bossSpawnTimer = 0;
           g.bossDerrotaTimer = 0;
-          // Spawn boss na frente (visual, nao colide com jogador)
+          g.guardaMultas = 0;
+          // Alterna boss: impares=guincho, pares=guarda
+          g.bossType = g.phase % 2 === 1 ? "guincho" : "guarda";
+          // Spawn boss na frente
           g.obstacles = g.obstacles.filter(o => o.type !== "boss");
           g.obstacles.push({
             x: W + 80, width: 120, height: 70,
@@ -1637,7 +1649,11 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             bossHP: 10, bossHits: 0,
           });
           const bossNomes: Record<number, string> = { 1: "TRANQUILO", 2: "ESQUENTANDO", 3: "CORRERIA", 4: "CACHORRO LOUCO", 5: "PILOTO DE CORRIDA" };
-          showStatus(`⚠️ GUINCHO CET! DESVIE POR 10s!`, 90);
+          if (g.bossType === "guincho") {
+            showStatus("⚠️ GUINCHO CET! DESVIE POR 10s!", 90);
+          } else {
+            showStatus("🚔 GUARDA RODOVIARIO! NAO ERRE! 3 MULTAS = ELIMINADO!", 100);
+          }
           playSound("game-combo");
         }
         // Boss ativo: conta timer e spawna obstaculos
@@ -1647,30 +1663,63 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           if (bossObs) {
             bossObs.bossHits = Math.floor((600 - g.bossTimer) / 60);
           }
-          // Boss JOGA obstaculos pra tras (nascem na frente, vem pro jogador)
-          g.bossSpawnTimer--;
-          if (g.bossSpawnTimer <= 0) {
-            const bossPool: Obstacle["type"][] = g.phase <= 2
-              ? ["cone", "cone", "barreira", "pedra"]
-              : ["cone", "barreira", "pedra", "barreira", "cone", "pedra"];
-            const tipo = bossPool[Math.floor(Math.random() * bossPool.length)];
-            let w = 25, h = 28;
-            if (tipo === "barreira") { w = 40; h = 35; }
-            else if (tipo === "pedra") { w = 30; h = 20; }
-            // Obstaculo nasce ADIANTE na tela (vem da direita como todos)
-            g.obstacles.push({ x: W + 10, width: w, height: h, type: tipo, vy: 0, flashTimer: 0, multado: false });
-            // Intervalo entre arremessos (mais rapido em fases altas)
-            const spawnBase = g.phase <= 1 ? 55 : g.phase <= 2 ? 42 : g.phase <= 3 ? 32 : 22;
-            g.bossSpawnTimer = spawnBase + Math.random() * 20;
+
+          if (g.bossType === "guincho") {
+            // === BOSS 1: GUINCHO CET - joga cones e barreiras ===
+            g.bossSpawnTimer--;
+            if (g.bossSpawnTimer <= 0) {
+              const bossPool: Obstacle["type"][] = g.phase <= 2
+                ? ["cone", "cone", "barreira", "pedra"]
+                : ["cone", "barreira", "pedra", "barreira", "cone", "pedra"];
+              const tipo = bossPool[Math.floor(Math.random() * bossPool.length)];
+              let w = 25, h = 28;
+              if (tipo === "barreira") { w = 40; h = 35; }
+              else if (tipo === "pedra") { w = 30; h = 20; }
+              g.obstacles.push({ x: W + 10, width: w, height: h, type: tipo, vy: 0, flashTimer: 0, multado: false });
+              const spawnBase = g.phase <= 1 ? 55 : g.phase <= 2 ? 42 : g.phase <= 3 ? 32 : 22;
+              g.bossSpawnTimer = spawnBase + Math.random() * 20;
+            }
+          } else {
+            // === BOSS 2: GUARDA RODOVIARIO - joga radares, 3 multas = eliminado ===
+            g.bossSpawnTimer--;
+            if (g.bossSpawnTimer <= 0) {
+              // Guarda joga radares e cones (radares dao multa se nao pular)
+              const guardaPool: Obstacle["type"][] = ["radar", "radar", "cone", "radar"];
+              const tipo = guardaPool[Math.floor(Math.random() * guardaPool.length)];
+              let w = 30, h = 72;
+              if (tipo === "cone") { w = 20; h = 25; }
+              g.obstacles.push({ x: W + 10, width: w, height: h, type: tipo, vy: 0, flashTimer: 0, multado: false });
+              const spawnBase = g.phase <= 2 ? 50 : g.phase <= 3 ? 38 : 28;
+              g.bossSpawnTimer = spawnBase + Math.random() * 20;
+            }
+            // Checa se levou 3 multas (radares que passou no chao)
+            if (g.guardaMultas >= 3) {
+              g.gameOver = true;
+              g.running = false;
+              playSound("game-over");
+              showStatus("3 MULTAS! CARTEIRA SUSPENSA!", 80);
+              spawnParticles(60 + 20, truckGroundY - 20, "#FF0000", 25);
+              if (g.score > g.highScore) {
+                g.highScore = g.score;
+                localStorage.setItem("pegue_runner_highscore", g.score.toString());
+                setDisplayHighScore(g.score);
+              }
+              setGameState("gameover");
+            }
           }
+
           // Sobreviveu 10 segundos!
-          if (g.bossTimer <= 0) {
+          if (g.bossTimer <= 0 && !g.gameOver) {
             g.bossDefeated = true;
             g.bossActive = false;
             g.phaseState = "boss_derrota";
             g.phaseTimer = 0;
             g.bossDerrotaTimer = 180;
-            showStatus("PNEU FURADO! BOSS DERROTADO!", 70);
+            if (g.bossType === "guincho") {
+              showStatus("PNEU FURADO! BOSS DERROTADO!", 70);
+            } else {
+              showStatus("GUARDA FOI EMBORA! VOCE ESCAPOU!", 70);
+            }
             playSound("game-star");
             if (bossObs) {
               spawnParticles(bossObs.x + 60, baseGroundY - 40, "#FF6600", 25);
@@ -1705,6 +1754,16 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             playSound("game-star");
             spawnParticles(W / 2, baseGroundY - 50, "#C9A84C", 30);
             spawnParticles(W / 2, baseGroundY - 50, "#00FF00", 20);
+            // Spawn 7 notas de dollar voando pro carro
+            g.dollarNotes = [];
+            for (let dn = 0; dn < 7; dn++) {
+              g.dollarNotes.push({
+                x: W + 30 + dn * 50,
+                y: truckGroundY - 20 - Math.random() * 30,
+                speed: 2.5 + Math.random() * 2,
+                angle: Math.random() * 0.5 - 0.25,
+              });
+            }
           }
         }
         else if (g.phaseState === "entrega" && g.phaseTimer >= ENTREGA_FRAMES) {
@@ -1803,9 +1862,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           }
         }
 
-        // Spawn itens
-        g.nextItemSpawn--;
-        if (g.nextItemSpawn <= 0) {
+        // Spawn itens (pausa durante entrega e derrota do boss)
+        if (g.phaseState !== "entrega" && g.phaseState !== "boss_derrota") g.nextItemSpawn--;
+        if (g.nextItemSpawn <= 0 && g.phaseState !== "entrega" && g.phaseState !== "boss_derrota") {
           const types: Item["type"][] = ["pacote", "pacote", "pacote", "moeda", "moeda", "pegue_logo"];
           g.items.push({
             x: W + 20,
@@ -1871,13 +1930,23 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
                 setDisplayScore(g.score);
                 obs.flashTimer = 20;
                 g.radarFlash = 15;
-                showStatus("MULTADO! -30", 50);
+                // Se esta no boss guarda, conta multa
+                if (g.bossActive && g.bossType === "guarda") {
+                  g.guardaMultas++;
+                  showStatus(`MULTA ${g.guardaMultas}/3! ${g.guardaMultas >= 3 ? "ELIMINADO!" : "CUIDADO!"}`, 50);
+                } else {
+                  showStatus("MULTADO! -30", 50);
+                }
                 playSound("game-over");
                 spawnParticles(obs.x + 15, obsGY - 50, "#FF0000", 8);
               } else {
                 g.score += 15;
                 setDisplayScore(g.score);
-                showStatus("ESCAPOU! +15", 40);
+                if (g.bossActive && g.bossType === "guarda") {
+                  showStatus("LIMPO! SEM MULTA!", 35);
+                } else {
+                  showStatus("ESCAPOU! +15", 40);
+                }
                 playSound("game-star");
                 spawnParticles(obs.x + 15, obsGY - 50, "#00FF00", 8);
               }
@@ -2046,6 +2115,40 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // Overlay escuro da chuva
         ctx.fillStyle = "rgba(0,0,30,0.15)";
         ctx.fillRect(0, 0, W, H);
+      }
+
+      // === NOTAS DE DOLLAR VOANDO ===
+      if (g.dollarNotes.length > 0 && (g.phaseState === "entrega" || g.phaseState === "boss_derrota")) {
+        g.dollarNotes.forEach((note) => {
+          // Move pra esquerda em direcao ao carro
+          note.x -= note.speed;
+          note.y += Math.sin(g.frameCount * 0.1 + note.x * 0.05) * 0.8;
+          // Desenha nota de dollar
+          if (note.x > -30 && note.x < W + 30) {
+            ctx.save();
+            ctx.translate(note.x, note.y);
+            ctx.rotate(note.angle + Math.sin(g.frameCount * 0.05) * 0.1);
+            // Nota verde
+            ctx.fillStyle = "#2E7D32";
+            ctx.fillRect(-18, -10, 36, 20);
+            ctx.fillStyle = "#4CAF50";
+            ctx.fillRect(-16, -8, 32, 16);
+            // Borda
+            ctx.strokeStyle = "#1B5E20";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-18, -10, 36, 20);
+            // Simbolo $
+            ctx.fillStyle = "#FFF";
+            ctx.font = "bold 14px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("$", 0, 0);
+            ctx.textBaseline = "alphabetic";
+            ctx.restore();
+          }
+        });
+        // Remove notas que passaram do carro
+        g.dollarNotes = g.dollarNotes.filter(n => n.x > -40);
       }
 
       // === CUTSCENE ENTREGA ===

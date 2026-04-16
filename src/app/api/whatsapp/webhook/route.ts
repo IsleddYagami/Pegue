@@ -897,7 +897,7 @@ async function handleAjudante(phone: string, message: string) {
   // TODO: salvar temElevador na sessao (por ora nao temos campo)
 
   const veiculo = session.veiculo_sugerido || "utilitario";
-  const precos = calcularPrecos(distanciaKm, veiculo, qtdAjudantes > 0, session.andar || 0, false);
+  const precos = calcularPrecos(distanciaKm, veiculo, qtdAjudantes > 0, session.andar || 0, false, session.destino_endereco || "");
 
   // Adiciona segundo ajudante se necessario
   const ajudanteExtra = qtdAjudantes === 2 ? (distanciaKm <= 10 ? 80 : 100) : 0;
@@ -905,6 +905,7 @@ async function handleAjudante(phone: string, message: string) {
     ...precos.padrao,
     total: precos.padrao.total + ajudanteExtra,
   };
+  const zonaInfo = precos.zona;
 
   const veiculoNome: Record<string, string> = {
     utilitario: "Utilitario (Strada/Saveiro)",

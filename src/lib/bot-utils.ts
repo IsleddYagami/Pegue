@@ -212,6 +212,72 @@ const MIN_VEICULO: Record<string, number> = {
   caminhao_bau: 500,
 };
 
+// === ZONAS DE DIFICULDADE ===
+// Regioes perigosas, acesso dificil, densidade alta, area de risco
+// Multiplicador extra aplicado sobre o preco base
+// normal=1.0, dificil=1.15, fundao=1.30
+type ZonaDificuldade = "normal" | "dificil" | "fundao";
+
+const ZONAS_FUNDAO: string[] = [
+  // Zona Sul extrema SP
+  "capao redondo", "jardim angela", "jardim sao luiz", "grajau", "parelheiros",
+  "marsilac", "cidade dutra", "pedreira", "jardim herculano",
+  "campo limpo", "jardim miriam", "cidade ademar",
+  // Zona Leste extrema SP
+  "cidade tiradentes", "guaianases", "lajeado", "jose bonifacio",
+  "sao mateus", "iguatemi", "sao rafael", "jardim helena",
+  "itaim paulista", "vila curuça", "jardim romano",
+  // Zona Norte dificil
+  "brasilandia", "cachoeirinha", "perus", "anhanguera",
+  "jaraguá", "pirituba norte",
+  // Municipios dificeis
+  "franco da rocha", "francisco morato", "cajamar",
+  "rio grande da serra", "suzano", "ferraz de vasconcelos",
+  "itaquaquecetuba", "poa",
+];
+
+const ZONAS_DIFICIL: string[] = [
+  // Zona Leste media
+  "itaquera", "sao miguel", "penha", "ermelino matarazzo",
+  "artur alvim", "cangaiba", "vila matilde",
+  // Zona Sul media
+  "interlagos", "socorro", "santo amaro sul", "jabaquara",
+  "ipiranga sul", "sacomã",
+  // Zona Norte
+  "tucuruvi", "tremembé", "jaçanã", "vila medeiros",
+  "santana norte", "casa verde alta", "freguesia do ó",
+  "caieiras", "mairiporã",
+  // ABC periferia
+  "mauá", "diadema", "ribeirão pires",
+  // Oeste dificil
+  "embu das artes", "taboão da serra", "itapevi", "jandira",
+  "carapicuíba", "cotia",
+];
+
+// Detecta zona de dificuldade pelo endereco do destino
+export function detectarZona(endereco: string): ZonaDificuldade {
+  if (!endereco) return "normal";
+  const lower = endereco.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // remove acentos
+
+  for (const zona of ZONAS_FUNDAO) {
+    const zonaNorm = zona.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (lower.includes(zonaNorm)) return "fundao";
+  }
+  for (const zona of ZONAS_DIFICIL) {
+    const zonaNorm = zona.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (lower.includes(zonaNorm)) return "dificil";
+  }
+  return "normal";
+}
+
+// Multiplicador por zona
+function getMultZona(zona: ZonaDificuldade): number {
+  if (zona === "fundao") return 1.30;  // +30% area de risco
+  if (zona === "dificil") return 1.15; // +15% acesso dificil
+  return 1.0;
+}
+
 export interface PrecoDetalhado {
   base: number;
   ajudante: number;
@@ -225,15 +291,21 @@ export function calcularPrecos(
   veiculoTipo: string = "utilitario",
   temAjudante: boolean = false,
   andares: number = 0,
-  temElevador: boolean = false
-): { padrao: PrecoDetalhado } {
+  temElevador: boolean = false,
+  enderecoDestino: string = ""
+): { padrao: PrecoDetalhado; zona: ZonaDificuldade } {
   // Preco base do utilitario pela distancia
   const baseUtil = calcularPrecoBaseUtilitario(distanciaKm);
 
-  // Aplica multiplicador dinamico (varia por veiculo E distancia)
+  // Aplica multiplicador do veiculo
   const mult = getMultiplicador(veiculoTipo, distanciaKm);
   const minimo = MIN_VEICULO[veiculoTipo] || 150;
-  const base = Math.max(Math.round(baseUtil * mult), minimo);
+  let base = Math.max(Math.round(baseUtil * mult), minimo);
+
+  // Aplica multiplicador de zona (fundao/dificil/normal)
+  const zona = detectarZona(enderecoDestino);
+  const multZona = getMultZona(zona);
+  base = Math.round(base * multZona);
 
   // Adicionais
   let ajudante = 0;
@@ -255,6 +327,7 @@ export function calcularPrecos(
 
   return {
     padrao: { base, ajudante, elevador, escada, total },
+    zona,
   };
 }
 
@@ -263,11 +336,12 @@ export function calcularPrecosCompleto(
   distanciaKm: number,
   temAjudante: boolean = false,
   andares: number = 0,
-  temElevador: boolean = false
+  temElevador: boolean = false,
+  enderecoDestino: string = ""
 ) {
-  const util = calcularPrecos(distanciaKm, "utilitario", temAjudante, andares, temElevador);
-  const hr = calcularPrecos(distanciaKm, "hr", temAjudante, andares, temElevador);
-  const cam = calcularPrecos(distanciaKm, "caminhao_bau", temAjudante, andares, temElevador);
+  const util = calcularPrecos(distanciaKm, "utilitario", temAjudante, andares, temElevador, enderecoDestino);
+  const hr = calcularPrecos(distanciaKm, "hr", temAjudante, andares, temElevador, enderecoDestino);
+  const cam = calcularPrecos(distanciaKm, "caminhao_bau", temAjudante, andares, temElevador, enderecoDestino);
 
   return {
     utilitario: util.padrao,

@@ -1641,29 +1641,27 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           playSound("game-combo");
         }
         // Boss ativo: conta timer e spawna obstaculos
-        else if (g.phaseState === "boss" && g.bossActive && !g.bossDefeated) {
+        if (g.phaseState === "boss" && g.bossActive && !g.bossDefeated) {
           g.bossTimer--;
-          // Barra de progresso: atualiza bossHits pra refletir tempo
           const bossObs = g.obstacles.find(o => o.type === "boss");
           if (bossObs) {
-            bossObs.bossHits = Math.floor((600 - g.bossTimer) / 60); // 0-10
+            bossObs.bossHits = Math.floor((600 - g.bossTimer) / 60);
           }
-          // Boss joga obstaculos pra tras (cones, cavaletes, barreiras)
+          // Boss JOGA obstaculos pra tras (nascem na frente, vem pro jogador)
           g.bossSpawnTimer--;
           if (g.bossSpawnTimer <= 0) {
             const bossPool: Obstacle["type"][] = g.phase <= 2
               ? ["cone", "cone", "barreira", "pedra"]
               : ["cone", "barreira", "pedra", "barreira", "cone", "pedra"];
             const tipo = bossPool[Math.floor(Math.random() * bossPool.length)];
-            let w = 20, h = 25;
-            if (tipo === "barreira") { w = 35; h = 30; }
-            else if (tipo === "pedra") { w = 25; h = 18; }
-            // Obstaculo nasce na posicao do boss (na frente)
-            const bossX = bossObs ? bossObs.x : W * 0.65;
-            g.obstacles.push({ x: bossX - 20, width: w, height: h, type: tipo, vy: 0, flashTimer: 0, multado: false });
-            // Spawn mais rapido conforme fase avanca
-            const spawnBase = g.phase <= 2 ? 45 : g.phase <= 3 ? 35 : 25;
-            g.bossSpawnTimer = spawnBase + Math.random() * 25;
+            let w = 25, h = 28;
+            if (tipo === "barreira") { w = 40; h = 35; }
+            else if (tipo === "pedra") { w = 30; h = 20; }
+            // Obstaculo nasce ADIANTE na tela (vem da direita como todos)
+            g.obstacles.push({ x: W + 10, width: w, height: h, type: tipo, vy: 0, flashTimer: 0, multado: false });
+            // Intervalo entre arremessos (mais rapido em fases altas)
+            const spawnBase = g.phase <= 1 ? 55 : g.phase <= 2 ? 42 : g.phase <= 3 ? 32 : 22;
+            g.bossSpawnTimer = spawnBase + Math.random() * 20;
           }
           // Sobreviveu 10 segundos!
           if (g.bossTimer <= 0) {
@@ -1671,12 +1669,12 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             g.bossActive = false;
             g.phaseState = "boss_derrota";
             g.phaseTimer = 0;
-            g.bossDerrotaTimer = 180; // 3s de animacao de derrota
-            showStatus("BOSS DERROTADO!", 70);
+            g.bossDerrotaTimer = 180;
+            showStatus("PNEU FURADO! BOSS DERROTADO!", 70);
             playSound("game-star");
             if (bossObs) {
               spawnParticles(bossObs.x + 60, baseGroundY - 40, "#FF6600", 25);
-              spawnParticles(bossObs.x + 60, baseGroundY - 40, "#333333", 15); // fumaca pneu
+              spawnParticles(bossObs.x + 40, baseGroundY - 20, "#333333", 15);
             }
           }
         }
@@ -1821,8 +1819,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // Move obstaculos
         g.obstacles = g.obstacles.filter((o) => {
           if (o.type === "boss") {
-            // Boss fica na frente, posicao fixa
-            const targetX = W * 0.55;
+            // Boss fica BEM na frente (lado direito da tela)
+            const targetX = W * 0.72;
             if (g.phaseState === "boss_derrota") {
               // animacao controlada pelo bloco boss_derrota
             } else if (o.x > targetX) {

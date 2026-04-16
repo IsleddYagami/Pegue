@@ -109,14 +109,18 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     // Rodovia (zona de descanso)
     restActive: false,
     restTimer: 0,
-    nextRestFrame: 2400, // ~40s a 60fps
+    nextRestFrame: 2400,
     // Sistema de fases
     phase: 1,
-    phaseState: "desafio" as "desafio" | "rodovia" | "boss" | "entrega",
+    phaseState: "desafio" as "desafio" | "rodovia" | "boss" | "boss_derrota" | "entrega",
     phaseTimer: 0,
     deliveries: 0,
     bossActive: false,
     bossDefeated: false,
+    // Boss nova mecanica: boss joga obstaculos, sobreviva 10s
+    bossTimer: 0, // frames restantes do boss (600 = 10s)
+    bossSpawnTimer: 0, // timer pra proximo obstaculo do boss
+    bossDerrotaTimer: 0, // animacao da derrota do boss
     // Clima
     raining: false,
     raindrops: [] as { x: number; y: number; speed: number; len: number }[],
@@ -1067,10 +1071,11 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
 
       ctx.restore();
 
-      // === Barra de vida (fora do shake) ===
+      // === Barra de tempo (10s countdown) ===
       if (obs.bossHP && obs.bossHP > 0) {
-        const hits = obs.bossHits || 0;
-        const hpPercent = 1 - (hits / obs.bossHP);
+        const g2 = gameRef.current;
+        const timePercent = Math.max(0, g2.bossTimer / 600);
+        const secondsLeft = Math.ceil(g2.bossTimer / 60);
         const barW = 100;
         const barX = bx + 10;
         const barY = by - 80;
@@ -1083,19 +1088,24 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillStyle = "#FFF";
         ctx.font = "bold 9px Arial";
         ctx.textAlign = "center";
-        ctx.fillText(`GUINCHO CET  ×${obs.bossHP - hits}`, barX + barW / 2, barY - 6);
-        // Barra
+        if (g2.phaseState === "boss_derrota") {
+          ctx.fillText("PNEU FURADO!", barX + barW / 2, barY - 6);
+        } else {
+          ctx.fillText(`DESVIE! ${secondsLeft}s`, barX + barW / 2, barY - 6);
+        }
+        // Barra (diminui com o tempo - verde pra vermelho)
         ctx.fillStyle = "#333";
         ctx.beginPath(); ctx.roundRect(barX, barY, barW, 8, 3); ctx.fill();
-        ctx.fillStyle = hpPercent > 0.5 ? "#00CC00" : hpPercent > 0.25 ? "#CCCC00" : "#CC0000";
-        ctx.beginPath(); ctx.roundRect(barX, barY, barW * hpPercent, 8, 3); ctx.fill();
+        const barColor = timePercent > 0.5 ? "#00CC00" : timePercent > 0.25 ? "#CCCC00" : "#CC0000";
+        ctx.fillStyle = barColor;
+        ctx.beginPath(); ctx.roundRect(barX, barY, barW * timePercent, 8, 3); ctx.fill();
         ctx.strokeStyle = "rgba(255,255,255,0.3)";
         ctx.lineWidth = 1;
         ctx.beginPath(); ctx.roundRect(barX, barY, barW, 8, 3); ctx.stroke();
       }
 
-      // === Instrucao piscante quando perto ===
-      if (obs.x < 250 && !obs.multado && !flashing) {
+      // === Instrucao quando boss chega ===
+      if (obs.x < (ctx.canvas.width * 0.6) && gameRef.current.phaseState === "boss") {
         const blink = fc % 30 < 20;
         if (blink) {
           ctx.fillStyle = "rgba(255,50,50,0.9)";
@@ -1105,7 +1115,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           ctx.fillStyle = "#FFF";
           ctx.font = "bold 12px Arial";
           ctx.textAlign = "center";
-          ctx.fillText("PULE! ⬆️", bx + 60, by - 89);
+          ctx.fillText("DESVIE!", bx + 60, by - 89);
         }
       }
     }
@@ -1338,6 +1348,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       restActive: false, restTimer: 0, nextRestFrame: 2400,
       phase: 1, phaseState: "desafio", phaseTimer: 0,
       deliveries: 0, bossActive: false, bossDefeated: false,
+      bossTimer: 0, bossSpawnTimer: 0, bossDerrotaTimer: 0,
       raining: false, raindrops: [],
     });
     setDisplayPhase(1);
@@ -1539,7 +1550,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       // === UPDATE ===
       if (g.running && !g.gameOver) {
         g.frameCount++;
-        const isEntregaCutscene = g.phaseState === "entrega";
+        const isEntregaCutscene = g.phaseState === "entrega" || g.phaseState === "boss_derrota";
         if (!isEntregaCutscene) {
           g.speed += SPEED_INCREMENT;
           g.groundOffset += g.speed;
@@ -1615,29 +1626,88 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           g.restActive = false;
           g.bossActive = true;
           g.bossDefeated = false;
-          // Spawn boss
-          const bossHP = Math.min(2 + g.phase, 6); // mais HP nas fases avancadas
+          g.bossTimer = 600; // 10 segundos a 60fps
+          g.bossSpawnTimer = 0;
+          g.bossDerrotaTimer = 0;
+          // Spawn boss na frente (visual, nao colide com jogador)
+          g.obstacles = g.obstacles.filter(o => o.type !== "boss");
           g.obstacles.push({
-            x: W + 50, width: 120, height: 70,
+            x: W + 80, width: 120, height: 70,
             type: "boss", vy: 0, flashTimer: 0, multado: false,
-            bossHP, bossHits: 0,
+            bossHP: 10, bossHits: 0,
           });
           const bossNomes: Record<number, string> = { 1: "TRANQUILO", 2: "ESQUENTANDO", 3: "CORRERIA", 4: "CACHORRO LOUCO", 5: "PILOTO DE CORRIDA" };
-          showStatus(`⚠️ BOSS - ${bossNomes[g.phase] || "FASE " + g.phase}!`, 80);
+          showStatus(`⚠️ GUINCHO CET! DESVIE POR 10s!`, 90);
           playSound("game-combo");
         }
-        else if (g.phaseState === "boss" && g.bossDefeated) {
-          g.phaseState = "entrega";
-          g.phaseTimer = 0;
-          g.bossActive = false;
-          g.deliveries++;
-          g.score += 100 * g.phase;
-          setDisplayScore(g.score);
-          setDisplayDeliveries(g.deliveries);
-          showStatus(`📦 ENTREGA ${g.deliveries} CONCLUIDA! +${100 * g.phase}`, 90);
-          playSound("game-star");
-          spawnParticles(W / 2, baseGroundY - 50, "#C9A84C", 30);
-          spawnParticles(W / 2, baseGroundY - 50, "#00FF00", 20);
+        // Boss ativo: conta timer e spawna obstaculos
+        else if (g.phaseState === "boss" && g.bossActive && !g.bossDefeated) {
+          g.bossTimer--;
+          // Barra de progresso: atualiza bossHits pra refletir tempo
+          const bossObs = g.obstacles.find(o => o.type === "boss");
+          if (bossObs) {
+            bossObs.bossHits = Math.floor((600 - g.bossTimer) / 60); // 0-10
+          }
+          // Boss joga obstaculos pra tras (cones, cavaletes, barreiras)
+          g.bossSpawnTimer--;
+          if (g.bossSpawnTimer <= 0) {
+            const bossPool: Obstacle["type"][] = g.phase <= 2
+              ? ["cone", "cone", "barreira", "pedra"]
+              : ["cone", "barreira", "pedra", "barreira", "cone", "pedra"];
+            const tipo = bossPool[Math.floor(Math.random() * bossPool.length)];
+            let w = 20, h = 25;
+            if (tipo === "barreira") { w = 35; h = 30; }
+            else if (tipo === "pedra") { w = 25; h = 18; }
+            // Obstaculo nasce na posicao do boss (na frente)
+            const bossX = bossObs ? bossObs.x : W * 0.65;
+            g.obstacles.push({ x: bossX - 20, width: w, height: h, type: tipo, vy: 0, flashTimer: 0, multado: false });
+            // Spawn mais rapido conforme fase avanca
+            const spawnBase = g.phase <= 2 ? 45 : g.phase <= 3 ? 35 : 25;
+            g.bossSpawnTimer = spawnBase + Math.random() * 25;
+          }
+          // Sobreviveu 10 segundos!
+          if (g.bossTimer <= 0) {
+            g.bossDefeated = true;
+            g.bossActive = false;
+            g.phaseState = "boss_derrota";
+            g.phaseTimer = 0;
+            g.bossDerrotaTimer = 180; // 3s de animacao de derrota
+            showStatus("BOSS DERROTADO!", 70);
+            playSound("game-star");
+            if (bossObs) {
+              spawnParticles(bossObs.x + 60, baseGroundY - 40, "#FF6600", 25);
+              spawnParticles(bossObs.x + 60, baseGroundY - 40, "#333333", 15); // fumaca pneu
+            }
+          }
+        }
+        // Animacao de derrota do boss (pneu fura, sai da pista)
+        else if (g.phaseState === "boss_derrota") {
+          g.bossDerrotaTimer--;
+          const bossObs = g.obstacles.find(o => o.type === "boss");
+          if (bossObs) {
+            // Boss se move pra direita e pra cima (sai da pista)
+            bossObs.x += 4;
+            bossObs.vy = -0.5;
+            bossObs.flashTimer = 3; // fica piscando
+            // Particulas de fumaca (pneu furado)
+            if (g.bossDerrotaTimer % 5 === 0) {
+              spawnParticles(bossObs.x + 20, baseGroundY - 10, "#555555", 3);
+            }
+          }
+          if (g.bossDerrotaTimer <= 0) {
+            // Remove boss e vai pra entrega
+            g.obstacles = g.obstacles.filter(o => o.type !== "boss");
+            g.phaseState = "entrega";
+            g.phaseTimer = 0;
+            g.deliveries++;
+            g.score += 100 * g.phase;
+            setDisplayScore(g.score);
+            setDisplayDeliveries(g.deliveries);
+            showStatus(`📦 ENTREGA ${g.deliveries} CONCLUIDA! +${100 * g.phase}`, 90);
+            playSound("game-star");
+            spawnParticles(W / 2, baseGroundY - 50, "#C9A84C", 30);
+            spawnParticles(W / 2, baseGroundY - 50, "#00FF00", 20);
+          }
         }
         else if (g.phaseState === "entrega" && g.phaseTimer >= ENTREGA_FRAMES) {
           // Proxima fase
@@ -1751,17 +1821,14 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // Move obstaculos
         g.obstacles = g.obstacles.filter((o) => {
           if (o.type === "boss") {
-            // Boss aproxima, recua apos hit, volta a aproximar
-            const targetX = 120; // perto do carro (carro em X=60)
-            if (o.flashTimer && o.flashTimer > 0) {
-              // Recuando apos hit
-              o.x += 3;
+            // Boss fica na frente, posicao fixa
+            const targetX = W * 0.55;
+            if (g.phaseState === "boss_derrota") {
+              // animacao controlada pelo bloco boss_derrota
             } else if (o.x > targetX) {
-              o.x -= g.speed * 0.6;
+              o.x -= g.speed * 0.8;
             }
-            if (o.x > W + 200) o.x = W + 200;
-            // Reset multado quando termina o recuo (permite proximo hit)
-            if (o.flashTimer === 1) o.multado = false;
+            if (o.x > W + 300) o.x = W + 300;
             o.vy = Math.sin(g.frameCount * 0.04) * 1;
           } else {
             o.x -= g.speed;
@@ -1820,48 +1887,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             continue;
           }
 
-          // BOSS - pular por cima dele = hit, bater nele no chao = game over
+          // BOSS - nao colide diretamente, so os obstaculos que ele joga
           if (obs.type === "boss") {
-            const bossNear = obs.x < 200 && obs.x > 30;
-            if (bossNear && tR > obs.x - 10 && tL < obs.x + obs.width + 10) {
-              if (g.isJumping && !obs.multado) {
-                // Pulou com sucesso = HIT no boss!
-                obs.multado = true;
-                obs.bossHits = (obs.bossHits || 0) + 1;
-                obs.flashTimer = 40; // recua por 40 frames
-                g.truckVY = JUMP_FORCE * 0.6; // bounce
-                playSound("game-star");
-                spawnParticles(obs.x + 60, obsGY - 40, "#FF6600", 15);
-                spawnParticles(obs.x + 60, obsGY - 40, "#FFFF00", 10);
-                const hitsLeft = (obs.bossHP || 3) - obs.bossHits!;
-                if (hitsLeft <= 0) {
-                  g.bossDefeated = true;
-                  g.obstacles = g.obstacles.filter((o) => o.type !== "boss");
-                  showStatus("BOSS DERROTADO! 💥", 70);
-                  playSound("game-combo");
-                  spawnParticles(obs.x + 60, obsGY - 30, "#C9A84C", 30);
-                  spawnParticles(obs.x + 60, obsGY - 30, "#FF0000", 25);
-                } else {
-                  showStatus(`PULE! FALTA ${hitsLeft}x`, 30);
-                }
-              } else if (!g.isJumping && tR > obs.x + 5 && tBot > obsGY - obs.height + 15) {
-                // Nao pulou, bateu no boss
-                g.gameOver = true;
-                g.running = false;
-                playSound("game-over");
-                spawnParticles(tL + 20, truckGroundY - 20, "#C9A84C", 20);
-                if (g.score > g.highScore) {
-                  g.highScore = g.score;
-                  localStorage.setItem("pegue_runner_highscore", g.score.toString());
-                  setDisplayHighScore(g.score);
-                }
-                setGameState("gameover");
-              }
-            }
-            // Texto de instrucao quando boss se aproxima
-            if (obs.x < 350 && obs.x > 200 && !obs.multado) {
-              showStatus("⚠️ PULE SOBRE O BOSS!", 5);
-            }
             continue;
           }
 

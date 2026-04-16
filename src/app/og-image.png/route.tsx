@@ -17,61 +17,25 @@ export async function GET() {
           fontFamily: "Arial, sans-serif",
         }}
       >
-        {/* Logo symbol */}
-        <div
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="https://pegue-eta.vercel.app/logo-pegue-novo.png"
+          width={320}
+          height={320}
+          alt="Pegue"
+          style={{ objectFit: "contain" }}
+        />
+        <p
           style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "20px",
+            fontSize: "24px",
+            color: "#C9A84C",
+            margin: 0,
+            marginTop: "16px",
+            letterSpacing: "3px",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="https://pegue-eta.vercel.app/logo-pegue.png"
-            width={280}
-            height={280}
-            alt="Pegue"
-            style={{ objectFit: "contain" }}
-          />
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <p
-              style={{
-                fontSize: "28px",
-                color: "#C9A84C",
-                margin: 0,
-                letterSpacing: "2px",
-              }}
-            >
-              SOLUÇÕES EM TRANSPORTES E FRETES
-            </p>
-            <div
-              style={{
-                width: "300px",
-                height: "2px",
-                backgroundColor: "#C9A84C",
-                marginTop: "8px",
-              }}
-            />
-            <p
-              style={{
-                fontSize: "22px",
-                color: "#888",
-                margin: 0,
-                marginTop: "12px",
-              }}
-            >
-              A Pegue Resolve. 🚚
-            </p>
-          </div>
-        </div>
+          A PEGUE RESOLVE.
+        </p>
       </div>
     ),
     {

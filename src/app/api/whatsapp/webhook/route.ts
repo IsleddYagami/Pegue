@@ -19,6 +19,7 @@ import {
   geocodeAddress,
   calcularDistanciaKm,
   calcularPrecos,
+  detectarZona,
   extrairCep,
   pareceEndereco,
   isSaudacao,
@@ -772,6 +773,16 @@ async function handleDestino(phone: string, message: string) {
     const coords = await geocodeAddress(message);
     destinoLat = coords?.lat || null;
     destinoLng = coords?.lng || null;
+  }
+
+  // Verifica se destino é area indisponivel (favela/area livre)
+  const zonaDestino = detectarZona(destinoEndereco);
+  if (zonaDestino === "indisponivel") {
+    await sendMessage({
+      to: phone,
+      message: `😔 *Poxa, infelizmente não conseguimos atender esse destino.*\n\nPor questões de segurança dos nossos prestadores, não realizamos entregas nessa região.\n\nSe tiver outro endereço próximo (portaria de condomínio, comércio, ponto de referência), pode mandar que a gente tenta! 📍\n\nOu se quiser recomeçar, é só mandar um *Oi* 👋`,
+    });
+    return;
   }
 
   await updateSession(phone, {

@@ -216,7 +216,33 @@ const MIN_VEICULO: Record<string, number> = {
 // Regioes perigosas, acesso dificil, densidade alta, area de risco
 // Multiplicador extra aplicado sobre o preco base
 // normal=1.0, dificil=1.15, fundao=1.30
-type ZonaDificuldade = "normal" | "dificil" | "fundao";
+type ZonaDificuldade = "normal" | "dificil" | "fundao" | "indisponivel";
+
+// === AREAS INDISPONIVEIS (favelas/areas livres) ===
+// Nao atendemos para preservar seguranca dos prestadores
+const ZONAS_INDISPONIVEL: string[] = [
+  // SP - Complexos e comunidades conhecidas
+  "heliopolis", "heliópolis", "paraisopolis", "paraisópolis",
+  "vila prudente favela", "sapopemba favela",
+  "cidade de deus", "pantanal zona sul",
+  "favela do moinho", "moinho",
+  "favela alba", "favela do alba",
+  "jaqueline", "vila jaqueline",
+  "jardim keralux", "keralux",
+  "favela do real parque", "real parque favela",
+  "jardim colombo favela",
+  "vila nova jaguare favela",
+  // Osasco
+  "morro do socó", "morro do soco",
+  "favela do mandaqui",
+  "vila menck favela",
+  // Guarulhos
+  "favela dos pelados",
+  // Termos genericos que indicam area livre
+  "area livre", "área livre",
+  "ocupacao", "ocupação",
+  "invasao", "invasão",
+];
 
 const ZONAS_FUNDAO: string[] = [
   // Zona Sul extrema SP
@@ -260,6 +286,11 @@ export function detectarZona(endereco: string): ZonaDificuldade {
   const lower = endereco.toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // remove acentos
 
+  // Primeiro: verifica se é area indisponivel (favela/area livre)
+  for (const zona of ZONAS_INDISPONIVEL) {
+    const zonaNorm = zona.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (lower.includes(zonaNorm)) return "indisponivel";
+  }
   for (const zona of ZONAS_FUNDAO) {
     const zonaNorm = zona.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     if (lower.includes(zonaNorm)) return "fundao";

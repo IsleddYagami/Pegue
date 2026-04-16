@@ -780,7 +780,7 @@ async function handleDestino(phone: string, message: string) {
   if (zonaDestino === "indisponivel") {
     await sendMessage({
       to: phone,
-      message: `😔 *Poxa, infelizmente não conseguimos atender esse destino.*\n\nPor questões de segurança dos nossos prestadores, não realizamos entregas nessa região.\n\nSe tiver outro endereço próximo (portaria de condomínio, comércio, ponto de referência), pode mandar que a gente tenta! 📍\n\nOu se quiser recomeçar, é só mandar um *Oi* 👋`,
+      message: `Que pena 😕 Mas essa rota está *indisponível* no momento.\n\nSe quiser tentar outro destino, manda o endereço! 📍`,
     });
     return;
   }

@@ -1826,22 +1826,23 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             g.obstacles.push({ x: W + 20, width, height, type, vy: 0, flashTimer: 0, multado: false });
 
             // Espacamento entre obstaculos por fase
+            // REGRA: fase 1 e 2 bem espacado, aperta gradualmente so a partir da 3
             let spawnDelay: number;
             if (g.phase === 1) {
-              // TRANQUILO: muito espaco pra reagir (150-280 frames = 2.5-4.7s entre obstaculos)
-              spawnDelay = 150 + Math.random() * 130;
+              // TRANQUILO: muito espaco (150-300 frames = 2.5-5s)
+              spawnDelay = 150 + Math.random() * 150;
             } else if (g.phase === 2) {
-              // ESQUENTANDO: espaco medio (100-190 frames = 1.7-3.2s)
-              spawnDelay = 100 + Math.random() * 90;
+              // ESQUENTANDO: ainda generoso (130-250 frames = 2.2-4.2s)
+              spawnDelay = 130 + Math.random() * 120;
             } else if (g.phase === 3) {
-              // CORRERIA: mais apertado (70-130 frames = 1.2-2.2s)
-              spawnDelay = 70 + Math.random() * 60;
+              // CORRERIA: comeca a apertar (90-170 frames = 1.5-2.8s)
+              spawnDelay = 90 + Math.random() * 80;
             } else if (g.phase === 4) {
-              // CACHORRO LOUCO: pouco espaco (50-100 frames = 0.8-1.7s)
-              spawnDelay = 50 + Math.random() * 50;
+              // CACHORRO LOUCO: apertado (60-120 frames = 1.0-2.0s)
+              spawnDelay = 60 + Math.random() * 60;
             } else {
-              // PILOTO DE CORRIDA: spam (35-75 frames = 0.6-1.3s)
-              spawnDelay = 35 + Math.random() * 40;
+              // PILOTO DE CORRIDA: intenso (40-85 frames = 0.7-1.4s)
+              spawnDelay = 40 + Math.random() * 45;
             }
             if (type === "radar") spawnDelay += 60; // radares sempre mais espacados
             g.nextSpawn = spawnDelay;
@@ -2489,7 +2490,16 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           <h1 className="mb-2 text-3xl font-bold text-[#C9A84C]">PEGUE RUNNER</h1>
           <p className="mb-6 text-sm text-gray-400">Pelas ruas de SP e Osasco!</p>
           <button
-            onClick={() => { setGameState("tutorial"); setTutorialStep(0); }}
+            onClick={() => {
+              const jaViuTutorial = localStorage.getItem("pegue_runner_tutorial_visto");
+              if (jaViuTutorial) {
+                setGameState("playing");
+                startGame();
+              } else {
+                setGameState("tutorial");
+                setTutorialStep(0);
+              }
+            }}
             className="mb-4 w-56 rounded-xl bg-[#C9A84C] py-4 text-lg font-bold text-black"
           >
             JOGAR
@@ -2570,6 +2580,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
                 if (tutorialStep < 4) {
                   setTutorialStep(tutorialStep + 1);
                 } else {
+                  localStorage.setItem("pegue_runner_tutorial_visto", "1");
                   setGameState("playing");
                   startGame();
                 }

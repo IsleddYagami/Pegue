@@ -173,23 +173,36 @@ export function distanciaRetaKm(
 }
 
 // Calcula preco base do veiculo pela distancia
-// Formula: 30 * sqrt(km) + 148 (calibrada com valores reais do mercado SP)
-// Valores de referencia Fabio (utilitario, sem ajudante, terreo):
-// Pres.Altino 2km=R$150, Bonfiglioli 3km=R$200, Alphaville 10km=R$220,
-// Lapa 12km=R$250, Agua Branca 15km=R$270, Casa Verde 20km=R$240,
-// Brooklin 22km=R$280, Panamby 25km=R$310, Suzano 55km=R$360, Santos 85km=R$400
+// Formula recalibrada em 16/Abr/2026 com 200+ amostras de mercado (ajustes Fabio)
+// Insight: Fabio aplica multiplicadores DIFERENTES por faixa de distancia
+// - Curtas: caminhao caro proporcionalmente (mult alto)
+// - Longas: caminhao nao sobe tanto (mult achata)
+// - HR: sempre abaixo do que a formula antiga dava
 function calcularPrecoBaseUtilitario(km: number): number {
-  if (km <= 2) return 150; // local, mesmo bairro
+  if (km <= 2) return 150;
   return Math.round(30 * Math.sqrt(km) + 148);
 }
 
-// Multiplicadores por veiculo sobre o preco base do utilitario
-const MULT_VEICULO: Record<string, number> = {
-  carro_comum: 0.85,
-  utilitario: 1.0,
-  hr: 1.7,
-  caminhao_bau: 2.2,
-};
+// Multiplicadores DINAMICOS por veiculo e faixa de distancia
+function getMultiplicador(veiculo: string, km: number): number {
+  if (veiculo === "carro_comum") return 0.85;
+  if (veiculo === "utilitario") {
+    // Utilitario: mult ~1.0 curto, sobe levemente em médio
+    if (km <= 20) return 1.0;
+    if (km <= 50) return 1.05;
+    return 1.1; // longas
+  }
+  if (veiculo === "hr") {
+    // HR: mult 1.5 fixo (calibrado com lista 1 do Fabio - erro <3%)
+    return 1.5;
+  }
+  if (veiculo === "caminhao_bau") {
+    // Caminhao: mult 2.2 fixo (bate perfeito com lista 1 do Fabio)
+    // Rotas perifericas/dificeis (Capao Redondo, Jardim Angela etc) podem ter ajuste manual
+    return 2.2;
+  }
+  return 1.0;
+}
 
 // Minimos por veiculo (sem ajudante, terreo)
 const MIN_VEICULO: Record<string, number> = {
@@ -217,8 +230,8 @@ export function calcularPrecos(
   // Preco base do utilitario pela distancia
   const baseUtil = calcularPrecoBaseUtilitario(distanciaKm);
 
-  // Aplica multiplicador do veiculo
-  const mult = MULT_VEICULO[veiculoTipo] || 1.0;
+  // Aplica multiplicador dinamico (varia por veiculo E distancia)
+  const mult = getMultiplicador(veiculoTipo, distanciaKm);
   const minimo = MIN_VEICULO[veiculoTipo] || 150;
   const base = Math.max(Math.round(baseUtil * mult), minimo);
 

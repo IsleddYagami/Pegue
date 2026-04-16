@@ -8,29 +8,110 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Pegue - Frete e Mudanca Rapido e Seguro",
+  metadataBase: new URL("https://pegue-eta.vercel.app"),
+  title: {
+    default: "Pegue - Frete, Mudança e Guincho Rápido pelo WhatsApp | Grande SP",
+    template: "%s | Pegue",
+  },
   description:
-    "Frete e mudanca sem dor de cabeca. Mande a foto do material e receba o valor na hora pelo WhatsApp. Grande SP, litoral e interior.",
+    "Frete, mudança e guincho sem dor de cabeça. Mande a foto do material e receba o valor na hora pelo WhatsApp. Atende Osasco, Grande SP, litoral e interior. A Pegue Resolve.",
   keywords: [
     "frete osasco",
-    "mudanca osasco",
+    "mudança osasco",
     "frete zona oeste sp",
-    "mudanca barata",
-    "frete rapido",
+    "mudança barata sp",
+    "frete rápido sp",
+    "guincho osasco",
+    "frete pelo whatsapp",
+    "frete grande sp",
+    "mudança residencial sp",
+    "carreto osasco",
   ],
+  authors: [{ name: "Pegue" }],
+  creator: "Pegue",
+  publisher: "Pegue",
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
-    title: "Pegue - Frete e Mudanca Rapido e Seguro",
+    title: "Pegue - Frete, Mudança e Guincho Rápido pelo WhatsApp",
     description: "Mande a foto do material e receba o valor na hora pelo WhatsApp. A Pegue Resolve.",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Pegue - Soluções em Transportes e Fretes" }],
-    type: "website",
+    url: "https://pegue-eta.vercel.app",
     siteName: "Pegue",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Pegue - Soluções em Transportes e Fretes" }],
+    locale: "pt_BR",
+    type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pegue - Frete e Mudanca Rapido e Seguro",
+    title: "Pegue - Frete e Mudança Rápido pelo WhatsApp",
     description: "Mande a foto do material e receba o valor na hora pelo WhatsApp.",
     images: ["/og-image.png"],
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "@id": "https://pegue-eta.vercel.app/#business",
+  name: "Pegue",
+  alternateName: "Chame Pegue",
+  description:
+    "Plataforma de fretes, mudanças e guinchos via WhatsApp com IA. Intermediamos entre clientes e prestadores na Grande SP.",
+  url: "https://pegue-eta.vercel.app",
+  telephone: "+5511970363713",
+  image: "https://pegue-eta.vercel.app/logo-pegue-novo.png",
+  logo: "https://pegue-eta.vercel.app/logo-pegue-novo.png",
+  priceRange: "R$",
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: "Osasco",
+    addressRegion: "SP",
+    addressCountry: "BR",
+  },
+  areaServed: [
+    { "@type": "City", name: "São Paulo" },
+    { "@type": "City", name: "Osasco" },
+    { "@type": "City", name: "Guarulhos" },
+    { "@type": "City", name: "Santo André" },
+    { "@type": "City", name: "São Bernardo do Campo" },
+    { "@type": "AdministrativeArea", name: "Grande São Paulo" },
+  ],
+  openingHoursSpecification: {
+    "@type": "OpeningHoursSpecification",
+    dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    opens: "07:00",
+    closes: "22:00",
+  },
+  sameAs: ["https://www.instagram.com/chamepegue"],
+  serviceType: ["Frete", "Mudança", "Guincho", "Carreto"],
+  slogan: "A Pegue Resolve. Pegou, Chegou!",
+};
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Pegue",
+  url: "https://pegue-eta.vercel.app",
+  logo: "https://pegue-eta.vercel.app/logo-pegue-novo.png",
+  contactPoint: {
+    "@type": "ContactPoint",
+    telephone: "+5511970363713",
+    contactType: "Customer Service",
+    areaServed: "BR",
+    availableLanguage: "Portuguese",
+  },
+  sameAs: ["https://www.instagram.com/chamepegue"],
 };
 
 const WHATSAPP_LINK =
@@ -43,6 +124,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={`${inter.variable} h-full antialiased`}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+      </head>
       <body className="min-h-full flex flex-col font-sans bg-[#000000]">
         {children}
 

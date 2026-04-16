@@ -1,7 +1,20 @@
+import type { Metadata } from "next";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { FormularioParceiro } from "@/components/formulario-parceiro";
 import { DashboardParceiro } from "@/components/dashboard-parceiro";
+
+export const metadata: Metadata = {
+  title: "Seja Parceiro - Ganhe Dinheiro Fazendo Fretes",
+  description:
+    "Cadastre-se como parceiro da Pegue e comece a fazer fretes e mudanças na Grande SP. Ganhe trabalhando quando quiser. Inscrição 100% gratuita.",
+  alternates: { canonical: "/parceiro" },
+  openGraph: {
+    title: "Seja Parceiro da Pegue - Ganhe Dinheiro Fazendo Fretes",
+    description: "Cadastre-se grátis e comece a ganhar com fretes e mudanças na Grande SP.",
+    url: "/parceiro",
+  },
+};
 import {
   Truck,
   Camera,

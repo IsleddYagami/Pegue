@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { DashboardCliente } from "@/components/dashboard-cliente";
 import { Users } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Minha Conta - Seus Fretes e Mudanças",
+  description: "Acesse sua conta Pegue e veja o histórico de fretes, mudanças e pontos do programa de indicação.",
+  alternates: { canonical: "/minha-conta" },
+  robots: { index: false, follow: true },
+};
 
 export default function MinhaContaPage() {
   return (

@@ -3514,59 +3514,82 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       });
       ctx.globalAlpha = 1;
 
-      // === FOREGROUND: PONTE METALICA OSASCO (sobre o carro) ===
+      // === FOREGROUND: PONTILHAO DE OSASCO (arcos metalicos sobre o carro) ===
       if (cenarioFase === 1 && isBossAtivo) {
-        // Treliça metalica ACIMA (jogador esta EM CIMA da ponte)
-        const ponteTopY = 62; // logo abaixo do HUD
+        const ponteBase = baseGroundY;
+        const arcoH = ponteBase - 75; // altura dos arcos
 
-        // Vigas horizontais superiores
-        ctx.strokeStyle = "#8B4513";
-        ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.moveTo(0, ponteTopY); ctx.lineTo(W, ponteTopY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, ponteTopY + 30); ctx.lineTo(W, ponteTopY + 30); ctx.stroke();
+        // ARCOS METALICOS GIGANTES (caracteristica principal do Pontilhao)
+        ctx.strokeStyle = "#8B6830";
+        ctx.lineWidth = 5;
+        const arcoSpacing = 200;
+        for (let ai = -1; ai < Math.ceil(W / arcoSpacing) + 2; ai++) {
+          const arcCx = ai * arcoSpacing - (g.groundOffset * 0.4) % arcoSpacing + arcoSpacing / 2;
+          // Arco principal (semicirculo grande)
+          ctx.beginPath();
+          ctx.arc(arcCx, ponteBase, arcoSpacing / 2 - 10, Math.PI, 0);
+          ctx.stroke();
+          // Arco interno menor
+          ctx.strokeStyle = "#A07840";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(arcCx, ponteBase, arcoSpacing / 2 - 30, Math.PI, 0);
+          ctx.stroke();
+          ctx.strokeStyle = "#8B6830";
+          ctx.lineWidth = 5;
 
-        // Diagonais da trelica (movem com scroll)
-        ctx.strokeStyle = "#A0522D";
-        ctx.lineWidth = 2.5;
-        for (let di = -30; di < W + 40; di += 35) {
-          const dx = di - (g.groundOffset * 0.4) % 35;
-          ctx.beginPath(); ctx.moveTo(dx, ponteTopY); ctx.lineTo(dx + 35, ponteTopY + 30); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(dx + 35, ponteTopY); ctx.lineTo(dx, ponteTopY + 30); ctx.stroke();
+          // Barras diagonais entre arcos (trelica dentro do arco)
+          ctx.strokeStyle = "#9A7840";
+          ctx.lineWidth = 1.5;
+          for (let bi = 0; bi < 6; bi++) {
+            const angle1 = Math.PI + (bi / 6) * Math.PI;
+            const angle2 = Math.PI + ((bi + 1) / 6) * Math.PI;
+            const r1 = arcoSpacing / 2 - 10;
+            const r2 = arcoSpacing / 2 - 30;
+            const x1 = arcCx + Math.cos(angle1) * r1;
+            const y1 = ponteBase + Math.sin(angle1) * r1;
+            const x2 = arcCx + Math.cos(angle2) * r2;
+            const y2 = ponteBase + Math.sin(angle2) * r2;
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+          }
+          ctx.strokeStyle = "#8B6830";
+          ctx.lineWidth = 5;
+
+          // Pilares verticais nos apoios dos arcos
+          const pillarX = arcCx - arcoSpacing / 2 + 10;
+          ctx.fillStyle = "#7A5820";
+          ctx.fillRect(pillarX - 3, ponteBase - 10, 6, 20);
         }
 
-        // Pilares laterais (verticais nos lados)
-        ctx.fillStyle = "#6B3410";
-        for (let pi = -20; pi < W + 50; pi += 100) {
-          const px = pi - (g.groundOffset * 0.4) % 100;
-          ctx.fillRect(px, ponteTopY, 5, baseGroundY - ponteTopY + 5);
-        }
+        // Viga horizontal no topo dos arcos
+        ctx.strokeStyle = "#8B6830";
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(0, arcoH); ctx.lineTo(W, arcoH); ctx.stroke();
 
-        // Grades laterais embaixo (protecao - na altura da pista)
-        ctx.strokeStyle = "#8B6914";
+        // Grade lateral de protecao (embaixo, na pista)
+        ctx.strokeStyle = "#AA8844";
         ctx.lineWidth = 2;
-        // Grade superior
-        ctx.beginPath(); ctx.moveTo(0, baseGroundY + 8); ctx.lineTo(W, baseGroundY + 8); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, baseGroundY + 22); ctx.lineTo(W, baseGroundY + 22); ctx.stroke();
-        // Barras verticais da grade
-        for (let gi = -10; gi < W + 20; gi += 18) {
-          const gx = gi - (g.groundOffset * 0.5) % 18;
-          ctx.beginPath(); ctx.moveTo(gx, baseGroundY + 8); ctx.lineTo(gx, baseGroundY + 22); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, ponteBase + 8); ctx.lineTo(W, ponteBase + 8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, ponteBase + 20); ctx.lineTo(W, ponteBase + 20); ctx.stroke();
+        for (let gi = -5; gi < W + 15; gi += 15) {
+          const gx = gi - (g.groundOffset * 0.5) % 15;
+          ctx.beginPath(); ctx.moveTo(gx, ponteBase + 8); ctx.lineTo(gx, ponteBase + 20); ctx.stroke();
         }
 
-        // Placa "PONTE METALICA - OSASCO" no topo
-        ctx.fillStyle = "rgba(0,80,0,0.85)";
+        // Placa "PONTILHAO DE OSASCO"
+        ctx.fillStyle = "rgba(0,80,0,0.9)";
         ctx.beginPath();
-        ctx.roundRect(W / 2 - 75, ponteTopY + 35, 150, 20, 4);
+        ctx.roundRect(W / 2 - 80, arcoH + 5, 160, 22, 4);
         ctx.fill();
         ctx.strokeStyle = "#FFF";
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.roundRect(W / 2 - 73, ponteTopY + 37, 146, 16, 3);
+        ctx.roundRect(W / 2 - 78, arcoH + 7, 156, 18, 3);
         ctx.stroke();
         ctx.fillStyle = "#FFF";
         ctx.font = "bold 9px Arial";
         ctx.textAlign = "center";
-        ctx.fillText("PONTE METALICA - OSASCO", W / 2, ponteTopY + 50);
+        ctx.fillText("PONTILHAO DE OSASCO", W / 2, arcoH + 20);
       }
 
       // === FOREGROUND: PONTES E TUNEIS ===

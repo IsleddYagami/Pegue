@@ -1934,6 +1934,91 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         if (c.x + c.w < 0) c.x = W + 50;
       });
 
+      // === PLACAS SINALIZADORAS DE SP ===
+      const placas = [
+        // Fase 1 - Osasco / Zona Oeste
+        { pos: 300, texto: "OSASCO", subtexto: "Centro", cor: "#006633" },
+        { pos: 800, texto: "AV. DOS AUTONOMISTAS", subtexto: "Osasco", cor: "#006633" },
+        { pos: 1500, texto: "PRES. ALTINO", subtexto: "1 km", cor: "#006633" },
+        { pos: 2200, texto: "RODOVIA CASTELO BRANCO", subtexto: "SP-280", cor: "#0044AA" },
+        { pos: 3000, texto: "ALPHAVILLE", subtexto: "Barueri", cor: "#006633" },
+        { pos: 3800, texto: "VELOCIDADE", subtexto: "MAX 60 km/h", cor: "#CC0000" },
+        // Fase 2 - Zona Oeste / Centro
+        { pos: 4500, texto: "LAPA", subtexto: "Zona Oeste", cor: "#006633" },
+        { pos: 5200, texto: "MARGINAL TIETE", subtexto: "SP-015", cor: "#0044AA" },
+        { pos: 6000, texto: "PONTE DO PIQUERI", subtexto: "", cor: "#006633" },
+        { pos: 6800, texto: "AV. PAULISTA", subtexto: "Centro", cor: "#006633" },
+        { pos: 7500, texto: "AEROPORTO CONGONHAS", subtexto: "CGH  ✈️  3 km", cor: "#553300" },
+        { pos: 8200, texto: "PINHEIROS", subtexto: "Zona Oeste", cor: "#006633" },
+        // Fase 3 - Centro / Zona Sul
+        { pos: 9000, texto: "SE / CENTRO", subtexto: "Catedral da Se", cor: "#006633" },
+        { pos: 9800, texto: "MERCADAO MUNICIPAL", subtexto: "", cor: "#553300" },
+        { pos: 10500, texto: "LIBERDADE", subtexto: "Bairro Japones", cor: "#006633" },
+        { pos: 11200, texto: "INTERLAGOS", subtexto: "Autodromo", cor: "#006633" },
+        { pos: 12000, texto: "MARGINAL PINHEIROS", subtexto: "SP-015", cor: "#0044AA" },
+        { pos: 12800, texto: "VELOCIDADE", subtexto: "MAX 90 km/h", cor: "#CC0000" },
+        // Fase 4 - Zona Leste / Norte
+        { pos: 13500, texto: "TATUAPE", subtexto: "Zona Leste", cor: "#006633" },
+        { pos: 14200, texto: "ITAQUERA", subtexto: "Neo Quimica Arena", cor: "#006633" },
+        { pos: 15000, texto: "AEROPORTO GUARULHOS", subtexto: "GRU  ✈️  12 km", cor: "#553300" },
+        { pos: 15800, texto: "ROD. PRES. DUTRA", subtexto: "BR-116", cor: "#0044AA" },
+        { pos: 16500, texto: "GUARULHOS", subtexto: "Centro", cor: "#006633" },
+        { pos: 17200, texto: "TUCURUVI", subtexto: "Zona Norte", cor: "#006633" },
+        // Fase 5+ - ABC / Litoral
+        { pos: 18000, texto: "SANTO ANDRE", subtexto: "ABC Paulista", cor: "#006633" },
+        { pos: 18800, texto: "SAO BERNARDO", subtexto: "ABC Paulista", cor: "#006633" },
+        { pos: 19500, texto: "ROD. ANCHIETA", subtexto: "SP-150  Santos", cor: "#0044AA" },
+        { pos: 20200, texto: "CUBATAO", subtexto: "Serra do Mar", cor: "#006633" },
+        { pos: 21000, texto: "PORTO DE SANTOS", subtexto: "Maior Porto da AL", cor: "#553300" },
+        { pos: 21800, texto: "SANTOS", subtexto: "Praia", cor: "#006633" },
+        { pos: 22500, texto: "SAO VICENTE", subtexto: "Litoral Sul", cor: "#006633" },
+        { pos: 23200, texto: "PRAIA GRANDE", subtexto: "Litoral", cor: "#006633" },
+        { pos: 24000, texto: "CAMPINAS", subtexto: "Interior  95 km", cor: "#0044AA" },
+        { pos: 24800, texto: "SOROCABA", subtexto: "SP-270  100 km", cor: "#0044AA" },
+        { pos: 25500, texto: "RIBEIRAO PRETO", subtexto: "SP-322  320 km", cor: "#0044AA" },
+        { pos: 26200, texto: "PARQUE IBIRAPUERA", subtexto: "", cor: "#553300" },
+        { pos: 27000, texto: "PONTE ESTAIADA", subtexto: "Octavio Frias", cor: "#553300" },
+        { pos: 27800, texto: "BECO DO BATMAN", subtexto: "Vila Madalena", cor: "#553300" },
+      ];
+      // Placas ficam no FUNDO (parallax lento, acima da pista, semi-transparentes)
+      const placaTotal = 28000;
+      ctx.globalAlpha = 0.6; // semi-transparente pra nao confundir com obstaculos
+      placas.forEach((placa) => {
+        const px = ((placa.pos - g.groundOffset * 0.12) % placaTotal + placaTotal) % placaTotal - 200;
+        if (px > -100 && px < W + 50) {
+          // Posicao BEM ACIMA da pista (na linha dos landmarks)
+          const py = baseGroundY - 5;
+          // Poste fino (fundo)
+          ctx.fillStyle = "#888";
+          ctx.fillRect(px + 35, py - 70, 3, 70);
+          // Placa pequena
+          const tw = Math.max(placa.texto.length * 5.5, 55);
+          const ph = placa.subtexto ? 22 : 16;
+          ctx.fillStyle = placa.cor;
+          ctx.beginPath();
+          ctx.roundRect(px + 36 - tw / 2, py - 70 - ph, tw, ph, 2);
+          ctx.fill();
+          // Borda
+          ctx.strokeStyle = "rgba(255,255,255,0.6)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(px + 36 - tw / 2 + 1, py - 70 - ph + 1, tw - 2, ph - 2, 1);
+          ctx.stroke();
+          // Texto
+          ctx.fillStyle = "#FFF";
+          ctx.font = "bold 6px Arial";
+          ctx.textAlign = "center";
+          if (placa.subtexto) {
+            ctx.fillText(placa.texto, px + 36, py - 70 - ph + 9);
+            ctx.font = "5px Arial";
+            ctx.fillText(placa.subtexto, px + 36, py - 70 - ph + 17);
+          } else {
+            ctx.fillText(placa.texto, px + 36, py - 70 - ph / 2 + 3);
+          }
+        }
+      });
+      ctx.globalAlpha = 1; // restaura opacidade
+
       // === LANDMARKS NO FUNDO ===
       g.landmarks.forEach((lm) => {
         const lx = lm.x - g.groundOffset * 0.15;

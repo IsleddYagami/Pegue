@@ -21,7 +21,7 @@ interface Obstacle {
   height: number;
   type: "barreira" | "buraco" | "cone" | "pedra" | "motoqueiro" | "motoboy" | "radar" | "boss"
     | "bueiro" | "ambulante" | "catador" | "onibus_parado" | "cachorro"
-    | "caixa_madeira" | "saco_lixo"; // obstaculos dos bosses com imagem
+    | "caixa_madeira" | "saco_lixo" | "cavalete"; // obstaculos com imagem
   vy?: number;
   flashTimer?: number;
   multado?: boolean;
@@ -269,6 +269,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const coletorImgRef = useRef<HTMLImageElement | null>(null);
   const sacoLixoImgRef = useRef<HTMLImageElement | null>(null);
   const caixasImgRef = useRef<HTMLImageElement[]>([]);
+  const cavaleteImgRef = useRef<HTMLImageElement | null>(null);
 
   // Carrega sons e highscore
   useEffect(() => {
@@ -308,6 +309,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     const sacoImg = new window.Image();
     sacoImg.src = "/sacos de lixo.png";
     sacoImg.onload = () => { sacoLixoImgRef.current = sacoImg; };
+    const cavaleteImg = new window.Image();
+    cavaleteImg.src = "/cavaletes.png";
+    cavaleteImg.onload = () => { cavaleteImgRef.current = cavaleteImg; };
     // 3 variações de caixas de madeira
     const caixaSrcs = ["/caixa grande de madeira.png", "/caixa grande de madeira 2.png", "/caixa grande de madeira 3.png"];
     caixaSrcs.forEach((src) => {
@@ -1223,6 +1227,23 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.textAlign = "center";
       const heartY = dy - 30 + Math.sin(gameRef.current.frameCount * 0.08) * 3;
       ctx.fillText("♥", dx + 20, heartY);
+    }
+    else if (obs.type === "cavalete") {
+      // Cavalete de obra - imagem PNG
+      if (cavaleteImgRef.current) {
+        const cvImg = cavaleteImgRef.current;
+        const drawW = 55;
+        const drawH = (cvImg.height / cvImg.width) * drawW;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(cvImg, obs.x - 3, groundY - drawH + 3, drawW, drawH);
+      } else {
+        // Fallback barreira listrada
+        ctx.fillStyle = "#FF6B00";
+        ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
+        ctx.fillStyle = "#FFF";
+        ctx.fillRect(obs.x, groundY - obs.height * 0.5, obs.width, 5);
+      }
     }
     else if (obs.type === "caixa_madeira") {
       // Caixa de madeira do porto - usa imagem PNG aleatoria
@@ -2196,16 +2217,14 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           }
 
           if (g.bossType === "guincho") {
-            // === BOSS 1: GUINCHO CET - joga cones e barreiras ===
+            // === BOSS 1: GUINCHO CET - joga cavaletes e cones ===
             g.bossSpawnTimer--;
             if (g.bossSpawnTimer <= 0) {
-              const bossPool: Obstacle["type"][] = g.phase <= 2
-                ? ["cone", "cone", "barreira", "pedra"]
-                : ["cone", "barreira", "pedra", "barreira", "cone", "pedra"];
+              const bossPool: Obstacle["type"][] = ["cavalete", "cavalete", "cone", "cavalete", "barreira"];
               const tipo = bossPool[Math.floor(Math.random() * bossPool.length)];
-              let w = 25, h = 28;
-              if (tipo === "barreira") { w = 40; h = 35; }
-              else if (tipo === "pedra") { w = 30; h = 20; }
+              let w = 50, h = 35;
+              if (tipo === "cone") { w = 25; h = 28; }
+              else if (tipo === "barreira") { w = 40; h = 35; }
               g.obstacles.push({ x: W + 10, width: w, height: h, type: tipo, vy: 0, flashTimer: 0, multado: false });
               const spawnBase = g.phase <= 1 ? 55 : g.phase <= 2 ? 42 : g.phase <= 3 ? 32 : 22;
               g.bossSpawnTimer = spawnBase + Math.random() * 20;
@@ -2286,7 +2305,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           const bossObjCount: Record<string, number> = { cegonha: 4, bruto: 6, coletor: 10 };
           const maxObj = bossObjCount[g.bossType];
           if (maxObj && g.cegonhaCarrosJogados >= maxObj) {
-            const obsNaTela = g.obstacles.filter(o => (o.type === "barreira" || o.type === "pedra" || o.type === "caixa_madeira" || o.type === "saco_lixo") && o.x > -60 && o.x < W).length;
+            const obsNaTela = g.obstacles.filter(o => o.type !== "boss" && o.type !== "cachorro" && o.type !== "radar" && o.x > -60 && o.x < W).length;
             if (obsNaTela === 0 && !g.gameOver) {
               g.cegonhaCarrosPulados = maxObj;
               g.bossDefeated = true;
@@ -2417,11 +2436,11 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             } else if (g.phase === 2) {
               pool = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "bueiro", "cachorro", "ambulante"];
             } else if (g.phase === 3) {
-              pool = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "motoboy", "radar", "bueiro", "catador", "ambulante"];
+              pool = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "motoboy", "radar", "bueiro", "catador", "ambulante", "cavalete"];
             } else if (g.phase === 4) {
-              pool = ["barreira", "buraco", "motoqueiro", "motoboy", "radar", "bueiro", "catador", "onibus_parado", "ambulante"];
+              pool = ["barreira", "buraco", "motoqueiro", "motoboy", "radar", "bueiro", "catador", "onibus_parado", "ambulante", "cavalete"];
             } else {
-              pool = ["barreira", "buraco", "motoqueiro", "motoboy", "radar", "bueiro", "catador", "onibus_parado", "ambulante", "pedra"];
+              pool = ["barreira", "buraco", "motoqueiro", "motoboy", "radar", "bueiro", "catador", "onibus_parado", "ambulante", "pedra", "cavalete"];
             }
             const type = pool[Math.floor(Math.random() * pool.length)];
             let width = 25, height = 30;
@@ -2436,6 +2455,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             else if (type === "catador") { width = 55; height = 50; }
             else if (type === "onibus_parado") { width = 70; height = 50; }
             else if (type === "cachorro") { width = 40; height = 20; }
+            else if (type === "cavalete") { width = 50; height = 35; }
 
             g.obstacles.push({ x: W + 20, width, height, type, vy: 0, flashTimer: 0, multado: false });
 

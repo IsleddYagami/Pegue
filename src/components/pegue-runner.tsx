@@ -49,7 +49,7 @@ interface Particle {
 
 interface Landmark {
   x: number;
-  type: "pontilhao" | "ponte_estaiada" | "ponte_metalica" | "copan" | "masp" | "fabrica" | "neo_quimica" | "catedral_se" | "mercadao" | "ibirapuera" | "calcadao_osasco";
+  type: "pontilhao" | "ponte_estaiada" | "ponte_metalica" | "copan" | "masp" | "fabrica" | "neo_quimica" | "catedral_se" | "mercadao" | "ibirapuera" | "calcadao_osasco" | "allianz_park" | "morumbi" | "portuguesa" | "vila_belmiro";
   width: number;
   height: number;
 }
@@ -650,6 +650,180 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillStyle = gameRef.current.nightMode ? "#FFD700" : "#DDD";
         ctx.fillRect(tx - 6, baseY - 135, 12, 6);
       }
+    }
+
+    // === ESTADIOS DE SP ===
+    else if (lm.type === "allianz_park") {
+      // Allianz Parque - Palmeiras (verde)
+      const cx = lm.x + lm.width / 2;
+      ctx.fillStyle = "#1B5E20";
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 40, lm.width / 2, 60, 0, Math.PI, 0);
+      ctx.lineTo(lm.x + lm.width, baseY);
+      ctx.lineTo(lm.x, baseY);
+      ctx.closePath();
+      ctx.fill();
+      // Fachada
+      ctx.fillStyle = "#2E7D32";
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 40, lm.width / 2 - 5, 55, 0, Math.PI, 0);
+      ctx.lineTo(lm.x + lm.width - 5, baseY - 5);
+      ctx.lineTo(lm.x + 5, baseY - 5);
+      ctx.closePath();
+      ctx.fill();
+      // Linhas verticais
+      ctx.strokeStyle = "#1B5E20";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < lm.width; i += 12) {
+        const fx = lm.x + i;
+        const fy = baseY - 40 - Math.sqrt(Math.max(0, 1 - Math.pow((fx - cx) / (lm.width / 2), 2))) * 55;
+        ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, baseY - 5); ctx.stroke();
+      }
+      // Campo verde
+      ctx.fillStyle = "#4CAF50";
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 45, lm.width / 4, 20, 0, Math.PI, 0);
+      ctx.fill();
+      // Painel
+      ctx.fillStyle = "#111";
+      ctx.fillRect(lm.x + 20, baseY - 30, lm.width - 40, 14);
+      ctx.fillStyle = "#4CAF50";
+      ctx.font = "bold 7px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("ALLIANZ PARQUE", cx, baseY - 20);
+      // Torres
+      for (const tx of [lm.x + 8, lm.x + lm.width - 8]) {
+        ctx.fillStyle = "#888";
+        ctx.fillRect(tx - 2, baseY - 110, 4, 70);
+        ctx.fillStyle = "#FFF";
+        ctx.fillRect(tx - 5, baseY - 115, 10, 6);
+      }
+    }
+
+    else if (lm.type === "morumbi") {
+      // Estadio do Morumbi - São Paulo FC (vermelho/branco/preto)
+      const cx = lm.x + lm.width / 2;
+      ctx.fillStyle = "#CC0000";
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 40, lm.width / 2, 60, 0, Math.PI, 0);
+      ctx.lineTo(lm.x + lm.width, baseY);
+      ctx.lineTo(lm.x, baseY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#EE2222";
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 40, lm.width / 2 - 5, 55, 0, Math.PI, 0);
+      ctx.lineTo(lm.x + lm.width - 5, baseY - 5);
+      ctx.lineTo(lm.x + 5, baseY - 5);
+      ctx.closePath();
+      ctx.fill();
+      // Faixa branca
+      ctx.fillStyle = "#FFF";
+      ctx.fillRect(lm.x + 10, baseY - 25, lm.width - 20, 6);
+      // Faixa preta
+      ctx.fillStyle = "#111";
+      ctx.fillRect(lm.x + 10, baseY - 18, lm.width - 20, 4);
+      // Campo
+      ctx.fillStyle = "#4CAF50";
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 45, lm.width / 4, 20, 0, Math.PI, 0);
+      ctx.fill();
+      // Painel
+      ctx.fillStyle = "#111";
+      ctx.fillRect(lm.x + 25, baseY - 35, lm.width - 50, 12);
+      ctx.fillStyle = "#FFF";
+      ctx.font = "bold 6px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("MORUMBI", cx, baseY - 27);
+      // Escudo SPFC
+      ctx.fillStyle = "#FFF";
+      ctx.beginPath(); ctx.arc(cx, baseY - 70, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#CC0000";
+      ctx.fillRect(cx - 7, baseY - 77, 14, 5);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(cx - 7, baseY - 72, 14, 3);
+    }
+
+    else if (lm.type === "portuguesa") {
+      // Estadio da Portuguesa - Caninde (verde e vermelho)
+      const cx = lm.x + lm.width / 2;
+      // Estrutura mais baixa (estadio menor)
+      ctx.fillStyle = "#1B5E20";
+      ctx.fillRect(lm.x, baseY - 60, lm.width, 60);
+      // Faixa vermelha
+      ctx.fillStyle = "#CC0000";
+      ctx.fillRect(lm.x, baseY - 40, lm.width, 15);
+      // Faixa verde
+      ctx.fillStyle = "#2E7D32";
+      ctx.fillRect(lm.x, baseY - 25, lm.width, 10);
+      // Topo arredondado
+      ctx.fillStyle = "#1B5E20";
+      ctx.beginPath();
+      ctx.arc(cx, baseY - 60, lm.width / 2, Math.PI, 0);
+      ctx.fill();
+      // Arquibancada
+      ctx.fillStyle = "#CC000044";
+      ctx.fillRect(lm.x + 10, baseY - 55, lm.width - 20, 8);
+      // Painel
+      ctx.fillStyle = "#111";
+      ctx.fillRect(lm.x + 15, baseY - 48, lm.width - 30, 10);
+      ctx.fillStyle = "#FFF";
+      ctx.font = "bold 5px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("CANINDE", cx, baseY - 41);
+      ctx.fillText("PORTUGUESA", cx, baseY - 35);
+      // Torres
+      ctx.fillStyle = "#888";
+      ctx.fillRect(lm.x + 5, baseY - 85, 3, 25);
+      ctx.fillRect(lm.x + lm.width - 8, baseY - 85, 3, 25);
+      ctx.fillStyle = "#CC0000";
+      ctx.fillRect(lm.x + 2, baseY - 88, 9, 4);
+      ctx.fillRect(lm.x + lm.width - 11, baseY - 88, 9, 4);
+    }
+
+    else if (lm.type === "vila_belmiro") {
+      // Vila Belmiro - Santos FC (todo branco)
+      const cx = lm.x + lm.width / 2;
+      ctx.fillStyle = "#F5F5F5";
+      ctx.fillRect(lm.x, baseY - 55, lm.width, 55);
+      // Topo
+      ctx.fillStyle = "#EEE";
+      ctx.beginPath();
+      ctx.arc(cx, baseY - 55, lm.width / 2, Math.PI, 0);
+      ctx.fill();
+      // Borda preta sutil
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, baseY - 55, lm.width / 2, Math.PI, 0);
+      ctx.stroke();
+      ctx.strokeRect(lm.x, baseY - 55, lm.width, 55);
+      // Janelas/aberturas
+      for (let ji = 0; ji < 5; ji++) {
+        ctx.fillStyle = "#DDD";
+        ctx.fillRect(lm.x + 10 + ji * 27, baseY - 45, 15, 20);
+      }
+      // Campo
+      ctx.fillStyle = "#4CAF50";
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 50, lm.width / 4, 15, 0, Math.PI, 0);
+      ctx.fill();
+      // Painel
+      ctx.fillStyle = "#111";
+      ctx.fillRect(lm.x + 20, baseY - 65, lm.width - 40, 12);
+      ctx.fillStyle = "#FFF";
+      ctx.font = "bold 6px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("VILA BELMIRO", cx, baseY - 57);
+      // Escudo Santos (circulo preto/branco)
+      ctx.fillStyle = "#FFF";
+      ctx.beginPath(); ctx.arc(cx, baseY - 78, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, baseY - 78, 9, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = "#000";
+      ctx.font = "bold 7px Arial";
+      ctx.fillText("SFC", cx, baseY - 75);
     }
 
     // === NOVOS PONTOS TURISTICOS ===
@@ -1820,6 +1994,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       { x: 6800, type: "ibirapuera", width: 60, height: 165 },
       { x: 7800, type: "ponte_estaiada", width: 180, height: 160 },
       { x: 8800, type: "neo_quimica", width: 200, height: 140 },
+      { x: 9800, type: "allianz_park", width: 180, height: 130 },
+      { x: 10800, type: "morumbi", width: 180, height: 130 },
+      { x: 11800, type: "portuguesa", width: 160, height: 110 },
+      { x: 12800, type: "vila_belmiro", width: 160, height: 110 },
     ];
     g.foregroundEvents = [
       { worldX: 1800, width: 200, type: "bridge", label: "VIADUTO DO CHA" },
@@ -2509,7 +2687,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       // === LANDMARKS NO FUNDO ===
       g.landmarks.forEach((lm) => {
         const lx = lm.x - g.groundOffset * 0.15;
-        const totalWidth = 11000;
+        const totalWidth = 15000;
         const adjustedX = ((lx % totalWidth) + totalWidth) % totalWidth - 200;
         const drawLm = { ...lm, x: adjustedX };
         if (adjustedX > -250 && adjustedX < W + 250) {

@@ -19,21 +19,26 @@ interface Obstacle {
   x: number;
   width: number;
   height: number;
-  type: "barreira" | "buraco" | "cone" | "pedra" | "motoqueiro" | "motoboy" | "radar" | "boss";
+  type: "barreira" | "buraco" | "cone" | "pedra" | "motoqueiro" | "motoboy" | "radar" | "boss"
+    | "bueiro" | "ambulante" | "catador" | "onibus_parado" | "cachorro"; // novos SP
   vy?: number;
   flashTimer?: number;
   multado?: boolean;
-  bossHP?: number; // boss hit points (pulos pra derrotar)
+  bossHP?: number;
   bossHits?: number;
 }
 
 interface Item {
   x: number;
   y: number;
-  type: "pacote" | "pegue_logo" | "moeda";
+  type: "pacote" | "pegue_logo" | "moeda"
+    | "pao_chapa" | "pastel" | "mortadela" | "coxinha" | "guarana" | "bilhete_unico"; // itens SP
   collected: boolean;
   scale: number;
 }
+
+// Eventos climaticos SP
+type EventoClimatico = "normal" | "enchente" | "nevoeiro" | "granizo" | "apagao";
 
 interface Particle {
   x: number; y: number; vx: number; vy: number;
@@ -216,9 +221,19 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     bossType: "guincho" as "guincho" | "guarda" | "cegonha",
     // Boss 2 - Guarda Rodoviario: 3 multas = eliminado
     guardaMultas: 0,
-    // Boss 3 - Cegonha: derruba 4 carros, pular todos = CET prende
+    // Boss 3 - Cegonha
     cegonhaCarrosPulados: 0,
     cegonhaCarrosJogados: 0,
+    // Eventos climaticos SP
+    eventoClimatico: "normal" as EventoClimatico,
+    eventoTimer: 0,
+    granizoDrops: [] as { x: number; y: number; speed: number }[],
+    // Invencibilidade (bilhete unico)
+    invencivel: false,
+    invencivelTimer: 0,
+    // Boost velocidade (guarana)
+    boosted: false,
+    boostTimer: 0,
     // Notas de dollar voando na entrega
     dollarNotes: [] as { x: number; y: number; speed: number; angle: number }[],
     // Clima
@@ -795,7 +810,52 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.beginPath();
       ctx.arc(item.x - 4 * s, y - 5 * s, 4 * s, 0, Math.PI * 2);
       ctx.fill();
+    } else if (item.type === "pao_chapa" || item.type === "pastel" || item.type === "mortadela" || item.type === "coxinha") {
+      // Itens de comida SP - emoji style
+      const emojis: Record<string, string> = {
+        pao_chapa: "🍞", pastel: "🥟", mortadela: "🥩", coxinha: "🍗",
+      };
+      ctx.font = `${18 * s}px Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(emojis[item.type] || "🍽️", item.x, y);
+      ctx.textBaseline = "alphabetic";
+    } else if (item.type === "guarana") {
+      // Guaraná = boost velocidade
+      ctx.fillStyle = "#00AA00";
+      ctx.beginPath();
+      ctx.roundRect(item.x - 6 * s, y - 10 * s, 12 * s, 20 * s, 3);
+      ctx.fill();
+      ctx.fillStyle = "#FFF";
+      ctx.font = `bold ${7 * s}px Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("G", item.x, y);
+      ctx.textBaseline = "alphabetic";
+      // Raio de velocidade
+      ctx.fillStyle = "#FFDD00";
+      ctx.font = `${10 * s}px Arial`;
+      ctx.fillText("⚡", item.x + 8, y - 8);
+    } else if (item.type === "bilhete_unico") {
+      // Bilhete Unico = invencibilidade
+      ctx.fillStyle = "#0066CC";
+      ctx.beginPath();
+      ctx.roundRect(item.x - 10 * s, y - 7 * s, 20 * s, 14 * s, 2);
+      ctx.fill();
+      ctx.fillStyle = "#FFF";
+      ctx.font = `bold ${6 * s}px Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("BU", item.x, y);
+      ctx.textBaseline = "alphabetic";
+      // Brilho pulsante
+      const pulse = Math.sin(gameRef.current.frameCount * 0.1) * 0.3 + 0.3;
+      ctx.fillStyle = `rgba(100,180,255,${pulse})`;
+      ctx.beginPath();
+      ctx.arc(item.x, y, 14 * s, 0, Math.PI * 2);
+      ctx.fill();
     } else {
+      // Moeda padrao
       ctx.fillStyle = "#C9A84C";
       ctx.beginPath();
       ctx.arc(item.x, y, 9 * s, 0, Math.PI * 2);
@@ -899,6 +959,149 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.beginPath(); ctx.arc(mx - 8 - (fcm % 10), my - 10, 4, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "rgba(150,150,150,0.2)";
       ctx.beginPath(); ctx.arc(mx - 18 - (fcm % 15), my - 12, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    else if (obs.type === "bueiro") {
+      // Bueiro aberto - tampa faltando (classico SP)
+      ctx.fillStyle = "#0a0a0a";
+      ctx.beginPath();
+      ctx.ellipse(obs.x + obs.width / 2, groundY + 1, obs.width / 2, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#1a1a1a";
+      ctx.beginPath();
+      ctx.ellipse(obs.x + obs.width / 2, groundY + 2, obs.width / 2 - 5, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Tampa torta ao lado
+      ctx.fillStyle = "#555";
+      ctx.beginPath();
+      ctx.ellipse(obs.x + obs.width + 5, groundY - 2, 8, 3, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#444";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(obs.x + obs.width + 1, groundY - 2);
+      ctx.lineTo(obs.x + obs.width + 9, groundY - 2);
+      ctx.stroke();
+    }
+    else if (obs.type === "ambulante") {
+      // Vendedor ambulante com carrinho (churros/pipoca)
+      const ax = obs.x, ay = groundY;
+      // Rodas do carrinho
+      ctx.fillStyle = "#333";
+      ctx.beginPath(); ctx.arc(ax + 5, ay - 3, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ax + 35, ay - 3, 5, 0, Math.PI * 2); ctx.fill();
+      // Carrinho
+      ctx.fillStyle = "#CC3333";
+      ctx.fillRect(ax - 2, ay - 28, 44, 22);
+      // Toldo listrado
+      ctx.fillStyle = "#FFCC00";
+      ctx.fillRect(ax - 5, ay - 38, 50, 12);
+      ctx.fillStyle = "#CC3333";
+      ctx.fillRect(ax - 5, ay - 38, 10, 12);
+      ctx.fillRect(ax + 15, ay - 38, 10, 12);
+      ctx.fillRect(ax + 35, ay - 38, 10, 12);
+      // Vendedor
+      ctx.fillStyle = "#FFCC99";
+      ctx.beginPath(); ctx.arc(ax + 45, ay - 35, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#FFF";
+      ctx.fillRect(ax + 41, ay - 28, 8, 15);
+      ctx.fillStyle = "#444";
+      ctx.fillRect(ax + 41, ay - 13, 3, 13);
+      ctx.fillRect(ax + 46, ay - 13, 3, 13);
+    }
+    else if (obs.type === "catador") {
+      // Catador de reciclagem com carroça de papelão
+      const cx = obs.x, cy = groundY;
+      // Roda da carroça
+      ctx.fillStyle = "#444";
+      ctx.beginPath(); ctx.arc(cx + 20, cy - 5, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#666";
+      ctx.beginPath(); ctx.arc(cx + 20, cy - 5, 4, 0, Math.PI * 2); ctx.fill();
+      // Carroça
+      ctx.fillStyle = "#8B6914";
+      ctx.fillRect(cx, cy - 30, 40, 22);
+      // Papelão empilhado
+      ctx.fillStyle = "#A0884A";
+      ctx.fillRect(cx + 2, cy - 42, 36, 14);
+      ctx.fillStyle = "#C4A860";
+      ctx.fillRect(cx + 5, cy - 50, 30, 10);
+      // Catador
+      ctx.fillStyle = "#8B5E3C";
+      ctx.beginPath(); ctx.arc(cx + 48, cy - 32, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#336";
+      ctx.fillRect(cx + 44, cy - 26, 8, 14);
+      ctx.fillStyle = "#444";
+      ctx.fillRect(cx + 44, cy - 12, 3, 12);
+      ctx.fillRect(cx + 49, cy - 12, 3, 12);
+    }
+    else if (obs.type === "onibus_parado") {
+      // Ônibus grande parado na faixa
+      const ox = obs.x, oy = groundY;
+      // Rodas
+      ctx.fillStyle = "#111";
+      ctx.beginPath(); ctx.arc(ox + 10, oy - 5, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ox + 55, oy - 5, 9, 0, Math.PI * 2); ctx.fill();
+      // Corpo do onibus
+      ctx.fillStyle = "#1565C0";
+      ctx.beginPath();
+      ctx.roundRect(ox - 5, oy - 50, 70, 42, [6, 6, 0, 0]);
+      ctx.fill();
+      // Faixa branca
+      ctx.fillStyle = "#FFF";
+      ctx.fillRect(ox - 5, oy - 25, 70, 5);
+      // Janelas
+      ctx.fillStyle = "#87CEEB";
+      for (let j = 0; j < 4; j++) {
+        ctx.fillRect(ox + j * 15 + 2, oy - 46, 10, 14);
+      }
+      // Letreiro
+      ctx.fillStyle = "#FF6600";
+      ctx.fillRect(ox, oy - 52, 50, 8);
+      ctx.fillStyle = "#FFF";
+      ctx.font = "bold 5px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("SPTRANS", ox + 25, oy - 46);
+    }
+    else if (obs.type === "cachorro") {
+      // Cachorro caramelo - patrimonio de SP! (nao mata, da bonus)
+      const dx = obs.x, dy = groundY;
+      // Corpo
+      ctx.fillStyle = "#D4A056";
+      ctx.beginPath();
+      ctx.ellipse(dx + 15, dy - 12, 15, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Cabeca
+      ctx.fillStyle = "#C49040";
+      ctx.beginPath(); ctx.arc(dx + 32, dy - 18, 7, 0, Math.PI * 2); ctx.fill();
+      // Orelhas
+      ctx.fillStyle = "#B07830";
+      ctx.beginPath(); ctx.arc(dx + 28, dy - 24, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(dx + 36, dy - 24, 4, 0, Math.PI * 2); ctx.fill();
+      // Focinho
+      ctx.fillStyle = "#333";
+      ctx.beginPath(); ctx.arc(dx + 37, dy - 17, 2, 0, Math.PI * 2); ctx.fill();
+      // Olho
+      ctx.fillStyle = "#000";
+      ctx.beginPath(); ctx.arc(dx + 34, dy - 20, 1.5, 0, Math.PI * 2); ctx.fill();
+      // Patas
+      ctx.fillStyle = "#D4A056";
+      ctx.fillRect(dx + 5, dy - 5, 3, 5);
+      ctx.fillRect(dx + 12, dy - 5, 3, 5);
+      ctx.fillRect(dx + 20, dy - 5, 3, 5);
+      ctx.fillRect(dx + 27, dy - 5, 3, 5);
+      // Rabo abanando
+      const rabAngle = Math.sin(gameRef.current.frameCount * 0.2) * 0.4;
+      ctx.save();
+      ctx.translate(dx + 2, dy - 15);
+      ctx.rotate(-0.5 + rabAngle);
+      ctx.fillStyle = "#C49040";
+      ctx.fillRect(-2, -8, 3, 10);
+      ctx.restore();
+      // Coracaozinho flutuando
+      ctx.fillStyle = "#FF6B8A";
+      ctx.font = "10px Arial";
+      ctx.textAlign = "center";
+      const heartY = dy - 30 + Math.sin(gameRef.current.frameCount * 0.08) * 3;
+      ctx.fillText("♥", dx + 20, heartY);
     }
     else if (obs.type === "boss") {
       // BOSS - Guincho CET ou Guarda Rodoviario
@@ -1327,6 +1530,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       bossTimer: 0, bossSpawnTimer: 0, bossDerrotaTimer: 0,
       bossType: "guincho", guardaMultas: 0, dollarNotes: [],
       cegonhaCarrosPulados: 0, cegonhaCarrosJogados: 0,
+      eventoClimatico: "normal", eventoTimer: 0, granizoDrops: [],
+      invencivel: false, invencivelTimer: 0, boosted: false, boostTimer: 0,
       raining: false, raindrops: [],
     });
     setDisplayPhase(1);
@@ -1543,6 +1748,55 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         g.statusTimer = Math.max(0, g.statusTimer - 1);
         if (g.statusTimer === 0) g.statusText = "";
 
+        // Invencibilidade (bilhete unico)
+        if (g.invencivel) {
+          g.invencivelTimer--;
+          if (g.invencivelTimer <= 0) { g.invencivel = false; }
+        }
+        // Boost velocidade (guarana)
+        if (g.boosted) {
+          g.boostTimer--;
+          if (g.boostTimer <= 0) { g.boosted = false; g.speed -= 1.5; }
+        }
+
+        // === EVENTOS CLIMATICOS SP ===
+        // A cada 30s de jogo, chance de evento climatico (so a partir da fase 2)
+        if (g.phase >= 2 && g.eventoClimatico === "normal" && g.phaseState === "desafio" && g.phaseTimer > 600 && Math.random() < 0.001) {
+          const eventos: EventoClimatico[] = g.phase >= 4
+            ? ["enchente", "nevoeiro", "granizo", "apagao"]
+            : g.phase >= 3 ? ["enchente", "nevoeiro", "granizo"] : ["nevoeiro", "granizo"];
+          g.eventoClimatico = eventos[Math.floor(Math.random() * eventos.length)];
+          g.eventoTimer = 360; // ~6 segundos
+          if (g.eventoClimatico === "granizo") {
+            g.granizoDrops = Array.from({ length: 30 }, () => ({
+              x: Math.random() * W, y: -Math.random() * 50, speed: 6 + Math.random() * 4,
+            }));
+          }
+          const nomeEvento: Record<string, string> = { enchente: "ENCHENTE!", nevoeiro: "NEVOEIRO!", granizo: "GRANIZO!", apagao: "APAGAO!" };
+          showStatus(`🌊 ${nomeEvento[g.eventoClimatico]}`, 60);
+        }
+        // Timer do evento
+        if (g.eventoClimatico !== "normal") {
+          g.eventoTimer--;
+          if (g.eventoTimer <= 0) {
+            g.eventoClimatico = "normal";
+            g.granizoDrops = [];
+          }
+          // Granizo: atualiza posicao das pedras
+          if (g.eventoClimatico === "granizo") {
+            g.granizoDrops.forEach(d => {
+              d.y += d.speed;
+              d.x -= 1;
+              if (d.y > H) { d.y = -10; d.x = Math.random() * W; }
+            });
+            // Granizo tira pontos se bater no jogador
+            if (g.frameCount % 30 === 0 && !g.invencivel) {
+              g.score = Math.max(0, g.score - 5);
+              setDisplayScore(g.score);
+            }
+          }
+        }
+
         // Tunel alpha fade
         let insideTunnel = false;
         for (const fe of g.foregroundEvents) {
@@ -1612,9 +1866,13 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           g.guardaMultas = 0;
           g.cegonhaCarrosPulados = 0;
           g.cegonhaCarrosJogados = 0;
-          // Rotacao de bosses: 1=guincho, 2=guarda, 3=cegonha, depois repete
+          // Rotacao de bosses: guincho, guarda, cegonha, guincho, guarda, cegonha...
           const bossRotation: Array<"guincho" | "guarda" | "cegonha"> = ["guincho", "guarda", "cegonha"];
           g.bossType = bossRotation[(g.phase - 1) % 3];
+          // Boss cegonha usa bossHP=4 pra barra visual
+          if (g.bossType === "cegonha") {
+            g.obstacles[g.obstacles.length - 1].bossHP = 4;
+          }
           // Spawn boss na frente
           g.obstacles = g.obstacles.filter(o => o.type !== "boss");
           g.obstacles.push({
@@ -1822,28 +2080,29 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           if (g.nextSpawn <= 0) {
             let pool: Obstacle["type"][];
             if (g.phase === 1) {
-              // Fase 1: so cones e buracos (facil de entender)
-              pool = ["cone", "buraco", "cone", "buraco", "pedra"];
+              pool = ["cone", "buraco", "cone", "buraco", "pedra", "cachorro"];
             } else if (g.phase === 2) {
-              // Fase 2: adiciona barreiras e motoqueiro
-              pool = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "cone"];
+              pool = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "bueiro", "cachorro", "ambulante"];
             } else if (g.phase === 3) {
-              // Fase 3: tudo, incluindo motoboy
-              pool = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "motoboy", "radar"];
+              pool = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "motoboy", "radar", "bueiro", "catador", "ambulante"];
+            } else if (g.phase === 4) {
+              pool = ["barreira", "buraco", "motoqueiro", "motoboy", "radar", "bueiro", "catador", "onibus_parado", "ambulante"];
             } else {
-              // Fase 4+: tudo com mais frequencia de dificeis
-              pool = ["barreira", "buraco", "pedra", "motoqueiro", "motoboy", "radar", "motoqueiro", "motoboy"];
+              pool = ["barreira", "buraco", "motoqueiro", "motoboy", "radar", "bueiro", "catador", "onibus_parado", "ambulante", "pedra"];
             }
             const type = pool[Math.floor(Math.random() * pool.length)];
             let width = 25, height = 30;
 
             if (type === "barreira") { width = Math.random() > 0.5 ? 50 : 25; height = 25 + Math.random() * 25; }
             else if (type === "cone") { width = 20; height = 25; }
-            else if (type === "buraco") { width = 40 + Math.random() * 20; height = 6; }
+            else if (type === "buraco" || type === "bueiro") { width = 40 + Math.random() * 20; height = 6; }
             else if (type === "pedra") { width = 25 + Math.random() * 15; height = 15 + Math.random() * 15; }
-            else if (type === "motoqueiro") { width = 55; height = 45; }
-            else if (type === "motoboy") { width = 55; height = 50; }
+            else if (type === "motoqueiro" || type === "motoboy") { width = 55; height = 45; }
             else if (type === "radar") { width = 30; height = 72; }
+            else if (type === "ambulante") { width = 55; height = 38; }
+            else if (type === "catador") { width = 55; height = 50; }
+            else if (type === "onibus_parado") { width = 70; height = 50; }
+            else if (type === "cachorro") { width = 40; height = 20; }
 
             g.obstacles.push({ x: W + 20, width, height, type, vy: 0, flashTimer: 0, multado: false });
 
@@ -1888,7 +2147,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // Spawn itens (pausa durante entrega e derrota do boss)
         if (g.phaseState !== "entrega" && g.phaseState !== "boss_derrota") g.nextItemSpawn--;
         if (g.nextItemSpawn <= 0 && g.phaseState !== "entrega" && g.phaseState !== "boss_derrota") {
-          const types: Item["type"][] = ["pacote", "pacote", "pacote", "moeda", "moeda", "pegue_logo"];
+          const types: Item["type"][] = g.phase <= 2
+            ? ["pacote", "pacote", "moeda", "moeda", "pegue_logo", "pao_chapa", "pastel", "coxinha"]
+            : ["pacote", "moeda", "pegue_logo", "pao_chapa", "pastel", "mortadela", "coxinha", "guarana", "bilhete_unico"];
           g.items.push({
             x: W + 20,
             y: baseGroundY - 50 - Math.random() * 60,
@@ -1982,8 +2243,21 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             continue;
           }
 
+          // Cachorro caramelo: nao mata! Da bonus +5pts
+          if (obs.type === "cachorro") {
+            if (!obs.multado && tR > obs.x && tL < obs.x + obs.width) {
+              obs.multado = true;
+              g.score += 5;
+              setDisplayScore(g.score);
+              showStatus("CARAMELO RESGATADO! +5 ♥", 40);
+              playSound("game-collect");
+              spawnParticles(obs.x + 20, obsGY - 15, "#FF6B8A", 10);
+            }
+            continue;
+          }
+
           let hit = false;
-          if (obs.type === "buraco") {
+          if (obs.type === "buraco" || obs.type === "bueiro") {
             if (!g.isJumping && tR > obs.x + 5 && tL < obs.x + obs.width - 5) hit = true;
           } else {
             const obsTop = obsGY - obs.height;
@@ -1991,6 +2265,11 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           }
 
           if (hit) {
+            // Invencibilidade (bilhete unico) = ignora hit
+            if (g.invencivel) {
+              spawnParticles(obs.x + 10, obsGY - 10, "#0088FF", 8);
+              continue;
+            }
             g.gameOver = true;
             g.running = false;
             playSound("game-over");
@@ -2048,15 +2327,35 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           const dx = (tL + 22) - item.x, dy = (tTop + TRUCK_SIZE / 2) - itemY;
           if (Math.sqrt(dx * dx + dy * dy) < 30) {
             item.collected = true;
-            const pts = item.type === "pegue_logo" ? 50 : item.type === "moeda" ? 25 : 10;
+            // Pontuacao por tipo de item
+            const ptsMap: Record<string, number> = {
+              pegue_logo: 50, moeda: 25, pacote: 10,
+              pao_chapa: 15, pastel: 20, mortadela: 30, coxinha: 15,
+              guarana: 10, bilhete_unico: 10,
+            };
+            const pts = ptsMap[item.type] || 10;
             g.combo++;
             g.comboTimer = 120;
             g.score += pts * Math.min(g.combo, 5);
             g.flashTimer = 10;
             setDisplayScore(g.score);
-            playSound(item.type === "pegue_logo" ? "game-star" : "game-collect");
+
+            // Efeitos especiais
+            if (item.type === "guarana") {
+              g.boosted = true;
+              g.boostTimer = 180; // 3 segundos de boost
+              g.speed += 1.5;
+              showStatus("GUARANA! VELOCIDADE!", 40);
+            } else if (item.type === "bilhete_unico") {
+              g.invencivel = true;
+              g.invencivelTimer = 300; // 5 segundos invencivel
+              showStatus("BILHETE UNICO! INVENCIVEL!", 50);
+            }
+
+            playSound(item.type === "pegue_logo" || item.type === "mortadela" || item.type === "bilhete_unico" ? "game-star" : "game-collect");
             if (g.combo > 2) playSound("game-combo");
-            spawnParticles(item.x, itemY, item.type === "pegue_logo" ? "#C9A84C" : "#FFD700", 12);
+            const particleColor = item.type === "guarana" ? "#00FF00" : item.type === "bilhete_unico" ? "#0088FF" : item.type === "pegue_logo" ? "#C9A84C" : "#FFD700";
+            spawnParticles(item.x, itemY, particleColor, 12);
           }
         }
 
@@ -2125,6 +2424,92 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.font = "bold 22px Arial";
         ctx.textAlign = "center";
         ctx.fillText(g.statusText, W / 2, H * 0.45 - yOffset);
+      }
+
+      // === EVENTOS CLIMATICOS VISUAIS ===
+      if (g.eventoClimatico === "enchente" && g.running) {
+        // Agua subindo na parte inferior da pista
+        const waterLevel = baseGroundY + (H - baseGroundY) * 0.3;
+        ctx.fillStyle = "rgba(30,80,140,0.4)";
+        ctx.fillRect(0, waterLevel, W, H - waterLevel);
+        // Ondas
+        ctx.strokeStyle = "rgba(100,160,220,0.5)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let x = 0; x < W; x += 3) {
+          const wy = waterLevel + Math.sin((x + g.frameCount * 2) * 0.03) * 4;
+          if (x === 0) ctx.moveTo(x, wy); else ctx.lineTo(x, wy);
+        }
+        ctx.stroke();
+      }
+      if (g.eventoClimatico === "nevoeiro" && g.running) {
+        // Nevoeiro - visibilidade reduzida
+        const fogAlpha = 0.5 + Math.sin(g.frameCount * 0.01) * 0.1;
+        ctx.fillStyle = `rgba(200,200,210,${fogAlpha})`;
+        ctx.fillRect(0, 0, W, H);
+        // Claridade perto do carro (farol)
+        const grad = ctx.createRadialGradient(100, truckGroundY - 20, 10, 100, truckGroundY - 20, 120);
+        grad.addColorStop(0, "rgba(200,200,210,0)");
+        grad.addColorStop(1, `rgba(200,200,210,${fogAlpha})`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+      }
+      if (g.eventoClimatico === "granizo" && g.running) {
+        // Pedras de gelo caindo
+        ctx.fillStyle = "#E8E8FF";
+        g.granizoDrops.forEach(d => {
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        // Overlay frio
+        ctx.fillStyle = "rgba(180,200,240,0.15)";
+        ctx.fillRect(0, 0, W, H);
+      }
+      if (g.eventoClimatico === "apagao" && g.running) {
+        // Tudo escuro, so farois iluminam
+        ctx.fillStyle = "rgba(0,0,0,0.85)";
+        ctx.fillRect(0, 0, W, H);
+        // Cone de luz dos farois do carro
+        ctx.fillStyle = "rgba(255,255,200,0.15)";
+        ctx.beginPath();
+        ctx.moveTo(100, truckGroundY - 10);
+        ctx.lineTo(250, truckGroundY - 60);
+        ctx.lineTo(250, truckGroundY + 30);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,200,0.08)";
+        ctx.beginPath();
+        ctx.moveTo(100, truckGroundY - 10);
+        ctx.lineTo(350, truckGroundY - 80);
+        ctx.lineTo(350, truckGroundY + 40);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // === Invencibilidade visual (brilho azul no carro) ===
+      if (g.invencivel && g.running) {
+        ctx.fillStyle = `rgba(0,100,255,${0.15 + Math.sin(g.frameCount * 0.15) * 0.1})`;
+        ctx.beginPath();
+        ctx.arc(90, truckGroundY - 15, 50, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // === Boost visual (chamas atras do carro) ===
+      if (g.boosted && g.running) {
+        ctx.fillStyle = "rgba(255,100,0,0.6)";
+        ctx.beginPath();
+        ctx.moveTo(35, truckGroundY - 5);
+        ctx.lineTo(10 - Math.random() * 15, truckGroundY - 15);
+        ctx.lineTo(35, truckGroundY - 25);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,200,0,0.4)";
+        ctx.beginPath();
+        ctx.moveTo(40, truckGroundY - 8);
+        ctx.lineTo(20 - Math.random() * 10, truckGroundY - 15);
+        ctx.lineTo(40, truckGroundY - 22);
+        ctx.closePath();
+        ctx.fill();
       }
 
       // === CHUVA ===
@@ -2416,12 +2801,20 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.font = "10px Arial";
       ctx.fillText(`${(g.speed * 10).toFixed(0)} km/h`, W - 15, 44);
 
-      // Indicador de chuva
-      if (g.raining) {
-        ctx.fillStyle = "#6688CC";
+      // Indicadores de status
+      let statusIcons = "";
+      if (g.raining) statusIcons += "🌧️";
+      if (g.eventoClimatico === "enchente") statusIcons += "🌊";
+      if (g.eventoClimatico === "nevoeiro") statusIcons += "🌫️";
+      if (g.eventoClimatico === "granizo") statusIcons += "🧊";
+      if (g.eventoClimatico === "apagao") statusIcons += "🔦";
+      if (g.invencivel) statusIcons += "🛡️";
+      if (g.boosted) statusIcons += "🚀";
+      if (statusIcons) {
+        ctx.fillStyle = "#AAA";
         ctx.font = "10px Arial";
         ctx.textAlign = "left";
-        ctx.fillText("🌧️ Chuva", 80, 44);
+        ctx.fillText(statusIcons, 80, 44);
       }
 
       // === MENU / TUTORIAL (fundo escuro, overlays React cuidam do conteudo) ===

@@ -269,7 +269,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const coletorImgRef = useRef<HTMLImageElement | null>(null);
   const sacoLixoImgRef = useRef<HTMLImageElement | null>(null);
   const caixasImgRef = useRef<HTMLImageElement[]>([]);
-  const containerImgRef = useRef<HTMLImageElement | null>(null);
+  const containersImgRef = useRef<HTMLImageElement[]>([]);
   const cavaletesImgRef = useRef<HTMLImageElement[]>([]);
 
   // Carrega sons e highscore
@@ -316,9 +316,11 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       cv.src = src;
       cv.onload = () => { cavaletesImgRef.current.push(cv); };
     });
-    const containerImg = new window.Image();
-    containerImg.src = "/CONTAINER BOSS PORTO.png";
-    containerImg.onload = () => { containerImgRef.current = containerImg; };
+    ["/CONTAINER BOSS PORTO.png", "/CONTAINER BOSS PORTO 2.png"].forEach((src) => {
+      const ct = new window.Image();
+      ct.src = src;
+      ct.onload = () => { containersImgRef.current.push(ct); };
+    });
     // 3 variações de caixas de madeira
     const caixaSrcs = ["/caixa grande de madeira.png", "/caixa grande de madeira 2.png", "/caixa grande de madeira 3.png"];
     caixaSrcs.forEach((src) => {
@@ -1289,9 +1291,11 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       }
     }
     else if (obs.type === "container") {
-      // Container do porto - imagem PNG
-      if (containerImgRef.current) {
-        const ctImg = containerImgRef.current;
+      // Container do porto - variações de imagem PNG
+      const ctImgs = containersImgRef.current;
+      if (ctImgs.length > 0) {
+        const ctIdx = Math.abs(Math.round(obs.x * 0.09)) % ctImgs.length;
+        const ctImg = ctImgs[ctIdx];
         const drawW = 65;
         const drawH = (ctImg.height / ctImg.width) * drawW;
         ctx.imageSmoothingEnabled = true;

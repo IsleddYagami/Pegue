@@ -599,7 +599,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       // Industria Otimizi - imagem PNG real
       if (otimiziImgRef.current) {
         const oImg = otimiziImgRef.current;
-        const drawW = 180;
+        const drawW = 200;
         const drawH = (oImg.height / oImg.width) * drawW;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
@@ -1052,31 +1052,47 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.arc(item.x - 4 * s, y - 5 * s, 4 * s, 0, Math.PI * 2);
       ctx.fill();
     } else if (item.type === "pao_chapa" || item.type === "pastel" || item.type === "mortadela" || item.type === "coxinha") {
-      // Itens de comida SP - emoji style
+      // Itens de comida SP - emoji com fundo circular pra destaque
       const emojis: Record<string, string> = {
         pao_chapa: "🍞", pastel: "🥟", mortadela: "🥩", coxinha: "🍗",
       };
-      ctx.font = `${18 * s}px Arial`;
+      // Fundo circular dourado pra destacar
+      ctx.fillStyle = "rgba(201,168,76,0.3)";
+      ctx.beginPath();
+      ctx.arc(item.x, y, 14 * s, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#C9A84C";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(item.x, y, 14 * s, 0, Math.PI * 2);
+      ctx.stroke();
+      // Emoji maior
+      ctx.font = `${22 * s}px Arial`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(emojis[item.type] || "🍽️", item.x, y);
       ctx.textBaseline = "alphabetic";
     } else if (item.type === "guarana") {
-      // Guaraná = boost velocidade
-      ctx.fillStyle = "#00AA00";
+      // Guaraná = boost velocidade (maior e mais visivel)
+      ctx.fillStyle = "#00BB00";
       ctx.beginPath();
-      ctx.roundRect(item.x - 6 * s, y - 10 * s, 12 * s, 20 * s, 3);
+      ctx.roundRect(item.x - 8 * s, y - 12 * s, 16 * s, 24 * s, 4);
       ctx.fill();
+      ctx.strokeStyle = "#006600";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(item.x - 8 * s, y - 12 * s, 16 * s, 24 * s, 4);
+      ctx.stroke();
       ctx.fillStyle = "#FFF";
-      ctx.font = `bold ${7 * s}px Arial`;
+      ctx.font = `bold ${10 * s}px Arial`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText("G", item.x, y);
       ctx.textBaseline = "alphabetic";
       // Raio de velocidade
       ctx.fillStyle = "#FFDD00";
-      ctx.font = `${10 * s}px Arial`;
-      ctx.fillText("⚡", item.x + 8, y - 8);
+      ctx.font = `${14 * s}px Arial`;
+      ctx.fillText("⚡", item.x + 10, y - 10);
     } else if (item.type === "sobrevida") {
       // Cruz brilhante dourada - sobrevida
       const fc = gameRef.current.frameCount;
@@ -1117,13 +1133,18 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.stroke();
       }
     } else if (item.type === "bilhete_unico") {
-      // Bilhete Unico = invencibilidade
+      // Bilhete Unico = invencibilidade (maior e mais visivel)
       ctx.fillStyle = "#0066CC";
       ctx.beginPath();
-      ctx.roundRect(item.x - 10 * s, y - 7 * s, 20 * s, 14 * s, 2);
+      ctx.roundRect(item.x - 14 * s, y - 9 * s, 28 * s, 18 * s, 3);
       ctx.fill();
+      ctx.strokeStyle = "#003388";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(item.x - 14 * s, y - 9 * s, 28 * s, 18 * s, 3);
+      ctx.stroke();
       ctx.fillStyle = "#FFF";
-      ctx.font = `bold ${6 * s}px Arial`;
+      ctx.font = `bold ${9 * s}px Arial`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText("BU", item.x, y);
@@ -1185,7 +1206,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       // Cone - imagem PNG
       if (coneImgRef.current) {
         const cnImg = coneImgRef.current;
-        const drawW = 35;
+        const drawW = 45;
         const drawH = (cnImg.height / cnImg.width) * drawW;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
@@ -1307,7 +1328,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       const my = groundY;
       if (motoboyImgRef.current) {
         const mImg = motoboyImgRef.current;
-        const drawW = 75;
+        const drawW = 85;
         const drawH = (mImg.height / mImg.width) * drawW;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
@@ -1475,7 +1496,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       if (cvImgs.length > 0) {
         const cvIdx = Math.abs(Math.round(obs.x * 0.07)) % cvImgs.length;
         const cvImg = cvImgs[cvIdx];
-        const drawW = 55;
+        const drawW = 65;
         const drawH = (cvImg.height / cvImg.width) * drawW;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
@@ -1493,7 +1514,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       if (vcImgs.length > 0) {
         const vcIdx = Math.abs(Math.round(obs.x * 0.13)) % vcImgs.length;
         const vcImg = vcImgs[vcIdx];
-        const drawW = 70;
+        const drawW = 80;
         const drawH = (vcImg.height / vcImg.width) * drawW;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
@@ -1511,7 +1532,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       if (ctImgs.length > 0) {
         const ctIdx = Math.abs(Math.round(obs.x * 0.09)) % ctImgs.length;
         const ctImg = ctImgs[ctIdx];
-        const drawW = 65;
+        const drawW = 75;
         const drawH = (ctImg.height / ctImg.width) * drawW;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
@@ -1531,7 +1552,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // Escolhe caixa baseado na posicao X (deterministica pra nao piscar)
         const cIdx = Math.abs(Math.round(obs.x * 0.1)) % caixas.length;
         const cImg = caixas[cIdx];
-        const drawW = 55;
+        const drawW = 65;
         const drawH = (cImg.height / cImg.width) * drawW;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
@@ -1549,7 +1570,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       // Saco de lixo - usa imagem PNG
       if (sacoLixoImgRef.current) {
         const sImg = sacoLixoImgRef.current;
-        const drawW = 42;
+        const drawW = 52;
         const drawH = (sImg.height / sImg.width) * drawW;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
@@ -1586,7 +1607,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // =============================================
         if (policiaImgRef.current) {
           const pImg = policiaImgRef.current;
-          const drawW = 140;
+          const drawW = 160;
           const drawH = (pImg.height / pImg.width) * drawW;
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = "high";
@@ -1659,7 +1680,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // =============================================
         if (cegonhaImgRef.current) {
           const cImg = cegonhaImgRef.current;
-          const drawW = 180;
+          const drawW = 200;
           const drawH = (cImg.height / cImg.width) * drawW;
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = "high";

@@ -238,6 +238,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const [scoreSaved, setScoreSaved] = useState(false);
   const animRef = useRef<number>(0);
   const truckImgRef = useRef<HTMLImageElement | null>(null);
+  const motoboyImgRef = useRef<HTMLImageElement | null>(null);
 
   // Carrega sons e highscore
   useEffect(() => {
@@ -256,6 +257,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     const img = new window.Image();
     img.src = "/truck-strada.png";
     img.onload = () => { truckImgRef.current = img; };
+    const motoImg = new window.Image();
+    motoImg.src = "/MOTOBOY.png";
+    motoImg.onload = () => { motoboyImgRef.current = motoImg; };
   }, []);
 
   async function fetchRanking() {
@@ -863,179 +867,30 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.arc(obs.x + obs.width * 0.35, groundY - obs.height * 0.7, 3, 0, Math.PI * 2);
       ctx.fill();
     }
-    else if (obs.type === "motoqueiro") {
-      // Motoqueiro cortando o transito - cultura SP (maior e mais claro)
+    else if (obs.type === "motoqueiro" || obs.type === "motoboy") {
+      // Motoqueiro/Motoboy - usa imagem PNG MOTOBOY.png
       const mx = obs.x;
       const my = groundY;
-      // Pneu traseiro
-      ctx.fillStyle = "#111";
-      ctx.beginPath(); ctx.arc(mx + 6, my - 8, 10, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#333";
-      ctx.beginPath(); ctx.arc(mx + 6, my - 8, 6, 0, Math.PI * 2); ctx.fill();
-      // Pneu dianteiro
-      ctx.fillStyle = "#111";
-      ctx.beginPath(); ctx.arc(mx + 48, my - 8, 10, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#333";
-      ctx.beginPath(); ctx.arc(mx + 48, my - 8, 6, 0, Math.PI * 2); ctx.fill();
-      // Quadro/chassi da moto
-      ctx.fillStyle = "#222";
-      ctx.beginPath();
-      ctx.moveTo(mx + 6, my - 16);
-      ctx.lineTo(mx + 18, my - 28);
-      ctx.lineTo(mx + 40, my - 26);
-      ctx.lineTo(mx + 50, my - 16);
-      ctx.lineTo(mx + 46, my - 12);
-      ctx.lineTo(mx + 8, my - 12);
-      ctx.closePath();
-      ctx.fill();
-      // Tanque vermelho
-      ctx.fillStyle = "#CC0000";
-      ctx.beginPath();
-      ctx.ellipse(mx + 28, my - 24, 12, 5, -0.1, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#AA0000";
-      ctx.beginPath();
-      ctx.ellipse(mx + 28, my - 22, 10, 3, 0, 0, Math.PI);
-      ctx.fill();
-      // Motor
-      ctx.fillStyle = "#555";
-      ctx.fillRect(mx + 16, my - 18, 14, 6);
-      // Escapamento
-      ctx.fillStyle = "#888";
-      ctx.fillRect(mx - 2, my - 14, 12, 3);
-      ctx.beginPath();
-      ctx.arc(mx - 2, my - 12, 2, 0, Math.PI * 2);
-      ctx.fill();
-      // Piloto - corpo inclinado pra frente
-      ctx.fillStyle = "#111";
-      ctx.beginPath();
-      ctx.moveTo(mx + 20, my - 28);
-      ctx.lineTo(mx + 32, my - 36);
-      ctx.lineTo(mx + 36, my - 30);
-      ctx.lineTo(mx + 24, my - 24);
-      ctx.closePath();
-      ctx.fill();
-      // Capacete preto grande
-      ctx.fillStyle = "#111";
-      ctx.beginPath();
-      ctx.arc(mx + 26, my - 40, 9, 0, Math.PI * 2);
-      ctx.fill();
-      // Viseira reflexiva
-      ctx.fillStyle = "#4488CC";
-      ctx.beginPath();
-      ctx.arc(mx + 29, my - 39, 6, -0.5, 0.8);
-      ctx.lineTo(mx + 29, my - 36);
-      ctx.closePath();
-      ctx.fill();
-      // Bracos no guidao
-      ctx.strokeStyle = "#111";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(mx + 32, my - 34);
-      ctx.lineTo(mx + 42, my - 30);
-      ctx.stroke();
-      // Guidao
-      ctx.strokeStyle = "#777";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(mx + 42, my - 34);
-      ctx.lineTo(mx + 46, my - 28);
-      ctx.stroke();
-      // Farol dianteiro
-      ctx.fillStyle = "#FFDD44";
-      ctx.beginPath();
-      ctx.arc(mx + 50, my - 20, 3, 0, Math.PI * 2);
-      ctx.fill();
-      // Fumaca do escapamento
-      const fc = gameRef.current.frameCount;
+      if (motoboyImgRef.current) {
+        const mImg = motoboyImgRef.current;
+        const drawW = 75;
+        const drawH = (mImg.height / mImg.width) * drawW;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(mImg, mx - 5, my - drawH + 5, drawW, drawH);
+      } else {
+        // Fallback simples
+        ctx.fillStyle = "#222";
+        ctx.fillRect(mx, my - 35, 50, 30);
+        ctx.fillStyle = "#0A0";
+        ctx.fillRect(mx + 5, my - 30, 40, 20);
+      }
+      // Fumaca do escapamento (animada)
+      const fcm = gameRef.current.frameCount;
       ctx.fillStyle = "rgba(150,150,150,0.4)";
-      ctx.beginPath(); ctx.arc(mx - 8 - (fc % 10), my - 12, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(mx - 8 - (fcm % 10), my - 10, 4, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "rgba(150,150,150,0.2)";
-      ctx.beginPath(); ctx.arc(mx - 18 - (fc % 15), my - 14, 3, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(mx - 26 - (fc % 12), my - 16, 2, 0, Math.PI * 2); ctx.fill();
-    }
-    else if (obs.type === "motoboy") {
-      // Motoboy de delivery - muito SP! (maior e mais claro)
-      const mx = obs.x;
-      const my = groundY;
-      // Pneu traseiro
-      ctx.fillStyle = "#111";
-      ctx.beginPath(); ctx.arc(mx + 6, my - 8, 10, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#333";
-      ctx.beginPath(); ctx.arc(mx + 6, my - 8, 6, 0, Math.PI * 2); ctx.fill();
-      // Pneu dianteiro
-      ctx.fillStyle = "#111";
-      ctx.beginPath(); ctx.arc(mx + 48, my - 8, 10, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#333";
-      ctx.beginPath(); ctx.arc(mx + 48, my - 8, 6, 0, Math.PI * 2); ctx.fill();
-      // Quadro da moto
-      ctx.fillStyle = "#333";
-      ctx.beginPath();
-      ctx.moveTo(mx + 6, my - 16);
-      ctx.lineTo(mx + 18, my - 26);
-      ctx.lineTo(mx + 40, my - 24);
-      ctx.lineTo(mx + 50, my - 16);
-      ctx.lineTo(mx + 46, my - 12);
-      ctx.lineTo(mx + 8, my - 12);
-      ctx.closePath();
-      ctx.fill();
-      // Motor
-      ctx.fillStyle = "#555";
-      ctx.fillRect(mx + 16, my - 18, 14, 5);
-      // Piloto corpo
-      ctx.fillStyle = "#222";
-      ctx.beginPath();
-      ctx.moveTo(mx + 20, my - 26);
-      ctx.lineTo(mx + 30, my - 34);
-      ctx.lineTo(mx + 34, my - 28);
-      ctx.lineTo(mx + 24, my - 22);
-      ctx.closePath();
-      ctx.fill();
-      // Capacete VERMELHO (delivery)
-      ctx.fillStyle = "#E84C3D";
-      ctx.beginPath();
-      ctx.arc(mx + 24, my - 38, 9, 0, Math.PI * 2);
-      ctx.fill();
-      // Viseira
-      ctx.fillStyle = "#222";
-      ctx.beginPath();
-      ctx.arc(mx + 27, my - 37, 6, -0.5, 0.8);
-      ctx.lineTo(mx + 27, my - 34);
-      ctx.closePath();
-      ctx.fill();
-      // Bracos
-      ctx.strokeStyle = "#222";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(mx + 30, my - 32);
-      ctx.lineTo(mx + 42, my - 28);
-      ctx.stroke();
-      // BAU DE DELIVERY grande (vermelho iFood)
-      ctx.fillStyle = "#E84C3D";
-      ctx.beginPath();
-      ctx.roundRect(mx - 4, my - 48, 24, 20, 3);
-      ctx.fill();
-      // Borda do bau
-      ctx.fillStyle = "#C0392B";
-      ctx.fillRect(mx - 4, my - 48, 24, 4);
-      // Logo no bau
-      ctx.fillStyle = "#FFF";
-      ctx.font = "bold 7px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText("iFood", mx + 8, my - 33);
-      // Suporte do bau
-      ctx.fillStyle = "#666";
-      ctx.fillRect(mx + 8, my - 28, 3, 4);
-      ctx.fillRect(mx + 14, my - 28, 3, 4);
-      // Farol
-      ctx.fillStyle = "#FFDD44";
-      ctx.beginPath();
-      ctx.arc(mx + 50, my - 20, 3, 0, Math.PI * 2);
-      ctx.fill();
-      // Fumaca
-      const fc2 = gameRef.current.frameCount;
-      ctx.fillStyle = "rgba(150,150,150,0.3)";
-      ctx.beginPath(); ctx.arc(mx - 6 - (fc2 % 10), my - 12, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(mx - 18 - (fcm % 15), my - 12, 3, 0, Math.PI * 2); ctx.fill();
     }
     else if (obs.type === "boss") {
       // BOSS - Guincho CET ou Guarda Rodoviario

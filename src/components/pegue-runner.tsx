@@ -1210,7 +1210,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         const cnImg = coneImgRef.current;
         const drawW = 50;
         const drawH = (cnImg.height / cnImg.width) * drawW;
-        ctx.drawImage(cnImg, obs.x - 5, groundY - drawH + 3, drawW, drawH);
+        ctx.drawImage(cnImg, obs.x - 5, groundY - drawH * 0.7, drawW, drawH);
       } else {
         // Fallback
         ctx.fillStyle = "#FF4400";
@@ -1330,7 +1330,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         const mImg = motoboyImgRef.current;
         const drawW = 90;
         const drawH = (mImg.height / mImg.width) * drawW;
-        ctx.drawImage(mImg, mx - 5, my - drawH + 5, drawW, drawH);
+        ctx.drawImage(mImg, mx - 5, my - drawH * 0.7, drawW, drawH);
       } else {
         // Fallback simples
         ctx.fillStyle = "#222";
@@ -1497,7 +1497,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         const cvImg = cvImgs[cvIdx];
         const drawW = 65;
         const drawH = (cvImg.height / cvImg.width) * drawW;
-        ctx.drawImage(cvImg, obs.x - 3, groundY - drawH + 2, drawW, drawH);
+        ctx.drawImage(cvImg, obs.x - 3, groundY - drawH * 0.7, drawW, drawH);
       } else {
         ctx.fillStyle = "#FF6B00";
         ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
@@ -1529,7 +1529,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         const ctImg = ctImgs[ctIdx];
         const drawW = 85;
         const drawH = (ctImg.height / ctImg.width) * drawW;
-        ctx.drawImage(ctImg, obs.x - 5, groundY - drawH + 3, drawW, drawH);
+        ctx.drawImage(ctImg, obs.x - 5, groundY - drawH * 0.7, drawW, drawH);
       } else {
         ctx.fillStyle = "#E65100";
         ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
@@ -1547,7 +1547,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         const cImg = caixas[cIdx];
         const drawW = 75;
         const drawH = (cImg.height / cImg.width) * drawW;
-        ctx.drawImage(cImg, obs.x - 5, groundY - drawH + 3, drawW, drawH);
+        ctx.drawImage(cImg, obs.x - 5, groundY - drawH * 0.7, drawW, drawH);
       } else {
         // Fallback
         ctx.fillStyle = "#8B6914";
@@ -1563,7 +1563,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         const sImg = sacoLixoImgRef.current;
         const drawW = 60;
         const drawH = (sImg.height / sImg.width) * drawW;
-        ctx.drawImage(sImg, obs.x - 3, groundY - drawH + 3, drawW, drawH);
+        ctx.drawImage(sImg, obs.x - 3, groundY - drawH * 0.7, drawW, drawH);
       } else {
         // Fallback
         ctx.fillStyle = "#222";
@@ -1621,7 +1621,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (brutoImgRef.current) {
           const bImg = brutoImgRef.current;
-          const drawW = 300;
+          const drawW = 500;
           const drawH = (bImg.height / bImg.width) * drawW;
           ctx.drawImage(bImg, bx - 20, by - drawH * 0.55, drawW, drawH);
         } else {
@@ -1645,7 +1645,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (coletorImgRef.current) {
           const cImg = coletorImgRef.current;
-          const drawW = 280;
+          const drawW = 420;
           const drawH = (cImg.height / cImg.width) * drawW;
           ctx.drawImage(cImg, bx - 30, by - drawH * 0.55, drawW, drawH);
         } else {
@@ -2391,7 +2391,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       // === ESTRADA COM TERRENO ===
       // Cor da pista muda por fase (fase 3+ fica mais escura/diferente)
       // Cor da pista: normal, escura, ou terra (fase 6+)
-      const pistaColor = cenarioFase >= 6 ? "#7A5C3A" : g.phase >= 3 ? "#2a2a35" : "#333";
+      const pistaColor = cenarioFase >= 6 ? "#7A5C3A" : cenarioFase === 4 ? "#1a1a1a" : g.phase >= 3 ? "#2a2a35" : "#333";
       // Superficie da estrada seguindo o terreno
       ctx.fillStyle = pistaColor;
       ctx.beginPath();

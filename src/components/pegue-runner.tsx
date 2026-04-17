@@ -2987,7 +2987,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         g.obstacles = g.obstacles.filter((o) => {
           if (o.type === "boss") {
             // Boss fica BEM na frente (lado direito da tela)
-            const targetX = W * 0.72;
+            const targetX = W * 0.58;
             if (g.phaseState === "boss_derrota") {
               // animacao controlada pelo bloco boss_derrota
             } else if (o.x > targetX) {

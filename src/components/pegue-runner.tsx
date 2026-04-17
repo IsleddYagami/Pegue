@@ -12,7 +12,7 @@ const GRAVITY = 0.6;
 const JUMP_FORCE = -12;
 const GROUND_HEIGHT = 0.75;
 const TRUCK_SIZE = 44;
-const INITIAL_SPEED = 4.0; // velocidade confortavel pra fase 1
+const INITIAL_SPEED = 4.3; // velocidade da fase 3 (1-3 iguais)
 const SPEED_INCREMENT = 0.0003; // minimo - velocidade sobe pelas fases, nao por frame
 const MAX_SPEED = 12; // limite absoluto de velocidade
 
@@ -2863,9 +2863,9 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           g.phaseState = "desafio";
           g.phaseTimer = 0;
           // Velocidade: fases 1-6 contemplativas, 7+ desafiador
-          if (g.phase <= 3) g.speed += 0.15;       // quase imperceptivel
-          else if (g.phase <= 5) g.speed += 0.25;   // leve
-          else if (g.phase <= 6) g.speed += 0.35;   // suave
+          if (g.phase <= 3) g.speed += 0;           // fases 1-3 mesma velocidade
+          else if (g.phase <= 5) g.speed += 0.2;    // leve
+          else if (g.phase <= 6) g.speed += 0.3;    // suave
           else if (g.phase === 7) g.speed += 0.6;   // aqui comeca
           else g.speed += 0.8;                       // fase 8+ intenso
           setDisplayPhase(g.phase);

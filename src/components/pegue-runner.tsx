@@ -1908,8 +1908,63 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         }
       }
 
-      // === CENARIO SANTOS (durante boss Bruto) ===
-      const isSantos = g.bossType === "bruto" && (g.phaseState === "boss" || g.phaseState === "boss_derrota");
+      // === CENARIOS POR FASE ===
+      // 1=Osasco, 2=Marginal Tietê, 3=Bairro, 4=Santos, 5=Aeroporto/Paulista, 6=Zona Leste, 7+=repete
+      const cenarioFase = ((g.phase - 1) % 7) + 1;
+
+      // CENARIO 2: MARGINAL TIETE
+      if (cenarioFase === 2) {
+        // Rio Tiete poluido no fundo
+        ctx.fillStyle = "#5C6B3C";
+        ctx.fillRect(0, baseGroundY - 50, W, 20);
+        // Agua suja
+        ctx.fillStyle = "#4A5A2A";
+        ctx.fillRect(0, baseGroundY - 45, W, 12);
+        // Ondas do rio
+        ctx.strokeStyle = "#3A4A1A";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let rx = 0; rx < W; rx += 3) {
+          const ry = baseGroundY - 42 + Math.sin((rx + g.frameCount) * 0.05) * 2;
+          if (rx === 0) ctx.moveTo(rx, ry); else ctx.lineTo(rx, ry);
+        }
+        ctx.stroke();
+        // Viadutos
+        for (let vi = 0; vi < 2; vi++) {
+          const vx = ((vi * 400 - g.groundOffset * 0.08 + 200) % (W + 500)) - 100;
+          if (vx > -150 && vx < W + 50) {
+            ctx.fillStyle = "#666";
+            ctx.fillRect(vx, baseGroundY - 100, 8, 70);
+            ctx.fillRect(vx + 120, baseGroundY - 100, 8, 70);
+            ctx.fillStyle = "#777";
+            ctx.fillRect(vx - 10, baseGroundY - 108, 150, 12);
+            // Carros no viaduto
+            ctx.fillStyle = "#CCC";
+            ctx.fillRect(vx + 20, baseGroundY - 115, 15, 8);
+            ctx.fillStyle = "#999";
+            ctx.fillRect(vx + 60, baseGroundY - 115, 15, 8);
+          }
+        }
+        // Predios industriais
+        for (let pi = 0; pi < 3; pi++) {
+          const px = ((pi * 300 - g.groundOffset * 0.06 + 100) % (W + 400)) - 80;
+          if (px > -80 && px < W + 50) {
+            ctx.fillStyle = "#555";
+            ctx.fillRect(px, baseGroundY - 70 - pi * 10, 50, 70 + pi * 10);
+            // Chamine
+            ctx.fillStyle = "#444";
+            ctx.fillRect(px + 35, baseGroundY - 95 - pi * 10, 8, 25);
+            // Fumaca
+            ctx.fillStyle = "rgba(100,100,100,0.3)";
+            ctx.beginPath();
+            ctx.arc(px + 39, baseGroundY - 100 - pi * 10, 6, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      // CENARIO 4: SANTOS (porto, praia, mar)
+      const isSantos = cenarioFase === 4;
       if (isSantos) {
         // Ceu mais azul/tropical
         const gradSantos = ctx.createLinearGradient(0, 0, 0, baseGroundY);
@@ -1978,9 +2033,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         }
       }
 
-      // === CENARIO BAIRRO SP (fase 5 - boss Coletor) ===
-      // Cenario bairro aparece na fase 3 (Correria) e fase 5 (Coletor) e a cada fase 3 e 5
-      const isBairro = (g.phase % 5 === 3) || (g.phase % 5 === 0) || (g.bossType === "coletor" && (g.phaseState === "boss" || g.phaseState === "boss_derrota"));
+      // CENARIO 3: BAIRRO SP
+      const isBairro = cenarioFase === 3;
       if (isBairro) {
         // Casas residenciais no fundo
         for (let ci = 0; ci < 6; ci++) {
@@ -2053,8 +2107,159 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillRect(0, baseGroundY - 5, W, 5);
       }
 
+      // CENARIO 5: AEROPORTO GUARULHOS + AV. PAULISTA
+      if (cenarioFase === 5) {
+        // Pista do aeroporto ao fundo
+        ctx.fillStyle = "#555";
+        ctx.fillRect(0, baseGroundY - 35, W, 8);
+        // Faixas da pista
+        ctx.fillStyle = "#FFF";
+        for (let fx = 0; fx < W; fx += 60) {
+          ctx.fillRect(fx + ((g.groundOffset * 0.03) % 60), baseGroundY - 32, 30, 2);
+        }
+        // Aviao decolando
+        const avX = ((300 - g.groundOffset * 0.04) % (W + 400)) - 100;
+        if (avX > -80 && avX < W + 50) {
+          const avY = baseGroundY - 80 - Math.max(0, (W / 2 - avX) * 0.15);
+          // Fuselagem
+          ctx.fillStyle = "#EEE";
+          ctx.beginPath();
+          ctx.ellipse(avX + 30, avY, 30, 8, -0.1, 0, Math.PI * 2);
+          ctx.fill();
+          // Asas
+          ctx.fillStyle = "#DDD";
+          ctx.beginPath();
+          ctx.moveTo(avX + 15, avY);
+          ctx.lineTo(avX - 10, avY + 15);
+          ctx.lineTo(avX + 5, avY);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(avX + 15, avY);
+          ctx.lineTo(avX - 10, avY - 15);
+          ctx.lineTo(avX + 5, avY);
+          ctx.closePath();
+          ctx.fill();
+          // Cauda
+          ctx.fillStyle = "#0044AA";
+          ctx.beginPath();
+          ctx.moveTo(avX + 55, avY);
+          ctx.lineTo(avX + 60, avY - 12);
+          ctx.lineTo(avX + 50, avY);
+          ctx.closePath();
+          ctx.fill();
+        }
+        // Torre de controle
+        const twX = ((500 - g.groundOffset * 0.05) % (W + 600)) - 100;
+        if (twX > -40 && twX < W + 40) {
+          ctx.fillStyle = "#888";
+          ctx.fillRect(twX, baseGroundY - 100, 6, 70);
+          ctx.fillStyle = "#AAA";
+          ctx.fillRect(twX - 12, baseGroundY - 110, 30, 15);
+          ctx.fillStyle = "#87CEEB88";
+          ctx.fillRect(twX - 10, baseGroundY - 108, 26, 10);
+        }
+        // Predios da Paulista ao fundo
+        for (let bi = 0; bi < 5; bi++) {
+          const bpx = ((bi * 200 - g.groundOffset * 0.07 + 80) % (W + 400)) - 80;
+          if (bpx > -60 && bpx < W + 50) {
+            const bh = 80 + bi * 15;
+            ctx.fillStyle = ["#668", "#778", "#889", "#779", "#888"][bi];
+            ctx.fillRect(bpx, baseGroundY - bh, 40, bh);
+            // Janelas
+            ctx.fillStyle = "#87CEEB44";
+            for (let jy = 0; jy < bh - 10; jy += 12) {
+              for (let jx = 0; jx < 30; jx += 10) {
+                ctx.fillRect(bpx + 5 + jx, baseGroundY - bh + 5 + jy, 6, 8);
+              }
+            }
+          }
+        }
+      }
+
+      // CENARIO 6: ZONA LESTE
+      if (cenarioFase === 6) {
+        // Conjuntos habitacionais (predios baixos iguais)
+        for (let ci = 0; ci < 5; ci++) {
+          const cx = ((ci * 160 - g.groundOffset * 0.09 + 60) % (W + 350)) - 80;
+          if (cx > -80 && cx < W + 50) {
+            ctx.fillStyle = "#B8A080";
+            ctx.fillRect(cx, baseGroundY - 55, 50, 55);
+            ctx.fillStyle = "#A09070";
+            ctx.fillRect(cx, baseGroundY - 55, 50, 5);
+            // Janelas em grade
+            for (let jy = 0; jy < 3; jy++) {
+              for (let jx = 0; jx < 3; jx++) {
+                ctx.fillStyle = "#87CEEB55";
+                ctx.fillRect(cx + 5 + jx * 15, baseGroundY - 48 + jy * 16, 10, 10);
+              }
+            }
+          }
+        }
+        // Grafite nos muros
+        const grafX = ((400 - g.groundOffset * 0.1) % (W + 500)) - 100;
+        if (grafX > -80 && grafX < W + 50) {
+          // Muro
+          ctx.fillStyle = "#999";
+          ctx.fillRect(grafX, baseGroundY - 30, 80, 30);
+          // Grafite colorido
+          ctx.fillStyle = "#FF4444";
+          ctx.font = "bold 10px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("SP", grafX + 20, baseGroundY - 12);
+          ctx.fillStyle = "#44FF44";
+          ctx.fillText("ZL", grafX + 45, baseGroundY - 15);
+          ctx.fillStyle = "#FFFF00";
+          ctx.font = "8px Arial";
+          ctx.fillText("ARTE", grafX + 65, baseGroundY - 10);
+        }
+        // Quadra esportiva
+        const qdX = ((700 - g.groundOffset * 0.08) % (W + 600)) - 100;
+        if (qdX > -60 && qdX < W + 50) {
+          ctx.fillStyle = "#2E7D32";
+          ctx.fillRect(qdX, baseGroundY - 15, 50, 15);
+          ctx.strokeStyle = "#FFF";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(qdX + 2, baseGroundY - 13, 46, 11);
+          ctx.beginPath();
+          ctx.arc(qdX + 25, baseGroundY - 7, 5, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      // CENARIO 7: SERRA DO MAR (estrada com vegetacao densa)
+      if (cenarioFase === 7) {
+        // Vegetacao densa
+        ctx.fillStyle = "#1B5E20";
+        ctx.beginPath();
+        ctx.moveTo(0, baseGroundY);
+        for (let vx = 0; vx <= W; vx += 8) {
+          const wx = vx + g.groundOffset * 0.06;
+          const vh = Math.sin(wx * 0.008) * 25 + Math.cos(wx * 0.015) * 15 + 50;
+          ctx.lineTo(vx, baseGroundY - vh);
+        }
+        ctx.lineTo(W, baseGroundY);
+        ctx.closePath();
+        ctx.fill();
+        // Arvores
+        ctx.fillStyle = "#2E7D32";
+        ctx.beginPath();
+        ctx.moveTo(0, baseGroundY);
+        for (let vx = 0; vx <= W; vx += 6) {
+          const wx = vx + g.groundOffset * 0.09;
+          const vh = Math.sin(wx * 0.012) * 20 + Math.cos(wx * 0.02) * 10 + 35;
+          ctx.lineTo(vx, baseGroundY - vh);
+        }
+        ctx.lineTo(W, baseGroundY);
+        ctx.closePath();
+        ctx.fill();
+        // Neblina leve
+        ctx.fillStyle = "rgba(200,220,200,0.15)";
+        ctx.fillRect(0, baseGroundY - 80, W, 60);
+      }
+
       // === MONTANHAS DE FUNDO ===
-      if (isSantos || isBairro) {
+      if (isSantos || isBairro || cenarioFase === 2 || cenarioFase === 5 || cenarioFase === 6) {
         drawMountains(ctx, W, baseGroundY, g.groundOffset, false);
       } else {
         drawMountains(ctx, W, baseGroundY, g.groundOffset, g.nightMode);
@@ -2170,7 +2375,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
 
       // === ESTRADA COM TERRENO ===
       // Cor da pista muda por fase (fase 3+ fica mais escura/diferente)
-      const pistaColor = g.phase >= 3 ? "#2a2a35" : "#333";
+      // Cor da pista: normal, escura, ou terra (fase 6+)
+      const pistaColor = cenarioFase >= 6 ? "#7A5C3A" : g.phase >= 3 ? "#2a2a35" : "#333";
       // Superficie da estrada seguindo o terreno
       ctx.fillStyle = pistaColor;
       ctx.beginPath();
@@ -2184,7 +2390,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.fill();
 
       // Borda superior da estrada
-      ctx.strokeStyle = g.phase >= 3 ? "#4a4a55" : "#555";
+      ctx.strokeStyle = cenarioFase >= 6 ? "#6A4C2A" : g.phase >= 3 ? "#4a4a55" : "#555";
       ctx.lineWidth = 3;
       ctx.beginPath();
       for (let x = 0; x <= W; x += 4) {

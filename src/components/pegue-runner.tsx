@@ -882,44 +882,94 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     }
   }
 
-  // === DRAW OBSTACLE (expandido) ===
+  // === DRAW OBSTACLE (expandido + destacado) ===
   function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obstacle, groundY: number) {
+    // Sombra base pra todos os obstaculos (destaca do fundo)
+    if (obs.type !== "boss" && obs.type !== "buraco" && obs.type !== "bueiro" && obs.type !== "cachorro") {
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.beginPath();
+      ctx.ellipse(obs.x + obs.width / 2, groundY + 3, obs.width / 2 + 5, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     if (obs.type === "barreira") {
+      // Barreira mais brilhante com contorno
       const stripes = 4;
       const stripeH = obs.height / stripes;
       for (let i = 0; i < stripes; i++) {
-        ctx.fillStyle = i % 2 === 0 ? "#FF6B00" : "#FFF";
+        ctx.fillStyle = i % 2 === 0 ? "#FF5500" : "#FFEE00";
         ctx.fillRect(obs.x, groundY - obs.height + i * stripeH, obs.width, stripeH);
       }
-      ctx.fillStyle = "#666";
-      ctx.fillRect(obs.x - 2, groundY - obs.height - 5, 4, obs.height + 5);
-      ctx.fillRect(obs.x + obs.width - 2, groundY - obs.height - 5, 4, obs.height + 5);
+      // Contorno escuro
+      ctx.strokeStyle = "#222";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(obs.x, groundY - obs.height, obs.width, obs.height);
+      // Postes laterais
+      ctx.fillStyle = "#555";
+      ctx.fillRect(obs.x - 3, groundY - obs.height - 5, 5, obs.height + 5);
+      ctx.fillRect(obs.x + obs.width - 2, groundY - obs.height - 5, 5, obs.height + 5);
     }
     else if (obs.type === "cone") {
-      ctx.fillStyle = "#FF6600";
+      // Cone mais brilhante e maior
+      ctx.fillStyle = "#FF4400";
       ctx.beginPath();
-      ctx.moveTo(obs.x + obs.width / 2, groundY - obs.height);
-      ctx.lineTo(obs.x + obs.width, groundY);
-      ctx.lineTo(obs.x, groundY);
+      ctx.moveTo(obs.x + obs.width / 2, groundY - obs.height - 3);
+      ctx.lineTo(obs.x + obs.width + 3, groundY);
+      ctx.lineTo(obs.x - 3, groundY);
       ctx.closePath();
       ctx.fill();
+      // Contorno
+      ctx.strokeStyle = "#AA2200";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Faixas refletivas brancas (mais grossas)
       ctx.fillStyle = "#FFF";
-      ctx.fillRect(obs.x + 4, groundY - obs.height * 0.6, obs.width - 8, 3);
-      ctx.fillRect(obs.x + 2, groundY - obs.height * 0.3, obs.width - 4, 3);
+      ctx.fillRect(obs.x + 3, groundY - obs.height * 0.6, obs.width - 6, 4);
+      ctx.fillRect(obs.x + 1, groundY - obs.height * 0.3, obs.width - 2, 4);
+      // Base
+      ctx.fillStyle = "#222";
+      ctx.fillRect(obs.x - 4, groundY - 3, obs.width + 8, 5);
     }
     else if (obs.type === "buraco") {
-      ctx.fillStyle = "#1a1a1a";
+      // Buraco mais visivel com borda
+      ctx.strokeStyle = "#555";
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.ellipse(obs.x + obs.width / 2, groundY, obs.width / 2, 6, 0, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.ellipse(obs.x + obs.width / 2, groundY, obs.width / 2 + 3, 9, 0, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.fillStyle = "#0a0a0a";
       ctx.beginPath();
-      ctx.ellipse(obs.x + obs.width / 2, groundY + 1, obs.width / 2 - 4, 4, 0, 0, Math.PI * 2);
+      ctx.ellipse(obs.x + obs.width / 2, groundY, obs.width / 2, 7, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.ellipse(obs.x + obs.width / 2, groundY + 1, obs.width / 2 - 5, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Rachaduras ao redor
+      ctx.strokeStyle = "#444";
+      ctx.lineWidth = 1;
+      for (let r = 0; r < 4; r++) {
+        const rx = obs.x + obs.width / 2 + Math.cos(r * 1.5) * (obs.width / 2 + 5);
+        const ry = groundY + Math.sin(r * 1.5) * 6;
+        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + Math.cos(r) * 6, ry + Math.sin(r) * 3); ctx.stroke();
+      }
     }
     else if (obs.type === "pedra") {
-      // Pedra/rocha na pista
-      ctx.fillStyle = "#888";
+      // Pedra/rocha mais visivel com contorno e textura
+      // Contorno escuro primeiro
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(obs.x - 2, groundY);
+      ctx.lineTo(obs.x + 3, groundY - obs.height * 0.6);
+      ctx.lineTo(obs.x + obs.width * 0.3, groundY - obs.height - 2);
+      ctx.lineTo(obs.x + obs.width * 0.6, groundY - obs.height * 0.85);
+      ctx.lineTo(obs.x + obs.width * 0.85, groundY - obs.height * 0.45);
+      ctx.lineTo(obs.x + obs.width + 2, groundY);
+      ctx.closePath();
+      ctx.stroke();
+      // Corpo da pedra
+      ctx.fillStyle = "#999";
       ctx.beginPath();
       ctx.moveTo(obs.x, groundY);
       ctx.lineTo(obs.x + 4, groundY - obs.height * 0.6);
@@ -929,18 +979,18 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.lineTo(obs.x + obs.width, groundY);
       ctx.closePath();
       ctx.fill();
-      // Sombra e detalhe
-      ctx.fillStyle = "#666";
+      // Face mais escura
+      ctx.fillStyle = "#777";
       ctx.beginPath();
       ctx.moveTo(obs.x + obs.width * 0.3, groundY - obs.height);
-      ctx.lineTo(obs.x + obs.width * 0.5, groundY - obs.height * 0.7);
+      ctx.lineTo(obs.x + obs.width * 0.5, groundY - obs.height * 0.65);
       ctx.lineTo(obs.x + obs.width * 0.6, groundY - obs.height * 0.9);
       ctx.closePath();
       ctx.fill();
-      // Brilho
-      ctx.fillStyle = "rgba(255,255,255,0.15)";
+      // Brilho forte
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
       ctx.beginPath();
-      ctx.arc(obs.x + obs.width * 0.35, groundY - obs.height * 0.7, 3, 0, Math.PI * 2);
+      ctx.arc(obs.x + obs.width * 0.35, groundY - obs.height * 0.7, 4, 0, Math.PI * 2);
       ctx.fill();
     }
     else if (obs.type === "motoqueiro" || obs.type === "motoboy") {
@@ -1290,34 +1340,46 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       }
     }
     else if (obs.type === "radar") {
-      // Radar / Lombada eletronica - classico de SP
+      // Radar / Lombada eletronica - mais visivel
       const rx = obs.x + obs.width / 2;
-      // Poste
-      ctx.fillStyle = "#777";
-      ctx.fillRect(rx - 2, groundY - 65, 4, 65);
-      // Caixa do radar
-      ctx.fillStyle = "#333";
-      ctx.fillRect(rx - 10, groundY - 72, 20, 14);
+      // Poste grosso
+      ctx.fillStyle = "#888";
+      ctx.fillRect(rx - 3, groundY - 70, 6, 70);
+      ctx.strokeStyle = "#555";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(rx - 3, groundY - 70, 6, 70);
+      // Caixa do radar maior
+      ctx.fillStyle = "#222";
+      ctx.beginPath();
+      ctx.roundRect(rx - 12, groundY - 78, 24, 16, 3);
+      ctx.fill();
+      ctx.strokeStyle = "#555";
+      ctx.lineWidth = 1;
+      ctx.stroke();
       // Lente da camera
       const g = gameRef.current;
       const flashing = obs.flashTimer && obs.flashTimer > 0;
-      ctx.fillStyle = flashing ? "#FF0000" : "#880000";
+      ctx.fillStyle = flashing ? "#FF0000" : "#CC0000";
       ctx.beginPath();
-      ctx.arc(rx, groundY - 65, 4, 0, Math.PI * 2);
+      ctx.arc(rx, groundY - 70, 5, 0, Math.PI * 2);
       ctx.fill();
-      // Flash
+      // Flash grande
       if (flashing) {
-        ctx.fillStyle = "rgba(255,0,0,0.3)";
+        ctx.fillStyle = "rgba(255,0,0,0.4)";
         ctx.beginPath();
-        ctx.arc(rx, groundY - 65, 12, 0, Math.PI * 2);
+        ctx.arc(rx, groundY - 70, 18, 0, Math.PI * 2);
         ctx.fill();
       }
-      // Placa "VELOCIDADE"
+      // Placa "REDUZA" maior e mais visivel
       ctx.fillStyle = "#FFF";
-      ctx.fillRect(rx - 14, groundY - 88, 28, 14);
+      ctx.beginPath();
+      ctx.roundRect(rx - 18, groundY - 98, 36, 18, 3);
+      ctx.fill();
       ctx.strokeStyle = "#CC0000";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(rx - 14, groundY - 88, 28, 14);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(rx - 18, groundY - 98, 36, 18, 3);
+      ctx.stroke();
       ctx.fillStyle = "#000";
       ctx.font = "bold 5px Arial";
       ctx.textAlign = "center";

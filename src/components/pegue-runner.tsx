@@ -417,11 +417,11 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
 
     if (truckImgRef.current) {
       const img = truckImgRef.current;
-      const drawW = 140;
+      const drawW = 160;
       const drawH = (img.height / img.width) * drawW;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, x - 20, ty - drawH + TRUCK_SIZE + 10, drawW, drawH);
+      ctx.drawImage(img, x - 25, ty - drawH + TRUCK_SIZE + 15, drawW, drawH);
     } else {
       ctx.fillStyle = "#C9A84C";
       ctx.fillRect(x, ty, 70, TRUCK_SIZE);

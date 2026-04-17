@@ -32,7 +32,8 @@ interface Item {
   x: number;
   y: number;
   type: "pacote" | "pegue_logo" | "moeda"
-    | "pao_chapa" | "pastel" | "mortadela" | "coxinha" | "guarana" | "bilhete_unico"; // itens SP
+    | "pao_chapa" | "pastel" | "mortadela" | "coxinha" | "guarana" | "bilhete_unico"
+    | "sobrevida"; // cruz brilhante - absorve 1 batida
   collected: boolean;
   scale: number;
 }
@@ -234,6 +235,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     // Invencibilidade (bilhete unico)
     invencivel: false,
     invencivelTimer: 0,
+    // Sobrevida (cruz brilhante) - absorve 1 batida
+    temSobrevida: false,
+    sobreviveuHit: false, // true quando usou a sobrevida (proximo hit mata)
     // Boost velocidade (guarana)
     boosted: false,
     boostTimer: 0,
@@ -855,6 +859,45 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.fillStyle = "#FFDD00";
       ctx.font = `${10 * s}px Arial`;
       ctx.fillText("⚡", item.x + 8, y - 8);
+    } else if (item.type === "sobrevida") {
+      // Cruz brilhante dourada - sobrevida
+      const fc = gameRef.current.frameCount;
+      const glow = 0.4 + Math.sin(fc * 0.08) * 0.3;
+      const pulse = 1 + Math.sin(fc * 0.1) * 0.15;
+      // Halo de brilho
+      ctx.fillStyle = `rgba(255,215,0,${glow * 0.3})`;
+      ctx.beginPath();
+      ctx.arc(item.x, y, 22 * s * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = `rgba(255,255,200,${glow * 0.2})`;
+      ctx.beginPath();
+      ctx.arc(item.x, y, 28 * s * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Cruz dourada
+      const cw = 5 * s, ch = 16 * s;
+      ctx.fillStyle = "#FFD700";
+      ctx.fillRect(item.x - cw / 2, y - ch / 2, cw, ch);
+      ctx.fillRect(item.x - ch / 2 * 0.7, y - cw / 2 * 0.8, ch * 0.7, cw * 0.8);
+      // Contorno
+      ctx.strokeStyle = "#B8860B";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(item.x - cw / 2, y - ch / 2, cw, ch);
+      ctx.strokeRect(item.x - ch / 2 * 0.7, y - cw / 2 * 0.8, ch * 0.7, cw * 0.8);
+      // Brilho central
+      ctx.fillStyle = "#FFF";
+      ctx.beginPath();
+      ctx.arc(item.x, y, 3 * s, 0, Math.PI * 2);
+      ctx.fill();
+      // Raios de luz girando
+      ctx.strokeStyle = `rgba(255,215,0,${glow})`;
+      ctx.lineWidth = 1;
+      for (let r = 0; r < 8; r++) {
+        const angle = (r / 8) * Math.PI * 2 + fc * 0.02;
+        ctx.beginPath();
+        ctx.moveTo(item.x + Math.cos(angle) * 12 * s, y + Math.sin(angle) * 12 * s);
+        ctx.lineTo(item.x + Math.cos(angle) * 18 * s * pulse, y + Math.sin(angle) * 18 * s * pulse);
+        ctx.stroke();
+      }
     } else if (item.type === "bilhete_unico") {
       // Bilhete Unico = invencibilidade
       ctx.fillStyle = "#0066CC";
@@ -1618,6 +1661,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       cegonhaCarrosPulados: 0, cegonhaCarrosJogados: 0,
       eventoClimatico: "normal", eventoTimer: 0, granizoDrops: [],
       invencivel: false, invencivelTimer: 0, boosted: false, boostTimer: 0,
+      temSobrevida: false, sobreviveuHit: false,
       pombos: [], nextPomboSpawn: 300,
       raining: false, raindrops: [],
     });
@@ -2304,6 +2348,15 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           };
           showStatus(nomesFase[g.phase] || `🏎️ FASE ${g.phase} - INSANO!`, 80);
           playSound("game-combo");
+          // A cada 3 fases (3, 6, 9...) spawna cruz de sobrevida
+          if (g.phase % 3 === 0 && !g.temSobrevida) {
+            g.items.push({
+              x: W + 400 + Math.random() * 300, // aparece um pouco depois
+              y: baseGroundY - 70 - Math.random() * 40,
+              type: "sobrevida",
+              collected: false, scale: 1,
+            });
+          }
         }
 
         // Spawn obstaculos (pausado na rodovia e entrega)
@@ -2509,6 +2562,16 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               spawnParticles(obs.x + 10, obsGY - 10, "#0088FF", 8);
               continue;
             }
+            // Sobrevida (cruz) = absorve 1 hit
+            if (g.temSobrevida && !g.sobreviveuHit) {
+              g.sobreviveuHit = true;
+              g.temSobrevida = false;
+              showStatus("✝ SOBREVIDA USADA! PROXIMA BATE!", 60);
+              playSound("game-combo");
+              spawnParticles(60 + 20, truckGroundY - 20, "#FFD700", 20);
+              spawnParticles(60 + 20, truckGroundY - 20, "#FFF", 10);
+              continue;
+            }
             g.gameOver = true;
             g.running = false;
             playSound("game-over");
@@ -2570,7 +2633,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             const ptsMap: Record<string, number> = {
               pegue_logo: 50, moeda: 25, pacote: 10,
               pao_chapa: 15, pastel: 20, mortadela: 30, coxinha: 15,
-              guarana: 10, bilhete_unico: 10,
+              guarana: 10, bilhete_unico: 10, sobrevida: 0,
             };
             const pts = ptsMap[item.type] || 10;
             g.combo++;
@@ -2580,7 +2643,11 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             setDisplayScore(g.score);
 
             // Efeitos especiais
-            if (item.type === "guarana") {
+            if (item.type === "sobrevida") {
+              g.temSobrevida = true;
+              g.sobreviveuHit = false;
+              showStatus("✝ SOBREVIDA! 1 CHANCE EXTRA!", 60);
+            } else if (item.type === "guarana") {
               g.boosted = true;
               g.boostTimer = 180; // 3 segundos de boost
               g.speed += 1.5;
@@ -2591,9 +2658,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               showStatus("BILHETE UNICO! INVENCIVEL!", 50);
             }
 
-            playSound(item.type === "pegue_logo" || item.type === "mortadela" || item.type === "bilhete_unico" ? "game-star" : "game-collect");
+            playSound(item.type === "pegue_logo" || item.type === "mortadela" || item.type === "bilhete_unico" || item.type === "sobrevida" ? "game-star" : "game-collect");
             if (g.combo > 2) playSound("game-combo");
-            const particleColor = item.type === "guarana" ? "#00FF00" : item.type === "bilhete_unico" ? "#0088FF" : item.type === "pegue_logo" ? "#C9A84C" : "#FFD700";
+            const particleColor = item.type === "sobrevida" ? "#FFD700" : item.type === "guarana" ? "#00FF00" : item.type === "bilhete_unico" ? "#0088FF" : item.type === "pegue_logo" ? "#C9A84C" : "#FFD700";
             spawnParticles(item.x, itemY, particleColor, 12);
           }
         }
@@ -3120,6 +3187,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       if (g.eventoClimatico === "nevoeiro") statusIcons += "🌫️";
       if (g.eventoClimatico === "granizo") statusIcons += "🧊";
       if (g.eventoClimatico === "apagao") statusIcons += "🔦";
+      if (g.temSobrevida) statusIcons += "✝️";
       if (g.invencivel) statusIcons += "🛡️";
       if (g.boosted) statusIcons += "🚀";
       if (statusIcons) {

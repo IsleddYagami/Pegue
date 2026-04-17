@@ -387,6 +387,13 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
     fetchRanking();
   }, []);
 
+  // Auto-save quando game over (salva automaticamente sem pedir nome)
+  useEffect(() => {
+    if (gameState === "gameover" && playerName.trim() && !scoreSaved) {
+      saveScore();
+    }
+  }, [gameState]);
+
   function playSound(name: string) {
     try {
       const s = soundsRef.current[name];
@@ -419,9 +426,8 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
 
     if (truckImgRef.current) {
       const img = truckImgRef.current;
-      const drawW = 160;
+      const drawW = 140;
       const drawH = (img.height / img.width) * drawW;
-      ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, x - 25, ty - drawH + TRUCK_SIZE + 15, drawW, drawH);
     } else {
@@ -2511,17 +2517,17 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           }
         }
 
-        // === POMBOS (fase 4+) ===
-        if (g.phase >= 4 && g.phaseState === "desafio") {
+        // === POMBOS (fase 7+ apenas) ===
+        if (g.phase >= 7 && g.phaseState === "desafio") {
           g.nextPomboSpawn--;
           if (g.nextPomboSpawn <= 0) {
             g.pombos.push({
               x: W + 20,
-              y: truckGroundY - 60 - Math.random() * 40, // voam na altura do pulo
+              y: truckGroundY - 55 - Math.random() * 30, // voam na altura do pulo
               wingPhase: Math.random() * Math.PI * 2,
               speed: g.speed * 0.7 + Math.random() * 1.5,
             });
-            g.nextPomboSpawn = 200 + Math.random() * 250; // um a cada 3-7s
+            g.nextPomboSpawn = 400 + Math.random() * 300; // um a cada 7-12s (raro)
           }
         }
         // Move pombos
@@ -2913,7 +2919,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
 
             // Garante distancia minima do ultimo obstaculo (evita impossivel de pular)
             const lastObs = g.obstacles.filter(o => o.type !== "boss" && o.type !== "cachorro").slice(-1)[0];
-            const minDist = g.phase <= 6 ? 200 : g.phase <= 8 ? 150 : 120;
+            const minDist = g.phase <= 6 ? 300 : g.phase <= 8 ? 200 : 150;
             if (lastObs && (W + 20 - lastObs.x) < minDist) {
               g.nextSpawn = 30; // tenta de novo em 0.5s
             } else {
@@ -2924,24 +2930,15 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
             // FASES 1-6: CONTEMPLATIVAS (jogador curte cenario e coleta itens)
             // FASES 7+: DESAFIADORAS (aqui o bicho pega)
             let spawnDelay: number;
-            if (g.phase === 1) {
-              spawnDelay = 200 + Math.random() * 180; // 3.3-6.3s
-            } else if (g.phase === 2) {
-              spawnDelay = 180 + Math.random() * 150; // 3.0-5.5s
-            } else if (g.phase === 3) {
-              spawnDelay = 160 + Math.random() * 130; // 2.7-4.8s
-            } else if (g.phase === 4) {
-              spawnDelay = 150 + Math.random() * 110; // 2.5-4.3s
-            } else if (g.phase === 5) {
-              spawnDelay = 140 + Math.random() * 100; // 2.3-4.0s
-            } else if (g.phase === 6) {
-              spawnDelay = 120 + Math.random() * 90;  // 2.0-3.5s
+            if (g.phase <= 6) {
+              // FASES 1-6: BEM FACIL (4-7s entre obstaculos)
+              spawnDelay = 240 + Math.random() * 200;
             } else if (g.phase === 7) {
-              spawnDelay = 90 + Math.random() * 70;   // 1.5-2.7s
+              spawnDelay = 120 + Math.random() * 80;  // 2.0-3.3s
             } else if (g.phase === 8) {
-              spawnDelay = 70 + Math.random() * 55;   // 1.2-2.1s
+              spawnDelay = 90 + Math.random() * 60;   // 1.5-2.5s
             } else {
-              spawnDelay = 50 + Math.random() * 45;   // 0.8-1.6s
+              spawnDelay = 65 + Math.random() * 50;   // 1.1-1.9s
             }
             if (type === "radar") spawnDelay += 60; // radares sempre mais espacados
             g.nextSpawn = spawnDelay;
@@ -3861,28 +3858,42 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
     <div className="fixed inset-0 z-50 bg-black">
       <canvas ref={canvasRef} className="h-full w-full" />
       {/* Botao fechar - escondido durante game over ate salvar */}
-      {!(gameState === "gameover" && !scoreSaved) && (
+      {gameState !== "gameover" && (
         <button onClick={onClose} className="absolute right-3 top-3 z-50 rounded-full bg-black/50 p-2 text-white backdrop-blur">✕</button>
       )}
 
-      {/* MENU INICIAL */}
+      {/* MENU INICIAL - pede nome antes de jogar */}
       {gameState === "menu" && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
           <p className="mb-2 text-4xl">🚚</p>
           <h1 className="mb-2 text-3xl font-bold text-[#C9A84C]">PEGUE RUNNER<sup className="text-xs">®</sup></h1>
-          <p className="mb-6 text-sm text-gray-400">Pelas ruas de SP e Osasco!</p>
-          <button
-            onClick={() => {
-              const jaViuTutorial = localStorage.getItem("pegue_runner_tutorial_visto");
-              if (jaViuTutorial) {
-                setGameState("playing");
-                startGame();
-              } else {
-                setGameState("tutorial");
-                setTutorialStep(0);
+          <p className="mb-4 text-sm text-gray-400">Pelas ruas de SP e Osasco!</p>
+          <input
+            type="text"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            placeholder="Digite seu nome"
+            maxLength={20}
+            className="mb-4 w-56 rounded-lg border-2 border-[#C9A84C]/50 bg-[#111] px-4 py-3 text-center text-base text-white focus:border-[#C9A84C] focus:outline-none"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && playerName.trim()) {
+                localStorage.setItem("pegue_runner_name", playerName.trim());
+                const jaViuTutorial = localStorage.getItem("pegue_runner_tutorial_visto");
+                if (jaViuTutorial) { setGameState("playing"); startGame(); }
+                else { setGameState("tutorial"); setTutorialStep(0); }
               }
             }}
-            className="mb-4 w-56 rounded-xl bg-[#C9A84C] py-4 text-lg font-bold text-black"
+          />
+          <button
+            onClick={() => {
+              if (!playerName.trim()) return;
+              localStorage.setItem("pegue_runner_name", playerName.trim());
+              const jaViuTutorial = localStorage.getItem("pegue_runner_tutorial_visto");
+              if (jaViuTutorial) { setGameState("playing"); startGame(); }
+              else { setGameState("tutorial"); setTutorialStep(0); }
+            }}
+            disabled={!playerName.trim()}
+            className="mb-4 w-56 rounded-xl bg-[#C9A84C] py-4 text-lg font-bold text-black disabled:opacity-40"
           >
             JOGAR
           </button>
@@ -3984,49 +3995,27 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         </div>
       )}
 
-      {/* GAME OVER - Overlay fullscreen obrigatorio */}
+      {/* GAME OVER - salva automatico, mostra botoes direto */}
       {gameState === "gameover" && !showRanking && (
         <div className="absolute inset-0 z-50 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
           <div className="w-full max-w-sm rounded-2xl border border-[#C9A84C]/30 bg-black/95 p-6 backdrop-blur">
-            {!scoreSaved ? (
-              <div className="space-y-4">
-                <p className="text-center text-lg font-bold text-[#C9A84C]">Digite seu nome para continuar</p>
-                <p className="text-center text-xs text-gray-500">Sua pontuacao sera salva no ranking</p>
-                <input
-                  type="text"
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="Seu nome ou apelido"
-                  maxLength={20}
-                  autoFocus
-                  className="w-full rounded-lg border-2 border-[#C9A84C]/50 bg-[#111] px-4 py-3 text-center text-base text-white focus:border-[#C9A84C] focus:outline-none"
-                  onKeyDown={(e) => { if (e.key === "Enter") saveScore(); }}
-                />
+            <div className="space-y-4 text-center">
+              <p className="text-lg text-green-400">{savingScore ? "Salvando..." : scoreSaved ? "✅ Salvo!" : "Salvando..."}</p>
+              <p className="text-sm text-gray-400">{playerName}</p>
+              <div className="flex gap-3">
                 <button
-                  onClick={saveScore}
-                  disabled={!playerName.trim() || savingScore}
-                  className="w-full rounded-lg bg-[#C9A84C] py-3 text-base font-bold text-black disabled:opacity-40"
+                  onClick={() => startGame()}
+                  className="flex-1 rounded-lg bg-[#C9A84C] py-3 text-sm font-bold text-black"
                 >
-                  {savingScore ? "Salvando..." : "Salvar e Continuar"}
+                  Jogar de Novo
+                </button>
+                <button
+                  onClick={() => { fetchRanking(); setShowRanking(true); }}
+                  className="flex-1 rounded-lg border border-[#C9A84C]/50 py-3 text-sm font-bold text-[#C9A84C]"
+                >
+                  🏆 Ranking
                 </button>
               </div>
-            ) : (
-              <div className="space-y-4 text-center">
-                <p className="text-lg text-green-400">✅ Pontuacao salva!</p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => startGame()}
-                    className="flex-1 rounded-lg bg-[#C9A84C] py-3 text-sm font-bold text-black"
-                  >
-                    Jogar de Novo
-                  </button>
-                  <button
-                    onClick={() => { fetchRanking(); setShowRanking(true); }}
-                    className="flex-1 rounded-lg border border-[#C9A84C]/50 py-3 text-sm font-bold text-[#C9A84C]"
-                  >
-                    🏆 Ranking
-                  </button>
-                </div>
                 <button
                   onClick={onClose}
                   className="w-full rounded-lg border border-gray-700 py-2.5 text-sm font-bold text-gray-400"
@@ -4034,7 +4023,6 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
                   Voltar pro Mapa
                 </button>
               </div>
-            )}
           </div>
         </div>
       )}

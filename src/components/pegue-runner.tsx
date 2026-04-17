@@ -11,8 +11,8 @@ const GRAVITY = 0.6;
 const JUMP_FORCE = -12;
 const GROUND_HEIGHT = 0.75;
 const TRUCK_SIZE = 44;
-const INITIAL_SPEED = 4.2; // velocidade confortavel pra fase 1
-const SPEED_INCREMENT = 0.0012; // sobe gradualmente dentro da fase
+const INITIAL_SPEED = 4.0; // velocidade confortavel pra fase 1
+const SPEED_INCREMENT = 0.0008; // sobe bem devagar dentro da fase
 
 // === INTERFACES ===
 interface Obstacle {
@@ -2203,92 +2203,27 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         }
       }
       if (cenarioFase === 1 && isBossAtivo) {
-        // Rio embaixo da ponte
+        // PONTE METALICA: rio visivel nas laterais da pista (embaixo)
+        // Agua nos lados da estrada
         ctx.fillStyle = "#2A5F8A";
-        ctx.fillRect(0, baseGroundY + 15, W, H - baseGroundY);
-        // Ondas do rio
+        ctx.fillRect(0, baseGroundY + 10, W, H - baseGroundY);
+        // Ondas
         ctx.strokeStyle = "#3A7FAA";
         ctx.lineWidth = 1;
         for (let wl = 0; wl < 3; wl++) {
           ctx.beginPath();
           for (let wx = 0; wx < W; wx += 3) {
-            const wy = baseGroundY + 25 + wl * 12 + Math.sin((wx + g.frameCount * 1.2 + wl * 50) * 0.04) * 3;
+            const wy = baseGroundY + 18 + wl * 10 + Math.sin((wx + g.frameCount * 1.5 + wl * 40) * 0.04) * 3;
             if (wx === 0) ctx.moveTo(wx, wy); else ctx.lineTo(wx, wy);
           }
           ctx.stroke();
         }
-        // Reflexo da luz na agua
-        ctx.fillStyle = "rgba(100,180,230,0.15)";
-        for (let ri = 0; ri < 5; ri++) {
-          const rx = ((ri * 180 + g.frameCount * 0.3) % W);
-          ctx.fillRect(rx, baseGroundY + 20, 30, 3);
+        // Reflexos
+        ctx.fillStyle = "rgba(100,200,255,0.2)";
+        for (let ri = 0; ri < 6; ri++) {
+          const rx = ((ri * 150 + g.frameCount * 0.5) % W);
+          ctx.fillRect(rx, baseGroundY + 15, 25, 2);
         }
-
-        // Estrutura da ponte (treliça metalica - estilo Ponte Metalica de Osasco)
-        const ponteH = 80;
-        // Vigas horizontais superiores
-        ctx.strokeStyle = "#8B4513";
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(0, baseGroundY - ponteH);
-        ctx.lineTo(W, baseGroundY - ponteH);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, baseGroundY - ponteH + 25);
-        ctx.lineTo(W, baseGroundY - ponteH + 25);
-        ctx.stroke();
-        // Diagonais da trelica
-        ctx.strokeStyle = "#A0522D";
-        ctx.lineWidth = 3;
-        for (let di = 0; di < W + 30; di += 30) {
-          const dx = (di - (g.groundOffset * 0.3) % 30);
-          ctx.beginPath();
-          ctx.moveTo(dx, baseGroundY - ponteH);
-          ctx.lineTo(dx + 30, baseGroundY - ponteH + 25);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(dx + 30, baseGroundY - ponteH);
-          ctx.lineTo(dx, baseGroundY - ponteH + 25);
-          ctx.stroke();
-        }
-        // Pilares verticais
-        ctx.strokeStyle = "#6B3410";
-        ctx.lineWidth = 5;
-        for (let pi = 0; pi < W + 50; pi += 120) {
-          const px = (pi - (g.groundOffset * 0.3) % 120);
-          ctx.beginPath();
-          ctx.moveTo(px, baseGroundY - ponteH);
-          ctx.lineTo(px, baseGroundY);
-          ctx.stroke();
-        }
-        // Grade lateral (protecao)
-        ctx.strokeStyle = "#8B6914";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(0, baseGroundY - 5);
-        ctx.lineTo(W, baseGroundY - 5);
-        ctx.stroke();
-        for (let gi = 0; gi < W; gi += 15) {
-          const gx = (gi - (g.groundOffset * 0.5) % 15);
-          ctx.beginPath();
-          ctx.moveTo(gx, baseGroundY - 5);
-          ctx.lineTo(gx, baseGroundY - 18);
-          ctx.stroke();
-        }
-        ctx.beginPath();
-        ctx.moveTo(0, baseGroundY - 18);
-        ctx.lineTo(W, baseGroundY - 18);
-        ctx.stroke();
-
-        // Placa "PONTE METALICA - OSASCO"
-        ctx.fillStyle = "rgba(0,80,0,0.8)";
-        ctx.beginPath();
-        ctx.roundRect(W / 2 - 65, baseGroundY - ponteH - 20, 130, 18, 3);
-        ctx.fill();
-        ctx.fillStyle = "#FFF";
-        ctx.font = "bold 8px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("PONTE METALICA - OSASCO", W / 2, baseGroundY - ponteH - 8);
       }
 
       // CENARIO 2: MARGINAL TIETE
@@ -3578,6 +3513,61 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fill();
       });
       ctx.globalAlpha = 1;
+
+      // === FOREGROUND: PONTE METALICA OSASCO (sobre o carro) ===
+      if (cenarioFase === 1 && isBossAtivo) {
+        // Treliça metalica ACIMA (jogador esta EM CIMA da ponte)
+        const ponteTopY = 62; // logo abaixo do HUD
+
+        // Vigas horizontais superiores
+        ctx.strokeStyle = "#8B4513";
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(0, ponteTopY); ctx.lineTo(W, ponteTopY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, ponteTopY + 30); ctx.lineTo(W, ponteTopY + 30); ctx.stroke();
+
+        // Diagonais da trelica (movem com scroll)
+        ctx.strokeStyle = "#A0522D";
+        ctx.lineWidth = 2.5;
+        for (let di = -30; di < W + 40; di += 35) {
+          const dx = di - (g.groundOffset * 0.4) % 35;
+          ctx.beginPath(); ctx.moveTo(dx, ponteTopY); ctx.lineTo(dx + 35, ponteTopY + 30); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(dx + 35, ponteTopY); ctx.lineTo(dx, ponteTopY + 30); ctx.stroke();
+        }
+
+        // Pilares laterais (verticais nos lados)
+        ctx.fillStyle = "#6B3410";
+        for (let pi = -20; pi < W + 50; pi += 100) {
+          const px = pi - (g.groundOffset * 0.4) % 100;
+          ctx.fillRect(px, ponteTopY, 5, baseGroundY - ponteTopY + 5);
+        }
+
+        // Grades laterais embaixo (protecao - na altura da pista)
+        ctx.strokeStyle = "#8B6914";
+        ctx.lineWidth = 2;
+        // Grade superior
+        ctx.beginPath(); ctx.moveTo(0, baseGroundY + 8); ctx.lineTo(W, baseGroundY + 8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, baseGroundY + 22); ctx.lineTo(W, baseGroundY + 22); ctx.stroke();
+        // Barras verticais da grade
+        for (let gi = -10; gi < W + 20; gi += 18) {
+          const gx = gi - (g.groundOffset * 0.5) % 18;
+          ctx.beginPath(); ctx.moveTo(gx, baseGroundY + 8); ctx.lineTo(gx, baseGroundY + 22); ctx.stroke();
+        }
+
+        // Placa "PONTE METALICA - OSASCO" no topo
+        ctx.fillStyle = "rgba(0,80,0,0.85)";
+        ctx.beginPath();
+        ctx.roundRect(W / 2 - 75, ponteTopY + 35, 150, 20, 4);
+        ctx.fill();
+        ctx.strokeStyle = "#FFF";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(W / 2 - 73, ponteTopY + 37, 146, 16, 3);
+        ctx.stroke();
+        ctx.fillStyle = "#FFF";
+        ctx.font = "bold 9px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("PONTE METALICA - OSASCO", W / 2, ponteTopY + 50);
+      }
 
       // === FOREGROUND: PONTES E TUNEIS ===
       g.foregroundEvents.forEach((fe) => {

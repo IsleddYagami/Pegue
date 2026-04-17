@@ -239,6 +239,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const animRef = useRef<number>(0);
   const truckImgRef = useRef<HTMLImageElement | null>(null);
   const motoboyImgRef = useRef<HTMLImageElement | null>(null);
+  const guinchoImgRef = useRef<HTMLImageElement | null>(null);
+  const policiaImgRef = useRef<HTMLImageElement | null>(null);
 
   // Carrega sons e highscore
   useEffect(() => {
@@ -260,6 +262,12 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     const motoImg = new window.Image();
     motoImg.src = "/MOTOBOY.png";
     motoImg.onload = () => { motoboyImgRef.current = motoImg; };
+    const guinchoImg = new window.Image();
+    guinchoImg.src = "/GUNCHO CET.png";
+    guinchoImg.onload = () => { guinchoImgRef.current = guinchoImg; };
+    const policiaImg = new window.Image();
+    policiaImg.src = "/POLICIA RODOVIARIA.png";
+    policiaImg.onload = () => { policiaImgRef.current = policiaImg; };
   }, []);
 
   async function fetchRanking() {
@@ -912,114 +920,30 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
 
       if (isGuarda) {
         // =============================================
-        // BOSS 2: SEDAN PRF - Policia Rodoviaria Federal
-        // Cinza com faixa amarela
+        // BOSS 2: POLICIA RODOVIARIA - imagem PNG
         // =============================================
-        const wy = by - 8;
-
-        // Rodas (2 rodas - sedan)
-        for (const wx of [bx + 15, bx + 90]) {
-          ctx.fillStyle = "#111";
-          ctx.beginPath(); ctx.arc(wx, wy, 10, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = "#333";
-          ctx.beginPath(); ctx.arc(wx, wy, 6, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = "#555";
-          ctx.beginPath(); ctx.arc(wx, wy, 2.5, 0, Math.PI * 2); ctx.fill();
+        if (policiaImgRef.current) {
+          const pImg = policiaImgRef.current;
+          const drawW = 140;
+          const drawH = (pImg.height / pImg.width) * drawW;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(pImg, bx - 10, by - drawH + 8, drawW, drawH);
+        } else {
+          // Fallback
+          ctx.fillStyle = "#777";
+          ctx.fillRect(bx, by - 40, 110, 35);
+          ctx.fillStyle = "#E8B800";
+          ctx.fillRect(bx, by - 25, 110, 8);
+          ctx.fillStyle = "#000";
+          ctx.font = "bold 8px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("POLICIA RODOVIARIA", bx + 55, by - 19);
         }
-
-        // Carroceria inferior (cinza escuro)
-        ctx.fillStyle = flashing ? "#777" : "#666";
-        ctx.beginPath();
-        ctx.roundRect(bx + 2, by - 22, 103, 16, 3);
-        ctx.fill();
-
-        // Carroceria superior - formato sedan
-        ctx.fillStyle = flashing ? "#888" : "#777";
-        ctx.beginPath();
-        ctx.moveTo(bx + 5, by - 22);
-        ctx.lineTo(bx + 105, by - 22);
-        ctx.lineTo(bx + 100, by - 38);
-        ctx.lineTo(bx + 75, by - 48);
-        ctx.lineTo(bx + 35, by - 48);
-        ctx.lineTo(bx + 15, by - 38);
-        ctx.lineTo(bx + 5, by - 22);
-        ctx.closePath();
-        ctx.fill();
-
-        // Faixa amarela horizontal (identidade PRF)
-        ctx.fillStyle = "#E8B800";
-        ctx.fillRect(bx + 5, by - 30, 100, 8);
-
-        // Texto PRF na faixa
-        ctx.fillStyle = "#000";
-        ctx.font = "bold 6px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("POLICIA RODOVIARIA FEDERAL", bx + 55, by - 24);
-
-        // Para-brisa (inclinado)
-        ctx.fillStyle = "#87CEEB";
-        ctx.beginPath();
-        ctx.moveTo(bx + 75, by - 48);
-        ctx.lineTo(bx + 95, by - 38);
-        ctx.lineTo(bx + 95, by - 22);
-        ctx.lineTo(bx + 75, by - 22);
-        ctx.closePath();
-        ctx.fill();
-
-        // Janela lateral
-        ctx.fillStyle = "#87CEEB";
-        ctx.beginPath();
-        ctx.moveTo(bx + 35, by - 48);
-        ctx.lineTo(bx + 73, by - 48);
-        ctx.lineTo(bx + 73, by - 22);
-        ctx.lineTo(bx + 18, by - 22);
-        ctx.lineTo(bx + 18, by - 38);
-        ctx.closePath();
-        ctx.fill();
-        // Divisao das janelas
-        ctx.fillStyle = "#666";
-        ctx.fillRect(bx + 52, by - 48, 2, 26);
-
-        // Farol dianteiro
-        ctx.fillStyle = "#FFEE88";
-        ctx.beginPath(); ctx.arc(bx + 104, by - 18, 3, 0, Math.PI * 2); ctx.fill();
-
-        // Farol traseiro vermelho
-        ctx.fillStyle = "#FF0000";
-        ctx.fillRect(bx + 1, by - 20, 4, 5);
-
-        // Para-choque dianteiro
-        ctx.fillStyle = "#444";
-        ctx.fillRect(bx + 103, by - 14, 5, 8);
-        // Para-choque traseiro
-        ctx.fillRect(bx - 2, by - 14, 5, 8);
-
-        // === Sirene no teto (barra de luzes) ===
-        ctx.fillStyle = "#333";
-        ctx.beginPath();
-        ctx.roundRect(bx + 40, by - 52, 30, 5, 2);
-        ctx.fill();
+        // Sirene piscante (por cima da imagem)
         const s1 = fc % 20 < 10;
-        // Luz vermelha esquerda
-        ctx.fillStyle = s1 ? "#FF0000" : "#440000";
-        ctx.beginPath(); ctx.arc(bx + 47, by - 50, 3.5, 0, Math.PI * 2); ctx.fill();
-        if (s1) {
-          ctx.fillStyle = "rgba(255,0,0,0.3)";
-          ctx.beginPath(); ctx.arc(bx + 47, by - 50, 10, 0, Math.PI * 2); ctx.fill();
-        }
-        // Luz azul direita
-        ctx.fillStyle = !s1 ? "#0044FF" : "#000044";
-        ctx.beginPath(); ctx.arc(bx + 63, by - 50, 3.5, 0, Math.PI * 2); ctx.fill();
-        if (!s1) {
-          ctx.fillStyle = "rgba(0,68,255,0.3)";
-          ctx.beginPath(); ctx.arc(bx + 63, by - 50, 10, 0, Math.PI * 2); ctx.fill();
-        }
-
-        // Emblema PRF no teto
-        ctx.fillStyle = "#E8B800";
-        ctx.font = "bold 7px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("PRF", bx + 55, by - 55);
+        ctx.fillStyle = s1 ? "rgba(255,0,0,0.4)" : "rgba(0,68,255,0.4)";
+        ctx.beginPath(); ctx.arc(bx + 55, by - 55, 15, 0, Math.PI * 2); ctx.fill();
 
       } else if (!isGuarda && gameRef.current.bossType === "cegonha") {
         // =============================================
@@ -1092,101 +1016,28 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
 
       } else {
         // =============================================
-        // BOSS 1: GUINCHO CET (original)
+        // BOSS 1: GUINCHO CET - imagem PNG
         // =============================================
-        const wheelY = by - 10;
-        // Rodas (eixo duplo traseiro)
-        for (const wx of [bx + 15, bx + 28]) {
-          ctx.fillStyle = "#111";
-          ctx.beginPath(); ctx.arc(wx, wheelY, 12, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = "#333";
-          ctx.beginPath(); ctx.arc(wx, wheelY, 7, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = "#555";
-          ctx.beginPath(); ctx.arc(wx, wheelY, 3, 0, Math.PI * 2); ctx.fill();
+        if (guinchoImgRef.current) {
+          const gImg = guinchoImgRef.current;
+          const drawW = 150;
+          const drawH = (gImg.height / gImg.width) * drawW;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(gImg, bx - 15, by - drawH + 10, drawW, drawH);
+        } else {
+          // Fallback
+          ctx.fillStyle = "#E8A800";
+          ctx.fillRect(bx, by - 45, 120, 40);
+          ctx.fillStyle = "#000";
+          ctx.font = "bold 12px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("CET", bx + 60, by - 22);
         }
-        // Dianteira
-        ctx.fillStyle = "#111";
-        ctx.beginPath(); ctx.arc(bx + 95, wheelY, 12, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#333";
-        ctx.beginPath(); ctx.arc(bx + 95, wheelY, 7, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#555";
-        ctx.beginPath(); ctx.arc(bx + 95, wheelY, 3, 0, Math.PI * 2); ctx.fill();
-        // Chassi
-        ctx.fillStyle = "#444";
-        ctx.fillRect(bx + 5, by - 18, 108, 8);
-        // Plataforma guincho
-        ctx.fillStyle = flashing ? "#FF8800" : "#E8E8E8";
-        ctx.fillRect(bx, by - 28, 55, 12);
-        ctx.fillStyle = flashing ? "#FF7700" : "#DDD";
-        ctx.beginPath();
-        ctx.moveTo(bx - 8, by - 16);
-        ctx.lineTo(bx, by - 28);
-        ctx.lineTo(bx, by - 16);
-        ctx.closePath();
-        ctx.fill();
-        ctx.strokeStyle = "#999";
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(bx + 2, by - 28, 51, 12);
-        // Cabine
-        ctx.fillStyle = "#FFF";
-        ctx.beginPath();
-        ctx.roundRect(bx + 58, by - 52, 52, 36, [8, 8, 0, 0]);
-        ctx.fill();
-        ctx.fillStyle = "#FFD700";
-        ctx.fillRect(bx + 58, by - 30, 52, 14);
-        ctx.fillStyle = "#000";
-        ctx.font = "bold 10px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("CET", bx + 84, by - 20);
-        // Para-brisa
-        ctx.fillStyle = "#87CEEB";
-        ctx.beginPath();
-        ctx.roundRect(bx + 92, by - 48, 16, 20, [0, 6, 0, 0]);
-        ctx.fill();
-        ctx.fillStyle = "#87CEEB";
-        ctx.fillRect(bx + 62, by - 48, 26, 16);
-        // Braco mecanico
-        ctx.strokeStyle = "#E8A800";
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.moveTo(bx + 45, by - 28);
-        ctx.lineTo(bx + 30, by - 65 + Math.sin(fc * 0.03) * 3);
-        ctx.stroke();
-        ctx.strokeStyle = "#CC9900";
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(bx + 30, by - 65 + Math.sin(fc * 0.03) * 3);
-        ctx.lineTo(bx + 15, by - 55);
-        ctx.stroke();
-        ctx.strokeStyle = "#888";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(bx + 15, by - 55);
-        ctx.lineTo(bx + 15, by - 42);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(bx + 15, by - 40, 4, 0, Math.PI);
-        ctx.stroke();
-        // Sirenes
+        // Sirene piscante (por cima da imagem)
         const s1 = fc % 24 < 12;
-        ctx.fillStyle = s1 ? "#FF0000" : "#440000";
-        ctx.beginPath(); ctx.arc(bx + 65, by - 55, 5, 0, Math.PI * 2); ctx.fill();
-        if (s1) {
-          ctx.fillStyle = "rgba(255,0,0,0.25)";
-          ctx.beginPath(); ctx.arc(bx + 65, by - 55, 14, 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.fillStyle = !s1 ? "#0044FF" : "#000044";
-        ctx.beginPath(); ctx.arc(bx + 100, by - 55, 5, 0, Math.PI * 2); ctx.fill();
-        if (!s1) {
-          ctx.fillStyle = "rgba(0,68,255,0.25)";
-          ctx.beginPath(); ctx.arc(bx + 100, by - 55, 14, 0, Math.PI * 2); ctx.fill();
-        }
-        // Farol traseiro
-        ctx.fillStyle = "#FF0000";
-        ctx.fillRect(bx - 8, by - 24, 4, 6);
-        // Para-choque
-        ctx.fillStyle = "#333";
-        ctx.fillRect(bx + 108, by - 18, 5, 10);
+        ctx.fillStyle = s1 ? "rgba(255,0,0,0.35)" : "rgba(255,165,0,0.35)";
+        ctx.beginPath(); ctx.arc(bx + 80, by - 60, 12, 0, Math.PI * 2); ctx.fill();
       }
 
       ctx.restore();

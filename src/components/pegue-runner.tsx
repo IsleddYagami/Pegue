@@ -20,7 +20,8 @@ interface Obstacle {
   width: number;
   height: number;
   type: "barreira" | "buraco" | "cone" | "pedra" | "motoqueiro" | "motoboy" | "radar" | "boss"
-    | "bueiro" | "ambulante" | "catador" | "onibus_parado" | "cachorro"; // novos SP
+    | "bueiro" | "ambulante" | "catador" | "onibus_parado" | "cachorro"
+    | "caixa_madeira" | "saco_lixo"; // obstaculos dos bosses com imagem
   vy?: number;
   flashTimer?: number;
   multado?: boolean;
@@ -267,6 +268,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const brutoImgRef = useRef<HTMLImageElement | null>(null);
   const coletorImgRef = useRef<HTMLImageElement | null>(null);
   const sacoLixoImgRef = useRef<HTMLImageElement | null>(null);
+  const caixasImgRef = useRef<HTMLImageElement[]>([]);
 
   // Carrega sons e highscore
   useEffect(() => {
@@ -306,6 +308,13 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     const sacoImg = new window.Image();
     sacoImg.src = "/sacos de lixo.png";
     sacoImg.onload = () => { sacoLixoImgRef.current = sacoImg; };
+    // 3 variações de caixas de madeira
+    const caixaSrcs = ["/caixa grande de madeira.png", "/caixa grande de madeira 2.png", "/caixa grande de madeira 3.png"];
+    caixaSrcs.forEach((src) => {
+      const ci = new window.Image();
+      ci.src = src;
+      ci.onload = () => { caixasImgRef.current.push(ci); };
+    });
   }, []);
 
   async function fetchRanking() {
@@ -1214,6 +1223,44 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.textAlign = "center";
       const heartY = dy - 30 + Math.sin(gameRef.current.frameCount * 0.08) * 3;
       ctx.fillText("♥", dx + 20, heartY);
+    }
+    else if (obs.type === "caixa_madeira") {
+      // Caixa de madeira do porto - usa imagem PNG aleatoria
+      const caixas = caixasImgRef.current;
+      if (caixas.length > 0) {
+        // Escolhe caixa baseado na posicao X (deterministica pra nao piscar)
+        const cIdx = Math.abs(Math.round(obs.x * 0.1)) % caixas.length;
+        const cImg = caixas[cIdx];
+        const drawW = 55;
+        const drawH = (cImg.height / cImg.width) * drawW;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(cImg, obs.x - 5, groundY - drawH + 3, drawW, drawH);
+      } else {
+        // Fallback
+        ctx.fillStyle = "#8B6914";
+        ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
+        ctx.strokeStyle = "#5C4400";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(obs.x, groundY - obs.height, obs.width, obs.height);
+      }
+    }
+    else if (obs.type === "saco_lixo") {
+      // Saco de lixo - usa imagem PNG
+      if (sacoLixoImgRef.current) {
+        const sImg = sacoLixoImgRef.current;
+        const drawW = 42;
+        const drawH = (sImg.height / sImg.width) * drawW;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(sImg, obs.x - 3, groundY - drawH + 3, drawW, drawH);
+      } else {
+        // Fallback
+        ctx.fillStyle = "#222";
+        ctx.beginPath();
+        ctx.ellipse(obs.x + obs.width / 2, groundY - obs.height / 2, obs.width / 2, obs.height / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     else if (obs.type === "boss") {
       // BOSS - Guincho CET ou Guarda Rodoviario
@@ -2190,30 +2237,24 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               setGameState("gameover");
             }
           } else if (g.bossType === "bruto") {
-            // === BOSS 4: O BRUTO DO PORTO - joga 6 containers/caixas ===
+            // === BOSS 4: O BRUTO DO PORTO - joga 6 caixas de madeira ===
             if (g.cegonhaCarrosJogados < 6) {
               g.bossSpawnTimer--;
               if (g.bossSpawnTimer <= 0) {
                 g.cegonhaCarrosJogados++;
-                const isContainer = Math.random() > 0.4;
-                if (isContainer) {
-                  g.obstacles.push({ x: W + 10, width: 60, height: 40, type: "barreira", vy: 0, flashTimer: 0, multado: false });
-                } else {
-                  g.obstacles.push({ x: W + 10, width: 40, height: 32, type: "pedra", vy: 0, flashTimer: 0, multado: false });
-                }
+                g.obstacles.push({ x: W + 10, width: 50, height: 40, type: "caixa_madeira", vy: 0, flashTimer: 0, multado: false });
                 g.bossSpawnTimer = 70 + Math.random() * 30;
                 showStatus(`CONTAINER ${g.cegonhaCarrosJogados}/6!`, 25);
                 if (bossObs) bossObs.bossHits = g.cegonhaCarrosJogados;
               }
             }
           } else if (g.bossType === "coletor") {
-            // === BOSS 5: O COLETOR - joga 10 sacos de lixo aleatoriamente ===
+            // === BOSS 5: O COLETOR - joga 10 sacos de lixo ===
             if (g.cegonhaCarrosJogados < 10) {
               g.bossSpawnTimer--;
               if (g.bossSpawnTimer <= 0) {
                 g.cegonhaCarrosJogados++;
-                // Sacos de lixo como obstaculos (usa tipo pedra visualmente, mas saco eh desenhado)
-                g.obstacles.push({ x: W + 10, width: 35, height: 28, type: "pedra", vy: 0, flashTimer: 0, multado: false });
+                g.obstacles.push({ x: W + 10, width: 40, height: 35, type: "saco_lixo", vy: 0, flashTimer: 0, multado: false });
                 g.bossSpawnTimer = 45 + Math.random() * 30; // mais rapido que bruto
                 showStatus(`SACO ${g.cegonhaCarrosJogados}/10!`, 20);
                 if (bossObs) bossObs.bossHits = g.cegonhaCarrosJogados;
@@ -2245,7 +2286,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           const bossObjCount: Record<string, number> = { cegonha: 4, bruto: 6, coletor: 10 };
           const maxObj = bossObjCount[g.bossType];
           if (maxObj && g.cegonhaCarrosJogados >= maxObj) {
-            const obsNaTela = g.obstacles.filter(o => (o.type === "barreira" || o.type === "pedra") && o.x > -60 && o.x < W).length;
+            const obsNaTela = g.obstacles.filter(o => (o.type === "barreira" || o.type === "pedra" || o.type === "caixa_madeira" || o.type === "saco_lixo") && o.x > -60 && o.x < W).length;
             if (obsNaTela === 0 && !g.gameOver) {
               g.cegonhaCarrosPulados = maxObj;
               g.bossDefeated = true;

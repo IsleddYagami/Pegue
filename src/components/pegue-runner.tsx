@@ -1912,6 +1912,97 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       // 1=Osasco, 2=Marginal Tietê, 3=Bairro, 4=Santos, 5=Aeroporto/Paulista, 6=Zona Leste, 7+=repete
       const cenarioFase = ((g.phase - 1) % 7) + 1;
 
+      // CENARIO 1: OSASCO - PONTE METALICA (durante boss)
+      const isBossAtivo = g.phaseState === "boss" || g.phaseState === "boss_derrota";
+      if (cenarioFase === 1 && isBossAtivo) {
+        // Rio embaixo da ponte
+        ctx.fillStyle = "#2A5F8A";
+        ctx.fillRect(0, baseGroundY + 15, W, H - baseGroundY);
+        // Ondas do rio
+        ctx.strokeStyle = "#3A7FAA";
+        ctx.lineWidth = 1;
+        for (let wl = 0; wl < 3; wl++) {
+          ctx.beginPath();
+          for (let wx = 0; wx < W; wx += 3) {
+            const wy = baseGroundY + 25 + wl * 12 + Math.sin((wx + g.frameCount * 1.2 + wl * 50) * 0.04) * 3;
+            if (wx === 0) ctx.moveTo(wx, wy); else ctx.lineTo(wx, wy);
+          }
+          ctx.stroke();
+        }
+        // Reflexo da luz na agua
+        ctx.fillStyle = "rgba(100,180,230,0.15)";
+        for (let ri = 0; ri < 5; ri++) {
+          const rx = ((ri * 180 + g.frameCount * 0.3) % W);
+          ctx.fillRect(rx, baseGroundY + 20, 30, 3);
+        }
+
+        // Estrutura da ponte (treliça metalica - estilo Ponte Metalica de Osasco)
+        const ponteH = 80;
+        // Vigas horizontais superiores
+        ctx.strokeStyle = "#8B4513";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(0, baseGroundY - ponteH);
+        ctx.lineTo(W, baseGroundY - ponteH);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, baseGroundY - ponteH + 25);
+        ctx.lineTo(W, baseGroundY - ponteH + 25);
+        ctx.stroke();
+        // Diagonais da trelica
+        ctx.strokeStyle = "#A0522D";
+        ctx.lineWidth = 3;
+        for (let di = 0; di < W + 30; di += 30) {
+          const dx = (di - (g.groundOffset * 0.3) % 30);
+          ctx.beginPath();
+          ctx.moveTo(dx, baseGroundY - ponteH);
+          ctx.lineTo(dx + 30, baseGroundY - ponteH + 25);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(dx + 30, baseGroundY - ponteH);
+          ctx.lineTo(dx, baseGroundY - ponteH + 25);
+          ctx.stroke();
+        }
+        // Pilares verticais
+        ctx.strokeStyle = "#6B3410";
+        ctx.lineWidth = 5;
+        for (let pi = 0; pi < W + 50; pi += 120) {
+          const px = (pi - (g.groundOffset * 0.3) % 120);
+          ctx.beginPath();
+          ctx.moveTo(px, baseGroundY - ponteH);
+          ctx.lineTo(px, baseGroundY);
+          ctx.stroke();
+        }
+        // Grade lateral (protecao)
+        ctx.strokeStyle = "#8B6914";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, baseGroundY - 5);
+        ctx.lineTo(W, baseGroundY - 5);
+        ctx.stroke();
+        for (let gi = 0; gi < W; gi += 15) {
+          const gx = (gi - (g.groundOffset * 0.5) % 15);
+          ctx.beginPath();
+          ctx.moveTo(gx, baseGroundY - 5);
+          ctx.lineTo(gx, baseGroundY - 18);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(0, baseGroundY - 18);
+        ctx.lineTo(W, baseGroundY - 18);
+        ctx.stroke();
+
+        // Placa "PONTE METALICA - OSASCO"
+        ctx.fillStyle = "rgba(0,80,0,0.8)";
+        ctx.beginPath();
+        ctx.roundRect(W / 2 - 65, baseGroundY - ponteH - 20, 130, 18, 3);
+        ctx.fill();
+        ctx.fillStyle = "#FFF";
+        ctx.font = "bold 8px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("PONTE METALICA - OSASCO", W / 2, baseGroundY - ponteH - 8);
+      }
+
       // CENARIO 2: MARGINAL TIETE
       if (cenarioFase === 2) {
         // Rio Tiete poluido no fundo

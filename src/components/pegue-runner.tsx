@@ -22,6 +22,7 @@ interface Obstacle {
   type: "barreira" | "buraco" | "cone" | "pedra" | "motoqueiro" | "motoboy" | "radar" | "boss"
     | "bueiro" | "ambulante" | "catador" | "onibus_parado" | "cachorro"
     | "caixa_madeira" | "saco_lixo" | "cavalete" | "container" | "veiculo_cegonha"; // obstaculos com imagem
+  variant?: number; // variacao visual (indice da imagem)
   vy?: number;
   flashTimer?: number;
   multado?: boolean;
@@ -1491,16 +1492,15 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.fillText("♥", dx + 20, heartY);
     }
     else if (obs.type === "cavalete") {
-      // Cavalete de obra - variações de imagem PNG
+      // Cavalete de obra - usa primeira imagem disponivel (sem alternar = sem piscar)
       const cvImgs = cavaletesImgRef.current;
       if (cvImgs.length > 0) {
-        const cvIdx = Math.abs(Math.round(obs.x * 0.07)) % cvImgs.length;
+        // Usa width do obstaculo como seed fixa (nao muda durante a vida do obstaculo)
+        const cvIdx = (obs.variant || 0) % cvImgs.length;
         const cvImg = cvImgs[cvIdx];
-        const drawW = 65;
+        const drawW = 60;
         const drawH = (cvImg.height / cvImg.width) * drawW;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(cvImg, obs.x - 3, groundY - drawH + 3, drawW, drawH);
+        ctx.drawImage(cvImg, obs.x - 2, groundY - drawH + 2, drawW, drawH);
       } else {
         ctx.fillStyle = "#FF6B00";
         ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
@@ -1512,7 +1512,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       // Veiculo derrubado pela cegonha - imagem PNG aleatoria
       const vcImgs = veiculosCegonhaImgRef.current;
       if (vcImgs.length > 0) {
-        const vcIdx = Math.abs(Math.round(obs.x * 0.13)) % vcImgs.length;
+        const vcIdx = (obs.variant || 0) % vcImgs.length;
         const vcImg = vcImgs[vcIdx];
         const drawW = 80;
         const drawH = (vcImg.height / vcImg.width) * drawW;
@@ -1530,7 +1530,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       // Container do porto - variações de imagem PNG
       const ctImgs = containersImgRef.current;
       if (ctImgs.length > 0) {
-        const ctIdx = Math.abs(Math.round(obs.x * 0.09)) % ctImgs.length;
+        const ctIdx = (obs.variant || 0) % ctImgs.length;
         const ctImg = ctImgs[ctIdx];
         const drawW = 75;
         const drawH = (ctImg.height / ctImg.width) * drawW;
@@ -1550,7 +1550,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       const caixas = caixasImgRef.current;
       if (caixas.length > 0) {
         // Escolhe caixa baseado na posicao X (deterministica pra nao piscar)
-        const cIdx = Math.abs(Math.round(obs.x * 0.1)) % caixas.length;
+        const cIdx = (obs.variant || 0) % caixas.length;
         const cImg = caixas[cIdx];
         const drawW = 65;
         const drawH = (cImg.height / cImg.width) * drawW;
@@ -3206,7 +3206,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             else if (type === "cachorro") { width = 40; height = 20; }
             else if (type === "cavalete") { width = 50; height = 35; }
 
-            g.obstacles.push({ x: W + 20, width, height, type, vy: 0, flashTimer: 0, multado: false });
+            g.obstacles.push({ x: W + 20, width, height, type, variant: Math.floor(Math.random() * 10), vy: 0, flashTimer: 0, multado: false });
 
             // Espacamento entre obstaculos por fase
             // FASES 1-6: CONTEMPLATIVAS (jogador curte cenario e coleta itens)

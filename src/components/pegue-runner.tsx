@@ -1663,7 +1663,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (cegonhaImgRef.current) {
           const cImg = cegonhaImgRef.current;
-          const drawW = Math.min(350, ctx.canvas.width * 0.6);
+          const drawW = Math.min(500, ctx.canvas.width * 0.7);
           const drawH = (cImg.height / cImg.width) * drawW;
           ctx.drawImage(cImg, bx - 20, by - drawH * 0.55, drawW, drawH);
         } else {

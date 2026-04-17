@@ -256,6 +256,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const motoboyImgRef = useRef<HTMLImageElement | null>(null);
   const guinchoImgRef = useRef<HTMLImageElement | null>(null);
   const policiaImgRef = useRef<HTMLImageElement | null>(null);
+  const cegonhaImgRef = useRef<HTMLImageElement | null>(null);
 
   // Carrega sons e highscore
   useEffect(() => {
@@ -283,6 +284,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     const policiaImg = new window.Image();
     policiaImg.src = "/POLICIA RODOVIARIA.png";
     policiaImg.onload = () => { policiaImgRef.current = policiaImg; };
+    const cegonhaImg = new window.Image();
+    cegonhaImg.src = "/CAMINHAO CEGONHA.png";
+    cegonhaImg.onload = () => { cegonhaImgRef.current = cegonhaImg; };
   }, []);
 
   async function fetchRanking() {
@@ -1150,72 +1154,26 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
 
       } else if (!isGuarda && gameRef.current.bossType === "cegonha") {
         // =============================================
-        // BOSS 3: CARRETA CEGONHA (carregando carros)
+        // BOSS 3: CARRETA CEGONHA - imagem PNG
         // =============================================
-        const wy = by - 12;
-        // Rodas (6 rodas - carreta)
-        for (const wx of [bx + 10, bx + 22, bx + 55, bx + 80, bx + 105, bx + 118]) {
-          ctx.fillStyle = "#111";
-          ctx.beginPath(); ctx.arc(wx, wy, 9, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = "#333";
-          ctx.beginPath(); ctx.arc(wx, wy, 5, 0, Math.PI * 2); ctx.fill();
+        if (cegonhaImgRef.current) {
+          const cImg = cegonhaImgRef.current;
+          const drawW = 180;
+          const drawH = (cImg.height / cImg.width) * drawW;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(cImg, bx - 20, by - drawH + 10, drawW, drawH);
+        } else {
+          // Fallback
+          ctx.fillStyle = "#888";
+          ctx.fillRect(bx, by - 50, 130, 45);
+          ctx.fillStyle = "#2E7D32";
+          ctx.fillRect(bx + 100, by - 40, 30, 35);
+          ctx.fillStyle = "#FFF";
+          ctx.font = "bold 8px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("CEGONHA", bx + 65, by - 25);
         }
-        // Chassi longo
-        ctx.fillStyle = "#444";
-        ctx.fillRect(bx - 5, by - 20, 135, 8);
-        // Plataforma inferior (carros de baixo)
-        ctx.fillStyle = flashing ? "#CC6600" : "#888";
-        ctx.fillRect(bx - 5, by - 28, 130, 10);
-        // Suportes verticais
-        ctx.fillStyle = "#666";
-        ctx.fillRect(bx + 5, by - 55, 4, 27);
-        ctx.fillRect(bx + 60, by - 55, 4, 27);
-        ctx.fillRect(bx + 115, by - 55, 4, 27);
-        // Plataforma superior (carros de cima)
-        ctx.fillStyle = flashing ? "#BB5500" : "#777";
-        ctx.fillRect(bx, by - 58, 125, 5);
-        // Carros na cegonha (quanto mais pulados, menos carros)
-        const carrosRestantes = 4 - (gameRef.current.cegonhaCarrosJogados || 0);
-        const carCores = ["#CC0000", "#0044AA", "#228822", "#CCCC00"];
-        // Carros na plataforma inferior
-        for (let ci = 0; ci < Math.min(carrosRestantes, 2); ci++) {
-          const cx = bx + 10 + ci * 50;
-          ctx.fillStyle = carCores[ci];
-          ctx.fillRect(cx, by - 40, 35, 14);
-          ctx.fillStyle = "#87CEEB";
-          ctx.fillRect(cx + 22, by - 40, 10, 8);
-          // Rodinha
-          ctx.fillStyle = "#111";
-          ctx.beginPath(); ctx.arc(cx + 5, by - 26, 3, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + 30, by - 26, 3, 0, Math.PI * 2); ctx.fill();
-        }
-        // Carros na plataforma superior
-        for (let ci = 2; ci < Math.min(carrosRestantes + 2, 4) && ci - 2 < carrosRestantes - 2; ci++) {
-          const cIdx = ci;
-          if (cIdx - 2 + 2 > carrosRestantes) break;
-          const cx = bx + 15 + (ci - 2) * 50;
-          ctx.fillStyle = carCores[ci];
-          ctx.fillRect(cx, by - 70, 35, 14);
-          ctx.fillStyle = "#87CEEB";
-          ctx.fillRect(cx + 22, by - 70, 10, 8);
-          ctx.fillStyle = "#111";
-          ctx.beginPath(); ctx.arc(cx + 5, by - 56, 3, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + 30, by - 56, 3, 0, Math.PI * 2); ctx.fill();
-        }
-        // Cabine da carreta
-        ctx.fillStyle = "#DDD";
-        ctx.beginPath();
-        ctx.roundRect(bx + 100, by - 45, 30, 28, [6, 6, 0, 0]);
-        ctx.fill();
-        ctx.fillStyle = "#87CEEB";
-        ctx.fillRect(bx + 115, by - 42, 12, 14);
-        // Placa
-        ctx.fillStyle = "#FF6600";
-        ctx.fillRect(bx + 35, by - 32, 40, 10);
-        ctx.fillStyle = "#FFF";
-        ctx.font = "bold 7px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("CEGONHA", bx + 55, by - 24);
 
       } else {
         // =============================================

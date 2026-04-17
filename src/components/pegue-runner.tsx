@@ -21,7 +21,7 @@ interface Obstacle {
   height: number;
   type: "barreira" | "buraco" | "cone" | "pedra" | "motoqueiro" | "motoboy" | "radar" | "boss"
     | "bueiro" | "ambulante" | "catador" | "onibus_parado" | "cachorro"
-    | "caixa_madeira" | "saco_lixo" | "cavalete"; // obstaculos com imagem
+    | "caixa_madeira" | "saco_lixo" | "cavalete" | "container"; // obstaculos com imagem
   vy?: number;
   flashTimer?: number;
   multado?: boolean;
@@ -269,6 +269,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const coletorImgRef = useRef<HTMLImageElement | null>(null);
   const sacoLixoImgRef = useRef<HTMLImageElement | null>(null);
   const caixasImgRef = useRef<HTMLImageElement[]>([]);
+  const containerImgRef = useRef<HTMLImageElement | null>(null);
   const cavaletesImgRef = useRef<HTMLImageElement[]>([]);
 
   // Carrega sons e highscore
@@ -315,6 +316,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       cv.src = src;
       cv.onload = () => { cavaletesImgRef.current.push(cv); };
     });
+    const containerImg = new window.Image();
+    containerImg.src = "/CONTAINER BOSS PORTO.png";
+    containerImg.onload = () => { containerImgRef.current = containerImg; };
     // 3 variações de caixas de madeira
     const caixaSrcs = ["/caixa grande de madeira.png", "/caixa grande de madeira 2.png", "/caixa grande de madeira 3.png"];
     caixaSrcs.forEach((src) => {
@@ -1282,6 +1286,23 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
         ctx.fillStyle = "#FFF";
         ctx.fillRect(obs.x, groundY - obs.height * 0.5, obs.width, 5);
+      }
+    }
+    else if (obs.type === "container") {
+      // Container do porto - imagem PNG
+      if (containerImgRef.current) {
+        const ctImg = containerImgRef.current;
+        const drawW = 65;
+        const drawH = (ctImg.height / ctImg.width) * drawW;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(ctImg, obs.x - 5, groundY - drawH + 3, drawW, drawH);
+      } else {
+        ctx.fillStyle = "#E65100";
+        ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(obs.x, groundY - obs.height, obs.width, obs.height);
       }
     }
     else if (obs.type === "caixa_madeira") {
@@ -2457,12 +2478,15 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               setGameState("gameover");
             }
           } else if (g.bossType === "bruto") {
-            // === BOSS 4: O BRUTO DO PORTO - joga 6 caixas de madeira ===
+            // === BOSS 4: O BRUTO DO PORTO - joga 6 containers e caixas ===
             if (g.cegonhaCarrosJogados < 6) {
               g.bossSpawnTimer--;
               if (g.bossSpawnTimer <= 0) {
                 g.cegonhaCarrosJogados++;
-                g.obstacles.push({ x: W + 10, width: 50, height: 40, type: "caixa_madeira", vy: 0, flashTimer: 0, multado: false });
+                // Alterna container e caixa de madeira
+                const tipo: Obstacle["type"] = Math.random() > 0.5 ? "container" : "caixa_madeira";
+                const w = tipo === "container" ? 60 : 50;
+                g.obstacles.push({ x: W + 10, width: w, height: 40, type: tipo, vy: 0, flashTimer: 0, multado: false });
                 g.bossSpawnTimer = 70 + Math.random() * 30;
                 showStatus(`CONTAINER ${g.cegonhaCarrosJogados}/6!`, 25);
                 if (bossObs) bossObs.bossHits = g.cegonhaCarrosJogados;

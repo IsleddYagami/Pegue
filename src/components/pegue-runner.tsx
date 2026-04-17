@@ -269,7 +269,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const coletorImgRef = useRef<HTMLImageElement | null>(null);
   const sacoLixoImgRef = useRef<HTMLImageElement | null>(null);
   const caixasImgRef = useRef<HTMLImageElement[]>([]);
-  const cavaleteImgRef = useRef<HTMLImageElement | null>(null);
+  const cavaletesImgRef = useRef<HTMLImageElement[]>([]);
 
   // Carrega sons e highscore
   useEffect(() => {
@@ -309,9 +309,12 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     const sacoImg = new window.Image();
     sacoImg.src = "/sacos de lixo.png";
     sacoImg.onload = () => { sacoLixoImgRef.current = sacoImg; };
-    const cavaleteImg = new window.Image();
-    cavaleteImg.src = "/cavaletes.png";
-    cavaleteImg.onload = () => { cavaleteImgRef.current = cavaleteImg; };
+    // 2 variações de cavaletes
+    ["/cavaletes.png", "/cavalete 2.png"].forEach((src) => {
+      const cv = new window.Image();
+      cv.src = src;
+      cv.onload = () => { cavaletesImgRef.current.push(cv); };
+    });
     // 3 variações de caixas de madeira
     const caixaSrcs = ["/caixa grande de madeira.png", "/caixa grande de madeira 2.png", "/caixa grande de madeira 3.png"];
     caixaSrcs.forEach((src) => {
@@ -1229,16 +1232,17 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.fillText("♥", dx + 20, heartY);
     }
     else if (obs.type === "cavalete") {
-      // Cavalete de obra - imagem PNG
-      if (cavaleteImgRef.current) {
-        const cvImg = cavaleteImgRef.current;
+      // Cavalete de obra - variações de imagem PNG
+      const cvImgs = cavaletesImgRef.current;
+      if (cvImgs.length > 0) {
+        const cvIdx = Math.abs(Math.round(obs.x * 0.07)) % cvImgs.length;
+        const cvImg = cvImgs[cvIdx];
         const drawW = 55;
         const drawH = (cvImg.height / cvImg.width) * drawW;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
         ctx.drawImage(cvImg, obs.x - 3, groundY - drawH + 3, drawW, drawH);
       } else {
-        // Fallback barreira listrada
         ctx.fillStyle = "#FF6B00";
         ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
         ctx.fillStyle = "#FFF";
@@ -2434,7 +2438,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             if (g.phase === 1) {
               pool = ["cone", "buraco", "cone", "buraco", "pedra", "cachorro"];
             } else if (g.phase === 2) {
-              pool = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "bueiro", "cachorro", "ambulante"];
+              pool = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "bueiro", "cachorro", "ambulante", "cavalete"];
             } else if (g.phase === 3) {
               pool = ["barreira", "cone", "buraco", "pedra", "motoqueiro", "motoboy", "radar", "bueiro", "catador", "ambulante", "cavalete"];
             } else if (g.phase === 4) {

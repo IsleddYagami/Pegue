@@ -310,7 +310,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     sacoImg.src = "/sacos de lixo.png";
     sacoImg.onload = () => { sacoLixoImgRef.current = sacoImg; };
     // 2 variações de cavaletes
-    ["/cavaletes.png", "/cavalete 2.png"].forEach((src) => {
+    ["/cavaletes.png", "/cavalete 2.png", "/cavalete 3.png"].forEach((src) => {
       const cv = new window.Image();
       cv.src = src;
       cv.onload = () => { cavaletesImgRef.current.push(cv); };

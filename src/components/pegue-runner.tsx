@@ -2144,54 +2144,18 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         }
       }
 
-      // CENARIO 2: MARGINAL TIETE
+      // CENARIO 2: MARGINAL TIETE (simplificado)
       if (cenarioFase === 2) {
-        // Rio Tiete poluido no fundo
-        ctx.fillStyle = "#5C6B3C";
-        ctx.fillRect(0, baseGroundY - 50, W, 20);
-        // Agua suja
         ctx.fillStyle = "#4A5A2A";
-        ctx.fillRect(0, baseGroundY - 45, W, 12);
-        // Ondas do rio
-        ctx.strokeStyle = "#3A4A1A";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        for (let rx = 0; rx < W; rx += 3) {
-          const ry = baseGroundY - 42 + Math.sin((rx + g.frameCount) * 0.05) * 2;
-          if (rx === 0) ctx.moveTo(rx, ry); else ctx.lineTo(rx, ry);
-        }
-        ctx.stroke();
-        // Viadutos
-        for (let vi = 0; vi < 2; vi++) {
-          const vx = ((vi * 400 - g.groundOffset * 0.08 + 200) % (W + 500)) - 100;
-          if (vx > -150 && vx < W + 50) {
-            ctx.fillStyle = "#666";
-            ctx.fillRect(vx, baseGroundY - 100, 8, 70);
-            ctx.fillRect(vx + 120, baseGroundY - 100, 8, 70);
-            ctx.fillStyle = "#777";
-            ctx.fillRect(vx - 10, baseGroundY - 108, 150, 12);
-            // Carros no viaduto
-            ctx.fillStyle = "#CCC";
-            ctx.fillRect(vx + 20, baseGroundY - 115, 15, 8);
-            ctx.fillStyle = "#999";
-            ctx.fillRect(vx + 60, baseGroundY - 115, 15, 8);
-          }
-        }
-        // Predios industriais
-        for (let pi = 0; pi < 3; pi++) {
-          const px = ((pi * 300 - g.groundOffset * 0.06 + 100) % (W + 400)) - 80;
-          if (px > -80 && px < W + 50) {
-            ctx.fillStyle = "#555";
-            ctx.fillRect(px, baseGroundY - 70 - pi * 10, 50, 70 + pi * 10);
-            // Chamine
-            ctx.fillStyle = "#444";
-            ctx.fillRect(px + 35, baseGroundY - 95 - pi * 10, 8, 25);
-            // Fumaca
-            ctx.fillStyle = "rgba(100,100,100,0.3)";
-            ctx.beginPath();
-            ctx.arc(px + 39, baseGroundY - 100 - pi * 10, 6, 0, Math.PI * 2);
-            ctx.fill();
-          }
+        ctx.fillRect(0, baseGroundY - 45, W, 15);
+        // Viaduto simples
+        const vx = ((300 - g.groundOffset * 0.06) % (W + 400)) - 80;
+        if (vx > -100 && vx < W + 50) {
+          ctx.fillStyle = "#666";
+          ctx.fillRect(vx, baseGroundY - 90, 6, 60);
+          ctx.fillRect(vx + 100, baseGroundY - 90, 6, 60);
+          ctx.fillStyle = "#777";
+          ctx.fillRect(vx - 5, baseGroundY - 95, 115, 8);
         }
       }
 
@@ -2266,228 +2230,96 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       }
 
       // CENARIO 3: BAIRRO SP
+      // CENARIO 3: BAIRRO SP (simplificado pra performance)
       const isBairro = cenarioFase === 3 && !isBossAtivo;
       if (isBairro) {
-        // Casas residenciais no fundo
-        for (let ci = 0; ci < 6; ci++) {
-          const hx = ((ci * 180 - g.groundOffset * 0.1 + 50) % (W + 300)) - 100;
-          if (hx > -120 && hx < W + 50) {
-            const hh = 50 + (ci % 3) * 15; // alturas variadas
-            const cores = ["#D4C4A0", "#C4B090", "#B8A888", "#CCBBAA", "#E0D0B8", "#BBA888"];
-            // Parede da casa
-            ctx.fillStyle = cores[ci % cores.length];
-            ctx.fillRect(hx, baseGroundY - hh, 60, hh);
-            // Telhado
-            ctx.fillStyle = ci % 2 === 0 ? "#8B4513" : "#A0522D";
+        // 3 casas simples
+        for (let ci = 0; ci < 3; ci++) {
+          const hx = ((ci * 220 - g.groundOffset * 0.08) % (W + 300)) - 50;
+          if (hx > -70 && hx < W + 50) {
+            const hh = 50 + (ci % 3) * 12;
+            ctx.fillStyle = ["#D4C4A0", "#C4B090", "#B8A888"][ci];
+            ctx.fillRect(hx, baseGroundY - hh, 55, hh);
+            ctx.fillStyle = "#8B4513";
             ctx.beginPath();
-            ctx.moveTo(hx - 5, baseGroundY - hh);
-            ctx.lineTo(hx + 30, baseGroundY - hh - 18);
-            ctx.lineTo(hx + 65, baseGroundY - hh);
+            ctx.moveTo(hx - 3, baseGroundY - hh);
+            ctx.lineTo(hx + 27, baseGroundY - hh - 15);
+            ctx.lineTo(hx + 58, baseGroundY - hh);
             ctx.closePath();
             ctx.fill();
-            // Porta
             ctx.fillStyle = "#6B3410";
-            ctx.fillRect(hx + 22, baseGroundY - 30, 14, 30);
-            // Janelas
-            ctx.fillStyle = "#87CEEB88";
-            ctx.fillRect(hx + 8, baseGroundY - hh + 12, 10, 10);
-            ctx.fillRect(hx + 42, baseGroundY - hh + 12, 10, 10);
-            // Grade na janela (muito SP!)
-            ctx.strokeStyle = "#666";
-            ctx.lineWidth = 0.5;
-            ctx.strokeRect(hx + 8, baseGroundY - hh + 12, 10, 10);
-            ctx.beginPath(); ctx.moveTo(hx + 13, baseGroundY - hh + 12); ctx.lineTo(hx + 13, baseGroundY - hh + 22); ctx.stroke();
-            // Numero da casa
-            ctx.fillStyle = "#333";
-            ctx.font = "bold 5px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText(`${100 + ci * 37}`, hx + 29, baseGroundY - 32);
+            ctx.fillRect(hx + 20, baseGroundY - 25, 12, 25);
           }
         }
-        // Postes de luz
-        for (let pi = 0; pi < 4; pi++) {
-          const px = ((pi * 250 - g.groundOffset * 0.1 + 130) % (W + 350)) - 80;
-          if (px > -30 && px < W + 30) {
-            // Poste
+        // 2 postes simples
+        for (let pi = 0; pi < 2; pi++) {
+          const px = ((pi * 300 - g.groundOffset * 0.08 + 100) % (W + 350)) - 50;
+          if (px > -20 && px < W + 20) {
             ctx.fillStyle = "#555";
-            ctx.fillRect(px, baseGroundY - 90, 3, 90);
-            // Luminaria
+            ctx.fillRect(px, baseGroundY - 80, 3, 80);
             ctx.fillStyle = "#777";
-            ctx.fillRect(px - 8, baseGroundY - 93, 18, 4);
-            // Luz (brilha a noite)
-            if (g.nightMode) {
-              ctx.fillStyle = "rgba(255,220,100,0.5)";
-              ctx.beginPath();
-              ctx.arc(px + 1, baseGroundY - 88, 15, 0, Math.PI * 2);
-              ctx.fill();
-            }
-            ctx.fillStyle = g.nightMode ? "#FFD700" : "#DDD";
-            ctx.beginPath();
-            ctx.arc(px + 1, baseGroundY - 90, 3, 0, Math.PI * 2);
-            ctx.fill();
-            // Fios
-            ctx.strokeStyle = "#444";
-            ctx.lineWidth = 0.5;
-            ctx.beginPath();
-            ctx.moveTo(px - 8, baseGroundY - 85);
-            ctx.quadraticCurveTo(px + 80, baseGroundY - 78, px + 250, baseGroundY - 85);
-            ctx.stroke();
+            ctx.fillRect(px - 6, baseGroundY - 83, 15, 3);
           }
         }
-        // Calcada com muro pixado
-        ctx.fillStyle = "#CCC";
-        ctx.fillRect(0, baseGroundY - 5, W, 5);
       }
 
-      // CENARIO 5: AEROPORTO GUARULHOS + AV. PAULISTA
+      // CENARIO 5: AEROPORTO (simplificado)
       if (cenarioFase === 5) {
-        // Pista do aeroporto ao fundo
         ctx.fillStyle = "#555";
-        ctx.fillRect(0, baseGroundY - 35, W, 8);
-        // Faixas da pista
-        ctx.fillStyle = "#FFF";
-        for (let fx = 0; fx < W; fx += 60) {
-          ctx.fillRect(fx + ((g.groundOffset * 0.03) % 60), baseGroundY - 32, 30, 2);
-        }
-        // Aviao decolando
+        ctx.fillRect(0, baseGroundY - 35, W, 6);
+        // Aviao simples
         const avX = ((300 - g.groundOffset * 0.04) % (W + 400)) - 100;
-        if (avX > -80 && avX < W + 50) {
-          const avY = baseGroundY - 80 - Math.max(0, (W / 2 - avX) * 0.15);
-          // Fuselagem
+        if (avX > -50 && avX < W + 50) {
           ctx.fillStyle = "#EEE";
-          ctx.beginPath();
-          ctx.ellipse(avX + 30, avY, 30, 8, -0.1, 0, Math.PI * 2);
-          ctx.fill();
-          // Asas
-          ctx.fillStyle = "#DDD";
-          ctx.beginPath();
-          ctx.moveTo(avX + 15, avY);
-          ctx.lineTo(avX - 10, avY + 15);
-          ctx.lineTo(avX + 5, avY);
-          ctx.closePath();
-          ctx.fill();
-          ctx.beginPath();
-          ctx.moveTo(avX + 15, avY);
-          ctx.lineTo(avX - 10, avY - 15);
-          ctx.lineTo(avX + 5, avY);
-          ctx.closePath();
-          ctx.fill();
-          // Cauda
+          ctx.fillRect(avX, baseGroundY - 90, 50, 10);
           ctx.fillStyle = "#0044AA";
-          ctx.beginPath();
-          ctx.moveTo(avX + 55, avY);
-          ctx.lineTo(avX + 60, avY - 12);
-          ctx.lineTo(avX + 50, avY);
-          ctx.closePath();
-          ctx.fill();
+          ctx.fillRect(avX + 45, baseGroundY - 100, 8, 12);
         }
-        // Torre de controle
-        const twX = ((500 - g.groundOffset * 0.05) % (W + 600)) - 100;
-        if (twX > -40 && twX < W + 40) {
-          ctx.fillStyle = "#888";
-          ctx.fillRect(twX, baseGroundY - 100, 6, 70);
-          ctx.fillStyle = "#AAA";
-          ctx.fillRect(twX - 12, baseGroundY - 110, 30, 15);
-          ctx.fillStyle = "#87CEEB88";
-          ctx.fillRect(twX - 10, baseGroundY - 108, 26, 10);
-        }
-        // Predios da Paulista ao fundo
-        for (let bi = 0; bi < 5; bi++) {
-          const bpx = ((bi * 200 - g.groundOffset * 0.07 + 80) % (W + 400)) - 80;
-          if (bpx > -60 && bpx < W + 50) {
-            const bh = 80 + bi * 15;
-            ctx.fillStyle = ["#668", "#778", "#889", "#779", "#888"][bi];
-            ctx.fillRect(bpx, baseGroundY - bh, 40, bh);
-            // Janelas
-            ctx.fillStyle = "#87CEEB44";
-            for (let jy = 0; jy < bh - 10; jy += 12) {
-              for (let jx = 0; jx < 30; jx += 10) {
-                ctx.fillRect(bpx + 5 + jx, baseGroundY - bh + 5 + jy, 6, 8);
-              }
-            }
+        // 3 predios simples
+        for (let bi = 0; bi < 3; bi++) {
+          const bpx = ((bi * 250 - g.groundOffset * 0.06) % (W + 300)) - 50;
+          if (bpx > -50 && bpx < W + 50) {
+            ctx.fillStyle = "#778";
+            ctx.fillRect(bpx, baseGroundY - 70 - bi * 15, 35, 70 + bi * 15);
           }
         }
       }
 
-      // CENARIO 6: ZONA LESTE
+      // CENARIO 6: ZONA LESTE (simplificado)
       if (cenarioFase === 6) {
-        // Conjuntos habitacionais (predios baixos iguais)
-        for (let ci = 0; ci < 5; ci++) {
-          const cx = ((ci * 160 - g.groundOffset * 0.09 + 60) % (W + 350)) - 80;
-          if (cx > -80 && cx < W + 50) {
+        for (let ci = 0; ci < 3; ci++) {
+          const cx = ((ci * 220 - g.groundOffset * 0.08) % (W + 300)) - 50;
+          if (cx > -60 && cx < W + 50) {
             ctx.fillStyle = "#B8A080";
-            ctx.fillRect(cx, baseGroundY - 55, 50, 55);
-            ctx.fillStyle = "#A09070";
-            ctx.fillRect(cx, baseGroundY - 55, 50, 5);
-            // Janelas em grade
-            for (let jy = 0; jy < 3; jy++) {
-              for (let jx = 0; jx < 3; jx++) {
-                ctx.fillStyle = "#87CEEB55";
-                ctx.fillRect(cx + 5 + jx * 15, baseGroundY - 48 + jy * 16, 10, 10);
-              }
-            }
+            ctx.fillRect(cx, baseGroundY - 50, 45, 50);
           }
         }
-        // Grafite nos muros
+        // Muro grafite
         const grafX = ((400 - g.groundOffset * 0.1) % (W + 500)) - 100;
-        if (grafX > -80 && grafX < W + 50) {
-          // Muro
+        if (grafX > -50 && grafX < W + 50) {
           ctx.fillStyle = "#999";
-          ctx.fillRect(grafX, baseGroundY - 30, 80, 30);
-          // Grafite colorido
+          ctx.fillRect(grafX, baseGroundY - 25, 60, 25);
           ctx.fillStyle = "#FF4444";
-          ctx.font = "bold 10px Arial";
+          ctx.font = "bold 8px Arial";
           ctx.textAlign = "center";
-          ctx.fillText("SP", grafX + 20, baseGroundY - 12);
-          ctx.fillStyle = "#44FF44";
-          ctx.fillText("ZL", grafX + 45, baseGroundY - 15);
-          ctx.fillStyle = "#FFFF00";
-          ctx.font = "8px Arial";
-          ctx.fillText("ARTE", grafX + 65, baseGroundY - 10);
-        }
-        // Quadra esportiva
-        const qdX = ((700 - g.groundOffset * 0.08) % (W + 600)) - 100;
-        if (qdX > -60 && qdX < W + 50) {
-          ctx.fillStyle = "#2E7D32";
-          ctx.fillRect(qdX, baseGroundY - 15, 50, 15);
-          ctx.strokeStyle = "#FFF";
-          ctx.lineWidth = 1;
-          ctx.strokeRect(qdX + 2, baseGroundY - 13, 46, 11);
-          ctx.beginPath();
-          ctx.arc(qdX + 25, baseGroundY - 7, 5, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.fillText("SP ZL", grafX + 30, baseGroundY - 10);
         }
       }
 
-      // CENARIO 7: SERRA DO MAR (estrada com vegetacao densa)
+      // CENARIO 7: SERRA DO MAR (simplificado)
       if (cenarioFase === 7) {
-        // Vegetacao densa
         ctx.fillStyle = "#1B5E20";
         ctx.beginPath();
         ctx.moveTo(0, baseGroundY);
-        for (let vx = 0; vx <= W; vx += 8) {
-          const wx = vx + g.groundOffset * 0.06;
-          const vh = Math.sin(wx * 0.008) * 25 + Math.cos(wx * 0.015) * 15 + 50;
+        for (let vx = 0; vx <= W; vx += 20) {
+          const vh = Math.sin((vx + g.groundOffset * 0.06) * 0.008) * 25 + 45;
           ctx.lineTo(vx, baseGroundY - vh);
         }
         ctx.lineTo(W, baseGroundY);
         ctx.closePath();
         ctx.fill();
-        // Arvores
-        ctx.fillStyle = "#2E7D32";
-        ctx.beginPath();
-        ctx.moveTo(0, baseGroundY);
-        for (let vx = 0; vx <= W; vx += 6) {
-          const wx = vx + g.groundOffset * 0.09;
-          const vh = Math.sin(wx * 0.012) * 20 + Math.cos(wx * 0.02) * 10 + 35;
-          ctx.lineTo(vx, baseGroundY - vh);
-        }
-        ctx.lineTo(W, baseGroundY);
-        ctx.closePath();
-        ctx.fill();
-        // Neblina leve
-        ctx.fillStyle = "rgba(200,220,200,0.15)";
-        ctx.fillRect(0, baseGroundY - 80, W, 60);
+        ctx.fillStyle = "rgba(200,220,200,0.1)";
+        ctx.fillRect(0, baseGroundY - 70, W, 50);
       }
 
       // === MONTANHAS DE FUNDO ===
@@ -2509,90 +2341,34 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         if (c.x + c.w < 0) c.x = W + 50;
       });
 
-      // === PLACAS SINALIZADORAS DE SP ===
+      // === PLACAS SINALIZADORAS (reduzido pra performance) ===
       const placas = [
-        // Fase 1 - Osasco / Zona Oeste
-        { pos: 300, texto: "OSASCO", subtexto: "Centro", cor: "#006633" },
-        { pos: 800, texto: "AV. DOS AUTONOMISTAS", subtexto: "Osasco", cor: "#006633" },
-        { pos: 1500, texto: "PRES. ALTINO", subtexto: "1 km", cor: "#006633" },
-        { pos: 2200, texto: "RODOVIA CASTELO BRANCO", subtexto: "SP-280", cor: "#0044AA" },
-        { pos: 3000, texto: "ALPHAVILLE", subtexto: "Barueri", cor: "#006633" },
-        { pos: 3800, texto: "VELOCIDADE", subtexto: "MAX 60 km/h", cor: "#CC0000" },
-        // Fase 2 - Zona Oeste / Centro
-        { pos: 4500, texto: "LAPA", subtexto: "Zona Oeste", cor: "#006633" },
-        { pos: 5200, texto: "MARGINAL TIETE", subtexto: "SP-015", cor: "#0044AA" },
-        { pos: 6000, texto: "PONTE DO PIQUERI", subtexto: "", cor: "#006633" },
-        { pos: 6800, texto: "AV. PAULISTA", subtexto: "Centro", cor: "#006633" },
-        { pos: 7500, texto: "AEROPORTO CONGONHAS", subtexto: "CGH  ✈️  3 km", cor: "#553300" },
-        { pos: 8200, texto: "PINHEIROS", subtexto: "Zona Oeste", cor: "#006633" },
-        // Fase 3 - Centro / Zona Sul
-        { pos: 9000, texto: "SE / CENTRO", subtexto: "Catedral da Se", cor: "#006633" },
-        { pos: 9800, texto: "MERCADAO MUNICIPAL", subtexto: "", cor: "#553300" },
-        { pos: 10500, texto: "LIBERDADE", subtexto: "Bairro Japones", cor: "#006633" },
-        { pos: 11200, texto: "INTERLAGOS", subtexto: "Autodromo", cor: "#006633" },
-        { pos: 12000, texto: "MARGINAL PINHEIROS", subtexto: "SP-015", cor: "#0044AA" },
-        { pos: 12800, texto: "VELOCIDADE", subtexto: "MAX 90 km/h", cor: "#CC0000" },
-        // Fase 4 - Zona Leste / Norte
-        { pos: 13500, texto: "TATUAPE", subtexto: "Zona Leste", cor: "#006633" },
-        { pos: 14200, texto: "ITAQUERA", subtexto: "Neo Quimica Arena", cor: "#006633" },
-        { pos: 15000, texto: "AEROPORTO GUARULHOS", subtexto: "GRU  ✈️  12 km", cor: "#553300" },
-        { pos: 15800, texto: "ROD. PRES. DUTRA", subtexto: "BR-116", cor: "#0044AA" },
-        { pos: 16500, texto: "GUARULHOS", subtexto: "Centro", cor: "#006633" },
-        { pos: 17200, texto: "TUCURUVI", subtexto: "Zona Norte", cor: "#006633" },
-        // Fase 5+ - ABC / Litoral
-        { pos: 18000, texto: "SANTO ANDRE", subtexto: "ABC Paulista", cor: "#006633" },
-        { pos: 18800, texto: "SAO BERNARDO", subtexto: "ABC Paulista", cor: "#006633" },
-        { pos: 19500, texto: "ROD. ANCHIETA", subtexto: "SP-150  Santos", cor: "#0044AA" },
-        { pos: 20200, texto: "CUBATAO", subtexto: "Serra do Mar", cor: "#006633" },
-        { pos: 21000, texto: "PORTO DE SANTOS", subtexto: "Maior Porto da AL", cor: "#553300" },
-        { pos: 21800, texto: "SANTOS", subtexto: "Praia", cor: "#006633" },
-        { pos: 22500, texto: "SAO VICENTE", subtexto: "Litoral Sul", cor: "#006633" },
-        { pos: 23200, texto: "PRAIA GRANDE", subtexto: "Litoral", cor: "#006633" },
-        { pos: 24000, texto: "CAMPINAS", subtexto: "Interior  95 km", cor: "#0044AA" },
-        { pos: 24800, texto: "SOROCABA", subtexto: "SP-270  100 km", cor: "#0044AA" },
-        { pos: 25500, texto: "RIBEIRAO PRETO", subtexto: "SP-322  320 km", cor: "#0044AA" },
-        { pos: 26200, texto: "PARQUE IBIRAPUERA", subtexto: "", cor: "#553300" },
-        { pos: 27000, texto: "PONTE ESTAIADA", subtexto: "Octavio Frias", cor: "#553300" },
-        { pos: 27800, texto: "BECO DO BATMAN", subtexto: "Vila Madalena", cor: "#553300" },
+        { pos: 500, texto: "OSASCO", cor: "#006633" },
+        { pos: 3000, texto: "SP-280", cor: "#0044AA" },
+        { pos: 6000, texto: "MARGINAL TIETE", cor: "#0044AA" },
+        { pos: 9000, texto: "AV. PAULISTA", cor: "#006633" },
+        { pos: 12000, texto: "AEROPORTO GRU", cor: "#553300" },
+        { pos: 15000, texto: "SANTOS", cor: "#006633" },
+        { pos: 18000, texto: "ZONA LESTE", cor: "#006633" },
+        { pos: 21000, texto: "CAMPINAS", cor: "#0044AA" },
       ];
-      // Placas ficam no FUNDO (parallax lento, acima da pista, semi-transparentes)
-      const placaTotal = 28000;
-      ctx.globalAlpha = 0.6; // semi-transparente pra nao confundir com obstaculos
-      placas.forEach((placa) => {
+      ctx.globalAlpha = 0.5;
+      const placaTotal = 24000;
+      for (const placa of placas) {
         const px = ((placa.pos - g.groundOffset * 0.12) % placaTotal + placaTotal) % placaTotal - 200;
-        if (px > -100 && px < W + 50) {
-          // Posicao BEM ACIMA da pista (na linha dos landmarks)
+        if (px > -50 && px < W + 30) {
           const py = baseGroundY - 5;
-          // Poste fino (fundo)
           ctx.fillStyle = "#888";
-          ctx.fillRect(px + 35, py - 70, 3, 70);
-          // Placa pequena
-          const tw = Math.max(placa.texto.length * 5.5, 55);
-          const ph = placa.subtexto ? 22 : 16;
+          ctx.fillRect(px + 30, py - 60, 2, 60);
           ctx.fillStyle = placa.cor;
-          ctx.beginPath();
-          ctx.roundRect(px + 36 - tw / 2, py - 70 - ph, tw, ph, 2);
-          ctx.fill();
-          // Borda
-          ctx.strokeStyle = "rgba(255,255,255,0.6)";
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.roundRect(px + 36 - tw / 2 + 1, py - 70 - ph + 1, tw - 2, ph - 2, 1);
-          ctx.stroke();
-          // Texto
+          ctx.fillRect(px, py - 72, 60, 14);
           ctx.fillStyle = "#FFF";
-          ctx.font = "bold 6px Arial";
+          ctx.font = "bold 5px Arial";
           ctx.textAlign = "center";
-          if (placa.subtexto) {
-            ctx.fillText(placa.texto, px + 36, py - 70 - ph + 9);
-            ctx.font = "5px Arial";
-            ctx.fillText(placa.subtexto, px + 36, py - 70 - ph + 17);
-          } else {
-            ctx.fillText(placa.texto, px + 36, py - 70 - ph / 2 + 3);
-          }
+          ctx.fillText(placa.texto, px + 30, py - 62);
         }
-      });
-      ctx.globalAlpha = 1; // restaura opacidade
+      }
+      ctx.globalAlpha = 1;
 
       // === LANDMARKS NO FUNDO ===
       g.landmarks.forEach((lm) => {
@@ -2803,7 +2579,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // Chuva a partir da fase 2
         if (g.phase >= 2 && !g.raining) {
           g.raining = true;
-          g.raindrops = Array.from({ length: 80 }, () => ({
+          g.raindrops = Array.from({ length: 30 }, () => ({
             x: Math.random() * W, y: Math.random() * H,
             speed: 8 + Math.random() * 6, len: 8 + Math.random() * 12,
           }));
@@ -3432,82 +3208,30 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       });
       ctx.globalAlpha = 1;
 
-      // === FOREGROUND: PONTILHAO DE OSASCO (arcos metalicos sobre o carro) ===
+      // === FOREGROUND: PONTILHAO DE OSASCO (simplificado) ===
       if (cenarioFase === 1 && isBossAtivo) {
         const ponteBase = baseGroundY;
-        const arcoH = ponteBase - 75; // altura dos arcos
-
-        // ARCOS METALICOS GIGANTES (caracteristica principal do Pontilhao)
+        // Arcos simples
         ctx.strokeStyle = "#8B6830";
-        ctx.lineWidth = 5;
-        const arcoSpacing = 200;
-        for (let ai = -1; ai < Math.ceil(W / arcoSpacing) + 2; ai++) {
-          const arcCx = ai * arcoSpacing - (g.groundOffset * 0.4) % arcoSpacing + arcoSpacing / 2;
-          // Arco principal (semicirculo grande)
+        ctx.lineWidth = 4;
+        for (let ai = -1; ai < 4; ai++) {
+          const arcCx = ai * 200 - (g.groundOffset * 0.4) % 200 + 100;
           ctx.beginPath();
-          ctx.arc(arcCx, ponteBase, arcoSpacing / 2 - 10, Math.PI, 0);
+          ctx.arc(arcCx, ponteBase, 85, Math.PI, 0);
           ctx.stroke();
-          // Arco interno menor
-          ctx.strokeStyle = "#A07840";
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.arc(arcCx, ponteBase, arcoSpacing / 2 - 30, Math.PI, 0);
-          ctx.stroke();
-          ctx.strokeStyle = "#8B6830";
-          ctx.lineWidth = 5;
-
-          // Barras diagonais entre arcos (trelica dentro do arco)
-          ctx.strokeStyle = "#9A7840";
-          ctx.lineWidth = 1.5;
-          for (let bi = 0; bi < 6; bi++) {
-            const angle1 = Math.PI + (bi / 6) * Math.PI;
-            const angle2 = Math.PI + ((bi + 1) / 6) * Math.PI;
-            const r1 = arcoSpacing / 2 - 10;
-            const r2 = arcoSpacing / 2 - 30;
-            const x1 = arcCx + Math.cos(angle1) * r1;
-            const y1 = ponteBase + Math.sin(angle1) * r1;
-            const x2 = arcCx + Math.cos(angle2) * r2;
-            const y2 = ponteBase + Math.sin(angle2) * r2;
-            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-          }
-          ctx.strokeStyle = "#8B6830";
-          ctx.lineWidth = 5;
-
-          // Pilares verticais nos apoios dos arcos
-          const pillarX = arcCx - arcoSpacing / 2 + 10;
-          ctx.fillStyle = "#7A5820";
-          ctx.fillRect(pillarX - 3, ponteBase - 10, 6, 20);
         }
-
-        // Viga horizontal no topo dos arcos
-        ctx.strokeStyle = "#8B6830";
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(0, arcoH); ctx.lineTo(W, arcoH); ctx.stroke();
-
-        // Grade lateral de protecao (embaixo, na pista)
+        // Grades laterais
         ctx.strokeStyle = "#AA8844";
         ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(0, ponteBase + 8); ctx.lineTo(W, ponteBase + 8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, ponteBase + 10); ctx.lineTo(W, ponteBase + 10); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, ponteBase + 20); ctx.lineTo(W, ponteBase + 20); ctx.stroke();
-        for (let gi = -5; gi < W + 15; gi += 15) {
-          const gx = gi - (g.groundOffset * 0.5) % 15;
-          ctx.beginPath(); ctx.moveTo(gx, ponteBase + 8); ctx.lineTo(gx, ponteBase + 20); ctx.stroke();
-        }
-
-        // Placa "PONTILHAO DE OSASCO"
+        // Placa
         ctx.fillStyle = "rgba(0,80,0,0.9)";
-        ctx.beginPath();
-        ctx.roundRect(W / 2 - 80, arcoH + 5, 160, 22, 4);
-        ctx.fill();
-        ctx.strokeStyle = "#FFF";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(W / 2 - 78, arcoH + 7, 156, 18, 3);
-        ctx.stroke();
+        ctx.fillRect(W / 2 - 70, ponteBase - 90, 140, 18);
         ctx.fillStyle = "#FFF";
-        ctx.font = "bold 9px Arial";
+        ctx.font = "bold 8px Arial";
         ctx.textAlign = "center";
-        ctx.fillText("PONTILHAO DE OSASCO", W / 2, arcoH + 20);
+        ctx.fillText("PONTILHAO DE OSASCO", W / 2, ponteBase - 78);
       }
 
       // === FOREGROUND: PONTES E TUNEIS ===

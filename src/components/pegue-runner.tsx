@@ -259,6 +259,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const [ranking, setRanking] = useState<{ nome: string; score: number; distancia: number; entregas?: number }[]>([]);
   const [playerName, setPlayerName] = useState("");
   const [scoreSaved, setScoreSaved] = useState(false);
+  const [savingScore, setSavingScore] = useState(false);
   const animRef = useRef<number>(0);
   const truckImgRef = useRef<HTMLImageElement | null>(null);
   const motoboyImgRef = useRef<HTMLImageElement | null>(null);
@@ -354,18 +355,28 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   }
 
   async function saveScore() {
-    if (!playerName.trim() || scoreSaved) return;
+    if (!playerName.trim() || scoreSaved || savingScore) return;
+    setSavingScore(true);
     const g = gameRef.current;
     try {
-      await fetch("/api/ranking", {
+      const res = await fetch("/api/ranking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nome: playerName.trim(), score: g.score, distancia: Math.floor(g.distance), entregas: g.deliveries }),
       });
+      if (res.ok) {
+        setScoreSaved(true);
+        localStorage.setItem("pegue_runner_name", playerName.trim());
+        fetchRanking();
+      } else {
+        // Se falhar, salva local e marca como salvo pra nao travar
+        setScoreSaved(true);
+      }
+    } catch {
+      // Erro de rede: marca como salvo pra nao travar
       setScoreSaved(true);
-      localStorage.setItem("pegue_runner_name", playerName.trim());
-      fetchRanking();
-    } catch {}
+    }
+    setSavingScore(false);
   }
 
   useEffect(() => {
@@ -4275,10 +4286,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
                 />
                 <button
                   onClick={saveScore}
-                  disabled={!playerName.trim()}
+                  disabled={!playerName.trim() || savingScore}
                   className="w-full rounded-lg bg-[#C9A84C] py-3 text-base font-bold text-black disabled:opacity-40"
                 >
-                  Salvar e Continuar
+                  {savingScore ? "Salvando..." : "Salvar e Continuar"}
                 </button>
               </div>
             ) : (

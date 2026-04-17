@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 
 interface PegueRunnerProps {
   onClose: () => void;
+  startPhase?: number; // fase inicial (admin pode escolher)
 }
 
 // === CONSTANTES ===
@@ -167,7 +168,7 @@ class BossMusic {
   }
 }
 
-export default function PegueRunner({ onClose }: PegueRunnerProps) {
+export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const soundsRef = useRef<Record<string, HTMLAudioElement>>({});
   const bossMusicRef = useRef<BossMusic>(new BossMusic());
@@ -1938,7 +1939,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       terrainScale: 0, radarFlash: 0, tunnelAlpha: 0, inTunnel: false,
       statusText: "", statusTimer: 0,
       restActive: false, restTimer: 0, nextRestFrame: 2400,
-      phase: 1, phaseState: "desafio", phaseTimer: 0,
+      phase: startPhase || 1, phaseState: "desafio", phaseTimer: 0,
       deliveries: 0, bossActive: false, bossDefeated: false,
       bossTimer: 0, bossSpawnTimer: 0, bossDerrotaTimer: 0,
       bossType: "guincho", guardaMultas: 0, dollarNotes: [],

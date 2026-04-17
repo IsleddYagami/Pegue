@@ -1505,9 +1505,9 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       if (vcImgs.length > 0) {
         const vcIdx = (obs.variant || 0) % vcImgs.length;
         const vcImg = vcImgs[vcIdx];
-        const drawW = 140;
+        const drawW = 160;
         const drawH = (vcImg.height / vcImg.width) * drawW;
-        ctx.drawImage(vcImg, obs.x - 10, groundY - drawH * 0.72, drawW, drawH);
+        ctx.drawImage(vcImg, obs.x - 15, groundY - drawH * 0.55, drawW, drawH);
       } else {
         ctx.fillStyle = "#CC0000";
         ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
@@ -1592,7 +1592,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           const pImg = policiaImgRef.current;
           const drawW = 230;
           const drawH = (pImg.height / pImg.width) * drawW;
-          ctx.drawImage(pImg, bx - 20, by - drawH * 0.72, drawW, drawH);
+          ctx.drawImage(pImg, bx - 20, by - drawH * 0.55, drawW, drawH);
         } else {
           // Fallback
           ctx.fillStyle = "#777";
@@ -1617,7 +1617,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           const bImg = brutoImgRef.current;
           const drawW = 300;
           const drawH = (bImg.height / bImg.width) * drawW;
-          ctx.drawImage(bImg, bx - 20, by - drawH * 0.72, drawW, drawH);
+          ctx.drawImage(bImg, bx - 20, by - drawH * 0.55, drawW, drawH);
         } else {
           ctx.fillStyle = "#E65100";
           ctx.fillRect(bx, by - 45, 130, 40);
@@ -1641,7 +1641,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           const cImg = coletorImgRef.current;
           const drawW = 280;
           const drawH = (cImg.height / cImg.width) * drawW;
-          ctx.drawImage(cImg, bx - 30, by - drawH * 0.72, drawW, drawH);
+          ctx.drawImage(cImg, bx - 30, by - drawH * 0.55, drawW, drawH);
         } else {
           ctx.fillStyle = "#E65100";
           ctx.fillRect(bx, by - 45, 130, 40);
@@ -1659,7 +1659,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           const cImg = cegonhaImgRef.current;
           const drawW = 350;
           const drawH = (cImg.height / cImg.width) * drawW;
-          ctx.drawImage(cImg, bx - 20, by - drawH * 0.72, drawW, drawH);
+          ctx.drawImage(cImg, bx - 20, by - drawH * 0.55, drawW, drawH);
         } else {
           // Fallback
           ctx.fillStyle = "#888";
@@ -1680,7 +1680,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           const gImg = guinchoImgRef.current;
           const drawW = 300;
           const drawH = (gImg.height / gImg.width) * drawW;
-          ctx.drawImage(gImg, bx - 25, by - drawH * 0.72, drawW, drawH);
+          ctx.drawImage(gImg, bx - 25, by - drawH * 0.55, drawW, drawH);
         } else {
           // Fallback
           ctx.fillStyle = "#E8A800";
@@ -3508,7 +3508,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           // OTIMIZI na posicao da casa (sobre a pista)
           try {
             const oImg = otimiziImgRef.current;
-            const oDrawW = Math.min(W * 0.5, 220);
+            const oDrawW = Math.min(W * 0.7, 320);
             const oDrawH = (oImg.height / oImg.width) * oDrawW;
             ctx.drawImage(oImg, cx + 10, gy - oDrawH + 5, oDrawW, oDrawH);
             // 4 pessoas na frente

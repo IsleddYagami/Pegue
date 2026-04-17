@@ -2913,7 +2913,14 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
             else if (type === "cachorro") { width = 40; height = 20; }
             else if (type === "cavalete") { width = 50; height = 35; }
 
-            g.obstacles.push({ x: W + 20, width, height, type, variant: Math.floor(Math.random() * 10), vy: 0, flashTimer: 0, multado: false });
+            // Garante distancia minima do ultimo obstaculo (evita impossivel de pular)
+            const lastObs = g.obstacles.filter(o => o.type !== "boss" && o.type !== "cachorro").slice(-1)[0];
+            const minDist = g.phase <= 6 ? 200 : g.phase <= 8 ? 150 : 120;
+            if (lastObs && (W + 20 - lastObs.x) < minDist) {
+              g.nextSpawn = 30; // tenta de novo em 0.5s
+            } else {
+              g.obstacles.push({ x: W + 20, width, height, type, variant: Math.floor(Math.random() * 10), vy: 0, flashTimer: 0, multado: false });
+            }
 
             // Espacamento entre obstaculos por fase
             // FASES 1-6: CONTEMPLATIVAS (jogador curte cenario e coleta itens)

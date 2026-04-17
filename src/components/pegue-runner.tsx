@@ -218,7 +218,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     bossTimer: 0,
     bossSpawnTimer: 0,
     bossDerrotaTimer: 0,
-    bossType: "guincho" as "guincho" | "guarda" | "cegonha",
+    bossType: "guincho" as "guincho" | "guarda" | "cegonha" | "bruto",
     // Boss 2 - Guarda Rodoviario: 3 multas = eliminado
     guardaMultas: 0,
     // Boss 3 - Cegonha
@@ -257,6 +257,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const guinchoImgRef = useRef<HTMLImageElement | null>(null);
   const policiaImgRef = useRef<HTMLImageElement | null>(null);
   const cegonhaImgRef = useRef<HTMLImageElement | null>(null);
+  const brutoImgRef = useRef<HTMLImageElement | null>(null);
 
   // Carrega sons e highscore
   useEffect(() => {
@@ -287,6 +288,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     const cegonhaImg = new window.Image();
     cegonhaImg.src = "/CAMINHAO CEGONHA.png";
     cegonhaImg.onload = () => { cegonhaImgRef.current = cegonhaImg; };
+    const brutoImg = new window.Image();
+    brutoImg.src = "/O Bruto do Porto.png";
+    brutoImg.onload = () => { brutoImgRef.current = brutoImg; };
   }, []);
 
   async function fetchRanking() {
@@ -1152,6 +1156,32 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillStyle = s1 ? "rgba(255,0,0,0.4)" : "rgba(0,68,255,0.4)";
         ctx.beginPath(); ctx.arc(bx + 55, by - 55, 15, 0, Math.PI * 2); ctx.fill();
 
+      } else if (gameRef.current.bossType === "bruto") {
+        // =============================================
+        // BOSS 4: O BRUTO DO PORTO - imagem PNG
+        // =============================================
+        if (brutoImgRef.current) {
+          const bImg = brutoImgRef.current;
+          const drawW = 200;
+          const drawH = (bImg.height / bImg.width) * drawW;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(bImg, bx - 20, by - drawH + 12, drawW, drawH);
+        } else {
+          ctx.fillStyle = "#E65100";
+          ctx.fillRect(bx, by - 45, 130, 40);
+          ctx.fillStyle = "#FFF";
+          ctx.font = "bold 8px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("O BRUTO DO PORTO", bx + 65, by - 22);
+        }
+        // Fumaca preta do escapamento
+        const fcb = fc;
+        ctx.fillStyle = "rgba(50,50,50,0.4)";
+        ctx.beginPath(); ctx.arc(bx - 10 - (fcb % 12), by - 30, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(50,50,50,0.2)";
+        ctx.beginPath(); ctx.arc(bx - 25 - (fcb % 18), by - 35, 4, 0, Math.PI * 2); ctx.fill();
+
       } else if (!isGuarda && gameRef.current.bossType === "cegonha") {
         // =============================================
         // BOSS 3: CARRETA CEGONHA - imagem PNG
@@ -1221,12 +1251,15 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.font = "bold 9px Arial";
         ctx.textAlign = "center";
         if (g2.phaseState === "boss_derrota") {
-          const derrotaMsg = g2.bossType === "guincho" ? "PNEU FURADO!" : g2.bossType === "cegonha" ? "CET PRENDEU!" : "FOI EMBORA!";
+          const derrotaMsgs: Record<string, string> = { guincho: "PNEU FURADO!", guarda: "FOI EMBORA!", cegonha: "CET PRENDEU!", bruto: "CARGA CAIU!" };
+          const derrotaMsg = derrotaMsgs[g2.bossType] || "DERROTADO!";
           ctx.fillText(derrotaMsg, barX + barW / 2, barY - 6);
         } else if (g2.bossType === "guarda") {
           ctx.fillText(`MULTAS: ${g2.guardaMultas}/3  |  ${secondsLeft}s`, barX + barW / 2, barY - 6);
         } else if (g2.bossType === "cegonha") {
           ctx.fillText(`CARROS: ${g2.cegonhaCarrosPulados}/${4}  |  PULE!`, barX + barW / 2, barY - 6);
+        } else if (g2.bossType === "bruto") {
+          ctx.fillText(`PORTO! DESVIE! ${secondsLeft}s`, barX + barW / 2, barY - 6);
         } else {
           ctx.fillText(`DESVIE! ${secondsLeft}s`, barX + barW / 2, barY - 6);
         }
@@ -1603,8 +1636,79 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         }
       }
 
+      // === CENARIO SANTOS (durante boss Bruto) ===
+      const isSantos = g.bossType === "bruto" && (g.phaseState === "boss" || g.phaseState === "boss_derrota");
+      if (isSantos) {
+        // Ceu mais azul/tropical
+        const gradSantos = ctx.createLinearGradient(0, 0, 0, baseGroundY);
+        gradSantos.addColorStop(0, "#4FC3F7");
+        gradSantos.addColorStop(0.6, "#81D4FA");
+        gradSantos.addColorStop(1, "#E1F5FE");
+        ctx.fillStyle = gradSantos;
+        ctx.fillRect(0, 0, W, baseGroundY);
+
+        // Mar ao fundo
+        ctx.fillStyle = "#1565C0";
+        ctx.fillRect(0, baseGroundY - 60, W, 30);
+        // Ondas
+        ctx.strokeStyle = "#1E88E5";
+        ctx.lineWidth = 1;
+        for (let wx = 0; wx < W; wx += 3) {
+          const wy = baseGroundY - 50 + Math.sin((wx + g.frameCount * 1.5) * 0.04) * 3;
+          if (wx === 0) { ctx.beginPath(); ctx.moveTo(wx, wy); } else ctx.lineTo(wx, wy);
+        }
+        ctx.stroke();
+
+        // Praia (areia)
+        ctx.fillStyle = "#F5DEB3";
+        ctx.fillRect(0, baseGroundY - 35, W, 10);
+
+        // Guindastes do porto (fundo)
+        for (let gi = 0; gi < 3; gi++) {
+          const gx = ((gi * 250 - g.groundOffset * 0.08 + 100) % (W + 200)) - 50;
+          if (gx > -80 && gx < W + 80) {
+            // Poste vertical
+            ctx.fillStyle = "#E65100";
+            ctx.fillRect(gx, baseGroundY - 120, 6, 95);
+            // Braco horizontal
+            ctx.fillStyle = "#FF6F00";
+            ctx.fillRect(gx - 30, baseGroundY - 125, 70, 6);
+            // Cabo
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(gx + 30, baseGroundY - 125);
+            ctx.lineTo(gx + 30, baseGroundY - 90);
+            ctx.stroke();
+            // Container pendurado
+            ctx.fillStyle = ["#CC0000", "#0044AA", "#228822"][gi % 3];
+            ctx.fillRect(gx + 22, baseGroundY - 95, 16, 10);
+          }
+        }
+
+        // Navios cargueiros ao fundo
+        const shipX = ((200 - g.groundOffset * 0.03) % (W + 300)) - 100;
+        if (shipX > -150 && shipX < W + 50) {
+          ctx.fillStyle = "#333";
+          ctx.fillRect(shipX, baseGroundY - 55, 100, 20);
+          ctx.fillStyle = "#B71C1C";
+          ctx.beginPath();
+          ctx.moveTo(shipX + 100, baseGroundY - 55);
+          ctx.lineTo(shipX + 120, baseGroundY - 45);
+          ctx.lineTo(shipX + 100, baseGroundY - 35);
+          ctx.closePath();
+          ctx.fill();
+          // Containers no navio
+          ctx.fillStyle = "#FF6F00";
+          ctx.fillRect(shipX + 10, baseGroundY - 65, 30, 12);
+          ctx.fillStyle = "#1565C0";
+          ctx.fillRect(shipX + 45, baseGroundY - 65, 30, 12);
+        }
+      }
+
       // === MONTANHAS DE FUNDO ===
-      drawMountains(ctx, W, baseGroundY, g.groundOffset, g.nightMode);
+      if (!isSantos) drawMountains(ctx, W, baseGroundY, g.groundOffset, g.nightMode);
+      else drawMountains(ctx, W, baseGroundY, g.groundOffset, false); // montanhas claras em Santos
 
       // Nuvens
       ctx.fillStyle = g.nightMode ? "rgba(50,50,70,0.4)" : "rgba(255,255,255,0.85)";
@@ -1824,9 +1928,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           g.guardaMultas = 0;
           g.cegonhaCarrosPulados = 0;
           g.cegonhaCarrosJogados = 0;
-          // Rotacao de bosses: guincho, guarda, cegonha, guincho, guarda, cegonha...
-          const bossRotation: Array<"guincho" | "guarda" | "cegonha"> = ["guincho", "guarda", "cegonha"];
-          g.bossType = bossRotation[(g.phase - 1) % 3];
+          // Rotacao de bosses: guincho, guarda, cegonha, bruto, guincho...
+          const bossRotation: Array<"guincho" | "guarda" | "cegonha" | "bruto"> = ["guincho", "guarda", "cegonha", "bruto"];
+          g.bossType = bossRotation[(g.phase - 1) % 4];
           // Boss cegonha usa bossHP=4 pra barra visual
           if (g.bossType === "cegonha") {
             g.obstacles[g.obstacles.length - 1].bossHP = 4;
@@ -1843,6 +1947,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             showStatus("⚠️ GUINCHO CET! DESVIE POR 10s!", 90);
           } else if (g.bossType === "guarda") {
             showStatus("🚔 GUARDA PRF! 3 MULTAS = ELIMINADO!", 100);
+          } else if (g.bossType === "bruto") {
+            showStatus("🚚 O BRUTO DO PORTO! DESVIE DOS CONTAINERS!", 100);
           } else {
             showStatus("🚛 CEGONHA LOUCA! PULE OS CARROS!", 100);
           }
@@ -1899,6 +2005,22 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               }
               setGameState("gameover");
             }
+          } else if (g.bossType === "bruto") {
+            // === BOSS 4: O BRUTO DO PORTO - joga containers e caixas ===
+            g.bossSpawnTimer--;
+            if (g.bossSpawnTimer <= 0) {
+              // Alterna entre container grande e caixa de madeira
+              const isContainer = Math.random() > 0.4;
+              if (isContainer) {
+                // Container: obstaculo grande (tipo barreira mas maior)
+                g.obstacles.push({ x: W + 10, width: 60, height: 40, type: "barreira", vy: 0, flashTimer: 0, multado: false });
+              } else {
+                // Caixa de madeira: obstaculo medio
+                g.obstacles.push({ x: W + 10, width: 35, height: 30, type: "pedra", vy: 0, flashTimer: 0, multado: false });
+              }
+              const spawnBase = g.phase <= 4 ? 50 : g.phase <= 5 ? 38 : 28;
+              g.bossSpawnTimer = spawnBase + Math.random() * 25;
+            }
           } else if (g.bossType === "cegonha") {
             // === BOSS 3: CEGONHA LOUCA - derruba carros, pule 4 pra vencer ===
             // Joga carros a cada ~2s (120 frames), no maximo 4
@@ -1954,6 +2076,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             g.bossDerrotaTimer = 180;
             if (g.bossType === "guincho") {
               showStatus("PNEU FURADO! BOSS DERROTADO!", 70);
+            } else if (g.bossType === "bruto") {
+              showStatus("CARGA CAIU! BRUTO DERROTADO!", 70);
             } else {
               showStatus("GUARDA FOI EMBORA! VOCE ESCAPOU!", 70);
             }

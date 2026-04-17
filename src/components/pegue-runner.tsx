@@ -228,6 +228,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     eventoClimatico: "normal" as EventoClimatico,
     eventoTimer: 0,
     granizoDrops: [] as { x: number; y: number; speed: number }[],
+    // Pombos voando (fase 4+) - pular neles = game over
+    pombos: [] as { x: number; y: number; wingPhase: number; speed: number }[],
+    nextPomboSpawn: 300,
     // Invencibilidade (bilhete unico)
     invencivel: false,
     invencivelTimer: 0,
@@ -1615,6 +1618,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       cegonhaCarrosPulados: 0, cegonhaCarrosJogados: 0,
       eventoClimatico: "normal", eventoTimer: 0, granizoDrops: [],
       invencivel: false, invencivelTimer: 0, boosted: false, boostTimer: 0,
+      pombos: [], nextPomboSpawn: 300,
       raining: false, raindrops: [],
     });
     setDisplayPhase(1);
@@ -1947,6 +1951,50 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             if (g.frameCount % 30 === 0 && !g.invencivel) {
               g.score = Math.max(0, g.score - 5);
               setDisplayScore(g.score);
+            }
+          }
+        }
+
+        // === POMBOS (fase 4+) ===
+        if (g.phase >= 4 && g.phaseState === "desafio") {
+          g.nextPomboSpawn--;
+          if (g.nextPomboSpawn <= 0) {
+            g.pombos.push({
+              x: W + 20,
+              y: truckGroundY - 60 - Math.random() * 40, // voam na altura do pulo
+              wingPhase: Math.random() * Math.PI * 2,
+              speed: g.speed * 0.7 + Math.random() * 1.5,
+            });
+            g.nextPomboSpawn = 200 + Math.random() * 250; // um a cada 3-7s
+          }
+        }
+        // Move pombos
+        g.pombos = g.pombos.filter(p => {
+          p.x -= p.speed;
+          p.wingPhase += 0.15;
+          p.y += Math.sin(p.wingPhase * 0.5) * 0.3; // oscila suavemente
+          return p.x > -40;
+        });
+        // Colisao: se pulando e bater no pombo = game over
+        if (g.isJumping && !g.invencivel) {
+          const tCX = 82, tCY = truckGroundY - TRUCK_SIZE / 2 + g.truckY;
+          for (const pombo of g.pombos) {
+            const dx = tCX - pombo.x, dy = tCY - pombo.y;
+            if (Math.sqrt(dx * dx + dy * dy) < 25) {
+              g.gameOver = true;
+              g.running = false;
+              playSound("game-over");
+              bossMusicRef.current.stop();
+              showStatus("ACERTOU O POMBO! 🐦", 60);
+              spawnParticles(pombo.x, pombo.y, "#888888", 15);
+              spawnParticles(pombo.x, pombo.y, "#FFFFFF", 10);
+              if (g.score > g.highScore) {
+                g.highScore = g.score;
+                localStorage.setItem("pegue_runner_highscore", g.score.toString());
+                setDisplayHighScore(g.score);
+              }
+              setGameState("gameover");
+              break;
             }
           }
         }
@@ -2615,6 +2663,79 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.font = "bold 22px Arial";
         ctx.textAlign = "center";
         ctx.fillText(g.statusText, W / 2, H * 0.45 - yOffset);
+      }
+
+      // === POMBOS VOANDO ===
+      if (g.pombos.length > 0) {
+        g.pombos.forEach(pombo => {
+          const px = pombo.x, py = pombo.y;
+          const wingUp = Math.sin(pombo.wingPhase) * 8;
+
+          // Corpo do pombo (cinza)
+          ctx.fillStyle = "#777";
+          ctx.beginPath();
+          ctx.ellipse(px, py, 10, 6, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Cabeca
+          ctx.fillStyle = "#666";
+          ctx.beginPath();
+          ctx.arc(px + 10, py - 3, 5, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Olho
+          ctx.fillStyle = "#FF6600";
+          ctx.beginPath();
+          ctx.arc(px + 12, py - 4, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Bico
+          ctx.fillStyle = "#CC9900";
+          ctx.beginPath();
+          ctx.moveTo(px + 15, py - 3);
+          ctx.lineTo(px + 19, py - 2);
+          ctx.lineTo(px + 15, py - 1);
+          ctx.closePath();
+          ctx.fill();
+
+          // Asas batendo
+          ctx.fillStyle = "#888";
+          // Asa esquerda
+          ctx.beginPath();
+          ctx.moveTo(px - 3, py - 2);
+          ctx.lineTo(px - 12, py - 10 + wingUp);
+          ctx.lineTo(px - 5, py - 3);
+          ctx.closePath();
+          ctx.fill();
+          // Asa direita
+          ctx.beginPath();
+          ctx.moveTo(px + 3, py - 2);
+          ctx.lineTo(px + 5, py - 12 + wingUp);
+          ctx.lineTo(px + 8, py - 3);
+          ctx.closePath();
+          ctx.fill();
+
+          // Rabo
+          ctx.fillStyle = "#666";
+          ctx.beginPath();
+          ctx.moveTo(px - 10, py);
+          ctx.lineTo(px - 17, py + 2);
+          ctx.lineTo(px - 17, py - 2);
+          ctx.closePath();
+          ctx.fill();
+
+          // Penas (pescoço iridescente - toque SP)
+          ctx.fillStyle = "#558866";
+          ctx.beginPath();
+          ctx.arc(px + 9, py - 1, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Sombra no chao
+          ctx.fillStyle = "rgba(0,0,0,0.15)";
+          ctx.beginPath();
+          ctx.ellipse(px, truckGroundY + 2, 8, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+        });
       }
 
       // === EVENTOS CLIMATICOS VISUAIS ===

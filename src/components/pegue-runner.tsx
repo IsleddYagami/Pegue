@@ -213,9 +213,12 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     bossTimer: 0,
     bossSpawnTimer: 0,
     bossDerrotaTimer: 0,
-    bossType: "guincho" as "guincho" | "guarda", // tipo do boss da fase
+    bossType: "guincho" as "guincho" | "guarda" | "cegonha",
     // Boss 2 - Guarda Rodoviario: 3 multas = eliminado
     guardaMultas: 0,
+    // Boss 3 - Cegonha: derruba 4 carros, pular todos = CET prende
+    cegonhaCarrosPulados: 0,
+    cegonhaCarrosJogados: 0,
     // Notas de dollar voando na entrega
     dollarNotes: [] as { x: number; y: number; speed: number; angle: number }[],
     // Clima
@@ -1163,6 +1166,75 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.textAlign = "center";
         ctx.fillText("PRF", bx + 55, by - 55);
 
+      } else if (!isGuarda && gameRef.current.bossType === "cegonha") {
+        // =============================================
+        // BOSS 3: CARRETA CEGONHA (carregando carros)
+        // =============================================
+        const wy = by - 12;
+        // Rodas (6 rodas - carreta)
+        for (const wx of [bx + 10, bx + 22, bx + 55, bx + 80, bx + 105, bx + 118]) {
+          ctx.fillStyle = "#111";
+          ctx.beginPath(); ctx.arc(wx, wy, 9, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#333";
+          ctx.beginPath(); ctx.arc(wx, wy, 5, 0, Math.PI * 2); ctx.fill();
+        }
+        // Chassi longo
+        ctx.fillStyle = "#444";
+        ctx.fillRect(bx - 5, by - 20, 135, 8);
+        // Plataforma inferior (carros de baixo)
+        ctx.fillStyle = flashing ? "#CC6600" : "#888";
+        ctx.fillRect(bx - 5, by - 28, 130, 10);
+        // Suportes verticais
+        ctx.fillStyle = "#666";
+        ctx.fillRect(bx + 5, by - 55, 4, 27);
+        ctx.fillRect(bx + 60, by - 55, 4, 27);
+        ctx.fillRect(bx + 115, by - 55, 4, 27);
+        // Plataforma superior (carros de cima)
+        ctx.fillStyle = flashing ? "#BB5500" : "#777";
+        ctx.fillRect(bx, by - 58, 125, 5);
+        // Carros na cegonha (quanto mais pulados, menos carros)
+        const carrosRestantes = 4 - (gameRef.current.cegonhaCarrosJogados || 0);
+        const carCores = ["#CC0000", "#0044AA", "#228822", "#CCCC00"];
+        // Carros na plataforma inferior
+        for (let ci = 0; ci < Math.min(carrosRestantes, 2); ci++) {
+          const cx = bx + 10 + ci * 50;
+          ctx.fillStyle = carCores[ci];
+          ctx.fillRect(cx, by - 40, 35, 14);
+          ctx.fillStyle = "#87CEEB";
+          ctx.fillRect(cx + 22, by - 40, 10, 8);
+          // Rodinha
+          ctx.fillStyle = "#111";
+          ctx.beginPath(); ctx.arc(cx + 5, by - 26, 3, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(cx + 30, by - 26, 3, 0, Math.PI * 2); ctx.fill();
+        }
+        // Carros na plataforma superior
+        for (let ci = 2; ci < Math.min(carrosRestantes + 2, 4) && ci - 2 < carrosRestantes - 2; ci++) {
+          const cIdx = ci;
+          if (cIdx - 2 + 2 > carrosRestantes) break;
+          const cx = bx + 15 + (ci - 2) * 50;
+          ctx.fillStyle = carCores[ci];
+          ctx.fillRect(cx, by - 70, 35, 14);
+          ctx.fillStyle = "#87CEEB";
+          ctx.fillRect(cx + 22, by - 70, 10, 8);
+          ctx.fillStyle = "#111";
+          ctx.beginPath(); ctx.arc(cx + 5, by - 56, 3, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(cx + 30, by - 56, 3, 0, Math.PI * 2); ctx.fill();
+        }
+        // Cabine da carreta
+        ctx.fillStyle = "#DDD";
+        ctx.beginPath();
+        ctx.roundRect(bx + 100, by - 45, 30, 28, [6, 6, 0, 0]);
+        ctx.fill();
+        ctx.fillStyle = "#87CEEB";
+        ctx.fillRect(bx + 115, by - 42, 12, 14);
+        // Placa
+        ctx.fillStyle = "#FF6600";
+        ctx.fillRect(bx + 35, by - 32, 40, 10);
+        ctx.fillStyle = "#FFF";
+        ctx.font = "bold 7px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("CEGONHA", bx + 55, by - 24);
+
       } else {
         // =============================================
         // BOSS 1: GUINCHO CET (original)
@@ -1282,9 +1354,12 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.font = "bold 9px Arial";
         ctx.textAlign = "center";
         if (g2.phaseState === "boss_derrota") {
-          ctx.fillText(g2.bossType === "guincho" ? "PNEU FURADO!" : "FOI EMBORA!", barX + barW / 2, barY - 6);
+          const derrotaMsg = g2.bossType === "guincho" ? "PNEU FURADO!" : g2.bossType === "cegonha" ? "CET PRENDEU!" : "FOI EMBORA!";
+          ctx.fillText(derrotaMsg, barX + barW / 2, barY - 6);
         } else if (g2.bossType === "guarda") {
           ctx.fillText(`MULTAS: ${g2.guardaMultas}/3  |  ${secondsLeft}s`, barX + barW / 2, barY - 6);
+        } else if (g2.bossType === "cegonha") {
+          ctx.fillText(`CARROS: ${g2.cegonhaCarrosPulados}/${4}  |  PULE!`, barX + barW / 2, barY - 6);
         } else {
           ctx.fillText(`DESVIE! ${secondsLeft}s`, barX + barW / 2, barY - 6);
         }
@@ -1545,6 +1620,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       deliveries: 0, bossActive: false, bossDefeated: false,
       bossTimer: 0, bossSpawnTimer: 0, bossDerrotaTimer: 0,
       bossType: "guincho", guardaMultas: 0, dollarNotes: [],
+      cegonhaCarrosPulados: 0, cegonhaCarrosJogados: 0,
       raining: false, raindrops: [],
     });
     setDisplayPhase(1);
@@ -1685,8 +1761,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       });
 
       // === ESTRADA COM TERRENO ===
+      // Cor da pista muda por fase (fase 3+ fica mais escura/diferente)
+      const pistaColor = g.phase >= 3 ? "#2a2a35" : "#333";
       // Superficie da estrada seguindo o terreno
-      ctx.fillStyle = "#333";
+      ctx.fillStyle = pistaColor;
       ctx.beginPath();
       ctx.moveTo(0, H);
       for (let x = 0; x <= W; x += 4) {
@@ -1698,7 +1776,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.fill();
 
       // Borda superior da estrada
-      ctx.strokeStyle = "#555";
+      ctx.strokeStyle = g.phase >= 3 ? "#4a4a55" : "#555";
       ctx.lineWidth = 3;
       ctx.beginPath();
       for (let x = 0; x <= W; x += 4) {
@@ -1826,8 +1904,11 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           g.bossSpawnTimer = 0;
           g.bossDerrotaTimer = 0;
           g.guardaMultas = 0;
-          // Alterna boss: impares=guincho, pares=guarda
-          g.bossType = g.phase % 2 === 1 ? "guincho" : "guarda";
+          g.cegonhaCarrosPulados = 0;
+          g.cegonhaCarrosJogados = 0;
+          // Rotacao de bosses: 1=guincho, 2=guarda, 3=cegonha, depois repete
+          const bossRotation: Array<"guincho" | "guarda" | "cegonha"> = ["guincho", "guarda", "cegonha"];
+          g.bossType = bossRotation[(g.phase - 1) % 3];
           // Spawn boss na frente
           g.obstacles = g.obstacles.filter(o => o.type !== "boss");
           g.obstacles.push({
@@ -1838,8 +1919,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           const bossNomes: Record<number, string> = { 1: "TRANQUILO", 2: "ESQUENTANDO", 3: "CORRERIA", 4: "CACHORRO LOUCO", 5: "PILOTO DE CORRIDA" };
           if (g.bossType === "guincho") {
             showStatus("⚠️ GUINCHO CET! DESVIE POR 10s!", 90);
+          } else if (g.bossType === "guarda") {
+            showStatus("🚔 GUARDA PRF! 3 MULTAS = ELIMINADO!", 100);
           } else {
-            showStatus("🚔 GUARDA RODOVIARIO! 3 MULTAS = ELIMINADO!", 100);
+            showStatus("🚛 CEGONHA LOUCA! PULE OS CARROS!", 100);
           }
           playSound("game-combo");
           // Inicia musica tensa do boss
@@ -1868,11 +1951,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               const spawnBase = g.phase <= 1 ? 55 : g.phase <= 2 ? 42 : g.phase <= 3 ? 32 : 22;
               g.bossSpawnTimer = spawnBase + Math.random() * 20;
             }
-          } else {
-            // === BOSS 2: GUARDA RODOVIARIO - joga radares, 3 multas = eliminado ===
+          } else if (g.bossType === "guarda") {
+            // === BOSS 2: GUARDA PRF - joga radares, 3 multas = eliminado ===
             g.bossSpawnTimer--;
             if (g.bossSpawnTimer <= 0) {
-              // Guarda joga radares e cones (radares dao multa se nao pular)
               const guardaPool: Obstacle["type"][] = ["radar", "radar", "cone", "radar"];
               const tipo = guardaPool[Math.floor(Math.random() * guardaPool.length)];
               let w = 30, h = 72;
@@ -1881,7 +1963,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               const spawnBase = g.phase <= 2 ? 50 : g.phase <= 3 ? 38 : 28;
               g.bossSpawnTimer = spawnBase + Math.random() * 20;
             }
-            // Checa se levou 3 multas (radares que passou no chao)
             if (g.guardaMultas >= 3) {
               g.gameOver = true;
               g.running = false;
@@ -1896,10 +1977,54 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               }
               setGameState("gameover");
             }
+          } else if (g.bossType === "cegonha") {
+            // === BOSS 3: CEGONHA LOUCA - derruba carros, pule 4 pra vencer ===
+            // Joga carros a cada ~2s (120 frames), no maximo 4
+            if (g.cegonhaCarrosJogados < 4) {
+              g.bossSpawnTimer--;
+              if (g.bossSpawnTimer <= 0) {
+                g.cegonhaCarrosJogados++;
+                // Carro como obstaculo grande (tipo barreira mas visual diferente)
+                g.obstacles.push({
+                  x: W + 10, width: 55, height: 35,
+                  type: "barreira", vy: 0, flashTimer: 0, multado: false,
+                });
+                g.bossSpawnTimer = 100 + Math.random() * 40; // ~1.7-2.3s entre carros
+                showStatus(`CARRO ${g.cegonhaCarrosJogados}/4!`, 30);
+                playSound("game-combo");
+                // Atualiza barra visual
+                if (bossObs) bossObs.bossHits = g.cegonhaCarrosPulados;
+              }
+            }
+            // Checa se pulou os 4 (quando um obstaculo barreira sai da tela durante boss cegonha, conta como pulado)
           }
 
-          // Sobreviveu 10 segundos!
-          if (g.bossTimer <= 0 && !g.gameOver) {
+          // Cegonha: checa vitoria (pulou 4 carros = CET prende)
+          if (g.bossType === "cegonha" && g.cegonhaCarrosJogados >= 4) {
+            // Conta quantos obstaculos barreira ja passaram do jogador (x < 50)
+            const carrosPassados = g.cegonhaCarrosJogados;
+            // Se todos os 4 carros ja foram jogados e nao esta game over, checa se todos passaram
+            const carrosNaTela = g.obstacles.filter(o => o.type === "barreira" && o.x > -60 && o.x < W).length;
+            if (carrosNaTela === 0 && !g.gameOver) {
+              // Todos passaram! Jogador desviou de todos!
+              g.cegonhaCarrosPulados = 4;
+              g.bossDefeated = true;
+              g.bossActive = false;
+              g.phaseState = "boss_derrota";
+              g.phaseTimer = 0;
+              g.bossDerrotaTimer = 200; // 3.3s animacao especial
+              showStatus("CET PRENDEU A CEGONHA!", 80);
+              playSound("game-star");
+              bossMusicRef.current.stop();
+              if (bossObs) {
+                spawnParticles(bossObs.x + 60, baseGroundY - 40, "#FF0000", 20);
+                spawnParticles(bossObs.x + 60, baseGroundY - 40, "#0044FF", 20);
+              }
+            }
+          }
+
+          // Guincho/Guarda: sobreviveu 10 segundos!
+          if (g.bossType !== "cegonha" && g.bossTimer <= 0 && !g.gameOver) {
             g.bossDefeated = true;
             g.bossActive = false;
             g.phaseState = "boss_derrota";

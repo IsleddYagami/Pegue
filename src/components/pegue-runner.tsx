@@ -1507,7 +1507,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         const vcImg = vcImgs[vcIdx];
         const drawW = 140;
         const drawH = (vcImg.height / vcImg.width) * drawW;
-        ctx.drawImage(vcImg, obs.x - 10, groundY - drawH * 0.88, drawW, drawH);
+        ctx.drawImage(vcImg, obs.x - 10, groundY - drawH * 0.72, drawW, drawH);
       } else {
         ctx.fillStyle = "#CC0000";
         ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
@@ -1592,7 +1592,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           const pImg = policiaImgRef.current;
           const drawW = 230;
           const drawH = (pImg.height / pImg.width) * drawW;
-          ctx.drawImage(pImg, bx - 20, by - drawH * 0.85, drawW, drawH);
+          ctx.drawImage(pImg, bx - 20, by - drawH * 0.72, drawW, drawH);
         } else {
           // Fallback
           ctx.fillStyle = "#777";
@@ -1617,7 +1617,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           const bImg = brutoImgRef.current;
           const drawW = 300;
           const drawH = (bImg.height / bImg.width) * drawW;
-          ctx.drawImage(bImg, bx - 20, by - drawH * 0.88, drawW, drawH);
+          ctx.drawImage(bImg, bx - 20, by - drawH * 0.72, drawW, drawH);
         } else {
           ctx.fillStyle = "#E65100";
           ctx.fillRect(bx, by - 45, 130, 40);
@@ -1641,7 +1641,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           const cImg = coletorImgRef.current;
           const drawW = 280;
           const drawH = (cImg.height / cImg.width) * drawW;
-          ctx.drawImage(cImg, bx - 30, by - drawH * 0.85, drawW, drawH);
+          ctx.drawImage(cImg, bx - 30, by - drawH * 0.72, drawW, drawH);
         } else {
           ctx.fillStyle = "#E65100";
           ctx.fillRect(bx, by - 45, 130, 40);
@@ -1659,7 +1659,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           const cImg = cegonhaImgRef.current;
           const drawW = 350;
           const drawH = (cImg.height / cImg.width) * drawW;
-          ctx.drawImage(cImg, bx - 20, by - drawH * 0.88, drawW, drawH);
+          ctx.drawImage(cImg, bx - 20, by - drawH * 0.72, drawW, drawH);
         } else {
           // Fallback
           ctx.fillStyle = "#888";
@@ -1680,7 +1680,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           const gImg = guinchoImgRef.current;
           const drawW = 300;
           const drawH = (gImg.height / gImg.width) * drawW;
-          ctx.drawImage(gImg, bx - 25, by - drawH * 0.88, drawW, drawH);
+          ctx.drawImage(gImg, bx - 25, by - drawH * 0.72, drawW, drawH);
         } else {
           // Fallback
           ctx.fillStyle = "#E8A800";
@@ -2667,9 +2667,8 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
               let w = 50, h = 35;
               if (tipo === "cone") { w = 25; h = 28; }
               else if (tipo === "barreira") { w = 40; h = 35; }
-              g.obstacles.push({ x: W + 10, width: w, height: h, type: tipo, vy: 0, flashTimer: 0, multado: false });
-              const spawnBase = g.phase <= 1 ? 55 : g.phase <= 2 ? 42 : g.phase <= 3 ? 32 : 22;
-              g.bossSpawnTimer = spawnBase + Math.random() * 20;
+              g.obstacles.push({ x: W + 10, width: w, height: h, type: tipo, variant: Math.floor(Math.random() * 10), vy: 0, flashTimer: 0, multado: false });
+              g.bossSpawnTimer = 80 + Math.random() * 40; // 1.3-2s entre obstaculos (sempre pulavel)
             }
           } else if (g.bossType === "guarda") {
             // === BOSS 2: GUARDA PRF - joga radares, 3 multas = eliminado ===
@@ -2679,9 +2678,8 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
               const tipo = guardaPool[Math.floor(Math.random() * guardaPool.length)];
               let w = 30, h = 72;
               if (tipo === "cone") { w = 20; h = 25; }
-              g.obstacles.push({ x: W + 10, width: w, height: h, type: tipo, vy: 0, flashTimer: 0, multado: false });
-              const spawnBase = g.phase <= 2 ? 50 : g.phase <= 3 ? 38 : 28;
-              g.bossSpawnTimer = spawnBase + Math.random() * 20;
+              g.obstacles.push({ x: W + 10, width: w, height: h, type: tipo, variant: Math.floor(Math.random() * 10), vy: 0, flashTimer: 0, multado: false });
+              g.bossSpawnTimer = 75 + Math.random() * 35; // 1.25-1.8s
             }
             if (g.guardaMultas >= 3) {
               g.gameOver = true;

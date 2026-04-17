@@ -3186,11 +3186,12 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           g.phase++;
           g.phaseState = "desafio";
           g.phaseTimer = 0;
-          // Velocidade aumenta por fase (progressao suave)
-          if (g.phase === 2) g.speed += 0.3;
-          else if (g.phase === 3) g.speed += 0.5;
-          else if (g.phase === 4) g.speed += 0.7;
-          else g.speed += 1.0; // fase 5+ piloto de corrida
+          // Velocidade: fases 1-6 contemplativas, 7+ desafiador
+          if (g.phase <= 3) g.speed += 0.15;       // quase imperceptivel
+          else if (g.phase <= 5) g.speed += 0.25;   // leve
+          else if (g.phase <= 6) g.speed += 0.35;   // suave
+          else if (g.phase === 7) g.speed += 0.6;   // aqui comeca
+          else g.speed += 0.8;                       // fase 8+ intenso
           setDisplayPhase(g.phase);
           const nomesFase: Record<number, string> = {
             2: "🚚 ESQUENTANDO!",
@@ -3252,23 +3253,27 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             g.obstacles.push({ x: W + 20, width, height, type, vy: 0, flashTimer: 0, multado: false });
 
             // Espacamento entre obstaculos por fase
-            // REGRA: fase 1 e 2 bem espacado, aperta gradualmente so a partir da 3
+            // FASES 1-6: CONTEMPLATIVAS (jogador curte cenario e coleta itens)
+            // FASES 7+: DESAFIADORAS (aqui o bicho pega)
             let spawnDelay: number;
             if (g.phase === 1) {
-              // TRANQUILO: muito espaco (150-300 frames = 2.5-5s)
-              spawnDelay = 150 + Math.random() * 150;
+              spawnDelay = 170 + Math.random() * 160; // 2.8-5.5s
             } else if (g.phase === 2) {
-              // ESQUENTANDO: ainda generoso (130-250 frames = 2.2-4.2s)
-              spawnDelay = 130 + Math.random() * 120;
+              spawnDelay = 150 + Math.random() * 140; // 2.5-4.8s
             } else if (g.phase === 3) {
-              // CORRERIA: comeca a apertar (90-170 frames = 1.5-2.8s)
-              spawnDelay = 90 + Math.random() * 80;
+              spawnDelay = 140 + Math.random() * 120; // 2.3-4.3s
             } else if (g.phase === 4) {
-              // CACHORRO LOUCO: apertado (60-120 frames = 1.0-2.0s)
-              spawnDelay = 60 + Math.random() * 60;
+              spawnDelay = 130 + Math.random() * 100; // 2.2-3.8s
+            } else if (g.phase === 5) {
+              spawnDelay = 120 + Math.random() * 90;  // 2.0-3.5s
+            } else if (g.phase === 6) {
+              spawnDelay = 100 + Math.random() * 80;  // 1.7-3.0s
+            } else if (g.phase === 7) {
+              spawnDelay = 70 + Math.random() * 60;   // 1.2-2.2s (comeca apertar)
+            } else if (g.phase === 8) {
+              spawnDelay = 55 + Math.random() * 50;   // 0.9-1.7s
             } else {
-              // PILOTO DE CORRIDA: intenso (40-85 frames = 0.7-1.4s)
-              spawnDelay = 40 + Math.random() * 45;
+              spawnDelay = 40 + Math.random() * 40;   // 0.7-1.3s (insano)
             }
             if (type === "radar") spawnDelay += 60; // radares sempre mais espacados
             g.nextSpawn = spawnDelay;

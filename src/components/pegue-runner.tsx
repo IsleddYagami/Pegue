@@ -21,7 +21,7 @@ interface Obstacle {
   height: number;
   type: "barreira" | "buraco" | "cone" | "pedra" | "motoqueiro" | "motoboy" | "radar" | "boss"
     | "bueiro" | "ambulante" | "catador" | "onibus_parado" | "cachorro"
-    | "caixa_madeira" | "saco_lixo" | "cavalete" | "container"; // obstaculos com imagem
+    | "caixa_madeira" | "saco_lixo" | "cavalete" | "container" | "veiculo_cegonha"; // obstaculos com imagem
   vy?: number;
   flashTimer?: number;
   multado?: boolean;
@@ -270,6 +270,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const sacoLixoImgRef = useRef<HTMLImageElement | null>(null);
   const caixasImgRef = useRef<HTMLImageElement[]>([]);
   const containersImgRef = useRef<HTMLImageElement[]>([]);
+  const veiculosCegonhaImgRef = useRef<HTMLImageElement[]>([]);
   const cavaletesImgRef = useRef<HTMLImageElement[]>([]);
   const coneImgRef = useRef<HTMLImageElement | null>(null);
 
@@ -319,6 +320,12 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       const cv = new window.Image();
       cv.src = src;
       cv.onload = () => { cavaletesImgRef.current.push(cv); };
+    });
+    // 4 veiculos pra cegonha derrubar
+    ["/veiculo 1.png", "/veiculo 2.png", "/veiculo 3.png", "/veiculo 4.png"].forEach((src) => {
+      const vi = new window.Image();
+      vi.src = src;
+      vi.onload = () => { veiculosCegonhaImgRef.current.push(vi); };
     });
     ["/CONTAINER BOSS PORTO.png", "/CONTAINER BOSS PORTO 2.png"].forEach((src) => {
       const ct = new window.Image();
@@ -1467,6 +1474,24 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
         ctx.fillStyle = "#FFF";
         ctx.fillRect(obs.x, groundY - obs.height * 0.5, obs.width, 5);
+      }
+    }
+    else if (obs.type === "veiculo_cegonha") {
+      // Veiculo derrubado pela cegonha - imagem PNG aleatoria
+      const vcImgs = veiculosCegonhaImgRef.current;
+      if (vcImgs.length > 0) {
+        const vcIdx = Math.abs(Math.round(obs.x * 0.13)) % vcImgs.length;
+        const vcImg = vcImgs[vcIdx];
+        const drawW = 70;
+        const drawH = (vcImg.height / vcImg.width) * drawW;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(vcImg, obs.x - 5, groundY - drawH + 5, drawW, drawH);
+      } else {
+        ctx.fillStyle = "#CC0000";
+        ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
+        ctx.fillStyle = "#87CEEB";
+        ctx.fillRect(obs.x + obs.width * 0.6, groundY - obs.height, obs.width * 0.3, obs.height * 0.5);
       }
     }
     else if (obs.type === "container") {
@@ -3038,16 +3063,14 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               }
             }
           } else if (g.bossType === "cegonha") {
-            // === BOSS 3: CEGONHA LOUCA - derruba carros, pule 4 pra vencer ===
-            // Joga carros a cada ~2s (120 frames), no maximo 4
+            // === BOSS 3: CEGONHA LOUCA - derruba veiculos, pule 4 pra vencer ===
             if (g.cegonhaCarrosJogados < 4) {
               g.bossSpawnTimer--;
               if (g.bossSpawnTimer <= 0) {
                 g.cegonhaCarrosJogados++;
-                // Carro como obstaculo grande (tipo barreira mas visual diferente)
                 g.obstacles.push({
-                  x: W + 10, width: 55, height: 35,
-                  type: "barreira", vy: 0, flashTimer: 0, multado: false,
+                  x: W + 10, width: 65, height: 30,
+                  type: "veiculo_cegonha", vy: 0, flashTimer: 0, multado: false,
                 });
                 g.bossSpawnTimer = 100 + Math.random() * 40; // ~1.7-2.3s entre carros
                 showStatus(`CARRO ${g.cegonhaCarrosJogados}/4!`, 30);

@@ -12,7 +12,8 @@ const JUMP_FORCE = -12;
 const GROUND_HEIGHT = 0.75;
 const TRUCK_SIZE = 44;
 const INITIAL_SPEED = 4.0; // velocidade confortavel pra fase 1
-const SPEED_INCREMENT = 0.0008; // sobe bem devagar dentro da fase
+const SPEED_INCREMENT = 0.0003; // minimo - velocidade sobe pelas fases, nao por frame
+const MAX_SPEED = 12; // limite absoluto de velocidade
 
 // === INTERFACES ===
 interface Obstacle {
@@ -85,6 +86,7 @@ class BossMusic {
 
   start() {
     if (this.playing) return;
+    this.stop(); // garante limpeza
     try {
       this.ctx = new AudioContext();
       this.gainNode = this.ctx.createGain();
@@ -157,13 +159,11 @@ class BossMusic {
   stop() {
     this.playing = false;
     if (this.intervalId) { clearInterval(this.intervalId); this.intervalId = null; }
-    if (this.gainNode) {
-      try { this.gainNode.gain.exponentialRampToValueAtTime(0.001, this.ctx!.currentTime + 0.3); } catch {}
-    }
-    setTimeout(() => {
-      if (this.ctx) { try { this.ctx.close(); } catch {} this.ctx = null; }
-      this.gainNode = null;
-    }, 500);
+    try {
+      if (this.ctx && this.ctx.state !== "closed") { this.ctx.close(); }
+    } catch {}
+    this.ctx = null;
+    this.gainNode = null;
   }
 }
 
@@ -2448,8 +2448,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         g.frameCount++;
         const isEntregaCutscene = g.phaseState === "entrega" || g.phaseState === "boss_derrota";
         if (!isEntregaCutscene) {
-          g.speed += SPEED_INCREMENT;
+          if (g.speed < MAX_SPEED) g.speed += SPEED_INCREMENT;
           g.groundOffset += g.speed;
+          // Previne overflow em jogos longos (reseta sem afetar gameplay)
+          if (g.groundOffset > 500000) g.groundOffset -= 500000;
           g.distance += g.speed * 0.1;
         }
         g.comboTimer = Math.max(0, g.comboTimer - 1);
@@ -2624,17 +2626,13 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           // Rotacao de 5 bosses
           const bossRotation: Array<"guincho" | "guarda" | "cegonha" | "bruto" | "coletor"> = ["guincho", "guarda", "cegonha", "bruto", "coletor"];
           g.bossType = bossRotation[(g.phase - 1) % 5];
-          // bossHP pra barra visual (quantos objetos o boss joga)
-          const hpMap: Record<string, number> = { cegonha: 4, bruto: 6, coletor: 10 };
-          if (hpMap[g.bossType]) {
-            g.obstacles[g.obstacles.length - 1].bossHP = hpMap[g.bossType];
-          }
           // Spawn boss na frente
           g.obstacles = g.obstacles.filter(o => o.type !== "boss");
+          const bossHpMap: Record<string, number> = { cegonha: 4, bruto: 6, coletor: 10, guincho: 10, guarda: 10 };
           g.obstacles.push({
             x: W + 80, width: 120, height: 70,
             type: "boss", vy: 0, flashTimer: 0, multado: false,
-            bossHP: 10, bossHits: 0,
+            bossHP: bossHpMap[g.bossType] || 10, bossHits: 0,
           });
           const bossNomes: Record<number, string> = { 1: "TRANQUILO", 2: "ESQUENTANDO", 3: "CORRERIA", 4: "CACHORRO LOUCO", 5: "PILOTO DE CORRIDA" };
           const bossMsg: Record<string, string> = {

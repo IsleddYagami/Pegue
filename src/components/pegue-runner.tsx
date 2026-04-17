@@ -2618,7 +2618,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           g.bossActive = true;
           g.bossDefeated = false;
           g.bossTimer = 600; // 10 segundos a 60fps
-          g.bossSpawnTimer = 0;
+          g.bossSpawnTimer = 60; // delay antes do primeiro obstaculo (1s)
           g.bossDerrotaTimer = 0;
           g.guardaMultas = 0;
           g.cegonhaCarrosPulados = 0;
@@ -2649,6 +2649,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           bossMusicRef.current.start();
         }
         // Boss ativo: conta timer e spawna obstaculos
+        try {
         if (g.phaseState === "boss" && g.bossActive && !g.bossDefeated) {
           g.bossTimer--;
           const bossObs = g.obstacles.find(o => o.type === "boss");
@@ -2783,13 +2784,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             g.phaseState = "boss_derrota";
             g.phaseTimer = 0;
             g.bossDerrotaTimer = 180;
-            if (g.bossType === "guincho") {
-              showStatus("PNEU FURADO! BOSS DERROTADO!", 70);
-            } else if (g.bossType === "bruto") {
-              showStatus("CARGA CAIU! BRUTO DERROTADO!", 70);
-            } else {
-              showStatus("GUARDA FOI EMBORA! VOCE ESCAPOU!", 70);
-            }
+            showStatus(g.bossType === "guincho" ? "PNEU FURADO!" : "GUARDA FOI EMBORA!", 70);
             playSound("game-star");
             bossMusicRef.current.stop(); // para musica do boss
             if (bossObs) {
@@ -2797,9 +2792,20 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               spawnParticles(bossObs.x + 40, baseGroundY - 20, "#333333", 15);
             }
           }
+          // SAFETY: se boss ficou ativo por 30s+ sem resolver, forca derrota
+          if (g.phaseTimer > 1800 && g.phaseState === "boss" && !g.gameOver) {
+            g.bossDefeated = true;
+            g.bossActive = false;
+            g.phaseState = "boss_derrota";
+            g.phaseTimer = 0;
+            g.bossDerrotaTimer = 180;
+            showStatus("BOSS FUGIU!", 60);
+            bossMusicRef.current.stop();
+          }
         }
+        } catch { /* previne crash no boss */ }
         // Animacao de derrota do boss (pneu fura, sai da pista)
-        else if (g.phaseState === "boss_derrota") {
+        if (g.phaseState === "boss_derrota") {
           g.bossDerrotaTimer--;
           const bossObs = g.obstacles.find(o => o.type === "boss");
           if (bossObs) {

@@ -602,8 +602,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         const oImg = otimiziImgRef.current;
         const drawW = 200;
         const drawH = (oImg.height / oImg.width) * drawW;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(oImg, lm.x - 50, baseY - drawH + 5, drawW, drawH);
       } else {
         // Fallback canvas
@@ -1209,8 +1207,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         const cnImg = coneImgRef.current;
         const drawW = 45;
         const drawH = (cnImg.height / cnImg.width) * drawW;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(cnImg, obs.x - 5, groundY - drawH + 3, drawW, drawH);
       } else {
         // Fallback
@@ -1331,8 +1327,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         const mImg = motoboyImgRef.current;
         const drawW = 85;
         const drawH = (mImg.height / mImg.width) * drawW;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(mImg, mx - 5, my - drawH + 5, drawW, drawH);
       } else {
         // Fallback simples
@@ -1516,8 +1510,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         const vcImg = vcImgs[vcIdx];
         const drawW = 80;
         const drawH = (vcImg.height / vcImg.width) * drawW;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(vcImg, obs.x - 5, groundY - drawH + 5, drawW, drawH);
       } else {
         ctx.fillStyle = "#CC0000";
@@ -1534,8 +1526,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         const ctImg = ctImgs[ctIdx];
         const drawW = 75;
         const drawH = (ctImg.height / ctImg.width) * drawW;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(ctImg, obs.x - 5, groundY - drawH + 3, drawW, drawH);
       } else {
         ctx.fillStyle = "#E65100";
@@ -1554,8 +1544,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         const cImg = caixas[cIdx];
         const drawW = 65;
         const drawH = (cImg.height / cImg.width) * drawW;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(cImg, obs.x - 5, groundY - drawH + 3, drawW, drawH);
       } else {
         // Fallback
@@ -1572,8 +1560,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         const sImg = sacoLixoImgRef.current;
         const drawW = 52;
         const drawH = (sImg.height / sImg.width) * drawW;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(sImg, obs.x - 3, groundY - drawH + 3, drawW, drawH);
       } else {
         // Fallback
@@ -1609,8 +1595,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           const pImg = policiaImgRef.current;
           const drawW = 160;
           const drawH = (pImg.height / pImg.width) * drawW;
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "high";
           ctx.drawImage(pImg, bx - 10, by - drawH + 8, drawW, drawH);
         } else {
           // Fallback
@@ -1636,8 +1620,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           const bImg = brutoImgRef.current;
           const drawW = 200;
           const drawH = (bImg.height / bImg.width) * drawW;
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "high";
           ctx.drawImage(bImg, bx - 20, by - drawH + 12, drawW, drawH);
         } else {
           ctx.fillStyle = "#E65100";
@@ -1662,8 +1644,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           const cImg = coletorImgRef.current;
           const drawW = 190;
           const drawH = (cImg.height / cImg.width) * drawW;
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "high";
           ctx.drawImage(cImg, bx - 15, by - drawH + 12, drawW, drawH);
         } else {
           ctx.fillStyle = "#E65100";
@@ -1682,8 +1662,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           const cImg = cegonhaImgRef.current;
           const drawW = 200;
           const drawH = (cImg.height / cImg.width) * drawW;
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "high";
           ctx.drawImage(cImg, bx - 20, by - drawH + 10, drawW, drawH);
         } else {
           // Fallback
@@ -1705,8 +1683,6 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           const gImg = guinchoImgRef.current;
           const drawW = 210;
           const drawH = (gImg.height / gImg.width) * drawW;
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "high";
           ctx.drawImage(gImg, bx - 25, by - drawH + 15, drawW, drawH);
         } else {
           // Fallback
@@ -1725,63 +1701,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
 
       ctx.restore();
 
-      // === Barra de tempo (10s countdown) ===
-      if (obs.bossHP && obs.bossHP > 0) {
-        const g2 = gameRef.current;
-        const timePercent = Math.max(0, g2.bossTimer / 600);
-        const secondsLeft = Math.ceil(g2.bossTimer / 60);
-        const barW = 100;
-        const barX = bx + 10;
-        const barY = by - 80;
-        // Fundo
-        ctx.fillStyle = "rgba(0,0,0,0.7)";
-        ctx.beginPath();
-        ctx.roundRect(barX - 5, barY - 18, barW + 10, 28, 6);
-        ctx.fill();
-        // Label
-        ctx.fillStyle = "#FFF";
-        ctx.font = "bold 9px Arial";
-        ctx.textAlign = "center";
-        if (g2.phaseState === "boss_derrota") {
-          const derrotaMsgs: Record<string, string> = { guincho: "PNEU FURADO!", guarda: "FOI EMBORA!", cegonha: "CET PRENDEU!", bruto: "CARGA CAIU!" };
-          const derrotaMsg = derrotaMsgs[g2.bossType] || "DERROTADO!";
-          ctx.fillText(derrotaMsg, barX + barW / 2, barY - 6);
-        } else if (g2.bossType === "guarda") {
-          ctx.fillText(`MULTAS: ${g2.guardaMultas}/3  |  ${secondsLeft}s`, barX + barW / 2, barY - 6);
-        } else if (g2.bossType === "cegonha") {
-          ctx.fillText(`CARROS: ${g2.cegonhaCarrosPulados}/${4}  |  PULE!`, barX + barW / 2, barY - 6);
-        } else if (g2.bossType === "bruto") {
-          ctx.fillText(`CONTAINERS: ${g2.cegonhaCarrosJogados}/6  |  PULE!`, barX + barW / 2, barY - 6);
-        } else if (g2.bossType === "coletor") {
-          ctx.fillText(`SACOS: ${g2.cegonhaCarrosJogados}/10  |  DESVIE!`, barX + barW / 2, barY - 6);
-        } else {
-          ctx.fillText(`DESVIE! ${secondsLeft}s`, barX + barW / 2, barY - 6);
-        }
-        // Barra (diminui com o tempo - verde pra vermelho)
-        ctx.fillStyle = "#333";
-        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 8, 3); ctx.fill();
-        const barColor = timePercent > 0.5 ? "#00CC00" : timePercent > 0.25 ? "#CCCC00" : "#CC0000";
-        ctx.fillStyle = barColor;
-        ctx.beginPath(); ctx.roundRect(barX, barY, barW * timePercent, 8, 3); ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,0.3)";
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 8, 3); ctx.stroke();
-      }
-
-      // === Instrucao quando boss chega ===
-      if (obs.x < (ctx.canvas.width * 0.6) && gameRef.current.phaseState === "boss") {
-        const blink = fc % 30 < 20;
-        if (blink) {
-          ctx.fillStyle = "rgba(255,50,50,0.9)";
-          ctx.beginPath();
-          ctx.roundRect(bx + 20, by - 105, 80, 22, 6);
-          ctx.fill();
-          ctx.fillStyle = "#FFF";
-          ctx.font = "bold 12px Arial";
-          ctx.textAlign = "center";
-          ctx.fillText("DESVIE!", bx + 60, by - 89);
-        }
-      }
+      // (barra removida - info fica no statusText)
     }
     else if (obs.type === "radar") {
       // Radar / Lombada eletronica - mais visivel
@@ -2102,6 +2022,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       const W = canvas.width;
       const H = canvas.height;
       const baseGroundY = H * GROUND_HEIGHT;
+      // Smoothing global - desligado pra sprites nitidos
+      ctx.imageSmoothingEnabled = false;
 
       // Terreno escala progressivamente
       // Terreno progride por fase: 1=reto, 2=leve, 3=médio, 4+=intenso
@@ -3842,6 +3764,53 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // Fundo semi-escuro pra destacar a cena
         ctx.fillStyle = "rgba(0,0,0,0.3)";
         ctx.fillRect(0, 0, W, H);
+
+        // ENTREGA ESPECIAL FASE 3: OTIMIZI com 4 pessoas
+        if (cenarioFase === 3 && otimiziImgRef.current) {
+          const oImg = otimiziImgRef.current;
+          const oDrawW = Math.min(W * 0.6, 280);
+          const oDrawH = (oImg.height / oImg.width) * oDrawW;
+          // Fabrica grande ao fundo
+          ctx.drawImage(oImg, cx - oDrawW * 0.3, gy - oDrawH - 10, oDrawW, oDrawH);
+
+          // 4 pessoas na frente da Otimizi
+          if (t > 60) {
+            const pessoaCores = ["#3366CC", "#CC3333", "#33AA33", "#CC9900"];
+            const peleCores = ["#FFCC99", "#D4A06A", "#FFCC99", "#C49050"];
+            for (let pi = 0; pi < 4; pi++) {
+              const px = cx - oDrawW * 0.15 + pi * 30;
+              const personY = gy;
+              // Corpo
+              ctx.fillStyle = pessoaCores[pi];
+              ctx.fillRect(px - 4, personY - 30, 8, 16);
+              // Cabeca
+              ctx.fillStyle = peleCores[pi];
+              ctx.beginPath(); ctx.arc(px, personY - 36, 6, 0, Math.PI * 2); ctx.fill();
+              // Cabelo
+              ctx.fillStyle = pi % 2 === 0 ? "#333" : "#654321";
+              ctx.beginPath(); ctx.arc(px, personY - 39, 6, Math.PI, 0); ctx.fill();
+              // Pernas
+              ctx.fillStyle = "#444";
+              ctx.fillRect(px - 3, personY - 14, 3, 14);
+              ctx.fillRect(px + 1, personY - 14, 3, 14);
+              // Braco acenando
+              if (t > 120) {
+                const wave = Math.sin(t * 0.12 + pi * 0.8) * 0.4;
+                ctx.save();
+                ctx.translate(px + 4, personY - 26);
+                ctx.rotate(-1.0 + wave);
+                ctx.fillStyle = peleCores[pi];
+                ctx.fillRect(0, 0, 2, 12);
+                ctx.beginPath(); ctx.arc(1, 13, 2.5, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+              }
+              // Sorriso
+              ctx.strokeStyle = "#333";
+              ctx.lineWidth = 0.8;
+              ctx.beginPath(); ctx.arc(px, personY - 34, 2.5, 0.1, Math.PI - 0.1); ctx.stroke();
+            }
+          }
+        }
 
         // === Casa/Local de entrega ===
         // Parede

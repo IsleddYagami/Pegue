@@ -1912,8 +1912,56 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       // 1=Osasco, 2=Marginal Tietê, 3=Bairro, 4=Santos, 5=Aeroporto/Paulista, 6=Zona Leste, 7+=repete
       const cenarioFase = ((g.phase - 1) % 7) + 1;
 
-      // CENARIO 1: OSASCO - PONTE METALICA (durante boss)
+      // CENARIO 1: OSASCO
       const isBossAtivo = g.phaseState === "boss" || g.phaseState === "boss_derrota";
+      if (cenarioFase === 1 && !isBossAtivo) {
+        // Cenario normal de Osasco (fora do boss)
+        // Predios do centro de Osasco
+        for (let oi = 0; oi < 5; oi++) {
+          const ox = ((oi * 200 - g.groundOffset * 0.07 + 80) % (W + 400)) - 80;
+          if (ox > -70 && ox < W + 50) {
+            const oh = 50 + oi * 12;
+            ctx.fillStyle = ["#C0B090", "#B0A080", "#D0C0A0", "#A09878", "#BBAA88"][oi];
+            ctx.fillRect(ox, baseGroundY - oh, 45, oh);
+            // Janelas
+            ctx.fillStyle = "#87CEEB44";
+            for (let jy = 0; jy < oh - 15; jy += 14) {
+              ctx.fillRect(ox + 5, baseGroundY - oh + 5 + jy, 8, 8);
+              ctx.fillRect(ox + 18, baseGroundY - oh + 5 + jy, 8, 8);
+              ctx.fillRect(ox + 31, baseGroundY - oh + 5 + jy, 8, 8);
+            }
+          }
+        }
+        // Calcadao de Osasco
+        ctx.fillStyle = "#E8DDD0";
+        ctx.fillRect(0, baseGroundY - 4, W, 4);
+        // Toldos de lojas
+        for (let ti = 0; ti < 4; ti++) {
+          const tx = ((ti * 250 - g.groundOffset * 0.09 + 120) % (W + 400)) - 80;
+          if (tx > -40 && tx < W + 40) {
+            ctx.fillStyle = ["#CC3333", "#3366CC", "#33AA33", "#CC9900"][ti];
+            ctx.beginPath();
+            ctx.moveTo(tx, baseGroundY - 25);
+            ctx.lineTo(tx + 35, baseGroundY - 25);
+            ctx.lineTo(tx + 38, baseGroundY - 18);
+            ctx.lineTo(tx - 3, baseGroundY - 18);
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+        // Estacao de trem (CPTM)
+        const estX = ((500 - g.groundOffset * 0.05) % (W + 600)) - 100;
+        if (estX > -80 && estX < W + 50) {
+          ctx.fillStyle = "#555";
+          ctx.fillRect(estX, baseGroundY - 40, 70, 40);
+          ctx.fillStyle = "#0044AA";
+          ctx.fillRect(estX, baseGroundY - 45, 70, 8);
+          ctx.fillStyle = "#FFF";
+          ctx.font = "bold 6px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("CPTM OSASCO", estX + 35, baseGroundY - 39);
+        }
+      }
       if (cenarioFase === 1 && isBossAtivo) {
         // Rio embaixo da ponte
         ctx.fillStyle = "#2A5F8A";

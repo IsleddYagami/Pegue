@@ -218,7 +218,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     bossTimer: 0,
     bossSpawnTimer: 0,
     bossDerrotaTimer: 0,
-    bossType: "guincho" as "guincho" | "guarda" | "cegonha" | "bruto",
+    bossType: "guincho" as "guincho" | "guarda" | "cegonha" | "bruto" | "coletor",
     // Boss 2 - Guarda Rodoviario: 3 multas = eliminado
     guardaMultas: 0,
     // Boss 3 - Cegonha
@@ -258,6 +258,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const policiaImgRef = useRef<HTMLImageElement | null>(null);
   const cegonhaImgRef = useRef<HTMLImageElement | null>(null);
   const brutoImgRef = useRef<HTMLImageElement | null>(null);
+  const coletorImgRef = useRef<HTMLImageElement | null>(null);
+  const sacoLixoImgRef = useRef<HTMLImageElement | null>(null);
 
   // Carrega sons e highscore
   useEffect(() => {
@@ -291,6 +293,12 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     const brutoImg = new window.Image();
     brutoImg.src = "/O Bruto do Porto.png";
     brutoImg.onload = () => { brutoImgRef.current = brutoImg; };
+    const coletorImg = new window.Image();
+    coletorImg.src = "/O Coletor.png";
+    coletorImg.onload = () => { coletorImgRef.current = coletorImg; };
+    const sacoImg = new window.Image();
+    sacoImg.src = "/sacos de lixo.png";
+    sacoImg.onload = () => { sacoLixoImgRef.current = sacoImg; };
   }, []);
 
   async function fetchRanking() {
@@ -1232,6 +1240,26 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillStyle = "rgba(50,50,50,0.2)";
         ctx.beginPath(); ctx.arc(bx - 25 - (fcb % 18), by - 35, 4, 0, Math.PI * 2); ctx.fill();
 
+      } else if (gameRef.current.bossType === "coletor") {
+        // =============================================
+        // BOSS 5: O COLETOR - imagem PNG
+        // =============================================
+        if (coletorImgRef.current) {
+          const cImg = coletorImgRef.current;
+          const drawW = 190;
+          const drawH = (cImg.height / cImg.width) * drawW;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(cImg, bx - 15, by - drawH + 12, drawW, drawH);
+        } else {
+          ctx.fillStyle = "#E65100";
+          ctx.fillRect(bx, by - 45, 130, 40);
+          ctx.fillStyle = "#FFF";
+          ctx.font = "bold 8px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("O COLETOR", bx + 65, by - 22);
+        }
+
       } else if (!isGuarda && gameRef.current.bossType === "cegonha") {
         // =============================================
         // BOSS 3: CARRETA CEGONHA - imagem PNG
@@ -1309,7 +1337,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         } else if (g2.bossType === "cegonha") {
           ctx.fillText(`CARROS: ${g2.cegonhaCarrosPulados}/${4}  |  PULE!`, barX + barW / 2, barY - 6);
         } else if (g2.bossType === "bruto") {
-          ctx.fillText(`PORTO! DESVIE! ${secondsLeft}s`, barX + barW / 2, barY - 6);
+          ctx.fillText(`CONTAINERS: ${g2.cegonhaCarrosJogados}/6  |  PULE!`, barX + barW / 2, barY - 6);
+        } else if (g2.bossType === "coletor") {
+          ctx.fillText(`SACOS: ${g2.cegonhaCarrosJogados}/10  |  DESVIE!`, barX + barW / 2, barY - 6);
         } else {
           ctx.fillText(`DESVIE! ${secondsLeft}s`, barX + barW / 2, barY - 6);
         }
@@ -1990,12 +2020,13 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           g.guardaMultas = 0;
           g.cegonhaCarrosPulados = 0;
           g.cegonhaCarrosJogados = 0;
-          // Rotacao de bosses: guincho, guarda, cegonha, bruto, guincho...
-          const bossRotation: Array<"guincho" | "guarda" | "cegonha" | "bruto"> = ["guincho", "guarda", "cegonha", "bruto"];
-          g.bossType = bossRotation[(g.phase - 1) % 4];
-          // Boss cegonha usa bossHP=4 pra barra visual
-          if (g.bossType === "cegonha") {
-            g.obstacles[g.obstacles.length - 1].bossHP = 4;
+          // Rotacao de 5 bosses
+          const bossRotation: Array<"guincho" | "guarda" | "cegonha" | "bruto" | "coletor"> = ["guincho", "guarda", "cegonha", "bruto", "coletor"];
+          g.bossType = bossRotation[(g.phase - 1) % 5];
+          // bossHP pra barra visual (quantos objetos o boss joga)
+          const hpMap: Record<string, number> = { cegonha: 4, bruto: 6, coletor: 10 };
+          if (hpMap[g.bossType]) {
+            g.obstacles[g.obstacles.length - 1].bossHP = hpMap[g.bossType];
           }
           // Spawn boss na frente
           g.obstacles = g.obstacles.filter(o => o.type !== "boss");
@@ -2005,15 +2036,14 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             bossHP: 10, bossHits: 0,
           });
           const bossNomes: Record<number, string> = { 1: "TRANQUILO", 2: "ESQUENTANDO", 3: "CORRERIA", 4: "CACHORRO LOUCO", 5: "PILOTO DE CORRIDA" };
-          if (g.bossType === "guincho") {
-            showStatus("⚠️ GUINCHO CET! DESVIE POR 10s!", 90);
-          } else if (g.bossType === "guarda") {
-            showStatus("🚔 GUARDA PRF! 3 MULTAS = ELIMINADO!", 100);
-          } else if (g.bossType === "bruto") {
-            showStatus("🚚 O BRUTO DO PORTO! DESVIE DOS CONTAINERS!", 100);
-          } else {
-            showStatus("🚛 CEGONHA LOUCA! PULE OS CARROS!", 100);
-          }
+          const bossMsg: Record<string, string> = {
+            guincho: "⚠️ GUINCHO CET! DESVIE POR 10s!",
+            guarda: "🚔 GUARDA PRF! 3 MULTAS = ELIMINADO!",
+            cegonha: "🚛 CEGONHA LOUCA! PULE 4 CARROS!",
+            bruto: "🚚 O BRUTO DO PORTO! DESVIE DE 6 CONTAINERS!",
+            coletor: "🗑️ O COLETOR! DESVIE DE 10 SACOS DE LIXO!",
+          };
+          showStatus(bossMsg[g.bossType] || "BOSS!", 100);
           playSound("game-combo");
           // Inicia musica tensa do boss
           bossMusicRef.current.start();
@@ -2068,20 +2098,34 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               setGameState("gameover");
             }
           } else if (g.bossType === "bruto") {
-            // === BOSS 4: O BRUTO DO PORTO - joga containers e caixas ===
-            g.bossSpawnTimer--;
-            if (g.bossSpawnTimer <= 0) {
-              // Alterna entre container grande e caixa de madeira
-              const isContainer = Math.random() > 0.4;
-              if (isContainer) {
-                // Container: obstaculo grande (tipo barreira mas maior)
-                g.obstacles.push({ x: W + 10, width: 60, height: 40, type: "barreira", vy: 0, flashTimer: 0, multado: false });
-              } else {
-                // Caixa de madeira: obstaculo medio
-                g.obstacles.push({ x: W + 10, width: 35, height: 30, type: "pedra", vy: 0, flashTimer: 0, multado: false });
+            // === BOSS 4: O BRUTO DO PORTO - joga 6 containers/caixas ===
+            if (g.cegonhaCarrosJogados < 6) {
+              g.bossSpawnTimer--;
+              if (g.bossSpawnTimer <= 0) {
+                g.cegonhaCarrosJogados++;
+                const isContainer = Math.random() > 0.4;
+                if (isContainer) {
+                  g.obstacles.push({ x: W + 10, width: 60, height: 40, type: "barreira", vy: 0, flashTimer: 0, multado: false });
+                } else {
+                  g.obstacles.push({ x: W + 10, width: 40, height: 32, type: "pedra", vy: 0, flashTimer: 0, multado: false });
+                }
+                g.bossSpawnTimer = 70 + Math.random() * 30;
+                showStatus(`CONTAINER ${g.cegonhaCarrosJogados}/6!`, 25);
+                if (bossObs) bossObs.bossHits = g.cegonhaCarrosJogados;
               }
-              const spawnBase = g.phase <= 4 ? 50 : g.phase <= 5 ? 38 : 28;
-              g.bossSpawnTimer = spawnBase + Math.random() * 25;
+            }
+          } else if (g.bossType === "coletor") {
+            // === BOSS 5: O COLETOR - joga 10 sacos de lixo aleatoriamente ===
+            if (g.cegonhaCarrosJogados < 10) {
+              g.bossSpawnTimer--;
+              if (g.bossSpawnTimer <= 0) {
+                g.cegonhaCarrosJogados++;
+                // Sacos de lixo como obstaculos (usa tipo pedra visualmente, mas saco eh desenhado)
+                g.obstacles.push({ x: W + 10, width: 35, height: 28, type: "pedra", vy: 0, flashTimer: 0, multado: false });
+                g.bossSpawnTimer = 45 + Math.random() * 30; // mais rapido que bruto
+                showStatus(`SACO ${g.cegonhaCarrosJogados}/10!`, 20);
+                if (bossObs) bossObs.bossHits = g.cegonhaCarrosJogados;
+              }
             }
           } else if (g.bossType === "cegonha") {
             // === BOSS 3: CEGONHA LOUCA - derruba carros, pule 4 pra vencer ===
@@ -2105,21 +2149,24 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             // Checa se pulou os 4 (quando um obstaculo barreira sai da tela durante boss cegonha, conta como pulado)
           }
 
-          // Cegonha: checa vitoria (pulou 4 carros = CET prende)
-          if (g.bossType === "cegonha" && g.cegonhaCarrosJogados >= 4) {
-            // Conta quantos obstaculos barreira ja passaram do jogador (x < 50)
-            const carrosPassados = g.cegonhaCarrosJogados;
-            // Se todos os 4 carros ja foram jogados e nao esta game over, checa se todos passaram
-            const carrosNaTela = g.obstacles.filter(o => o.type === "barreira" && o.x > -60 && o.x < W).length;
-            if (carrosNaTela === 0 && !g.gameOver) {
-              // Todos passaram! Jogador desviou de todos!
-              g.cegonhaCarrosPulados = 4;
+          // Checa vitoria de bosses que contam objetos (cegonha=4, bruto=6, coletor=10)
+          const bossObjCount: Record<string, number> = { cegonha: 4, bruto: 6, coletor: 10 };
+          const maxObj = bossObjCount[g.bossType];
+          if (maxObj && g.cegonhaCarrosJogados >= maxObj) {
+            const obsNaTela = g.obstacles.filter(o => (o.type === "barreira" || o.type === "pedra") && o.x > -60 && o.x < W).length;
+            if (obsNaTela === 0 && !g.gameOver) {
+              g.cegonhaCarrosPulados = maxObj;
               g.bossDefeated = true;
               g.bossActive = false;
               g.phaseState = "boss_derrota";
               g.phaseTimer = 0;
-              g.bossDerrotaTimer = 200; // 3.3s animacao especial
-              showStatus("CET PRENDEU A CEGONHA!", 80);
+              g.bossDerrotaTimer = 200;
+              const vitoriaMsgs: Record<string, string> = {
+                cegonha: "CET PRENDEU A CEGONHA!",
+                bruto: "CARGA CAIU! BRUTO PRESO!",
+                coletor: "LIXO RECOLHIDO! COLETOR SAIU!",
+              };
+              showStatus(vitoriaMsgs[g.bossType] || "BOSS DERROTADO!", 80);
               playSound("game-star");
               bossMusicRef.current.stop();
               if (bossObs) {
@@ -3048,7 +3095,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       {gameState === "menu" && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
           <p className="mb-2 text-4xl">🚚</p>
-          <h1 className="mb-2 text-3xl font-bold text-[#C9A84C]">PEGUE RUNNER</h1>
+          <h1 className="mb-2 text-3xl font-bold text-[#C9A84C]">PEGUE RUNNER<sup className="text-xs">®</sup></h1>
           <p className="mb-6 text-sm text-gray-400">Pelas ruas de SP e Osasco!</p>
           <button
             onClick={() => {
@@ -3222,7 +3269,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/95 p-4" onClick={(e) => e.stopPropagation()}>
           <div className="w-full max-w-sm rounded-2xl border border-[#C9A84C]/30 bg-[#0A0A0A] p-5">
             <h2 className="mb-4 text-center text-xl font-bold text-white">
-              🏆 <span className="text-[#C9A84C]">Ranking</span> Pegue Runner
+              🏆 <span className="text-[#C9A84C]">Ranking</span> Pegue Runner®
             </h2>
             <div className="max-h-[50vh] space-y-1.5 overflow-y-auto">
               {ranking.length === 0 && (

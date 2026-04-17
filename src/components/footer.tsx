@@ -80,7 +80,7 @@ export function Footer() {
             Motoristas verificados &middot; Pagamento protegido &middot; Prova digital de entrega
           </p>
           <p className="mt-2 text-xs text-gray-700">
-            &copy; {new Date().getFullYear()} Pegue. Todos os direitos reservados.
+            &copy; {new Date().getFullYear()} Pegue®. Todos os direitos reservados.
           </p>
         </div>
       </div>

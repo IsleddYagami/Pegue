@@ -1181,11 +1181,11 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // =============================================
         if (guinchoImgRef.current) {
           const gImg = guinchoImgRef.current;
-          const drawW = 150;
+          const drawW = 210;
           const drawH = (gImg.height / gImg.width) * drawW;
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = "high";
-          ctx.drawImage(gImg, bx - 15, by - drawH + 10, drawW, drawH);
+          ctx.drawImage(gImg, bx - 25, by - drawH + 15, drawW, drawH);
         } else {
           // Fallback
           ctx.fillStyle = "#E8A800";

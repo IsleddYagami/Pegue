@@ -3327,6 +3327,20 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     function keyHandle(e: KeyboardEvent) {
       if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); jump(); }
       if (e.code === "Escape") onClose();
+      // Debug: teclas 1-5 pulam direto pro boss da fase correspondente
+      const debugKeys = ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5"];
+      const keyIdx = debugKeys.indexOf(e.code);
+      if (keyIdx >= 0 && gameRef.current.started && !gameRef.current.gameOver) {
+        const g = gameRef.current;
+        g.phase = keyIdx + 1;
+        g.phaseState = "rodovia";
+        g.phaseTimer = 400; // vai pro boss em ~0.3s
+        g.restActive = true;
+        g.obstacles = g.obstacles.filter(o => o.type === "boss");
+        g.trafficLights = [];
+        g.cegonhaCarrosJogados = 0;
+        g.cegonhaCarrosPulados = 0;
+      }
     }
     window.addEventListener("keydown", keyHandle);
 

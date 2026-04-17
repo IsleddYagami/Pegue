@@ -68,9 +68,101 @@ function getTerrainY(worldX: number): number {
     + Math.sin(worldX * 0.012) * 5;
 }
 
+// === MUSICA DO BOSS (Web Audio API - sem arquivo externo) ===
+class BossMusic {
+  private ctx: AudioContext | null = null;
+  private gainNode: GainNode | null = null;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
+  private playing = false;
+
+  start() {
+    if (this.playing) return;
+    try {
+      this.ctx = new AudioContext();
+      this.gainNode = this.ctx.createGain();
+      this.gainNode.gain.value = 0.15;
+      this.gainNode.connect(this.ctx.destination);
+      this.playing = true;
+
+      // Beat tenso: notas graves alternando rapido (estilo alarme/perigo)
+      const bpm = 160;
+      const beatTime = 60 / bpm;
+      let beatIndex = 0;
+
+      // Sequencia de notas (frequencias em Hz) - riff tenso
+      const melody = [
+        110, 110, 130.8, 110, 146.8, 130.8, 110, 98,
+        110, 110, 130.8, 110, 164.8, 146.8, 130.8, 110,
+      ];
+
+      const playBeat = () => {
+        if (!this.ctx || !this.gainNode || !this.playing) return;
+        const now = this.ctx.currentTime;
+
+        // Nota principal (onda quadrada = som 8bit tenso)
+        const osc = this.ctx.createOscillator();
+        const noteGain = this.ctx.createGain();
+        osc.type = "square";
+        osc.frequency.value = melody[beatIndex % melody.length];
+        noteGain.gain.setValueAtTime(0.3, now);
+        noteGain.gain.exponentialRampToValueAtTime(0.01, now + beatTime * 0.8);
+        osc.connect(noteGain);
+        noteGain.connect(this.gainNode!);
+        osc.start(now);
+        osc.stop(now + beatTime * 0.9);
+
+        // Bumbo (kick) a cada 2 beats
+        if (beatIndex % 2 === 0) {
+          const kick = this.ctx.createOscillator();
+          const kickGain = this.ctx.createGain();
+          kick.type = "sine";
+          kick.frequency.setValueAtTime(150, now);
+          kick.frequency.exponentialRampToValueAtTime(30, now + 0.1);
+          kickGain.gain.setValueAtTime(0.5, now);
+          kickGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+          kick.connect(kickGain);
+          kickGain.connect(this.gainNode!);
+          kick.start(now);
+          kick.stop(now + 0.2);
+        }
+
+        // Hi-hat a cada beat
+        const noise = this.ctx.createOscillator();
+        const noiseGain = this.ctx.createGain();
+        noise.type = "sawtooth";
+        noise.frequency.value = 3000 + Math.random() * 2000;
+        noiseGain.gain.setValueAtTime(0.08, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        noise.connect(noiseGain);
+        noiseGain.connect(this.gainNode!);
+        noise.start(now);
+        noise.stop(now + 0.06);
+
+        beatIndex++;
+      };
+
+      playBeat();
+      this.intervalId = setInterval(playBeat, beatTime * 1000);
+    } catch {}
+  }
+
+  stop() {
+    this.playing = false;
+    if (this.intervalId) { clearInterval(this.intervalId); this.intervalId = null; }
+    if (this.gainNode) {
+      try { this.gainNode.gain.exponentialRampToValueAtTime(0.001, this.ctx!.currentTime + 0.3); } catch {}
+    }
+    setTimeout(() => {
+      if (this.ctx) { try { this.ctx.close(); } catch {} this.ctx = null; }
+      this.gainNode = null;
+    }, 500);
+  }
+}
+
 export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const soundsRef = useRef<Record<string, HTMLAudioElement>>({});
+  const bossMusicRef = useRef<BossMusic>(new BossMusic());
   const gameRef = useRef({
     running: false,
     score: 0,
@@ -1652,9 +1744,11 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           if (g.bossType === "guincho") {
             showStatus("⚠️ GUINCHO CET! DESVIE POR 10s!", 90);
           } else {
-            showStatus("🚔 GUARDA RODOVIARIO! NAO ERRE! 3 MULTAS = ELIMINADO!", 100);
+            showStatus("🚔 GUARDA RODOVIARIO! 3 MULTAS = ELIMINADO!", 100);
           }
           playSound("game-combo");
+          // Inicia musica tensa do boss
+          bossMusicRef.current.start();
         }
         // Boss ativo: conta timer e spawna obstaculos
         if (g.phaseState === "boss" && g.bossActive && !g.bossDefeated) {
@@ -1698,6 +1792,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               g.running = false;
               playSound("game-over");
               showStatus("3 MULTAS! CARTEIRA SUSPENSA!", 80);
+              bossMusicRef.current.stop();
               spawnParticles(60 + 20, truckGroundY - 20, "#FF0000", 25);
               if (g.score > g.highScore) {
                 g.highScore = g.score;
@@ -1721,6 +1816,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               showStatus("GUARDA FOI EMBORA! VOCE ESCAPOU!", 70);
             }
             playSound("game-star");
+            bossMusicRef.current.stop(); // para musica do boss
             if (bossObs) {
               spawnParticles(bossObs.x + 60, baseGroundY - 40, "#FF6600", 25);
               spawnParticles(bossObs.x + 40, baseGroundY - 20, "#333333", 15);
@@ -1972,6 +2068,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             g.gameOver = true;
             g.running = false;
             playSound("game-over");
+            bossMusicRef.current.stop();
             spawnParticles(tL + 20, truckGroundY - 20 + g.truckY, "#C9A84C", 20);
             spawnParticles(tL + 20, truckGroundY - 20 + g.truckY, "#FF6600", 15);
             if (g.score > g.highScore) {
@@ -1993,6 +2090,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               g.gameOver = true;
               g.running = false;
               playSound("game-over");
+              bossMusicRef.current.stop();
               showStatus("SINAL VERMELHO!", 60);
               spawnParticles(tl.x + 10, truckGroundY - 30, "#FF0000", 20);
               if (g.score > g.highScore) {
@@ -2443,7 +2541,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     }
 
     animRef.current = requestAnimationFrame(loop);
-    return () => { cancelAnimationFrame(animRef.current); window.removeEventListener("resize", resize); };
+    return () => { cancelAnimationFrame(animRef.current); window.removeEventListener("resize", resize); bossMusicRef.current.stop(); };
   }, []);
 
   // Input handlers

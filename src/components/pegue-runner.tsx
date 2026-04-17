@@ -2891,9 +2891,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               showStatus("ACERTOU O POMBO! 🐦", 60);
               spawnParticles(pombo.x, pombo.y, "#888888", 15);
               spawnParticles(pombo.x, pombo.y, "#FFFFFF", 10);
-              if (g.score > g.highScore) {
-                g.highScore = g.score;
-                localStorage.setItem("pegue_runner_highscore", g.score.toString());
+              if (Math.floor(g.distance) > g.highScore) {
+                g.highScore = Math.floor(g.distance);
+                localStorage.setItem("pegue_runner_highscore", g.highScore.toString());
                 setDisplayHighScore(g.score);
               }
               setGameState("gameover");
@@ -3039,9 +3039,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               showStatus("3 MULTAS! CARTEIRA SUSPENSA!", 80);
               bossMusicRef.current.stop();
               spawnParticles(60 + 20, truckGroundY - 20, "#FF0000", 25);
-              if (g.score > g.highScore) {
-                g.highScore = g.score;
-                localStorage.setItem("pegue_runner_highscore", g.score.toString());
+              if (Math.floor(g.distance) > g.highScore) {
+                g.highScore = Math.floor(g.distance);
+                localStorage.setItem("pegue_runner_highscore", g.highScore.toString());
                 setDisplayHighScore(g.score);
               }
               setGameState("gameover");
@@ -3453,9 +3453,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               bossMusicRef.current.stop();
               showStatus("SINAL VERMELHO!", 60);
               spawnParticles(tl.x + 10, truckGroundY - 30, "#FF0000", 20);
-              if (g.score > g.highScore) {
-                g.highScore = g.score;
-                localStorage.setItem("pegue_runner_highscore", g.score.toString());
+              if (Math.floor(g.distance) > g.highScore) {
+                g.highScore = Math.floor(g.distance);
+                localStorage.setItem("pegue_runner_highscore", g.highScore.toString());
                 setDisplayHighScore(g.score);
               }
               setGameState("gameover");
@@ -4028,7 +4028,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.fillStyle = "#C9A84C";
       ctx.font = "12px Arial";
       ctx.textAlign = "right";
-      ctx.fillText(`Recorde: ${g.highScore}`, W - 15, 26);
+      ctx.fillText(`Recorde: ${g.highScore}km`, W - 15, 26);
       ctx.fillStyle = "#666";
       ctx.font = "10px Arial";
       ctx.fillText(`${(g.speed * 10).toFixed(0)} km/h`, W - 15, 44);
@@ -4066,26 +4066,27 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.textAlign = "center";
         ctx.fillText("BATEU! 💥", W / 2, H * 0.18);
 
+        // KM como destaque principal
         ctx.fillStyle = "#FFF";
         ctx.font = "bold 44px Arial";
-        ctx.fillText(`${g.score}`, W / 2, H * 0.28);
+        ctx.fillText(`${Math.floor(g.distance)}km`, W / 2, H * 0.28);
         ctx.font = "13px Arial";
         ctx.fillStyle = "#888";
-        ctx.fillText("pontos", W / 2, H * 0.33);
+        ctx.fillText("percorridos", W / 2, H * 0.33);
 
         ctx.fillStyle = "#C9A84C";
         ctx.font = "13px Arial";
         const goFaseNome: Record<number, string> = { 1: "Tranquilo", 2: "Esquentando", 3: "Correria", 4: "Cachorro Louco", 5: "Piloto de Corrida" };
-        ctx.fillText(`📏 ${Math.floor(g.distance)}m  •  📦 ${g.deliveries}  •  ${goFaseNome[g.phase] || "Fase " + g.phase}`, W / 2, H * 0.39);
+        ctx.fillText(`📦 ${g.deliveries} entregas  •  R$${g.score}  •  ${goFaseNome[g.phase] || "Fase " + g.phase}`, W / 2, H * 0.39);
 
-        if (g.score >= g.highScore && g.score > 0) {
+        if (Math.floor(g.distance) >= g.highScore) {
           ctx.fillStyle = "#FFD700";
           ctx.font = "bold 18px Arial";
-          ctx.fillText("🏆 NOVO RECORDE!", W / 2, H * 0.45);
+          ctx.fillText("🏆 NOVO RECORDE DE KM!", W / 2, H * 0.45);
         } else {
           ctx.fillStyle = "#888";
           ctx.font = "13px Arial";
-          ctx.fillText(`Recorde: ${g.highScore}`, W / 2, H * 0.45);
+          ctx.fillText(`Recorde: ${g.highScore}km`, W / 2, H * 0.45);
         }
       }
 
@@ -4349,10 +4350,10 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
                     </span>
                     <div>
                       <p className="text-sm font-bold text-white">{r.nome}</p>
-                      <p className="text-xs text-gray-500">{r.distancia}m{r.entregas ? ` • 📦${r.entregas}` : ""}</p>
+                      <p className="text-xs text-gray-500">{r.entregas ? `📦${r.entregas} entregas` : ""} • R${r.score}</p>
                     </div>
                   </div>
-                  <p className={`text-sm font-bold ${i === 0 ? "text-[#C9A84C]" : "text-white"}`}>{r.score}</p>
+                  <p className={`text-sm font-bold ${i === 0 ? "text-[#C9A84C]" : "text-white"}`}>{r.distancia}km</p>
                 </div>
               ))}
             </div>

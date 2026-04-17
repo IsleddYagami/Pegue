@@ -8,7 +8,7 @@ export async function GET() {
   let { data, error } = await supabase
     .from("ranking_pegue_runner")
     .select("nome, score, distancia, entregas, criado_em")
-    .order("score", { ascending: false })
+    .order("distancia", { ascending: false })
     .limit(20);
 
   // Se falhar por coluna entregas nao existir, tenta sem
@@ -16,7 +16,7 @@ export async function GET() {
     const retry = await supabase
       .from("ranking_pegue_runner")
       .select("nome, score, distancia, criado_em")
-      .order("score", { ascending: false })
+      .order("distancia", { ascending: false })
       .limit(20);
     data = retry.data as typeof data;
   }

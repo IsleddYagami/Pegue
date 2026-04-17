@@ -1093,44 +1093,40 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.font = `${14 * s}px Arial`;
       ctx.fillText("⚡", item.x + 10, y - 10);
     } else if (item.type === "sobrevida") {
-      // Cruz brilhante dourada - sobrevida
+      // Cruz brilhante dourada GRANDE - sobrevida
       const fc = gameRef.current.frameCount;
-      const glow = 0.4 + Math.sin(fc * 0.08) * 0.3;
-      const pulse = 1 + Math.sin(fc * 0.1) * 0.15;
-      // Halo de brilho
-      ctx.fillStyle = `rgba(255,215,0,${glow * 0.3})`;
+      const glow = 0.5 + Math.sin(fc * 0.08) * 0.3;
+      const pulse = 1 + Math.sin(fc * 0.1) * 0.1;
+      // Halo externo grande
+      ctx.fillStyle = `rgba(255,215,0,${glow * 0.2})`;
       ctx.beginPath();
-      ctx.arc(item.x, y, 22 * s * pulse, 0, Math.PI * 2);
+      ctx.arc(item.x, y, 35 * s * pulse, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = `rgba(255,255,200,${glow * 0.2})`;
+      // Halo interno
+      ctx.fillStyle = `rgba(255,255,200,${glow * 0.3})`;
       ctx.beginPath();
-      ctx.arc(item.x, y, 28 * s * pulse, 0, Math.PI * 2);
+      ctx.arc(item.x, y, 25 * s * pulse, 0, Math.PI * 2);
       ctx.fill();
-      // Cruz dourada
-      const cw = 5 * s, ch = 16 * s;
+      // Cruz dourada GRANDE
+      const cw = 8 * s, ch = 26 * s;
       ctx.fillStyle = "#FFD700";
-      ctx.fillRect(item.x - cw / 2, y - ch / 2, cw, ch);
-      ctx.fillRect(item.x - ch / 2 * 0.7, y - cw / 2 * 0.8, ch * 0.7, cw * 0.8);
-      // Contorno
+      ctx.fillRect(item.x - cw / 2, y - ch / 2, cw, ch); // vertical
+      ctx.fillRect(item.x - ch / 2 * 0.65, y - cw / 2, ch * 0.65, cw); // horizontal
+      // Contorno grosso
       ctx.strokeStyle = "#B8860B";
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.strokeRect(item.x - cw / 2, y - ch / 2, cw, ch);
-      ctx.strokeRect(item.x - ch / 2 * 0.7, y - cw / 2 * 0.8, ch * 0.7, cw * 0.8);
+      ctx.strokeRect(item.x - ch / 2 * 0.65, y - cw / 2, ch * 0.65, cw);
       // Brilho central
       ctx.fillStyle = "#FFF";
       ctx.beginPath();
-      ctx.arc(item.x, y, 3 * s, 0, Math.PI * 2);
+      ctx.arc(item.x, y, 4 * s, 0, Math.PI * 2);
       ctx.fill();
-      // Raios de luz girando
-      ctx.strokeStyle = `rgba(255,215,0,${glow})`;
-      ctx.lineWidth = 1;
-      for (let r = 0; r < 8; r++) {
-        const angle = (r / 8) * Math.PI * 2 + fc * 0.02;
-        ctx.beginPath();
-        ctx.moveTo(item.x + Math.cos(angle) * 12 * s, y + Math.sin(angle) * 12 * s);
-        ctx.lineTo(item.x + Math.cos(angle) * 18 * s * pulse, y + Math.sin(angle) * 18 * s * pulse);
-        ctx.stroke();
-      }
+      // Texto + acima
+      ctx.fillStyle = `rgba(255,215,0,${glow})`;
+      ctx.font = `bold ${10 * s}px Arial`;
+      ctx.textAlign = "center";
+      ctx.fillText("+1", item.x, y - ch / 2 - 5);
     } else if (item.type === "bilhete_unico") {
       // Bilhete Unico = invencibilidade (maior e mais visivel)
       ctx.fillStyle = "#0066CC";
@@ -1593,9 +1589,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // =============================================
         if (policiaImgRef.current) {
           const pImg = policiaImgRef.current;
-          const drawW = 170;
+          const drawW = 200;
           const drawH = (pImg.height / pImg.width) * drawW;
-          ctx.drawImage(pImg, bx - 15, by - drawH * 0.88, drawW, drawH);
+          ctx.drawImage(pImg, bx - 20, by - drawH * 0.85, drawW, drawH);
         } else {
           // Fallback
           ctx.fillStyle = "#777";
@@ -2270,7 +2266,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       }
 
       // CENARIO 3: BAIRRO SP
-      const isBairro = cenarioFase === 3;
+      const isBairro = cenarioFase === 3 && !isBossAtivo;
       if (isBairro) {
         // Casas residenciais no fundo
         for (let ci = 0; ci < 6; ci++) {

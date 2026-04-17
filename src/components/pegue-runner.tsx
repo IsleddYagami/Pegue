@@ -2626,8 +2626,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           // Rotacao de 5 bosses
           const bossRotation: Array<"guincho" | "guarda" | "cegonha" | "bruto" | "coletor"> = ["guincho", "guarda", "cegonha", "bruto", "coletor"];
           g.bossType = bossRotation[(g.phase - 1) % 5];
-          // Spawn boss na frente
-          g.obstacles = g.obstacles.filter(o => o.type !== "boss");
+          // Limpa tudo e spawna boss
+          g.obstacles = [];
+          g.trafficLights = [];
           const bossHpMap: Record<string, number> = { cegonha: 4, bruto: 6, coletor: 10, guincho: 10, guarda: 10 };
           g.obstacles.push({
             x: W + 80, width: 120, height: 70,
@@ -2745,7 +2746,12 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           const bossObjCount: Record<string, number> = { cegonha: 4, bruto: 6, coletor: 10 };
           const maxObj = bossObjCount[g.bossType];
           if (maxObj && g.cegonhaCarrosJogados >= maxObj) {
-            const obsNaTela = g.obstacles.filter(o => o.type !== "boss" && o.type !== "cachorro" && o.type !== "radar" && o.x > -60 && o.x < W).length;
+            // Conta so obstaculos do boss (tipos especificos que cada boss joga)
+            const bossObsTypes: Record<string, string[]> = {
+              cegonha: ["veiculo_cegonha"], bruto: ["container", "caixa_madeira"], coletor: ["saco_lixo"],
+            };
+            const tiposDoBoss = bossObsTypes[g.bossType] || [];
+            const obsNaTela = g.obstacles.filter(o => tiposDoBoss.includes(o.type) && o.x > -60 && o.x < W).length;
             if (obsNaTela === 0 && !g.gameOver) {
               g.cegonhaCarrosPulados = maxObj;
               g.bossDefeated = true;
@@ -2769,7 +2775,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
           }
 
           // Guincho/Guarda: sobreviveu 10 segundos!
-          if (g.bossType !== "cegonha" && g.bossTimer <= 0 && !g.gameOver) {
+          // Guincho/Guarda: vencem por timer (10s). Cegonha/Bruto/Coletor: vencem por contagem
+          const timerBosses = ["guincho", "guarda"];
+          if (timerBosses.includes(g.bossType) && g.bossTimer <= 0 && !g.gameOver) {
             g.bossDefeated = true;
             g.bossActive = false;
             g.phaseState = "boss_derrota";

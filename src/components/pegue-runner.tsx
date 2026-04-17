@@ -273,6 +273,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const veiculosCegonhaImgRef = useRef<HTMLImageElement[]>([]);
   const cavaletesImgRef = useRef<HTMLImageElement[]>([]);
   const coneImgRef = useRef<HTMLImageElement | null>(null);
+  const otimiziImgRef = useRef<HTMLImageElement | null>(null);
 
   // Carrega sons e highscore
   useEffect(() => {
@@ -316,6 +317,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     const coneImg = new window.Image();
     coneImg.src = "/CONE.png";
     coneImg.onload = () => { coneImgRef.current = coneImg; };
+    const otimiziImg = new window.Image();
+    otimiziImg.src = "/otimizi industria.png";
+    otimiziImg.onload = () => { otimiziImgRef.current = otimiziImg; };
     ["/cavaletes.png", "/cavalete 2.png", "/cavalete 3.png"].forEach((src) => {
       const cv = new window.Image();
       cv.src = src;
@@ -581,29 +585,25 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     }
 
     else if (lm.type === "fabrica") {
-      ctx.fillStyle = "#444";
-      ctx.fillRect(lm.x, baseY - 70, lm.width, 70);
-      ctx.fillStyle = "#555";
-      ctx.beginPath();
-      ctx.moveTo(lm.x - 5, baseY - 70);
-      ctx.lineTo(lm.x + lm.width / 2, baseY - 90);
-      ctx.lineTo(lm.x + lm.width + 5, baseY - 70);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "#666";
-      ctx.fillRect(lm.x + lm.width - 20, baseY - 110, 10, 40);
-      ctx.fillStyle = "#C9A84C55";
-      for (let r = 0; r < 2; r++) {
-        for (let c = 0; c < 3; c++) {
-          ctx.fillRect(lm.x + 8 + c * 22, baseY - 60 + r * 25, 14, 18);
-        }
+      // Industria Otimizi - imagem PNG real
+      if (otimiziImgRef.current) {
+        const oImg = otimiziImgRef.current;
+        const drawW = 180;
+        const drawH = (oImg.height / oImg.width) * drawW;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(oImg, lm.x - 50, baseY - drawH + 5, drawW, drawH);
+      } else {
+        // Fallback canvas
+        ctx.fillStyle = "#444";
+        ctx.fillRect(lm.x, baseY - 70, lm.width, 70);
+        ctx.fillStyle = "#C9A84C";
+        ctx.fillRect(lm.x + 10, baseY - 75, lm.width - 20, 12);
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 7px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("OTIMIZI", lm.x + lm.width / 2, baseY - 66);
       }
-      ctx.fillStyle = "#C9A84C";
-      ctx.fillRect(lm.x + 10, baseY - 75, lm.width - 20, 12);
-      ctx.fillStyle = "#000";
-      ctx.font = "bold 7px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText("OTIMIZI", lm.x + lm.width / 2, baseY - 66);
     }
 
     else if (lm.type === "neo_quimica") {
@@ -2010,7 +2010,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     g.landmarks = [
       { x: 600, type: "pontilhao", width: 160, height: 120 },
       { x: 1200, type: "calcadao_osasco", width: 90, height: 85 },
-      { x: 2000, type: "fabrica", width: 80, height: 90 },
+      { x: 2000, type: "fabrica", width: 130, height: 100 },
       { x: 2800, type: "ponte_metalica", width: 120, height: 80 },
       { x: 3600, type: "catedral_se", width: 80, height: 155 },
       { x: 4400, type: "copan", width: 50, height: 150 },

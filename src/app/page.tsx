@@ -3,6 +3,7 @@ import { MessageCircle, ArrowRight, CheckCircle, Shield, Clock, Star, Zap, Phone
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { FloatingNotification } from "@/components/floating-notification";
+import { GameButton } from "@/components/game-button";
 import { WHATSAPP_LINK, INSTAGRAM_LINK, INSTAGRAM_HANDLE } from "@/lib/constants";
 
 export default function HomePage() {
@@ -10,6 +11,7 @@ export default function HomePage() {
     <>
       <Header />
       <FloatingNotification />
+      <GameButton />
 
       {/* ===== HERO - 3 SEGUNDOS PRA CONVENCER ===== */}
       <section className="relative overflow-hidden text-white" style={{ background: "#000" }}>

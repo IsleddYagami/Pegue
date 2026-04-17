@@ -271,6 +271,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
   const caixasImgRef = useRef<HTMLImageElement[]>([]);
   const containersImgRef = useRef<HTMLImageElement[]>([]);
   const cavaletesImgRef = useRef<HTMLImageElement[]>([]);
+  const coneImgRef = useRef<HTMLImageElement | null>(null);
 
   // Carrega sons e highscore
   useEffect(() => {
@@ -311,6 +312,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
     sacoImg.src = "/sacos de lixo.png";
     sacoImg.onload = () => { sacoLixoImgRef.current = sacoImg; };
     // 2 variações de cavaletes
+    const coneImg = new window.Image();
+    coneImg.src = "/CONE.png";
+    coneImg.onload = () => { coneImgRef.current = coneImg; };
     ["/cavaletes.png", "/cavalete 2.png", "/cavalete 3.png"].forEach((src) => {
       const cv = new window.Image();
       cv.src = src;
@@ -986,25 +990,26 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.fillRect(obs.x + obs.width - 2, groundY - obs.height - 5, 5, obs.height + 5);
     }
     else if (obs.type === "cone") {
-      // Cone mais brilhante e maior
-      ctx.fillStyle = "#FF4400";
-      ctx.beginPath();
-      ctx.moveTo(obs.x + obs.width / 2, groundY - obs.height - 3);
-      ctx.lineTo(obs.x + obs.width + 3, groundY);
-      ctx.lineTo(obs.x - 3, groundY);
-      ctx.closePath();
-      ctx.fill();
-      // Contorno
-      ctx.strokeStyle = "#AA2200";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      // Faixas refletivas brancas (mais grossas)
-      ctx.fillStyle = "#FFF";
-      ctx.fillRect(obs.x + 3, groundY - obs.height * 0.6, obs.width - 6, 4);
-      ctx.fillRect(obs.x + 1, groundY - obs.height * 0.3, obs.width - 2, 4);
-      // Base
-      ctx.fillStyle = "#222";
-      ctx.fillRect(obs.x - 4, groundY - 3, obs.width + 8, 5);
+      // Cone - imagem PNG
+      if (coneImgRef.current) {
+        const cnImg = coneImgRef.current;
+        const drawW = 35;
+        const drawH = (cnImg.height / cnImg.width) * drawW;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(cnImg, obs.x - 5, groundY - drawH + 3, drawW, drawH);
+      } else {
+        // Fallback
+        ctx.fillStyle = "#FF4400";
+        ctx.beginPath();
+        ctx.moveTo(obs.x + obs.width / 2, groundY - obs.height);
+        ctx.lineTo(obs.x + obs.width, groundY);
+        ctx.lineTo(obs.x, groundY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#FFF";
+        ctx.fillRect(obs.x + 3, groundY - obs.height * 0.5, obs.width - 6, 3);
+      }
     }
     else if (obs.type === "buraco") {
       // Buraco realista - pedaco da pista faltando

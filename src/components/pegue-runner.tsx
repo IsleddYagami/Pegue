@@ -1953,9 +1953,86 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         }
       }
 
+      // === CENARIO BAIRRO SP (fase 5 - boss Coletor) ===
+      const isBairro = g.bossType === "coletor" && (g.phaseState === "boss" || g.phaseState === "boss_derrota" || (g.phaseState === "desafio" && g.phase % 5 === 0));
+      if (isBairro) {
+        // Casas residenciais no fundo
+        for (let ci = 0; ci < 6; ci++) {
+          const hx = ((ci * 180 - g.groundOffset * 0.1 + 50) % (W + 300)) - 100;
+          if (hx > -120 && hx < W + 50) {
+            const hh = 50 + (ci % 3) * 15; // alturas variadas
+            const cores = ["#D4C4A0", "#C4B090", "#B8A888", "#CCBBAA", "#E0D0B8", "#BBA888"];
+            // Parede da casa
+            ctx.fillStyle = cores[ci % cores.length];
+            ctx.fillRect(hx, baseGroundY - hh, 60, hh);
+            // Telhado
+            ctx.fillStyle = ci % 2 === 0 ? "#8B4513" : "#A0522D";
+            ctx.beginPath();
+            ctx.moveTo(hx - 5, baseGroundY - hh);
+            ctx.lineTo(hx + 30, baseGroundY - hh - 18);
+            ctx.lineTo(hx + 65, baseGroundY - hh);
+            ctx.closePath();
+            ctx.fill();
+            // Porta
+            ctx.fillStyle = "#6B3410";
+            ctx.fillRect(hx + 22, baseGroundY - 30, 14, 30);
+            // Janelas
+            ctx.fillStyle = "#87CEEB88";
+            ctx.fillRect(hx + 8, baseGroundY - hh + 12, 10, 10);
+            ctx.fillRect(hx + 42, baseGroundY - hh + 12, 10, 10);
+            // Grade na janela (muito SP!)
+            ctx.strokeStyle = "#666";
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(hx + 8, baseGroundY - hh + 12, 10, 10);
+            ctx.beginPath(); ctx.moveTo(hx + 13, baseGroundY - hh + 12); ctx.lineTo(hx + 13, baseGroundY - hh + 22); ctx.stroke();
+            // Numero da casa
+            ctx.fillStyle = "#333";
+            ctx.font = "bold 5px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(`${100 + ci * 37}`, hx + 29, baseGroundY - 32);
+          }
+        }
+        // Postes de luz
+        for (let pi = 0; pi < 4; pi++) {
+          const px = ((pi * 250 - g.groundOffset * 0.1 + 130) % (W + 350)) - 80;
+          if (px > -30 && px < W + 30) {
+            // Poste
+            ctx.fillStyle = "#555";
+            ctx.fillRect(px, baseGroundY - 90, 3, 90);
+            // Luminaria
+            ctx.fillStyle = "#777";
+            ctx.fillRect(px - 8, baseGroundY - 93, 18, 4);
+            // Luz (brilha a noite)
+            if (g.nightMode) {
+              ctx.fillStyle = "rgba(255,220,100,0.5)";
+              ctx.beginPath();
+              ctx.arc(px + 1, baseGroundY - 88, 15, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.fillStyle = g.nightMode ? "#FFD700" : "#DDD";
+            ctx.beginPath();
+            ctx.arc(px + 1, baseGroundY - 90, 3, 0, Math.PI * 2);
+            ctx.fill();
+            // Fios
+            ctx.strokeStyle = "#444";
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(px - 8, baseGroundY - 85);
+            ctx.quadraticCurveTo(px + 80, baseGroundY - 78, px + 250, baseGroundY - 85);
+            ctx.stroke();
+          }
+        }
+        // Calcada com muro pixado
+        ctx.fillStyle = "#CCC";
+        ctx.fillRect(0, baseGroundY - 5, W, 5);
+      }
+
       // === MONTANHAS DE FUNDO ===
-      if (!isSantos) drawMountains(ctx, W, baseGroundY, g.groundOffset, g.nightMode);
-      else drawMountains(ctx, W, baseGroundY, g.groundOffset, false); // montanhas claras em Santos
+      if (isSantos || isBairro) {
+        drawMountains(ctx, W, baseGroundY, g.groundOffset, false);
+      } else {
+        drawMountains(ctx, W, baseGroundY, g.groundOffset, g.nightMode);
+      }
 
       // Nuvens
       ctx.fillStyle = g.nightMode ? "rgba(50,50,70,0.4)" : "rgba(255,255,255,0.85)";

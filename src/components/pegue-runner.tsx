@@ -1596,7 +1596,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (policiaImgRef.current) {
           const pImg = policiaImgRef.current;
-          const drawW = Math.min(230, W * 0.5);
+          const drawW = Math.min(230, ctx.canvas.width * 0.5);
           const drawH = (pImg.height / pImg.width) * drawW;
           ctx.drawImage(pImg, bx - 20, by - drawH * 0.55, drawW, drawH);
         } else {
@@ -1621,7 +1621,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (brutoImgRef.current) {
           const bImg = brutoImgRef.current;
-          const drawW = Math.min(500, W * 0.7);
+          const drawW = Math.min(500, ctx.canvas.width * 0.7);
           const drawH = (bImg.height / bImg.width) * drawW;
           ctx.drawImage(bImg, bx - 20, by - drawH * 0.55, drawW, drawH);
         } else {
@@ -1645,7 +1645,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (coletorImgRef.current) {
           const cImg = coletorImgRef.current;
-          const drawW = Math.min(420, W * 0.65);
+          const drawW = Math.min(420, ctx.canvas.width * 0.65);
           const drawH = (cImg.height / cImg.width) * drawW;
           ctx.drawImage(cImg, bx - 30, by - drawH * 0.55, drawW, drawH);
         } else {
@@ -1663,7 +1663,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (cegonhaImgRef.current) {
           const cImg = cegonhaImgRef.current;
-          const drawW = Math.min(350, W * 0.6);
+          const drawW = Math.min(350, ctx.canvas.width * 0.6);
           const drawH = (cImg.height / cImg.width) * drawW;
           ctx.drawImage(cImg, bx - 20, by - drawH * 0.55, drawW, drawH);
         } else {
@@ -1684,7 +1684,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (guinchoImgRef.current) {
           const gImg = guinchoImgRef.current;
-          const drawW = Math.min(300, W * 0.55);
+          const drawW = Math.min(300, ctx.canvas.width * 0.55);
           const drawH = (gImg.height / gImg.width) * drawW;
           ctx.drawImage(gImg, bx - 25, by - drawH * 0.55, drawW, drawH);
         } else {

@@ -2437,6 +2437,15 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       }
       ctx.stroke();
 
+      // Meio-fio pintado (preto e branco alternado - estilo prefeitura)
+      for (let x = 0; x < W; x += 20) {
+        const mx = x - (g.groundOffset * 0.5) % 20;
+        const ty = baseGroundY - getTerrainY(mx + g.groundOffset) * g.terrainScale;
+        const mfY = ty + (H - ty) * 0.82;
+        ctx.fillStyle = Math.floor((mx + g.groundOffset * 0.5) / 20) % 2 === 0 ? "#222" : "#EEE";
+        ctx.fillRect(mx, mfY, 20, 4);
+      }
+
       // Calcada inferior
       ctx.fillStyle = "#2a2a2a";
       ctx.beginPath();

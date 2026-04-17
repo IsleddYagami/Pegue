@@ -1001,28 +1001,63 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       ctx.fillRect(obs.x - 4, groundY - 3, obs.width + 8, 5);
     }
     else if (obs.type === "buraco") {
-      // Buraco mais visivel com borda
+      // Buraco realista - pedaco da pista faltando
+      const cx = obs.x + obs.width / 2;
+      const hw = obs.width / 2;
+
+      // Borda do asfalto quebrado (irregular)
+      ctx.fillStyle = "#444";
+      ctx.beginPath();
+      ctx.moveTo(obs.x - 4, groundY - 2);
+      ctx.lineTo(obs.x - 2, groundY - 6);
+      ctx.lineTo(obs.x + hw * 0.3, groundY - 8);
+      ctx.lineTo(obs.x + hw * 0.6, groundY - 5);
+      ctx.lineTo(obs.x + hw, groundY - 9);
+      ctx.lineTo(obs.x + hw * 1.4, groundY - 6);
+      ctx.lineTo(obs.x + hw * 1.7, groundY - 7);
+      ctx.lineTo(obs.x + obs.width + 4, groundY - 2);
+      ctx.lineTo(obs.x + obs.width + 4, groundY + 5);
+      ctx.lineTo(obs.x - 4, groundY + 5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Terra/barro dentro do buraco
+      ctx.fillStyle = "#6B4226";
+      ctx.beginPath();
+      ctx.moveTo(obs.x, groundY - 1);
+      ctx.lineTo(obs.x + 2, groundY - 5);
+      ctx.lineTo(obs.x + hw * 0.4, groundY - 6);
+      ctx.lineTo(obs.x + hw * 0.7, groundY - 4);
+      ctx.lineTo(obs.x + hw, groundY - 7);
+      ctx.lineTo(obs.x + hw * 1.3, groundY - 4);
+      ctx.lineTo(obs.x + hw * 1.6, groundY - 5);
+      ctx.lineTo(obs.x + obs.width, groundY - 1);
+      ctx.lineTo(obs.x + obs.width, groundY + 3);
+      ctx.lineTo(obs.x, groundY + 3);
+      ctx.closePath();
+      ctx.fill();
+
+      // Camada mais escura no fundo (profundidade)
+      ctx.fillStyle = "#4A2E14";
+      ctx.beginPath();
+      ctx.ellipse(cx, groundY + 1, hw * 0.7, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Pedrinhas/cascalho na borda
+      ctx.fillStyle = "#888";
+      const pedras = [[-3, -3], [hw * 0.5, -7], [hw, -8], [hw * 1.5, -5], [obs.width + 2, -3]];
+      pedras.forEach(([px, py]) => {
+        ctx.beginPath();
+        ctx.arc(obs.x + px, groundY + py, 1.5 + Math.random(), 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Rachaduras saindo do buraco
       ctx.strokeStyle = "#555";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.ellipse(obs.x + obs.width / 2, groundY, obs.width / 2 + 3, 9, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = "#0a0a0a";
-      ctx.beginPath();
-      ctx.ellipse(obs.x + obs.width / 2, groundY, obs.width / 2, 7, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#000";
-      ctx.beginPath();
-      ctx.ellipse(obs.x + obs.width / 2, groundY + 1, obs.width / 2 - 5, 4, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Rachaduras ao redor
-      ctx.strokeStyle = "#444";
       ctx.lineWidth = 1;
-      for (let r = 0; r < 4; r++) {
-        const rx = obs.x + obs.width / 2 + Math.cos(r * 1.5) * (obs.width / 2 + 5);
-        const ry = groundY + Math.sin(r * 1.5) * 6;
-        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + Math.cos(r) * 6, ry + Math.sin(r) * 3); ctx.stroke();
-      }
+      ctx.beginPath(); ctx.moveTo(obs.x - 4, groundY - 3); ctx.lineTo(obs.x - 12, groundY - 1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(obs.x + obs.width + 4, groundY - 3); ctx.lineTo(obs.x + obs.width + 12, groundY - 1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx, groundY - 8); ctx.lineTo(cx + 3, groundY - 13); ctx.stroke();
     }
     else if (obs.type === "pedra") {
       // Pedra/rocha mais visivel com contorno e textura

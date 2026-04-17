@@ -1201,7 +1201,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       // Cone - imagem PNG
       if (coneImgRef.current) {
         const cnImg = coneImgRef.current;
-        const drawW = 45;
+        const drawW = 50;
         const drawH = (cnImg.height / cnImg.width) * drawW;
         ctx.drawImage(cnImg, obs.x - 5, groundY - drawH + 3, drawW, drawH);
       } else {
@@ -1321,7 +1321,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       const my = groundY;
       if (motoboyImgRef.current) {
         const mImg = motoboyImgRef.current;
-        const drawW = 85;
+        const drawW = 90;
         const drawH = (mImg.height / mImg.width) * drawW;
         ctx.drawImage(mImg, mx - 5, my - drawH + 5, drawW, drawH);
       } else {
@@ -1488,9 +1488,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // Usa width do obstaculo como seed fixa (nao muda durante a vida do obstaculo)
         const cvIdx = (obs.variant || 0) % cvImgs.length;
         const cvImg = cvImgs[cvIdx];
-        const drawW = 60;
+        const drawW = 65;
         const drawH = (cvImg.height / cvImg.width) * drawW;
-        ctx.drawImage(cvImg, obs.x - 2, groundY - drawH + 2, drawW, drawH);
+        ctx.drawImage(cvImg, obs.x - 3, groundY - drawH + 2, drawW, drawH);
       } else {
         ctx.fillStyle = "#FF6B00";
         ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
@@ -1504,7 +1504,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       if (vcImgs.length > 0) {
         const vcIdx = (obs.variant || 0) % vcImgs.length;
         const vcImg = vcImgs[vcIdx];
-        const drawW = 80;
+        const drawW = 120;
         const drawH = (vcImg.height / vcImg.width) * drawW;
         ctx.drawImage(vcImg, obs.x - 5, groundY - drawH + 5, drawW, drawH);
       } else {
@@ -1520,7 +1520,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       if (ctImgs.length > 0) {
         const ctIdx = (obs.variant || 0) % ctImgs.length;
         const ctImg = ctImgs[ctIdx];
-        const drawW = 75;
+        const drawW = 85;
         const drawH = (ctImg.height / ctImg.width) * drawW;
         ctx.drawImage(ctImg, obs.x - 5, groundY - drawH + 3, drawW, drawH);
       } else {
@@ -1538,7 +1538,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // Escolhe caixa baseado na posicao X (deterministica pra nao piscar)
         const cIdx = (obs.variant || 0) % caixas.length;
         const cImg = caixas[cIdx];
-        const drawW = 65;
+        const drawW = 75;
         const drawH = (cImg.height / cImg.width) * drawW;
         ctx.drawImage(cImg, obs.x - 5, groundY - drawH + 3, drawW, drawH);
       } else {
@@ -1554,7 +1554,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       // Saco de lixo - usa imagem PNG
       if (sacoLixoImgRef.current) {
         const sImg = sacoLixoImgRef.current;
-        const drawW = 52;
+        const drawW = 60;
         const drawH = (sImg.height / sImg.width) * drawW;
         ctx.drawImage(sImg, obs.x - 3, groundY - drawH + 3, drawW, drawH);
       } else {
@@ -1589,7 +1589,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // =============================================
         if (policiaImgRef.current) {
           const pImg = policiaImgRef.current;
-          const drawW = 200;
+          const drawW = 230;
           const drawH = (pImg.height / pImg.width) * drawW;
           ctx.drawImage(pImg, bx - 20, by - drawH * 0.85, drawW, drawH);
         } else {
@@ -1614,7 +1614,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // =============================================
         if (brutoImgRef.current) {
           const bImg = brutoImgRef.current;
-          const drawW = 200;
+          const drawW = 300;
           const drawH = (bImg.height / bImg.width) * drawW;
           ctx.drawImage(bImg, bx - 20, by - drawH * 0.88, drawW, drawH);
         } else {
@@ -1638,9 +1638,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // =============================================
         if (coletorImgRef.current) {
           const cImg = coletorImgRef.current;
-          const drawW = 190;
+          const drawW = 280;
           const drawH = (cImg.height / cImg.width) * drawW;
-          ctx.drawImage(cImg, bx - 15, by - drawH * 0.88, drawW, drawH);
+          ctx.drawImage(cImg, bx - 30, by - drawH * 0.85, drawW, drawH);
         } else {
           ctx.fillStyle = "#E65100";
           ctx.fillRect(bx, by - 45, 130, 40);
@@ -1656,7 +1656,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // =============================================
         if (cegonhaImgRef.current) {
           const cImg = cegonhaImgRef.current;
-          const drawW = 210;
+          const drawW = 350;
           const drawH = (cImg.height / cImg.width) * drawW;
           ctx.drawImage(cImg, bx - 20, by - drawH * 0.88, drawW, drawH);
         } else {
@@ -1677,7 +1677,7 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         // =============================================
         if (guinchoImgRef.current) {
           const gImg = guinchoImgRef.current;
-          const drawW = 210;
+          const drawW = 300;
           const drawH = (gImg.height / gImg.width) * drawW;
           ctx.drawImage(gImg, bx - 25, by - drawH * 0.88, drawW, drawH);
         } else {
@@ -2730,8 +2730,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
               if (g.bossSpawnTimer <= 0) {
                 g.cegonhaCarrosJogados++;
                 g.obstacles.push({
-                  x: W + 10, width: 65, height: 30,
-                  type: "veiculo_cegonha", vy: 0, flashTimer: 0, multado: false,
+                  x: W + 10, width: 90, height: 35,
+                  type: "veiculo_cegonha", variant: Math.floor(Math.random() * 10), vy: 0, flashTimer: 0, multado: false,
                 });
                 g.bossSpawnTimer = 100 + Math.random() * 40; // ~1.7-2.3s entre carros
                 showStatus(`CARRO ${g.cegonhaCarrosJogados}/4!`, 30);

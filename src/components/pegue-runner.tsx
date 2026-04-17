@@ -1975,7 +1975,8 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       }
 
       // === CENARIO BAIRRO SP (fase 5 - boss Coletor) ===
-      const isBairro = g.bossType === "coletor" && (g.phaseState === "boss" || g.phaseState === "boss_derrota" || (g.phaseState === "desafio" && g.phase % 5 === 0));
+      // Cenario bairro aparece na fase 3 (Correria) e fase 5 (Coletor) e a cada fase 3 e 5
+      const isBairro = (g.phase % 5 === 3) || (g.phase % 5 === 0) || (g.bossType === "coletor" && (g.phaseState === "boss" || g.phaseState === "boss_derrota"));
       if (isBairro) {
         // Casas residenciais no fundo
         for (let ci = 0; ci < 6; ci++) {

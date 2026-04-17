@@ -1504,9 +1504,9 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
       if (vcImgs.length > 0) {
         const vcIdx = (obs.variant || 0) % vcImgs.length;
         const vcImg = vcImgs[vcIdx];
-        const drawW = 120;
+        const drawW = 140;
         const drawH = (vcImg.height / vcImg.width) * drawW;
-        ctx.drawImage(vcImg, obs.x - 5, groundY - drawH + 5, drawW, drawH);
+        ctx.drawImage(vcImg, obs.x - 10, groundY - drawH * 0.88, drawW, drawH);
       } else {
         ctx.fillStyle = "#CC0000";
         ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
@@ -2919,23 +2919,23 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
             // FASES 7+: DESAFIADORAS (aqui o bicho pega)
             let spawnDelay: number;
             if (g.phase === 1) {
-              spawnDelay = 170 + Math.random() * 160; // 2.8-5.5s
+              spawnDelay = 200 + Math.random() * 180; // 3.3-6.3s
             } else if (g.phase === 2) {
-              spawnDelay = 150 + Math.random() * 140; // 2.5-4.8s
+              spawnDelay = 180 + Math.random() * 150; // 3.0-5.5s
             } else if (g.phase === 3) {
-              spawnDelay = 140 + Math.random() * 120; // 2.3-4.3s
+              spawnDelay = 160 + Math.random() * 130; // 2.7-4.8s
             } else if (g.phase === 4) {
-              spawnDelay = 130 + Math.random() * 100; // 2.2-3.8s
+              spawnDelay = 150 + Math.random() * 110; // 2.5-4.3s
             } else if (g.phase === 5) {
-              spawnDelay = 120 + Math.random() * 90;  // 2.0-3.5s
+              spawnDelay = 140 + Math.random() * 100; // 2.3-4.0s
             } else if (g.phase === 6) {
-              spawnDelay = 100 + Math.random() * 80;  // 1.7-3.0s
+              spawnDelay = 120 + Math.random() * 90;  // 2.0-3.5s
             } else if (g.phase === 7) {
-              spawnDelay = 70 + Math.random() * 60;   // 1.2-2.2s (comeca apertar)
+              spawnDelay = 90 + Math.random() * 70;   // 1.5-2.7s
             } else if (g.phase === 8) {
-              spawnDelay = 55 + Math.random() * 50;   // 0.9-1.7s
+              spawnDelay = 70 + Math.random() * 55;   // 1.2-2.1s
             } else {
-              spawnDelay = 40 + Math.random() * 40;   // 0.7-1.3s (insano)
+              spawnDelay = 50 + Math.random() * 45;   // 0.8-1.6s
             }
             if (type === "radar") spawnDelay += 60; // radares sempre mais espacados
             g.nextSpawn = spawnDelay;
@@ -3497,19 +3497,20 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
         ctx.fillStyle = "rgba(0,0,0,0.3)";
         ctx.fillRect(0, 0, W, H);
 
-        // ENTREGA ESPECIAL FASE 3: OTIMIZI com 4 pessoas
-        try {
-          if (cenarioFase === 3 && otimiziImgRef.current) {
+        // === Local de entrega (casa ou Otimizi) ===
+        if (cenarioFase === 3 && otimiziImgRef.current) {
+          // OTIMIZI na posicao da casa (sobre a pista)
+          try {
             const oImg = otimiziImgRef.current;
-            const oDrawW = Math.min(W * 0.55, 250);
+            const oDrawW = Math.min(W * 0.5, 220);
             const oDrawH = (oImg.height / oImg.width) * oDrawW;
-            ctx.drawImage(oImg, cx - oDrawW * 0.2, gy - oDrawH - 5, oDrawW, oDrawH);
-            // 4 pessoas
+            ctx.drawImage(oImg, cx + 10, gy - oDrawH + 5, oDrawW, oDrawH);
+            // 4 pessoas na frente
             if (t > 60) {
               const cores = ["#3366CC", "#CC3333", "#33AA33", "#CC9900"];
               const pele = ["#FFCC99", "#D4A06A", "#FFCC99", "#C49050"];
               for (let pi = 0; pi < 4; pi++) {
-                const px = cx - 10 + pi * 25;
+                const px = cx + 30 + pi * 22;
                 ctx.fillStyle = cores[pi];
                 ctx.fillRect(px - 3, gy - 28, 6, 14);
                 ctx.fillStyle = pele[pi];
@@ -3528,47 +3529,30 @@ export default function PegueRunner({ onClose }: PegueRunnerProps) {
                 }
               }
             }
-          }
-        } catch {}
+          } catch {}
+        } else {
+          // Casa padrao (fases que nao sao Otimizi)
+          ctx.fillStyle = "#D4C4A0";
+          ctx.fillRect(cx + 40, gy - 80, 70, 80);
+          ctx.fillStyle = "#8B4513";
+          ctx.beginPath();
+          ctx.moveTo(cx + 30, gy - 80);
+          ctx.lineTo(cx + 75, gy - 110);
+          ctx.lineTo(cx + 120, gy - 80);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = "#6B3410";
+          ctx.fillRect(cx + 60, gy - 50, 20, 50);
+          ctx.fillStyle = "#87CEEB";
+          ctx.fillRect(cx + 88, gy - 65, 15, 15);
+          ctx.fillStyle = "#333";
+          ctx.font = "bold 8px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("42", cx + 70, gy - 55);
+        }
 
-        // === Casa/Local de entrega ===
-        // Parede
-        ctx.fillStyle = "#D4C4A0";
-        ctx.fillRect(cx + 40, gy - 80, 70, 80);
-        // Telhado
-        ctx.fillStyle = "#8B4513";
-        ctx.beginPath();
-        ctx.moveTo(cx + 30, gy - 80);
-        ctx.lineTo(cx + 75, gy - 110);
-        ctx.lineTo(cx + 120, gy - 80);
-        ctx.closePath();
-        ctx.fill();
-        // Porta
-        ctx.fillStyle = "#6B3410";
-        ctx.fillRect(cx + 60, gy - 50, 20, 50);
-        // Macaneta
-        ctx.fillStyle = "#C9A84C";
-        ctx.beginPath();
-        ctx.arc(cx + 76, gy - 25, 2, 0, Math.PI * 2);
-        ctx.fill();
-        // Janela
-        ctx.fillStyle = "#87CEEB";
-        ctx.fillRect(cx + 88, gy - 65, 15, 15);
-        ctx.strokeStyle = "#6B3410";
-        ctx.lineWidth = 1;
-        ctx.strokeRect(cx + 88, gy - 65, 15, 15);
-        ctx.beginPath();
-        ctx.moveTo(cx + 95.5, gy - 65);
-        ctx.lineTo(cx + 95.5, gy - 50);
-        ctx.stroke();
-        // Numero da casa
-        ctx.fillStyle = "#333";
-        ctx.font = "bold 8px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("42", cx + 70, gy - 55);
-
-        // === Pessoa recebendo (aparece apos 1s) ===
-        if (t > 60) {
+        // === Pessoa recebendo (aparece apos 1s) - nao na fase 3 (Otimizi tem suas proprias)
+        if (t > 60 && cenarioFase !== 3) {
           const personX = cx + 35;
           // Corpo
           ctx.fillStyle = "#3366CC";

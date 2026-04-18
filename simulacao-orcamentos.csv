@@ -1,0 +1,106 @@
+id,origem,destino,km,veiculo,base,total_pix,total_cartao,comissao_pegue,valor_prestador,rs_por_km
+1,Mesmo bairro,Mesmo bairro,1,utilitario,150,150,157,18,132,150.00
+2,Mesmo bairro,Mesmo bairro,1,hr,255,255,268,31,224,255.00
+3,Mesmo bairro,Mesmo bairro,1,caminhao_bau,500,500,525,60,440,500.00
+4,Osasco Centro,Presidente Altino,2,utilitario,150,150,157,18,132,75.00
+5,Osasco Centro,Presidente Altino,2,hr,255,255,268,31,224,127.50
+6,Osasco Centro,Presidente Altino,2,caminhao_bau,500,500,525,60,440,250.00
+7,Vila Yara,Quitauna,3,utilitario,200,200,210,24,176,66.67
+8,Vila Yara,Quitauna,3,hr,340,340,357,41,299,113.33
+9,Vila Yara,Quitauna,3,caminhao_bau,500,500,525,60,440,166.67
+10,Bela Vista,Jardim das Flores,4,utilitario,208,208,218,25,183,52.00
+11,Bela Vista,Jardim das Flores,4,hr,354,354,372,42,312,88.50
+12,Bela Vista,Jardim das Flores,4,caminhao_bau,500,500,525,60,440,125.00
+13,Rochdale,Munhoz Jr,5,utilitario,215,215,226,26,189,43.00
+14,Rochdale,Munhoz Jr,5,hr,366,366,384,44,322,73.20
+15,Rochdale,Munhoz Jr,5,caminhao_bau,500,500,525,60,440,100.00
+16,Osasco,Bonfiglioli,6,utilitario,221,221,232,27,194,36.83
+17,Osasco,Bonfiglioli,6,hr,376,376,395,45,331,62.67
+18,Osasco,Bonfiglioli,6,caminhao_bau,500,500,525,60,440,83.33
+19,Vila Yara,Alphaville,8,utilitario,233,233,245,28,205,29.13
+20,Vila Yara,Alphaville,8,hr,396,396,416,48,348,49.50
+21,Vila Yara,Alphaville,8,caminhao_bau,513,513,539,62,451,64.13
+22,Osasco Centro,Lapa,10,utilitario,243,243,255,29,214,24.30
+23,Osasco Centro,Lapa,10,hr,413,413,434,50,363,41.30
+24,Osasco Centro,Lapa,10,caminhao_bau,535,535,562,64,471,53.50
+25,Presidente Altino,Butanta,12,utilitario,252,252,265,30,222,21.00
+26,Presidente Altino,Butanta,12,hr,428,428,449,51,377,35.67
+27,Presidente Altino,Butanta,12,caminhao_bau,554,554,582,66,488,46.17
+28,Osasco,Casa Verde,14,utilitario,260,260,273,31,229,18.57
+29,Osasco,Casa Verde,14,hr,442,442,464,53,389,31.57
+30,Osasco,Casa Verde,14,caminhao_bau,572,572,600,69,503,40.86
+31,Osasco,Pinheiros,14,utilitario,260,260,273,31,229,18.57
+32,Osasco,Pinheiros,14,hr,442,442,464,53,389,31.57
+33,Osasco,Pinheiros,14,caminhao_bau,572,572,600,69,503,40.86
+34,Barueri,Osasco,15,utilitario,264,264,277,32,232,17.60
+35,Barueri,Osasco,15,hr,449,449,471,54,395,29.93
+36,Barueri,Osasco,15,caminhao_bau,581,581,610,70,511,38.73
+37,Osasco,Agua Branca,16,utilitario,268,268,281,32,236,16.75
+38,Osasco,Agua Branca,16,hr,456,456,479,55,401,28.50
+39,Osasco,Agua Branca,16,caminhao_bau,590,590,619,71,519,36.88
+40,Osasco,Sao Miguel,18,utilitario,275,275,289,33,242,15.28
+41,Osasco,Sao Miguel,18,hr,468,468,491,56,412,26.00
+42,Osasco,Sao Miguel,18,caminhao_bau,605,605,635,73,532,33.61
+43,Osasco,Brooklin,22,utilitario,289,289,303,35,254,13.14
+44,Osasco,Brooklin,22,hr,491,491,515,59,432,22.32
+45,Osasco,Brooklin,22,caminhao_bau,636,636,668,76,560,28.91
+46,Osasco,Cotia,22,utilitario,289,289,303,35,254,13.14
+47,Osasco,Cotia,22,hr,491,491,515,59,432,22.32
+48,Osasco,Cotia,22,caminhao_bau,636,636,668,76,560,28.91
+49,Barueri,Santana,24,utilitario,295,295,310,35,260,12.29
+50,Barueri,Santana,24,hr,502,502,527,60,442,20.92
+51,Barueri,Santana,24,caminhao_bau,649,649,681,78,571,27.04
+52,Osasco,Panamby,25,utilitario,298,298,313,36,262,11.92
+53,Osasco,Panamby,25,hr,507,507,532,61,446,20.28
+54,Osasco,Panamby,25,caminhao_bau,656,656,689,79,577,26.24
+55,Osasco,Tatuape,28,utilitario,307,307,322,37,270,10.96
+56,Osasco,Tatuape,28,hr,522,522,548,63,459,18.64
+57,Osasco,Tatuape,28,caminhao_bau,675,675,709,81,594,24.11
+58,Osasco,Vila Mariana,30,utilitario,312,312,328,37,275,10.40
+59,Osasco,Vila Mariana,30,hr,530,530,556,64,466,17.67
+60,Osasco,Vila Mariana,30,caminhao_bau,686,686,720,82,604,22.87
+61,Osasco,Santo Andre,35,utilitario,325,325,341,39,286,9.29
+62,Osasco,Santo Andre,35,hr,553,553,581,66,487,15.80
+63,Osasco,Santo Andre,35,caminhao_bau,715,715,751,86,629,20.43
+64,Osasco,Sao Bernardo,40,utilitario,338,338,355,41,297,8.45
+65,Osasco,Sao Bernardo,40,hr,575,575,604,69,506,14.38
+66,Osasco,Sao Bernardo,40,caminhao_bau,744,744,781,89,655,18.60
+67,Osasco,Guarulhos,42,utilitario,342,342,359,41,301,8.14
+68,Osasco,Guarulhos,42,hr,581,581,610,70,511,13.83
+69,Osasco,Guarulhos,42,caminhao_bau,752,752,789,90,662,17.90
+70,Osasco,Itaquera,45,utilitario,349,349,366,42,307,7.76
+71,Osasco,Itaquera,45,hr,593,593,623,71,522,13.18
+72,Osasco,Itaquera,45,caminhao_bau,768,768,806,92,676,17.07
+73,Osasco,Maua,48,utilitario,356,356,374,43,313,7.42
+74,Osasco,Maua,48,hr,605,605,635,73,532,12.60
+75,Osasco,Maua,48,caminhao_bau,783,783,822,94,689,16.31
+76,Osasco,Itaquaquecetuba,52,utilitario,364,364,382,44,320,7.00
+77,Osasco,Itaquaquecetuba,52,hr,619,619,650,74,545,11.90
+78,Osasco,Itaquaquecetuba,52,caminhao_bau,801,801,841,96,705,15.40
+79,Osasco,Suzano,55,utilitario,370,370,388,44,326,6.73
+80,Osasco,Suzano,55,hr,629,629,660,75,554,11.44
+81,Osasco,Suzano,55,caminhao_bau,814,814,855,98,716,14.80
+82,Osasco,Jundiai,60,utilitario,380,380,399,46,334,6.33
+83,Osasco,Jundiai,60,hr,646,646,678,78,568,10.77
+84,Osasco,Jundiai,60,caminhao_bau,836,836,878,100,736,13.93
+85,Osasco,Mogi das Cruzes,65,utilitario,390,390,409,47,343,6.00
+86,Osasco,Mogi das Cruzes,65,hr,663,663,696,80,583,10.20
+87,Osasco,Mogi das Cruzes,65,caminhao_bau,858,858,901,103,755,13.20
+88,Osasco,Santos,85,utilitario,425,425,446,51,374,5.00
+89,Osasco,Santos,85,hr,723,723,759,87,636,8.51
+90,Osasco,Santos,85,caminhao_bau,935,935,982,112,823,11.00
+91,Osasco,Campinas,95,utilitario,440,440,462,53,387,4.63
+92,Osasco,Campinas,95,hr,748,748,785,90,658,7.87
+93,Osasco,Campinas,95,caminhao_bau,968,968,1016,116,852,10.19
+94,Osasco,Sorocaba,100,utilitario,448,448,470,54,394,4.48
+95,Osasco,Sorocaba,100,hr,762,762,800,91,671,7.62
+96,Osasco,Sorocaba,100,caminhao_bau,986,986,1035,118,868,9.86
+97,Osasco,Sao Jose dos Campos,110,utilitario,463,463,486,56,407,4.21
+98,Osasco,Sao Jose dos Campos,110,hr,787,787,826,94,693,7.15
+99,Osasco,Sao Jose dos Campos,110,caminhao_bau,1019,1019,1070,122,897,9.26
+100,Osasco,Sao Paulo (longe),150,utilitario,515,515,541,62,453,3.43
+101,Osasco,Sao Paulo (longe),150,hr,876,876,920,105,771,5.84
+102,Osasco,Sao Paulo (longe),150,caminhao_bau,1133,1133,1189,136,997,7.55
+103,Osasco,Litoral Norte,200,utilitario,572,572,600,69,503,2.86
+104,Osasco,Litoral Norte,200,hr,972,972,1020,117,855,4.86
+105,Osasco,Litoral Norte,200,caminhao_bau,1258,1258,1321,151,1107,6.29

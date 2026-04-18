@@ -1,0 +1,106 @@
+id,base,origem,destino,km,veiculo,total_pix,total_cartao,comissao_pegue,valor_prestador,rs_por_km
+1,227,Osasco,Carapicuiba,7,utilitario,227,238,27,200,32.43
+2,386,Osasco,Carapicuiba,7,hr,386,405,46,340,55.14
+3,500,Osasco,Carapicuiba,7,caminhao_bau,500,525,60,440,71.43
+4,250,Osasco,Jandira,9,utilitario,238,250,29,209,26.44
+5,350,Osasco,Jandira,9,hr,405,425,49,356,45.00
+6,650,Osasco,Jandira,9,caminhao_bau,524,550,63,461,58.22
+7,300,Osasco,Itapevi,13,utilitario,256,269,31,225,19.69
+8,440,Osasco,Itapevi,13,hr,435,457,52,383,33.46
+9,700,Osasco,Itapevi,13,caminhao_bau,563,591,68,495,43.31
+10,300,Osasco,Tabao da Serra,11,utilitario,247,259,30,217,22.45
+11,460,Osasco,Tabao da Serra,11,hr,420,441,50,370,38.18
+12,740,Osasco,Tabao da Serra,11,caminhao_bau,543,570,65,478,49.36
+13,300,Osasco,Embu das Artes,17,utilitario,272,286,33,239,16.00
+14,470,Osasco,Embu das Artes,17,hr,462,485,55,407,27.18
+15,770,Osasco,Embu das Artes,17,caminhao_bau,598,628,72,526,35.18
+16,215,Carapicuiba,Barueri,5,utilitario,215,226,26,189,43.00
+17,400,Carapicuiba,Barueri,5,hr,366,384,44,322,73.20
+18,680,Carapicuiba,Barueri,5,caminhao_bau,500,525,60,440,100.00
+19,280,Barueri,Cotia,15,utilitario,264,277,32,232,17.60
+20,449,Barueri,Cotia,15,hr,449,471,54,395,29.93
+21,750,Barueri,Cotia,15,caminhao_bau,581,610,70,511,38.73
+22,247,Osasco,Perdizes,11,utilitario,247,259,30,217,22.45
+23,380,Osasco,Perdizes,11,hr,420,441,50,370,38.18
+24,650,Osasco,Perdizes,11,caminhao_bau,543,570,65,478,49.36
+25,243,Osasco,Vila Sonia,10,utilitario,243,255,29,214,24.30
+26,400,Osasco,Vila Sonia,10,hr,413,434,50,363,41.30
+27,700,Osasco,Vila Sonia,10,caminhao_bau,535,562,64,471,53.50
+28,300,Osasco,Campo Limpo,16,utilitario,268,281,32,236,16.75
+29,500,Osasco,Campo Limpo,16,hr,456,479,55,401,28.50
+30,800,Osasco,Campo Limpo,16,caminhao_bau,590,619,71,519,36.88
+31,340,Osasco,Capao Redondo,19,utilitario,279,293,33,246,14.68
+32,550,Osasco,Capao Redondo,19,hr,474,498,57,417,24.95
+33,1000,Osasco,Capao Redondo,19,caminhao_bau,614,645,74,540,32.32
+34,282,Osasco,Mooca,20,utilitario,282,296,34,248,14.10
+35,320,Osasco,Mooca,20,hr,479,503,57,422,23.95
+36,650,Osasco,Mooca,20,caminhao_bau,620,651,74,546,31.00
+37,340,Osasco,Penha,26,utilitario,301,316,36,265,11.58
+38,460,Osasco,Penha,26,hr,512,537,61,451,19.69
+39,800,Osasco,Penha,26,caminhao_bau,662,695,79,583,25.46
+40,350,Osasco,Sao Mateus,36,utilitario,328,344,39,289,9.11
+41,560,Osasco,Sao Mateus,36,hr,558,586,67,491,15.50
+42,950,Osasco,Sao Mateus,36,caminhao_bau,722,758,87,635,20.06
+43,360,Osasco,Cidade Tiradentes,48,utilitario,356,374,43,313,7.42
+44,500,Osasco,Cidade Tiradentes,48,hr,605,635,73,532,12.60
+45,950,Osasco,Cidade Tiradentes,48,caminhao_bau,783,822,94,689,16.31
+46,340,Osasco,Interlagos,30,utilitario,312,328,37,275,10.40
+47,460,Osasco,Interlagos,30,hr,530,556,64,466,17.67
+48,950,Osasco,Interlagos,30,caminhao_bau,686,720,82,604,22.87
+49,320,Osasco,Grajau,33,utilitario,320,336,38,282,9.70
+50,480,Osasco,Grajau,33,hr,544,571,65,479,16.48
+51,920,Osasco,Grajau,33,caminhao_bau,704,739,84,620,21.33
+52,350,Osasco,Jardim Angela,28,utilitario,307,322,37,270,10.96
+53,522,Osasco,Jardim Angela,28,hr,522,548,63,459,18.64
+54,980,Osasco,Jardim Angela,28,caminhao_bau,675,709,81,594,24.11
+55,330,Osasco,Sao Caetano,32,utilitario,318,334,38,280,9.94
+56,400,Osasco,Sao Caetano,32,hr,541,568,65,476,16.91
+57,800,Osasco,Sao Caetano,32,caminhao_bau,700,735,84,616,21.88
+58,333,Osasco,Diadema,38,utilitario,333,350,40,293,8.76
+59,566,Osasco,Diadema,38,hr,566,594,68,498,14.89
+60,880,Osasco,Diadema,38,caminhao_bau,733,770,88,645,19.29
+61,360,Osasco,Ribeirao Pires,52,utilitario,364,382,44,320,7.00
+62,619,Osasco,Ribeirao Pires,52,hr,619,650,74,545,11.90
+63,900,Osasco,Ribeirao Pires,52,caminhao_bau,801,841,96,705,15.40
+64,320,Osasco,Tucuruvi,22,utilitario,289,303,35,254,13.14
+65,460,Osasco,Tucuruvi,22,hr,491,515,59,432,22.32
+66,900,Osasco,Tucuruvi,22,caminhao_bau,636,668,76,560,28.91
+67,350,Osasco,Franco da Rocha,33,utilitario,320,336,38,282,9.70
+68,520,Osasco,Franco da Rocha,33,hr,544,571,65,479,16.48
+69,900,Osasco,Franco da Rocha,33,caminhao_bau,704,739,84,620,21.33
+70,360,Osasco,Caieiras,28,utilitario,307,322,37,270,10.96
+71,500,Osasco,Caieiras,28,hr,522,548,63,459,18.64
+72,950,Osasco,Caieiras,28,caminhao_bau,675,709,81,594,24.11
+73,400,Osasco,Mairipora,40,utilitario,338,355,41,297,8.45
+74,600,Osasco,Mairipora,40,hr,575,604,69,506,14.38
+75,1000,Osasco,Mairipora,40,caminhao_bau,744,781,89,655,18.60
+76,360,Osasco,Ferraz de Vasconcelos,50,utilitario,360,378,43,317,7.20
+77,612,Osasco,Ferraz de Vasconcelos,50,hr,612,642,73,539,12.24
+78,1050,Osasco,Ferraz de Vasconcelos,50,caminhao_bau,792,831,95,697,15.84
+79,450,Osasco,Aruja,58,utilitario,376,395,45,331,6.48
+80,680,Osasco,Aruja,58,hr,639,671,77,562,11.02
+81,1150,Osasco,Aruja,58,caminhao_bau,827,868,99,728,14.26
+82,480,Osasco,Atibaia,75,utilitario,408,428,49,359,5.44
+83,740,Osasco,Atibaia,75,hr,694,729,83,611,9.25
+84,1150,Osasco,Atibaia,75,caminhao_bau,898,943,108,790,11.97
+85,550,Osasco,Itu,90,utilitario,433,455,52,381,4.81
+86,736,Osasco,Itu,90,hr,736,773,88,648,8.18
+87,1250,Osasco,Itu,90,caminhao_bau,953,1000,114,839,10.59
+88,450,Osasco,Praia Grande,95,utilitario,440,462,53,387,4.63
+89,550,Osasco,Praia Grande,95,hr,748,785,90,658,7.87
+90,1000,Osasco,Praia Grande,95,caminhao_bau,968,1016,116,852,10.19
+91,470,Osasco,Sao Vicente,88,utilitario,429,450,51,378,4.88
+92,580,Osasco,Sao Vicente,88,hr,729,765,87,642,8.28
+93,1100,Osasco,Sao Vicente,88,caminhao_bau,944,991,113,831,10.73
+94,640,Osasco,Bertioga,120,utilitario,477,501,57,420,3.98
+95,720,Osasco,Bertioga,120,hr,811,851,97,714,6.76
+96,1400,Osasco,Bertioga,120,caminhao_bau,1049,1101,126,923,8.74
+97,770,Osasco,Registro,180,utilitario,550,577,66,484,03.06
+98,935,Osasco,Registro,180,hr,935,982,112,823,5.19
+99,1500,Osasco,Registro,180,caminhao_bau,1210,1270,145,1065,6.72
+100,550,Osasco,Piracicaba,160,utilitario,527,553,63,464,3.29
+101,670,Osasco,Piracicaba,160,hr,896,941,108,788,5.60
+102,1250,Osasco,Piracicaba,160,caminhao_bau,1159,1217,139,1020,7.24
+103,700,Osasco,Ubatuba,230,utilitario,603,633,72,531,2.62
+104,850,Osasco,Ubatuba,230,hr,1025,1076,123,902,4.46
+105,1327,Osasco,Ubatuba,230,caminhao_bau,1327,1393,159,1168,5.77

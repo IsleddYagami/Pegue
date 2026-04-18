@@ -1340,7 +1340,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       const my = groundY;
       if (motoboyImgRef.current) {
         const mImg = motoboyImgRef.current;
-        const drawW = screenW * 0.2; // motoboy
+        const drawW = screenW * 0.13; // motoboy (proporcional ao caminhao)
         const drawH = (mImg.height / mImg.width) * drawW;
         ctx.drawImage(mImg, mx - 5, my - drawH * 0.7, drawW, drawH);
       } else {
@@ -1380,83 +1380,86 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       ctx.stroke();
     }
     else if (obs.type === "ambulante") {
-      // Vendedor ambulante com carrinho (churros/pipoca)
+      // Vendedor ambulante com carrinho - escala proporcional
       const ax = obs.x, ay = groundY;
+      const s = screenW / 500;
       // Rodas do carrinho
       ctx.fillStyle = "#333";
-      ctx.beginPath(); ctx.arc(ax + 5, ay - 3, 5, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(ax + 35, ay - 3, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ax + 4 * s, ay - 2 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ax + 25 * s, ay - 2 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
       // Carrinho
       ctx.fillStyle = "#CC3333";
-      ctx.fillRect(ax - 2, ay - 28, 44, 22);
+      ctx.fillRect(ax - 1 * s, ay - 20 * s, 32 * s, 16 * s);
       // Toldo listrado
       ctx.fillStyle = "#FFCC00";
-      ctx.fillRect(ax - 5, ay - 38, 50, 12);
+      ctx.fillRect(ax - 3 * s, ay - 28 * s, 36 * s, 9 * s);
       ctx.fillStyle = "#CC3333";
-      ctx.fillRect(ax - 5, ay - 38, 10, 12);
-      ctx.fillRect(ax + 15, ay - 38, 10, 12);
-      ctx.fillRect(ax + 35, ay - 38, 10, 12);
+      ctx.fillRect(ax - 3 * s, ay - 28 * s, 7 * s, 9 * s);
+      ctx.fillRect(ax + 11 * s, ay - 28 * s, 7 * s, 9 * s);
+      ctx.fillRect(ax + 25 * s, ay - 28 * s, 7 * s, 9 * s);
       // Vendedor
       ctx.fillStyle = "#FFCC99";
-      ctx.beginPath(); ctx.arc(ax + 45, ay - 35, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ax + 33 * s, ay - 25 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "#FFF";
-      ctx.fillRect(ax + 41, ay - 28, 8, 15);
+      ctx.fillRect(ax + 30 * s, ay - 20 * s, 6 * s, 11 * s);
       ctx.fillStyle = "#444";
-      ctx.fillRect(ax + 41, ay - 13, 3, 13);
-      ctx.fillRect(ax + 46, ay - 13, 3, 13);
+      ctx.fillRect(ax + 30 * s, ay - 9 * s, 2 * s, 9 * s);
+      ctx.fillRect(ax + 34 * s, ay - 9 * s, 2 * s, 9 * s);
     }
     else if (obs.type === "catador") {
-      // Catador de reciclagem com carroça de papelão
+      // Catador de reciclagem com carroça - escala proporcional
       const cx = obs.x, cy = groundY;
+      const s = screenW / 500;
       // Roda da carroça
       ctx.fillStyle = "#444";
-      ctx.beginPath(); ctx.arc(cx + 20, cy - 5, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + 14 * s, cy - 4 * s, 6 * s, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "#666";
-      ctx.beginPath(); ctx.arc(cx + 20, cy - 5, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + 14 * s, cy - 4 * s, 3 * s, 0, Math.PI * 2); ctx.fill();
       // Carroça
       ctx.fillStyle = "#8B6914";
-      ctx.fillRect(cx, cy - 30, 40, 22);
+      ctx.fillRect(cx, cy - 22 * s, 28 * s, 16 * s);
       // Papelão empilhado
       ctx.fillStyle = "#A0884A";
-      ctx.fillRect(cx + 2, cy - 42, 36, 14);
+      ctx.fillRect(cx + 2 * s, cy - 30 * s, 24 * s, 10 * s);
       ctx.fillStyle = "#C4A860";
-      ctx.fillRect(cx + 5, cy - 50, 30, 10);
+      ctx.fillRect(cx + 4 * s, cy - 36 * s, 20 * s, 7 * s);
       // Catador
       ctx.fillStyle = "#8B5E3C";
-      ctx.beginPath(); ctx.arc(cx + 48, cy - 32, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + 34 * s, cy - 23 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "#336";
-      ctx.fillRect(cx + 44, cy - 26, 8, 14);
+      ctx.fillRect(cx + 31 * s, cy - 19 * s, 6 * s, 10 * s);
       ctx.fillStyle = "#444";
-      ctx.fillRect(cx + 44, cy - 12, 3, 12);
-      ctx.fillRect(cx + 49, cy - 12, 3, 12);
+      ctx.fillRect(cx + 31 * s, cy - 9 * s, 2 * s, 9 * s);
+      ctx.fillRect(cx + 35 * s, cy - 9 * s, 2 * s, 9 * s);
     }
     else if (obs.type === "onibus_parado") {
-      // Ônibus grande parado na faixa
+      // Ônibus parado na faixa - escala proporcional a tela
       const ox = obs.x, oy = groundY;
+      const s = screenW / 500; // fator de escala (500 = ref desktop)
       // Rodas
       ctx.fillStyle = "#111";
-      ctx.beginPath(); ctx.arc(ox + 10, oy - 5, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(ox + 55, oy - 5, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ox + 7 * s, oy - 4 * s, 6 * s, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ox + 38 * s, oy - 4 * s, 6 * s, 0, Math.PI * 2); ctx.fill();
       // Corpo do onibus
       ctx.fillStyle = "#1565C0";
       ctx.beginPath();
-      ctx.roundRect(ox - 5, oy - 50, 70, 42, [6, 6, 0, 0]);
+      ctx.roundRect(ox - 3 * s, oy - 35 * s, 50 * s, 30 * s, [4 * s, 4 * s, 0, 0]);
       ctx.fill();
       // Faixa branca
       ctx.fillStyle = "#FFF";
-      ctx.fillRect(ox - 5, oy - 25, 70, 5);
+      ctx.fillRect(ox - 3 * s, oy - 18 * s, 50 * s, 3 * s);
       // Janelas
       ctx.fillStyle = "#87CEEB";
       for (let j = 0; j < 4; j++) {
-        ctx.fillRect(ox + j * 15 + 2, oy - 46, 10, 14);
+        ctx.fillRect(ox + j * 11 * s + 2, oy - 33 * s, 7 * s, 10 * s);
       }
       // Letreiro
       ctx.fillStyle = "#FF6600";
-      ctx.fillRect(ox, oy - 52, 50, 8);
+      ctx.fillRect(ox, oy - 37 * s, 35 * s, 6 * s);
       ctx.fillStyle = "#FFF";
-      ctx.font = "bold 5px Arial";
+      ctx.font = `bold ${Math.max(4, 4 * s)}px Arial`;
       ctx.textAlign = "center";
-      ctx.fillText("SPTRANS", ox + 25, oy - 46);
+      ctx.fillText("SPTRANS", ox + 18 * s, oy - 33 * s);
     }
     else if (obs.type === "cachorro") {
       // Cachorro caramelo - patrimonio de SP! (nao mata, da bonus)
@@ -1754,18 +1757,19 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       // (barra removida - info fica no statusText)
     }
     else if (obs.type === "radar") {
-      // Radar / Lombada eletronica - mais visivel
+      // Radar / Lombada eletronica - escala proporcional
       const rx = obs.x + obs.width / 2;
-      // Poste grosso
+      const s = screenW / 500;
+      // Poste
       ctx.fillStyle = "#888";
-      ctx.fillRect(rx - 3, groundY - 70, 6, 70);
+      ctx.fillRect(rx - 2 * s, groundY - 52 * s, 4 * s, 52 * s);
       ctx.strokeStyle = "#555";
       ctx.lineWidth = 1;
-      ctx.strokeRect(rx - 3, groundY - 70, 6, 70);
-      // Caixa do radar maior
+      ctx.strokeRect(rx - 2 * s, groundY - 52 * s, 4 * s, 52 * s);
+      // Caixa do radar
       ctx.fillStyle = "#222";
       ctx.beginPath();
-      ctx.roundRect(rx - 12, groundY - 78, 24, 16, 3);
+      ctx.roundRect(rx - 9 * s, groundY - 58 * s, 18 * s, 12 * s, 2 * s);
       ctx.fill();
       ctx.strokeStyle = "#555";
       ctx.lineWidth = 1;
@@ -1775,34 +1779,34 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       const flashing = obs.flashTimer && obs.flashTimer > 0;
       ctx.fillStyle = flashing ? "#FF0000" : "#CC0000";
       ctx.beginPath();
-      ctx.arc(rx, groundY - 70, 5, 0, Math.PI * 2);
+      ctx.arc(rx, groundY - 52 * s, 4 * s, 0, Math.PI * 2);
       ctx.fill();
-      // Flash grande
+      // Flash
       if (flashing) {
         ctx.fillStyle = "rgba(255,0,0,0.4)";
         ctx.beginPath();
-        ctx.arc(rx, groundY - 70, 18, 0, Math.PI * 2);
+        ctx.arc(rx, groundY - 52 * s, 14 * s, 0, Math.PI * 2);
         ctx.fill();
       }
-      // Placa "REDUZA" maior e mais visivel
+      // Placa "REDUZA"
       ctx.fillStyle = "#FFF";
       ctx.beginPath();
-      ctx.roundRect(rx - 18, groundY - 98, 36, 18, 3);
+      ctx.roundRect(rx - 14 * s, groundY - 72 * s, 28 * s, 14 * s, 2 * s);
       ctx.fill();
       ctx.strokeStyle = "#CC0000";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2 * s;
       ctx.beginPath();
-      ctx.roundRect(rx - 18, groundY - 98, 36, 18, 3);
+      ctx.roundRect(rx - 14 * s, groundY - 72 * s, 28 * s, 14 * s, 2 * s);
       ctx.stroke();
       ctx.fillStyle = "#000";
-      ctx.font = "bold 5px Arial";
+      ctx.font = `bold ${Math.max(4, 4 * s)}px Arial`;
       ctx.textAlign = "center";
-      ctx.fillText("REDUZA", rx, groundY - 80);
-      ctx.fillText("VELOCIDADE", rx, groundY - 75);
+      ctx.fillText("REDUZA", rx, groundY - 62 * s);
+      ctx.fillText("VELOCIDADE", rx, groundY - 57 * s);
       // Faixa lombada no chao
       ctx.fillStyle = "#FFD700";
       for (let i = 0; i < 4; i++) {
-        ctx.fillRect(obs.x - 10 + i * 12, groundY - 2, 8, 4);
+        ctx.fillRect(obs.x - 8 * s + i * 9 * s, groundY - 2, 6 * s, 3 * s);
       }
     }
   }
@@ -2979,11 +2983,11 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
             else if (type === "cone") { width = 20; height = 25; }
             else if (type === "buraco" || type === "bueiro") { width = 40 + Math.random() * 20; height = 6; }
             else if (type === "pedra") { width = 25 + Math.random() * 15; height = 15 + Math.random() * 15; }
-            else if (type === "motoqueiro" || type === "motoboy") { width = 55; height = 45; }
-            else if (type === "radar") { width = 30; height = 72; }
-            else if (type === "ambulante") { width = 55; height = 38; }
-            else if (type === "catador") { width = 55; height = 50; }
-            else if (type === "onibus_parado") { width = 70; height = 50; }
+            else if (type === "motoqueiro" || type === "motoboy") { width = 35; height = 30; }
+            else if (type === "radar") { width = 25; height = 55; }
+            else if (type === "ambulante") { width = 38; height = 28; }
+            else if (type === "catador") { width = 38; height = 35; }
+            else if (type === "onibus_parado") { width = 50; height = 35; }
             else if (type === "cachorro") { width = 40; height = 20; }
             else if (type === "cavalete") { width = 50; height = 35; }
 

@@ -1418,14 +1418,44 @@ async function handleCadastroTermos(phone: string, message: string) {
       });
     }
 
-    await sendMessage({ to: phone, message: MSG.cadastroConcluido });
+    // Verifica se aprovacao automatica esta ativa
+    const { data: cfgAutoAprov } = await supabase
+      .from("configuracoes")
+      .select("valor")
+      .eq("chave", "aceitar_novos_prestadores")
+      .single();
 
-    // Notifica admin
-    await notificarAdmin(
-      `🆕 *NOVO PRESTADOR PRA APROVAR*`,
-      phone,
-      `👤 ${nome}\n🚗 ${tipoVeiculo}\n🪪 Placa: ${placa}\n\n👉 Acesse /admin pra aprovar`
-    );
+    const autoAprovar = cfgAutoAprov?.valor === "habilitado";
+    const docsCompletos = nome.length >= 3 && cpf.length >= 11 && placa.length >= 7 && selfieUrl;
+
+    if (autoAprovar && docsCompletos && prestador) {
+      // Aprovacao automatica - docs completos
+      await supabase
+        .from("prestadores")
+        .update({ status: "aprovado", disponivel: true })
+        .eq("id", prestador.id);
+
+      await sendMessage({
+        to: phone,
+        message: `🎉 *Parabens ${nome}!*\n\nSeu cadastro foi *aprovado automaticamente*! Bem-vindo a familia Pegue! 🚚✨\n\nA partir de agora voce recebe indicacoes de fretes direto aqui no WhatsApp. Fique atento! 📱\n\nDigite *esqueci* pra ver todos os comandos disponiveis.`,
+      });
+
+      // Notifica admin da aprovacao automatica
+      await notificarAdmin(
+        `✅ *PRESTADOR APROVADO AUTOMATICAMENTE*`,
+        phone,
+        `👤 ${nome}\n🚗 ${tipoVeiculo}\n🪪 Placa: ${placa}\n📸 Selfie: ${selfieUrl ? "Sim" : "Nao"}\n\n⚠️ Revise no /admin se necessario`
+      );
+    } else {
+      // Aprovacao manual - notifica admin
+      await sendMessage({ to: phone, message: MSG.cadastroConcluido });
+
+      await notificarAdmin(
+        `🆕 *NOVO PRESTADOR PRA APROVAR*`,
+        phone,
+        `👤 ${nome}\n🚗 ${tipoVeiculo}\n🪪 Placa: ${placa}\n📸 Selfie: ${selfieUrl ? "Sim" : "Nao"}\nDocs completos: ${docsCompletos ? "Sim" : "Nao"}\nAuto-aprovacao: ${autoAprovar ? "Ligada" : "Desligada"}\n\n👉 Acesse /admin pra aprovar`
+      );
+    }
   }
 
   await updateSession(phone, { step: "cadastro_aguardando_aprovacao" });
@@ -1870,7 +1900,55 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
 
     if (corrida?.prestadores) {
       const fretistaTel = (corrida.prestadores as any).telefone;
-      await sendMessage({ to: fretistaTel, message: MSG.fretistaPagamentoLiberado });
+
+      // Busca dados completos da corrida pra pagamento
+      const { data: corridaCompleta } = await supabase
+        .from("corridas")
+        .select("valor_prestador, valor_pegue, prestador_id, prestadores(nome, telefone)")
+        .eq("id", session.corrida_id)
+        .single();
+
+      const valorPrestador = corridaCompleta?.valor_prestador || 0;
+      const nomePrestador = (corridaCompleta?.prestadores as any)?.nome || "Fretista";
+
+      // Busca chave Pix do fretista
+      const { data: prestadorData } = await supabase
+        .from("prestadores")
+        .select("id, nome, total_corridas")
+        .eq("telefone", fretistaTel)
+        .single();
+
+      // Atualiza total de corridas do fretista
+      if (prestadorData) {
+        await supabase
+          .from("prestadores")
+          .update({ total_corridas: (prestadorData.total_corridas || 0) + 1 })
+          .eq("id", prestadorData.id);
+      }
+
+      // Notifica fretista que pagamento foi liberado
+      await sendMessage({
+        to: fretistaTel,
+        message: `✅ *Pagamento LIBERADO!* 🎉\n\nO cliente confirmou a entrega.\n💰 *Valor: R$ ${valorPrestador}*\n\nSeu pagamento sera processado em breve via Pix.\n\nObrigado pelo excelente servico! 🚚✨`,
+      });
+
+      // Notifica admin pra fazer o Pix
+      await notificarAdmin(
+        `💰 *PAGAMENTO LIBERADO - FAZER PIX*`,
+        phone,
+        `Fretista: ${nomePrestador} (${formatarTelefoneExibicao(fretistaTel)})\n💰 *Valor: R$ ${valorPrestador}*\nCorrida: ${session.corrida_id}\n\n👉 Acesse /admin pra marcar como pago`
+      );
+
+      // Registra pagamento pendente no log
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "pagamento_fretista_liberado",
+          corrida_id: session.corrida_id,
+          fretista: fretistaTel,
+          valor: valorPrestador,
+          status: "aguardando_pix",
+        },
+      });
     }
   } else if (lower === "2" || lower.startsWith("nao") || lower.startsWith("não") || lower === "n") {
     await updateSession(phone, { step: "concluido" });

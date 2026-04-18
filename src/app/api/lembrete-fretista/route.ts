@@ -101,8 +101,8 @@ export async function GET(req: NextRequest) {
           await sendMessage({
             to: fretistaTel,
             message: desativar
-              ? `⛔ *Sua conta foi DESATIVADA.*\n\nVoce nao confirmou presenca no frete e nao respondeu aos lembretes.\nScore: -5 pontos.\n\nEntre em contato pra reativacao.`
-              : `⚠️ *Frete removido da sua agenda.*\n\nVoce nao confirmou presenca.\nScore: -5 pontos.\n\n${cancelamentos >= 1 ? "Proxima ocorrencia resultara em desativacao." : ""}`,
+              ? `⛔ *Sua conta esta INATIVA.*\n\nVoce nao confirmou presenca no frete e nao respondeu aos lembretes.\nScore: -5 pontos.\n\nPara reativar, envie justificativa com provas pelo WhatsApp.\nSua situacao sera analisada pela equipe.`
+              : `⚠️ *Frete removido da sua agenda.*\n\nVoce nao confirmou presenca.\nScore: -5 pontos.\n\n${cancelamentos >= 1 ? "Proxima ocorrencia resultara em inativacao da conta." : ""}`,
           });
         }
 

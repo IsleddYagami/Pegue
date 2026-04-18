@@ -2399,7 +2399,7 @@ async function handleCancelarQual(phone: string, message: string) {
   await updateSession(phone, { step: "fretista_cancelar_confirma" as any, corrida_id: corridaId });
   await sendMessage({
     to: phone,
-    message: `⚠️ *Quer cancelar este frete?*\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${corrida.periodo}\n💰 R$ ${corrida.valor_prestador}\n\n⚠️ Cancelar afeta seu *score* na plataforma.\n3 cancelamentos = desativacao.\n\nConfirma? Responda *SIM* ou *NAO*`,
+    message: `⚠️ *Quer cancelar este frete?*\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${corrida.periodo}\n💰 R$ ${corrida.valor_prestador}\n\n⚠️ Cancelar afeta seu *score* na plataforma.\n3 cancelamentos = conta inativa.\n\nConfirma? Responda *SIM* ou *NAO*`,
   });
 }
 
@@ -2453,7 +2453,7 @@ async function handleCancelarConfirma(phone: string, message: string) {
     if (desativar) {
       await sendMessage({
         to: phone,
-        message: "⛔ *Sua conta foi desativada* por excesso de cancelamentos.\n\nEntre em contato pra reativacao.",
+        message: "⛔ *Sua conta esta INATIVA* por excesso de cancelamentos.\n\nPara reativar, envie justificativa com provas pelo WhatsApp.\nSua situacao sera analisada pela equipe.",
       });
     }
   }

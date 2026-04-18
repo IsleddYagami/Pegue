@@ -213,6 +213,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "ok" });
     }
 
+    // Fretista confirmando presenca no lembrete (responde SIM)
+    if (message.toLowerCase().trim() === "sim") {
+      const { data: prestador } = await supabase
+        .from("prestadores")
+        .select("id")
+        .eq("telefone", phoneNumber)
+        .single();
+
+      if (prestador) {
+        const { data: corridaLembrete } = await supabase
+          .from("corridas")
+          .select("id, urgencia")
+          .eq("prestador_id", prestador.id)
+          .in("urgencia", ["lembrete_2h", "lembrete_1h", "lembrete_40min"])
+          .limit(1)
+          .single();
+
+        if (corridaLembrete) {
+          await supabase.from("corridas").update({ urgencia: "confirmado" }).eq("id", corridaLembrete.id);
+          await sendMessage({
+            to: phoneNumber,
+            message: "Presenca confirmada! ✅ Bom trabalho no frete! 🚚",
+          });
+          return NextResponse.json({ status: "ok" });
+        }
+      }
+    }
+
     // Fluxo do cliente
     try {
       await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia, imageUrl, pushName);
@@ -293,6 +321,9 @@ async function handleClienteMessage(
 ⏸️ *modo ferias* → parar de receber indicacoes
 ▶️ *voltei* → voltar a receber indicacoes
 
+✋ *CANCELAR* → cancelar um frete aceito
+🤝 *INDICAR* → transferir frete pra um amigo
+
 *Para se cadastrar como parceiro:*
 🤝 *Parcerias Pegue* → iniciar cadastro
 
@@ -341,6 +372,18 @@ Desvie dos obstaculos pelas ruas de SP, enfrente bosses e entre pro ranking!
 🏆 Recorde atual? Veja no ranking dentro do jogo!
 Boa sorte! 🎯`,
     });
+    return;
+  }
+
+  // Comando CANCELAR frete (fretista)
+  if (lower === "cancelar" || lower === "cancelar frete") {
+    await handleCancelarFrete(phone);
+    return;
+  }
+
+  // Comando INDICAR amigo (fretista)
+  if (lower === "indicar" || lower === "transferir" || lower === "indicar amigo") {
+    await handleIndicarFrete(phone);
     return;
   }
 
@@ -482,6 +525,24 @@ Boa sorte! 🎯`,
         to: phone,
         message: "Seu frete já tá confirmado! 😊 Assim que o pagamento for identificado, te aviso aqui!",
       });
+      break;
+
+    case "aguardando_horario":
+      await handleHorario(phone, message);
+      break;
+
+    // === FRETISTA CANCELAR/INDICAR ===
+    case "fretista_cancelar_qual":
+      await handleCancelarQual(phone, message);
+      break;
+    case "fretista_cancelar_confirma":
+      await handleCancelarConfirma(phone, message);
+      break;
+    case "fretista_indicar_qual":
+      await handleIndicarQual(phone, message);
+      break;
+    case "fretista_indicar_telefone":
+      await handleIndicarTelefone(phone, message);
       break;
 
     // === GUINCHO ===
@@ -998,10 +1059,35 @@ async function handleData(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session) return;
 
-  await updateSession(phone, {
-    step: "aguardando_confirmacao",
-    data_agendada: message,
-  });
+  const lower = message.toLowerCase().trim();
+
+  // Se digitou AGORA, pula direto pra confirmacao
+  if (lower === "agora" || lower === "ja" || lower === "já" || lower === "urgente") {
+    await updateSession(phone, {
+      step: "aguardando_confirmacao",
+      data_agendada: "AGORA - Urgente",
+    });
+  } else {
+    // Salva a data e pede o horario
+    await updateSession(phone, {
+      step: "aguardando_horario" as any,
+      data_agendada: message,
+    });
+
+    await sendMessage({
+      to: phone,
+      message: `📅 ${message} - Anotado!
+
+Agora preciso do *horario*. Escolha:
+
+1️⃣ *Manha* (08:00 - 12:00)
+2️⃣ *Tarde* (13:00 - 17:00)
+3️⃣ *Horario especifico* (ex: 14:30)
+
+Manda o numero ou o horario direto!`,
+    });
+    return;
+  }
 
   const veiculo = session.veiculo_sugerido || "utilitario";
   const veiculoNome: Record<string, string> = {
@@ -2174,6 +2260,467 @@ Responda SOMENTE o JSON.`,
     console.error("Erro OpenAI Vision:", error?.message);
     return null;
   }
+}
+
+// === HORARIO OBRIGATORIO ===
+
+async function handleHorario(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const lower = message.toLowerCase().trim();
+  let horario = "";
+
+  if (lower === "1" || lower.includes("manha") || lower.includes("manhã")) {
+    horario = "Manhã (08:00 - 12:00)";
+  } else if (lower === "2" || lower.includes("tarde")) {
+    horario = "Tarde (13:00 - 17:00)";
+  } else if (lower === "3" || /\d{1,2}[h:]?\d{0,2}/.test(lower)) {
+    // Horario especifico - aceita formatos: 14:30, 14h30, 14h, 1430
+    horario = message.trim();
+  } else {
+    await sendMessage({
+      to: phone,
+      message: "Escolha o horario:\n\n1️⃣ *Manhã* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)\n3️⃣ *Horário específico* (ex: 14:30)",
+    });
+    return;
+  }
+
+  const dataCompleta = `${session.data_agendada} - ${horario}`;
+
+  await updateSession(phone, {
+    step: "aguardando_confirmacao",
+    data_agendada: dataCompleta,
+  });
+
+  const veiculo = session.veiculo_sugerido || "utilitario";
+  const veiculoNome: Record<string, string> = {
+    utilitario: "Utilitario (Strada/Saveiro)",
+    hr: "HR",
+    caminhao_bau: "Caminhao Bau",
+    guincho: "Guincho",
+    moto_guincho: "Guincho de Moto",
+  };
+
+  let detalhes = "";
+  if (session.precisa_ajudante) detalhes += "🙋 Com ajudante\n";
+  if (session.tem_escada && session.andar && session.andar > 0) detalhes += `🪜 ${session.andar}o andar (escada)\n`;
+
+  await sendMessage({
+    to: phone,
+    message: MSG.resumoFrete(
+      session.origem_endereco || "Origem",
+      session.destino_endereco || "Destino",
+      session.descricao_carga || "Material",
+      dataCompleta,
+      veiculoNome[veiculo] || "Utilitario",
+      (session.valor_estimado || 0).toString(),
+      detalhes
+    ),
+  });
+}
+
+// === CANCELAR FRETE (FRETISTA) ===
+
+async function handleCancelarFrete(phone: string) {
+  // Busca fretes ativos do fretista
+  const { data: prestador } = await supabase
+    .from("prestadores")
+    .select("id")
+    .eq("telefone", phone)
+    .single();
+
+  if (!prestador) {
+    await sendMessage({ to: phone, message: "Voce nao tem cadastro de prestador na Pegue." });
+    return;
+  }
+
+  const { data: corridas } = await supabase
+    .from("corridas")
+    .select("id, origem_endereco, destino_endereco, periodo, valor_prestador, status")
+    .eq("prestador_id", prestador.id)
+    .in("status", ["aceita", "paga", "em_andamento"])
+    .order("criado_em", { ascending: true });
+
+  if (!corridas || corridas.length === 0) {
+    await sendMessage({ to: phone, message: "Voce nao tem fretes ativos pra cancelar. 😊" });
+    return;
+  }
+
+  if (corridas.length === 1) {
+    // So tem 1 frete - pergunta direto
+    const c = corridas[0];
+    await updateSession(phone, { step: "fretista_cancelar_confirma" as any, corrida_id: c.id });
+    await sendMessage({
+      to: phone,
+      message: `⚠️ *Quer cancelar este frete?*\n\n📍 ${c.origem_endereco} → ${c.destino_endereco}\n📅 ${c.periodo}\n💰 R$ ${c.valor_prestador}\n\n⚠️ Cancelar afeta seu *score* na plataforma.\n\nConfirma? Responda *SIM* ou *NAO*`,
+    });
+    return;
+  }
+
+  // Multiplos fretes - lista pra escolher
+  let lista = "📋 *Seus fretes ativos:*\n\n";
+  corridas.forEach((c, i) => {
+    lista += `${i + 1}️⃣ ${c.periodo} - ${c.origem_endereco} → ${c.destino_endereco} (R$ ${c.valor_prestador})\n`;
+  });
+  lista += "\nQual quer cancelar? Manda o *numero*";
+
+  // Salva IDs no plano_escolhido pra referencia
+  await updateSession(phone, {
+    step: "fretista_cancelar_qual" as any,
+    plano_escolhido: JSON.stringify(corridas.map(c => c.id)),
+  });
+
+  await sendMessage({ to: phone, message: lista });
+}
+
+async function handleCancelarQual(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session?.plano_escolhido) return;
+
+  const ids: string[] = JSON.parse(session.plano_escolhido);
+  const num = parseInt(message.trim());
+
+  if (isNaN(num) || num < 1 || num > ids.length) {
+    await sendMessage({ to: phone, message: `Manda um numero de 1 a ${ids.length}` });
+    return;
+  }
+
+  const corridaId = ids[num - 1];
+
+  const { data: corrida } = await supabase
+    .from("corridas")
+    .select("id, origem_endereco, destino_endereco, periodo, valor_prestador")
+    .eq("id", corridaId)
+    .single();
+
+  if (!corrida) return;
+
+  await updateSession(phone, { step: "fretista_cancelar_confirma" as any, corrida_id: corridaId });
+  await sendMessage({
+    to: phone,
+    message: `⚠️ *Quer cancelar este frete?*\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${corrida.periodo}\n💰 R$ ${corrida.valor_prestador}\n\n⚠️ Cancelar afeta seu *score* na plataforma.\n3 cancelamentos = desativacao.\n\nConfirma? Responda *SIM* ou *NAO*`,
+  });
+}
+
+async function handleCancelarConfirma(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session?.corrida_id) return;
+
+  const lower = message.toLowerCase().trim();
+
+  if (lower.startsWith("nao") || lower === "n" || lower.startsWith("não")) {
+    await updateSession(phone, { step: "aguardando_servico" as any });
+    await sendMessage({ to: phone, message: "Cancelamento anulado! ✅ Bom trabalho no frete! 🚚" });
+    return;
+  }
+
+  if (!lower.startsWith("sim") && lower !== "s") {
+    await sendMessage({ to: phone, message: "Responda *SIM* pra confirmar ou *NAO* pra manter o frete." });
+    return;
+  }
+
+  const corridaId = session.corrida_id;
+
+  // Busca dados da corrida
+  const { data: corrida } = await supabase
+    .from("corridas")
+    .select("id, cliente_id, clientes(telefone), origem_endereco, destino_endereco, periodo, valor_prestador, status")
+    .eq("id", corridaId)
+    .single();
+
+  // Penaliza fretista - score -2
+  const { data: prestador } = await supabase
+    .from("prestadores")
+    .select("id, score, total_reclamacoes")
+    .eq("telefone", phone)
+    .single();
+
+  if (prestador) {
+    const novoScore = Math.max(0, (prestador.score || 5) - 2);
+    const cancelamentos = (prestador.total_reclamacoes || 0) + 1;
+    const desativar = cancelamentos >= 3;
+
+    await supabase
+      .from("prestadores")
+      .update({
+        score: novoScore,
+        total_reclamacoes: cancelamentos,
+        ...(desativar ? { disponivel: false } : {}),
+      })
+      .eq("id", prestador.id);
+
+    if (desativar) {
+      await sendMessage({
+        to: phone,
+        message: "⛔ *Sua conta foi desativada* por excesso de cancelamentos.\n\nEntre em contato pra reativacao.",
+      });
+    }
+  }
+
+  // Libera corrida pra re-dispatch
+  await supabase
+    .from("corridas")
+    .update({ prestador_id: null, status: "pendente" })
+    .eq("id", corridaId);
+
+  await sendMessage({ to: phone, message: "Frete cancelado. ⚠️ Seu score foi penalizado (-2 pontos)." });
+
+  // Avisa o cliente
+  const clienteTel = (corrida?.clientes as any)?.telefone;
+  if (clienteTel) {
+    await sendMessage({
+      to: clienteTel,
+      message: "⚠️ Seu fretista teve um imprevisto e nao podera realizar o servico.\n\n*Ja estamos providenciando outro fretista de confianca!*\nVoce sera notificado assim que confirmarmos. 😊",
+    });
+
+    // Re-dispatch - busca novos fretistas (excluindo o que cancelou)
+    const sessionCliente = await getSession(clienteTel);
+    if (sessionCliente) {
+      await reDispatchUrgente(corridaId, sessionCliente, clienteTel, phone);
+    }
+  }
+
+  // Notifica admin
+  await notificarAdmin(
+    `⚠️ *FRETISTA CANCELOU*`,
+    clienteTel || phone,
+    `Fretista: ${formatarTelefoneExibicao(phone)}\nCorrida: ${corridaId}\n${corrida?.origem_endereco} → ${corrida?.destino_endereco}\n📅 ${corrida?.periodo}\nRe-dispatch em andamento`
+  );
+
+  await updateSession(phone, { step: "aguardando_servico" as any, corrida_id: null });
+}
+
+// === INDICAR AMIGO PRA FRETE ===
+
+async function handleIndicarFrete(phone: string) {
+  const { data: prestador } = await supabase
+    .from("prestadores")
+    .select("id")
+    .eq("telefone", phone)
+    .single();
+
+  if (!prestador) {
+    await sendMessage({ to: phone, message: "Voce nao tem cadastro de prestador na Pegue." });
+    return;
+  }
+
+  const { data: corridas } = await supabase
+    .from("corridas")
+    .select("id, origem_endereco, destino_endereco, periodo, valor_prestador")
+    .eq("prestador_id", prestador.id)
+    .in("status", ["aceita", "paga"])
+    .order("criado_em", { ascending: true });
+
+  if (!corridas || corridas.length === 0) {
+    await sendMessage({ to: phone, message: "Voce nao tem fretes ativos pra indicar. 😊" });
+    return;
+  }
+
+  if (corridas.length === 1) {
+    await updateSession(phone, { step: "fretista_indicar_telefone" as any, corrida_id: corridas[0].id });
+    const c = corridas[0];
+    await sendMessage({
+      to: phone,
+      message: `🤝 *Indicar amigo para este frete:*\n\n📍 ${c.origem_endereco} → ${c.destino_endereco}\n📅 ${c.periodo}\n💰 R$ ${c.valor_prestador}\n\nManda o *numero de WhatsApp* do parceiro (com DDD):`,
+    });
+    return;
+  }
+
+  let lista = "📋 *Qual frete quer indicar pra um amigo?*\n\n";
+  corridas.forEach((c, i) => {
+    lista += `${i + 1}️⃣ ${c.periodo} - ${c.origem_endereco} → ${c.destino_endereco} (R$ ${c.valor_prestador})\n`;
+  });
+  lista += "\nManda o *numero*";
+
+  await updateSession(phone, {
+    step: "fretista_indicar_qual" as any,
+    plano_escolhido: JSON.stringify(corridas.map(c => c.id)),
+  });
+
+  await sendMessage({ to: phone, message: lista });
+}
+
+async function handleIndicarQual(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session?.plano_escolhido) return;
+
+  const ids: string[] = JSON.parse(session.plano_escolhido);
+  const num = parseInt(message.trim());
+
+  if (isNaN(num) || num < 1 || num > ids.length) {
+    await sendMessage({ to: phone, message: `Manda um numero de 1 a ${ids.length}` });
+    return;
+  }
+
+  const corridaId = ids[num - 1];
+  const { data: corrida } = await supabase
+    .from("corridas")
+    .select("id, origem_endereco, destino_endereco, periodo, valor_prestador")
+    .eq("id", corridaId)
+    .single();
+
+  if (!corrida) return;
+
+  await updateSession(phone, { step: "fretista_indicar_telefone" as any, corrida_id: corridaId });
+  await sendMessage({
+    to: phone,
+    message: `🤝 *Indicar amigo para:*\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${corrida.periodo}\n\nManda o *numero de WhatsApp* do parceiro (com DDD):`,
+  });
+}
+
+async function handleIndicarTelefone(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session?.corrida_id) return;
+
+  // Limpa telefone
+  const tel = message.replace(/\D/g, "");
+  const telFormatado = tel.startsWith("55") ? tel : `55${tel}`;
+
+  if (tel.length < 10) {
+    await sendMessage({ to: phone, message: "Numero invalido. Manda com DDD (ex: 11 95555-1234)" });
+    return;
+  }
+
+  // Verifica se o amigo tem cadastro aprovado
+  const { data: amigo } = await supabase
+    .from("prestadores")
+    .select("id, nome, telefone, status")
+    .eq("telefone", telFormatado)
+    .single();
+
+  if (!amigo) {
+    await sendMessage({
+      to: phone,
+      message: `Esse numero nao esta cadastrado na Pegue. 😔\n\nPede pro seu amigo se cadastrar mandando *Parcerias Pegue* pro nosso WhatsApp!`,
+    });
+    await updateSession(phone, { step: "aguardando_servico" as any });
+    return;
+  }
+
+  if (amigo.status !== "aprovado") {
+    await sendMessage({ to: phone, message: "Esse parceiro ainda nao foi aprovado no sistema. Assim que for aprovado, podera receber indicacoes." });
+    await updateSession(phone, { step: "aguardando_servico" as any });
+    return;
+  }
+
+  // Busca dados da corrida
+  const { data: corrida } = await supabase
+    .from("corridas")
+    .select("id, origem_endereco, destino_endereco, periodo, valor_prestador, descricao_carga")
+    .eq("id", session.corrida_id)
+    .single();
+
+  if (!corrida) return;
+
+  // Envia convite pro amigo
+  await sendMessage({
+    to: amigo.telefone,
+    message: `🤝 *Indicacao de parceiro!*\n\nUm parceiro Pegue esta te indicando pra um frete:\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📦 ${corrida.descricao_carga || "Material"}\n📅 ${corrida.periodo}\n💰 Voce recebe: R$ ${corrida.valor_prestador}\n\nQuer *PEGAR* esse frete? Responda *PEGAR*`,
+  });
+
+  // Transfere o frete pro amigo (o antigo fretista sai)
+  await supabase
+    .from("corridas")
+    .update({ prestador_id: amigo.id })
+    .eq("id", session.corrida_id);
+
+  await sendMessage({
+    to: phone,
+    message: `Frete transferido pra *${amigo.nome}*! ✅\nEle ja foi notificado. Obrigado pela indicacao! 🤝`,
+  });
+
+  // Notifica admin
+  await notificarAdmin(
+    `🤝 *FRETE INDICADO*`,
+    phone,
+    `De: ${formatarTelefoneExibicao(phone)}\nPara: ${amigo.nome} (${formatarTelefoneExibicao(amigo.telefone)})\nCorrida: ${session.corrida_id}`
+  );
+
+  await updateSession(phone, { step: "aguardando_servico" as any, corrida_id: null });
+}
+
+// === RE-DISPATCH URGENTE (PRIORIDADE IMEDIATA) ===
+
+async function reDispatchUrgente(corridaId: string, session: BotSession, clientePhone: string, excluirPhone?: string) {
+  try {
+    const { data: prestadores } = await supabase
+      .from("prestadores")
+      .select("telefone, nome")
+      .eq("disponivel", true)
+      .eq("status", "aprovado");
+
+    if (!prestadores || prestadores.length === 0) {
+      await sendMessage({ to: clientePhone, message: MSG.nenhumFretista });
+      await notificarAdmin(
+        `🚨 *URGENTE: NENHUM FRETISTA PRA RE-DISPATCH*`,
+        clientePhone,
+        `Corrida: ${corridaId}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}`
+      );
+      return;
+    }
+
+    // Exclui o fretista que cancelou/sumiu
+    const telefones = prestadores
+      .map(p => p.telefone)
+      .filter(t => t !== excluirPhone);
+
+    if (telefones.length === 0) {
+      await sendMessage({ to: clientePhone, message: MSG.nenhumFretista });
+      await notificarAdmin(`🚨 *SEM FRETISTAS DISPONIVEIS PRA RE-DISPATCH*`, clientePhone, `Corrida: ${corridaId}`);
+      return;
+    }
+
+    createDispatch(corridaId, clientePhone, telefones);
+
+    const valorPrestador = Math.round((session.valor_estimado || 0) * 0.88);
+
+    const mensagem = `🚨 *PRIORIDADE IMEDIATA*\n⚡ Frete URGENTE!\n\n📍 Origem: ${session.origem_endereco || "SP"}\n🏠 Destino: ${session.destino_endereco || "Destino"}\n📦 ${session.descricao_carga || "Material"}\n📅 ${session.data_agendada || "AGORA"}\n💰 Voce recebe: R$ ${valorPrestador}\n\n⚠️ *Precisa confirmar disponibilidade IMEDIATA*\nResponda *PEGAR* se pode ir!`;
+
+    await sendMessageToMany(telefones, mensagem);
+
+    // Timeout: se ninguem aceitar em 5min, notifica admin
+    setTimeout(async () => {
+      const vencedor = resolveDispatch(corridaId);
+      if (vencedor) {
+        await notificarResultadoDispatch(corridaId, vencedor, clientePhone);
+      } else {
+        finalizeDispatch(corridaId);
+        await notificarAdmin(
+          `🚨 *URGENTE: NINGUEM ACEITOU RE-DISPATCH*`,
+          clientePhone,
+          `Corrida: ${corridaId}\nNenhum fretista aceitou o frete urgente.\nCliente aguardando. Intervencao necessaria.`
+        );
+      }
+    }, 300000); // 5 min
+  } catch (error: any) {
+    console.error("Erro re-dispatch:", error?.message);
+    await notificarAdmin(`🚨 *ERRO NO RE-DISPATCH*`, clientePhone, `Corrida: ${corridaId}\nErro: ${error?.message}`);
+  }
+}
+
+// === LEMBRETE PROGRESSIVO (2h/1h/40min) ===
+// Nota: Este sistema funciona via API /api/enviar-lembrete que pode ser chamada
+// por um cron job externo. Os lembretes sao agendados quando o frete e confirmado.
+
+async function agendarLembretes(corridaId: string, fretistaTel: string, clienteTel: string, dataAgendada: string) {
+  // Salva na corrida que lembretes foram agendados
+  await supabase
+    .from("corridas")
+    .update({ urgencia: "lembrete_agendado" })
+    .eq("id", corridaId);
+
+  // Os lembretes serao disparados pela API /api/enviar-lembrete via cron
+  // Aqui so registramos no log pra rastreabilidade
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "lembrete_agendado",
+      corrida_id: corridaId,
+      fretista: fretistaTel,
+      cliente: clienteTel,
+      data: dataAgendada,
+    },
+  });
 }
 
 // === GUINCHO HANDLERS ===

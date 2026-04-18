@@ -37,6 +37,11 @@ export type BotStep =
   | "guincho_categoria"
   | "guincho_localizacao"
   | "guincho_destino"
+  | "aguardando_horario"
+  | "fretista_cancelar_qual"
+  | "fretista_cancelar_confirma"
+  | "fretista_indicar_qual"
+  | "fretista_indicar_telefone"
   | "dispatch_fretistas"
   | "concluido"
   | "atendimento_humano";

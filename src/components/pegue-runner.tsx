@@ -426,7 +426,8 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
 
     if (truckImgRef.current) {
       const img = truckImgRef.current;
-      const drawW = 140;
+      const screenW = ctx.canvas.width;
+      const drawW = Math.min(screenW * 0.35, 200); // carro = 35% da tela, max 200
       const drawH = (img.height / img.width) * drawW;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, x - 25, ty - drawH + TRUCK_SIZE + 15, drawW, drawH);
@@ -607,7 +608,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       // Industria Otimizi - imagem PNG real
       if (otimiziImgRef.current) {
         const oImg = otimiziImgRef.current;
-        const drawW = 200;
+        const drawW = ctx.canvas.width * 0.3; // otimizi landmark
         const drawH = (oImg.height / oImg.width) * drawW;
         ctx.drawImage(oImg, lm.x - 50, baseY - drawH + 5, drawW, drawH);
       } else {
@@ -1179,6 +1180,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
 
   // === DRAW OBSTACLE (expandido + destacado) ===
   function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obstacle, groundY: number) {
+    const screenW = ctx.canvas.width;
     // Sombra base pra todos os obstaculos (destaca do fundo)
     if (obs.type !== "boss" && obs.type !== "buraco" && obs.type !== "bueiro" && obs.type !== "cachorro") {
       ctx.fillStyle = "rgba(0,0,0,0.35)";
@@ -1208,7 +1210,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       // Cone - imagem PNG
       if (coneImgRef.current) {
         const cnImg = coneImgRef.current;
-        const drawW = 50;
+        const drawW = screenW * 0.12; // cone
         const drawH = (cnImg.height / cnImg.width) * drawW;
         ctx.drawImage(cnImg, obs.x - 5, groundY - drawH * 0.7, drawW, drawH);
       } else {
@@ -1328,7 +1330,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       const my = groundY;
       if (motoboyImgRef.current) {
         const mImg = motoboyImgRef.current;
-        const drawW = 90;
+        const drawW = screenW * 0.2; // motoboy
         const drawH = (mImg.height / mImg.width) * drawW;
         ctx.drawImage(mImg, mx - 5, my - drawH * 0.7, drawW, drawH);
       } else {
@@ -1495,7 +1497,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // Usa width do obstaculo como seed fixa (nao muda durante a vida do obstaculo)
         const cvIdx = (obs.variant || 0) % cvImgs.length;
         const cvImg = cvImgs[cvIdx];
-        const drawW = 65;
+        const drawW = screenW * 0.15; // cavalete
         const drawH = (cvImg.height / cvImg.width) * drawW;
         ctx.drawImage(cvImg, obs.x - 3, groundY - drawH * 0.7, drawW, drawH);
       } else {
@@ -1511,7 +1513,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       if (vcImgs.length > 0) {
         const vcIdx = (obs.variant || 0) % vcImgs.length;
         const vcImg = vcImgs[vcIdx];
-        const drawW = 160;
+        const drawW = screenW * 0.3; // veiculo cegonha
         const drawH = (vcImg.height / vcImg.width) * drawW;
         ctx.drawImage(vcImg, obs.x - 15, groundY - drawH * 0.55, drawW, drawH);
       } else {
@@ -1527,7 +1529,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       if (ctImgs.length > 0) {
         const ctIdx = (obs.variant || 0) % ctImgs.length;
         const ctImg = ctImgs[ctIdx];
-        const drawW = 85;
+        const drawW = screenW * 0.18; // container
         const drawH = (ctImg.height / ctImg.width) * drawW;
         ctx.drawImage(ctImg, obs.x - 5, groundY - drawH * 0.7, drawW, drawH);
       } else {
@@ -1545,7 +1547,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // Escolhe caixa baseado na posicao X (deterministica pra nao piscar)
         const cIdx = (obs.variant || 0) % caixas.length;
         const cImg = caixas[cIdx];
-        const drawW = 75;
+        const drawW = screenW * 0.16; // caixa madeira
         const drawH = (cImg.height / cImg.width) * drawW;
         ctx.drawImage(cImg, obs.x - 5, groundY - drawH * 0.7, drawW, drawH);
       } else {
@@ -1561,7 +1563,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       // Saco de lixo - usa imagem PNG
       if (sacoLixoImgRef.current) {
         const sImg = sacoLixoImgRef.current;
-        const drawW = 60;
+        const drawW = screenW * 0.14; // saco lixo
         const drawH = (sImg.height / sImg.width) * drawW;
         ctx.drawImage(sImg, obs.x - 3, groundY - drawH * 0.7, drawW, drawH);
       } else {
@@ -1596,7 +1598,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (policiaImgRef.current) {
           const pImg = policiaImgRef.current;
-          const drawW = Math.min(230, ctx.canvas.width * 0.5);
+          const drawW = screenW * 0.45; // PRF
           const drawH = (pImg.height / pImg.width) * drawW;
           ctx.drawImage(pImg, bx - 20, by - drawH * 0.55, drawW, drawH);
         } else {
@@ -1621,7 +1623,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (brutoImgRef.current) {
           const bImg = brutoImgRef.current;
-          const drawW = Math.min(500, ctx.canvas.width * 0.7);
+          const drawW = screenW * 0.6; // bruto
           const drawH = (bImg.height / bImg.width) * drawW;
           ctx.drawImage(bImg, bx - 20, by - drawH * 0.55, drawW, drawH);
         } else {
@@ -1645,7 +1647,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (coletorImgRef.current) {
           const cImg = coletorImgRef.current;
-          const drawW = Math.min(420, ctx.canvas.width * 0.65);
+          const drawW = screenW * 0.55; // coletor
           const drawH = (cImg.height / cImg.width) * drawW;
           ctx.drawImage(cImg, bx - 30, by - drawH * 0.55, drawW, drawH);
         } else {
@@ -1663,7 +1665,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (cegonhaImgRef.current) {
           const cImg = cegonhaImgRef.current;
-          const drawW = Math.min(500, ctx.canvas.width * 0.7);
+          const drawW = screenW * 0.6; // cegonha
           const drawH = (cImg.height / cImg.width) * drawW;
           ctx.drawImage(cImg, bx - 20, by - drawH * 0.55, drawW, drawH);
         } else {
@@ -1684,7 +1686,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         // =============================================
         if (guinchoImgRef.current) {
           const gImg = guinchoImgRef.current;
-          const drawW = Math.min(300, ctx.canvas.width * 0.55);
+          const drawW = screenW * 0.5; // guincho
           const drawH = (gImg.height / gImg.width) * drawW;
           ctx.drawImage(gImg, bx - 25, by - drawH * 0.55, drawW, drawH);
         } else {
@@ -3514,7 +3516,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           // OTIMIZI na posicao da casa (sobre a pista)
           try {
             const oImg = otimiziImgRef.current;
-            const oDrawW = Math.min(W * 0.7, 320);
+            const oDrawW = W * 0.55; // otimizi
             const oDrawH = (oImg.height / oImg.width) * oDrawW;
             ctx.drawImage(oImg, cx + 10, gy - oDrawH + 5, oDrawW, oDrawH);
             // 4 pessoas na frente

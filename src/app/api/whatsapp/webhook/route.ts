@@ -281,6 +281,7 @@ async function handleClienteMessage(
 *Para clientes:*
 ✅ *Oi* → iniciar atendimento
 ✅ *minha conta* → ver seu historico
+🎮 *JOGAR* → jogar Pegue Runner!
 
 *Para parceiros:*
 ✅ *PEGAR* → aceitar um frete
@@ -321,6 +322,25 @@ async function handleClienteMessage(
   // Controle financeiro - ver gastos
   if (lower === "meus gastos" || lower === "minhas despesas" || lower === "extrato" || lower === "gastos" || lower === "despesas" || lower === "meu extrato") {
     await handleVerGastos(phone);
+    return;
+  }
+
+  // Comando JOGAR - envia link do jogo Pegue Runner
+  if (lower === "jogar" || lower === "jogo" || lower === "game" || lower === "pegue runner") {
+    const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
+    await sendMessage({
+      to: phone,
+      message: `🎮 *PEGUE RUNNER!*
+
+${primeiroNome}, jogue enquanto espera seu frete! 🚚💨
+
+Desvie dos obstaculos pelas ruas de SP, enfrente bosses e entre pro ranking!
+
+👉 pegue-eta.vercel.app/jogo
+
+🏆 Recorde atual? Veja no ranking dentro do jogo!
+Boa sorte! 🎯`,
+    });
     return;
   }
 
@@ -464,6 +484,17 @@ async function handleClienteMessage(
       });
       break;
 
+    // === GUINCHO ===
+    case "guincho_categoria":
+      await handleGuinchoCategoria(phone, message);
+      break;
+    case "guincho_localizacao":
+      await handleGuinchoLocalizacao(phone, message, lat, lng);
+      break;
+    case "guincho_destino":
+      await handleGuinchoDestino(phone, message);
+      break;
+
     default:
       await createSession(phone);
       await updateSession(phone, { step: "aguardando_servico" });
@@ -489,7 +520,20 @@ async function handleEscolhaServico(phone: string, message: string) {
   }
 
   if (lower === "3" || lower.includes("guincho")) {
-    await sendMessage({ to: phone, message: MSG.guincho });
+    // Verifica se guincho esta habilitado no controle
+    const { data: cfgGuincho } = await supabase
+      .from("configuracoes")
+      .select("valor")
+      .eq("chave", "sistema_guincho")
+      .single();
+
+    if (cfgGuincho?.valor === "desabilitado") {
+      await sendMessage({ to: phone, message: MSG.guinchoDesativado });
+      return;
+    }
+
+    await updateSession(phone, { step: "guincho_categoria" as any });
+    await sendMessage({ to: phone, message: MSG.guinchoMenu });
     return;
   }
 
@@ -922,6 +966,8 @@ async function handleAjudante(phone: string, message: string) {
     utilitario: "Utilitario (Strada/Saveiro)",
     hr: "HR",
     caminhao_bau: "Caminhao Bau",
+    guincho: "Guincho",
+    moto_guincho: "Guincho de Moto",
   };
 
   await updateSession(phone, {
@@ -957,6 +1003,8 @@ async function handleData(phone: string, message: string) {
     utilitario: "Utilitario (Strada/Saveiro)",
     hr: "HR",
     caminhao_bau: "Caminhao Bau",
+    guincho: "Guincho",
+    moto_guincho: "Guincho de Moto",
   };
 
   // Montar detalhes
@@ -2097,6 +2145,175 @@ Responda SOMENTE o JSON.`,
     console.error("Erro OpenAI Vision:", error?.message);
     return null;
   }
+}
+
+// === GUINCHO HANDLERS ===
+
+const GUINCHO_CATEGORIAS: Record<string, string> = {
+  "1": "Pneu furado",
+  "2": "Bateria descarregada",
+  "3": "Pane mecanica",
+  "4": "Acidente",
+  "5": "Guincho para oficina",
+  "6": "Guincho de moto",
+};
+
+const GUINCHO_PRECOS: Record<string, number> = {
+  "1": 180,  // Pneu furado
+  "2": 150,  // Bateria
+  "3": 250,  // Pane mecanica
+  "4": 350,  // Acidente
+  "5": 200,  // Guincho oficina
+  "6": 180,  // Moto
+};
+
+async function handleGuinchoCategoria(phone: string, message: string) {
+  const lower = message.trim();
+
+  const categoria = GUINCHO_CATEGORIAS[lower];
+  if (!categoria) {
+    await sendMessage({
+      to: phone,
+      message: "Escolha uma opcao de 1 a 6! 😊\n\n" + Object.entries(GUINCHO_CATEGORIAS).map(([k, v]) => `${k}️⃣ *${v}*`).join("\n"),
+    });
+    return;
+  }
+
+  await updateSession(phone, {
+    step: "guincho_localizacao" as any,
+    descricao_carga: `Guincho: ${categoria}`,
+    veiculo_sugerido: lower === "6" ? "moto_guincho" : "guincho",
+    plano_escolhido: lower, // guarda a categoria
+  });
+  await sendMessage({ to: phone, message: MSG.guinchoPedirLocalizacao(categoria) });
+}
+
+async function handleGuinchoLocalizacao(
+  phone: string, message: string, lat: number | null, lng: number | null
+) {
+  let endereco = "";
+  let latitude = lat;
+  let longitude = lng;
+
+  // Tenta GPS primeiro
+  if (lat && lng) {
+    const geo = await reverseGeocode(lat, lng);
+    endereco = geo || `${lat},${lng}`;
+  } else {
+    // Tenta CEP
+    const cep = extrairCep(message);
+    if (cep) {
+      const endCep = await buscaCep(cep);
+      if (endCep) {
+        endereco = endCep;
+        const coords = await geocodeAddress(endCep);
+        latitude = coords?.lat || null;
+        longitude = coords?.lng || null;
+      }
+    }
+    // Tenta endereco
+    if (!endereco && pareceEndereco(message)) {
+      const coords = await geocodeAddress(message);
+      if (coords) {
+        endereco = message.trim();
+        latitude = coords.lat;
+        longitude = coords.lng;
+      }
+    }
+  }
+
+  if (!endereco) {
+    await sendMessage({
+      to: phone,
+      message: "Nao consegui achar esse endereco 😅\n\nManda sua *localizacao pelo clipe* 📎 ou digite o *CEP* ou *endereco completo* (rua + bairro)",
+    });
+    return;
+  }
+
+  await updateSession(phone, {
+    step: "guincho_destino" as any,
+    origem_endereco: endereco,
+    origem_lat: latitude,
+    origem_lng: longitude,
+  });
+
+  await sendMessage({ to: phone, message: MSG.guinchoPedirDestino });
+}
+
+async function handleGuinchoDestino(phone: string, message: string) {
+  const lower = message.toLowerCase().trim();
+  const session = await getSession(phone);
+  if (!session) return;
+
+  let destino = "";
+  let destLat: number | null = null;
+  let destLng: number | null = null;
+
+  if (lower === "2" || lower.includes("nao sei") || lower.includes("indica")) {
+    // Pegue indica - usa destino generico
+    destino = "Oficina/borracharia mais proxima (Pegue indica)";
+  } else if (lower === "1") {
+    // Pediu pra mandar endereco
+    await sendMessage({
+      to: phone,
+      message: "Me manda o *endereco da oficina/borracharia* ou o *CEP* 🏠",
+    });
+    return; // Fica no mesmo step aguardando endereco
+  } else {
+    // Tentou mandar endereco direto
+    const cep = extrairCep(message);
+    if (cep) {
+      const endCep = await buscaCep(cep);
+      if (endCep) {
+        destino = endCep;
+        const coords = await geocodeAddress(endCep);
+        destLat = coords?.lat || null;
+        destLng = coords?.lng || null;
+      }
+    }
+    if (!destino && pareceEndereco(message)) {
+      const coords = await geocodeAddress(message);
+      if (coords) {
+        destino = message.trim();
+        destLat = coords.lat;
+        destLng = coords.lng;
+      }
+    }
+    if (!destino) {
+      // Aceita texto livre como nome da oficina
+      destino = message.trim();
+    }
+  }
+
+  // Calcular preco baseado na categoria
+  const categoriaNum = session.plano_escolhido || "3";
+  const precoBase = GUINCHO_PRECOS[categoriaNum] || 250;
+  let distKm = 0;
+
+  // Se tem coordenadas dos dois pontos, calcula distancia
+  if (session.origem_lat && session.origem_lng && destLat && destLng) {
+    distKm = calcularDistanciaKm(session.origem_lat, session.origem_lng, destLat, destLng);
+  }
+
+  // Preco: base + R$8/km apos 5km
+  const kmExtra = Math.max(0, distKm - 5);
+  const valorTotal = Math.round(precoBase + kmExtra * 8);
+
+  const categoria = GUINCHO_CATEGORIAS[categoriaNum] || "Guincho";
+
+  await updateSession(phone, {
+    step: "aguardando_data",
+    destino_endereco: destino,
+    destino_lat: destLat,
+    destino_lng: destLng,
+    distancia_km: distKm || null,
+    valor_estimado: valorTotal,
+  });
+
+  await sendMessage({
+    to: phone,
+    message: MSG.guinchoOrcamento(categoria, session.origem_endereco || "", destino, valorTotal.toString()),
+  });
 }
 
 function getItemEmoji(item: string): string {

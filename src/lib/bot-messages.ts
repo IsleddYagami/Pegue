@@ -18,11 +18,58 @@ O local de retirada voce informa clicando no *clipe* 📎 ao lado de onde voce d
 
 Ou se preferir, digite o *CEP* ou *endereco com rua e bairro*`,
 
-  guincho: `Para guincho, fala direto com nosso especialista *Santos*! 😊
-Ele vai te atender rapidinho:
+  guinchoMenu: `🚗 *SERVICO DE GUINCHO*
+
+Qual a situacao do seu veiculo?
+
+1️⃣ *Pneu furado* (sem estepe)
+2️⃣ *Bateria descarregada*
+3️⃣ *Pane mecanica* (nao liga / parou)
+4️⃣ *Acidente* (veiculo nao anda)
+5️⃣ *Guincho para oficina* (levar pra manutencao)
+6️⃣ *Moto* (guincho de moto)
+
+Manda o numero da opcao! 😊`,
+
+  guinchoDesativado: `O servico de guincho esta temporariamente indisponivel 😔
+
+Fala direto com nosso especialista *Santos*:
 📱 (11) 97142-9605
 
-Pode chamar agora mesmo! 🚗`,
+Ele resolve pra voce! 🚗`,
+
+  guinchoPedirLocalizacao: (categoria: string) =>
+    `Entendi! *${categoria}* 🚗
+
+Agora preciso saber *onde voce esta*!
+
+Clique no *clipe* 📎 > *Localizacao* 📍
+
+Ou digite o *CEP* ou *endereco com rua e bairro*`,
+
+  guinchoPedirDestino: `Pra onde quer levar o veiculo?
+
+1️⃣ *Mandar endereco* da oficina/borracharia
+2️⃣ *Nao sei* - quero que a Pegue indique uma proxima
+
+Manda o numero ou o endereco direto! 😊`,
+
+  guinchoOrcamento: (
+    categoria: string,
+    origem: string,
+    destino: string,
+    valor: string
+  ) =>
+    `Preparei seu orcamento de guincho! 🚗
+
+🔧 *Servico:* ${categoria}
+📍 *Local:* ${origem}
+🏠 *Destino:* ${destino}
+
+✅ *Total: R$ ${valor}*
+
+Pra quando voce precisa? Me manda a *data* e *horario* 📅
+(Ou digite *AGORA* se for urgente!)`,
 
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅

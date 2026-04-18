@@ -34,6 +34,9 @@ export type BotStep =
   | "avaliacao_sugestao"
   | "aguardando_confirmacao"
   | "aguardando_pagamento"
+  | "guincho_categoria"
+  | "guincho_localizacao"
+  | "guincho_destino"
   | "dispatch_fretistas"
   | "concluido"
   | "atendimento_humano";

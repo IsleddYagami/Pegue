@@ -11,8 +11,8 @@ const FASES = [
   { fase: 3, nome: "Bairro SP", boss: "Cegonha", cenario: "Casas/Postes + Otimizi", cor: "#33AA33" },
   { fase: 4, nome: "Santos", boss: "Bruto do Porto", cenario: "Praia/Guindastes", cor: "#E65100" },
   { fase: 5, nome: "Aeroporto", boss: "O Coletor", cenario: "Avião/Prédios", cor: "#553300" },
-  { fase: 6, nome: "Zona Leste", boss: "Guincho CET", cenario: "Conjuntos + Terra", cor: "#CC3333" },
-  { fase: 7, nome: "Serra do Mar", boss: "Polícia PRF", cenario: "Vegetação/Neblina", cor: "#1B5E20" },
+  { fase: 6, nome: "Zona Leste", boss: "Caterpillar Minerador", cenario: "Conjuntos + Terra", cor: "#CC3333" },
+  { fase: 7, nome: "Serra do Mar", boss: "Guincho CET", cenario: "Vegetação/Neblina", cor: "#1B5E20" },
 ];
 
 export default function TesteBoss() {

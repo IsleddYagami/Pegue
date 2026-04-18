@@ -23,7 +23,7 @@ interface Obstacle {
   height: number;
   type: "barreira" | "buraco" | "cone" | "pedra" | "motoqueiro" | "motoboy" | "radar" | "boss"
     | "bueiro" | "ambulante" | "catador" | "onibus_parado" | "cachorro"
-    | "caixa_madeira" | "saco_lixo" | "cavalete" | "container" | "veiculo_cegonha"; // obstaculos com imagem
+    | "caixa_madeira" | "saco_lixo" | "cavalete" | "container" | "veiculo_cegonha" | "rocha_img"; // obstaculos com imagem
   variant?: number; // variacao visual (indice da imagem)
   vy?: number;
   flashTimer?: number;
@@ -222,7 +222,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
     bossTimer: 0,
     bossSpawnTimer: 0,
     bossDerrotaTimer: 0,
-    bossType: "guincho" as "guincho" | "guarda" | "cegonha" | "bruto" | "coletor",
+    bossType: "guincho" as "guincho" | "guarda" | "cegonha" | "bruto" | "coletor" | "caterpilar",
     // Boss 2 - Guarda Rodoviario: 3 multas = eliminado
     guardaMultas: 0,
     // Boss 3 - Cegonha
@@ -273,6 +273,8 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
   const sacoLixoImgRef = useRef<HTMLImageElement | null>(null);
   const caixasImgRef = useRef<HTMLImageElement[]>([]);
   const containersImgRef = useRef<HTMLImageElement[]>([]);
+  const caterpilarImgRef = useRef<HTMLImageElement | null>(null);
+  const rochasImgRef = useRef<HTMLImageElement[]>([]);
   const veiculosCegonhaImgRef = useRef<HTMLImageElement[]>([]);
   const cavaletesImgRef = useRef<HTMLImageElement[]>([]);
   const coneImgRef = useRef<HTMLImageElement | null>(null);
@@ -333,6 +335,14 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
       const vi = new window.Image();
       vi.src = src;
       vi.onload = () => { veiculosCegonhaImgRef.current.push(vi); };
+    });
+    const catImg = new window.Image();
+    catImg.src = "/Caterpilar Minerador.png";
+    catImg.onload = () => { caterpilarImgRef.current = catImg; };
+    ["/rochas.png", "/rocha 2.png"].forEach((src) => {
+      const ri = new window.Image();
+      ri.src = src;
+      ri.onload = () => { rochasImgRef.current.push(ri); };
     });
     ["/CONTAINER BOSS PORTO.png", "/CONTAINER BOSS PORTO 2.png"].forEach((src) => {
       const ct = new window.Image();
@@ -427,7 +437,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
     if (truckImgRef.current) {
       const img = truckImgRef.current;
       const screenW = ctx.canvas.width;
-      const drawW = Math.min(screenW * 0.35, 200); // carro = 35% da tela, max 200
+      const drawW = Math.min(screenW * 0.28, 160); // carro = 28% da tela
       const drawH = (img.height / img.width) * drawW;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, x - 25, ty - drawH + TRUCK_SIZE + 15, drawW, drawH);
@@ -1507,6 +1517,25 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
         ctx.fillRect(obs.x, groundY - obs.height * 0.5, obs.width, 5);
       }
     }
+    else if (obs.type === "rocha_img") {
+      // Rocha com imagem PNG
+      const rcImgs = rochasImgRef.current;
+      if (rcImgs.length > 0) {
+        const rcIdx = (obs.variant || 0) % rcImgs.length;
+        const rcImg = rcImgs[rcIdx];
+        const drawW = screenW * 0.18;
+        const drawH = (rcImg.height / rcImg.width) * drawW;
+        ctx.drawImage(rcImg, obs.x - 5, groundY - drawH * 0.7, drawW, drawH);
+      } else {
+        ctx.fillStyle = "#888";
+        ctx.beginPath();
+        ctx.moveTo(obs.x, groundY);
+        ctx.lineTo(obs.x + 10, groundY - obs.height);
+        ctx.lineTo(obs.x + obs.width, groundY);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
     else if (obs.type === "veiculo_cegonha") {
       // Veiculo derrubado pela cegonha - imagem PNG aleatoria
       const vcImgs = veiculosCegonhaImgRef.current;
@@ -1657,6 +1686,22 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           ctx.font = "bold 8px Arial";
           ctx.textAlign = "center";
           ctx.fillText("O COLETOR", bx + 65, by - 22);
+        }
+
+      } else if (gameRef.current.bossType === "caterpilar") {
+        // BOSS 6: CATERPILLAR MINERADOR
+        if (caterpilarImgRef.current) {
+          const catImg = caterpilarImgRef.current;
+          const drawW = screenW * 0.65; // grande
+          const drawH = (catImg.height / catImg.width) * drawW;
+          ctx.drawImage(catImg, bx - 25, by - drawH * 0.55, drawW, drawH);
+        } else {
+          ctx.fillStyle = "#E8B800";
+          ctx.fillRect(bx, by - 50, 120, 45);
+          ctx.fillStyle = "#000";
+          ctx.font = "bold 8px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("CAT", bx + 60, by - 25);
         }
 
       } else if (!isGuarda && gameRef.current.bossType === "cegonha") {
@@ -2642,12 +2687,12 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           g.cegonhaCarrosPulados = 0;
           g.cegonhaCarrosJogados = 0;
           // Rotacao de 5 bosses
-          const bossRotation: Array<"guincho" | "guarda" | "cegonha" | "bruto" | "coletor"> = ["guincho", "guarda", "cegonha", "bruto", "coletor"];
-          g.bossType = bossRotation[(g.phase - 1) % 5];
+          const bossRotation: Array<"guincho" | "guarda" | "cegonha" | "bruto" | "coletor" | "caterpilar"> = ["guincho", "guarda", "cegonha", "bruto", "coletor", "caterpilar"];
+          g.bossType = bossRotation[(g.phase - 1) % 6];
           // Limpa tudo e spawna boss
           g.obstacles = [];
           g.trafficLights = [];
-          const bossHpMap: Record<string, number> = { cegonha: 4, bruto: 6, coletor: 10, guincho: 10, guarda: 10 };
+          const bossHpMap: Record<string, number> = { cegonha: 4, bruto: 6, coletor: 10, guincho: 10, guarda: 10, caterpilar: 8 };
           g.obstacles.push({
             x: W + 80, width: 120, height: 70,
             type: "boss", vy: 0, flashTimer: 0, multado: false,
@@ -2660,6 +2705,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
             cegonha: "🚛 CEGONHA LOUCA! PULE 4 CARROS!",
             bruto: "🚚 O BRUTO DO PORTO! DESVIE DE 6 CONTAINERS!",
             coletor: "🗑️ O COLETOR! DESVIE DE 10 SACOS DE LIXO!",
+            caterpilar: "🪨 CATERPILLAR MINERADOR! DESVIE DE 8 ROCHAS!",
           };
           showStatus(bossMsg[g.bossType] || "BOSS!", 100);
           playSound("game-combo");
@@ -2739,6 +2785,18 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
                 if (bossObs) bossObs.bossHits = g.cegonhaCarrosJogados;
               }
             }
+          } else if (g.bossType === "caterpilar") {
+            // === BOSS 6: CATERPILLAR MINERADOR - joga 8 rochas ===
+            if (g.cegonhaCarrosJogados < 8) {
+              g.bossSpawnTimer--;
+              if (g.bossSpawnTimer <= 0) {
+                g.cegonhaCarrosJogados++;
+                g.obstacles.push({ x: W + 10, width: 55, height: 40, type: "rocha_img", variant: Math.floor(Math.random() * 10), vy: 0, flashTimer: 0, multado: false });
+                g.bossSpawnTimer = 65 + Math.random() * 30;
+                showStatus(`ROCHA ${g.cegonhaCarrosJogados}/8!`, 25);
+                if (bossObs) bossObs.bossHits = g.cegonhaCarrosJogados;
+              }
+            }
           } else if (g.bossType === "cegonha") {
             // === BOSS 3: CEGONHA LOUCA - derruba veiculos, pule 4 pra vencer ===
             if (g.cegonhaCarrosJogados < 4) {
@@ -2760,12 +2818,12 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           }
 
           // Checa vitoria de bosses que contam objetos (cegonha=4, bruto=6, coletor=10)
-          const bossObjCount: Record<string, number> = { cegonha: 4, bruto: 6, coletor: 10 };
+          const bossObjCount: Record<string, number> = { cegonha: 4, bruto: 6, coletor: 10, caterpilar: 8 };
           const maxObj = bossObjCount[g.bossType];
           if (maxObj && g.cegonhaCarrosJogados >= maxObj) {
             // Conta so obstaculos do boss (tipos especificos que cada boss joga)
             const bossObsTypes: Record<string, string[]> = {
-              cegonha: ["veiculo_cegonha"], bruto: ["container", "caixa_madeira"], coletor: ["saco_lixo"],
+              cegonha: ["veiculo_cegonha"], bruto: ["container", "caixa_madeira"], coletor: ["saco_lixo"], caterpilar: ["rocha_img"],
             };
             const tiposDoBoss = bossObsTypes[g.bossType] || [];
             const obsNaTela = g.obstacles.filter(o => tiposDoBoss.includes(o.type) && o.x > -60 && o.x < W).length;
@@ -2780,6 +2838,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
                 cegonha: "CET PRENDEU A CEGONHA!",
                 bruto: "CARGA CAIU! BRUTO PRESO!",
                 coletor: "LIXO RECOLHIDO! COLETOR SAIU!",
+                caterpilar: "MINERADOR ATOLOU! DERROTADO!",
               };
               showStatus(vitoriaMsgs[g.bossType] || "BOSS DERROTADO!", 80);
               playSound("game-star");

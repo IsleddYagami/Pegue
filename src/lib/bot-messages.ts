@@ -10,7 +10,7 @@ O que voce precisa?
 1️⃣ *Pequenos Fretes*
 2️⃣ *Mudanca completa*
 3️⃣ *Guincho* (carro ou moto)
-4️⃣ *Falar com nosso especialista Santos*`,
+4️⃣ *Falar com um especialista*`,
 
   pedirLocalizacao: `Otimo! Vou te ajudar com seu frete! 🚚
 
@@ -33,10 +33,7 @@ Manda o numero da opcao! 😊`,
 
   guinchoDesativado: `O servico de guincho esta temporariamente indisponivel 😔
 
-Fala direto com nosso especialista *Santos*:
-📱 (11) 97142-9605
-
-Ele resolve pra voce! 🚗`,
+Mas fique tranquilo! Nosso especialista ja foi notificado e entrara em contato em breve! 🚗`,
 
   guinchoPedirLocalizacao: (categoria: string) =>
     `Entendi! *${categoria}* 🚗
@@ -237,8 +234,8 @@ Para confirmar, conclua o pagamento:
 
 ⏳ A reserva se mantem disponivel por *20 minutos*. Apos esse tempo, sera necessaria uma nova cotacao para verificar e garantir nova agenda.`,
 
-  nenhumFretista: `Nosso especialista *Santos* logo enviara a confirmacao do seu frete! 😊
-📱 (11) 97142-9605`,
+  nenhumFretista: `Nosso especialista logo enviara a confirmacao do seu frete! 😊
+Fique tranquilo, ja estamos cuidando disso!`,
 
   linkPagamento: (link: string) =>
     `Segue o link pra pagamento seguro:
@@ -288,18 +285,16 @@ A confirmacao chegara logo apos o pagamento do cliente. Fique atento! 📱
 Fica de olho que sempre tem novos aparecendo! 🚚`,
 
   // Atendimento humano
-  transferenciaHumano: `Vou te transferir pro *Santos*, nosso especialista! 😊
-Pode chamar ele direto:
-📱 (11) 97142-9605
+  transferenciaHumano: `Entendi! Vou acionar nosso especialista agora! 😊
 
-Ele vai te ajudar com tudo! 🙏`,
+Ele ja foi notificado e entrara em contato com voce em breve.
+Fique tranquilo! 🙏`,
 
   foraHorarioHumano: `Nosso time ta disponivel de segunda a sexta, das 10h as 15h ⏰
 
-Mas voce pode falar direto com o *Santos*, nosso especialista:
-📱 (11) 97142-9605
+Mas fique tranquilo! Nosso especialista foi notificado e entrara em contato no proximo horario util.
 
-Ou se preferir, o bot continua te atendendo 24h! 🚚`,
+Enquanto isso, o bot continua te atendendo 24h! 🚚`,
 
   // === CADASTRO DE PRESTADOR ===
 
@@ -521,9 +516,7 @@ Qualquer duvida, e so chamar! 😊`,
 
   clienteReclamouEntrega: `Sentimos muito pelo problema 😔
 
-Nosso especialista *Santos* vai entrar em contato pra resolver:
-📱 (11) 97142-9605
-
+Nosso especialista ja foi notificado e entrara em contato pra resolver.
 Vamos cuidar disso pra voce!`,
 
   fretistaPagamentoLiberado: `✅ *Liberado! Bom trabalho!* 🚚✨
@@ -535,8 +528,7 @@ Obrigado pelo excelente servico!`,
 
   fretistaProblemaNaEntrega: `⚠️ O cliente reportou um problema na entrega.
 
-Nosso especialista *Santos* vai entrar em contato:
-📱 (11) 97142-9605
+Nosso especialista ja foi notificado e entrara em contato.
 
 Pagamento fica retido ate resolucao.`,
 
@@ -682,14 +674,12 @@ Relaxa. A gente leva. 🚚✨`,
   naoEntendi: `Desculpa, nao entendi 😅
 Me conta o que voce precisa que eu te ajudo!
 
-Ou se preferir, fala direto com o *Santos*, nosso especialista:
-📱 (11) 97142-9605`,
+Ou digite *4* pra falar com um especialista.`,
 
   erroInterno: `Ops, tive um probleminha aqui 😅
 Mas ja ja normaliza!
 
-Enquanto isso, voce pode falar direto com o *Santos*, nosso especialista:
-📱 (11) 97142-9605`,
+Tente novamente em alguns instantes ou digite *4* pra falar com um especialista.`,
 
   obrigado: `Por nada! 😊
 Estamos aqui sempre que precisar.

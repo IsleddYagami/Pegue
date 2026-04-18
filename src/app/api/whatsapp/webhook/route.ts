@@ -33,7 +33,8 @@ import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-const FABIO_PHONE = "5511970363713";
+const FABIO_PHONE = "5511970363713"; // WhatsApp Pegue
+const ADMIN_PHONE = "5511971429605"; // WhatsApp pessoal Fabio (recebe notificacoes)
 
 export async function POST(req: NextRequest) {
   try {
@@ -296,8 +297,7 @@ async function handleClienteMessage(
 🤝 *Parcerias Pegue* → iniciar cadastro
 
 *Precisa de ajuda?*
-📱 Fale com nosso especialista Santos:
-(11) 97142-9605`,
+🤝 Digite *4* no menu pra falar com um especialista`,
     });
     return;
   }
@@ -362,7 +362,7 @@ Boa sorte! 🎯`,
     // Personaliza com nome se tiver
     const primeiroNome = pushName ? pushName.split(" ")[0] : "";
     const saudacao = primeiroNome
-      ? `Oii ${primeiroNome}! 😊 Que bom ter voce aqui no Pegue! 🚚\nEstou aqui pra te ajudar com o que precisar.\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho* (carro ou moto)\n4️⃣ *Falar com nosso especialista Santos*`
+      ? `Oii ${primeiroNome}! 😊 Que bom ter voce aqui no Pegue! 🚚\nEstou aqui pra te ajudar com o que precisar.\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho* (carro ou moto)\n4️⃣ *Falar com um especialista*`
       : MSG.boasVindas;
 
     await sendMessage({ to: phone, message: saudacao });
@@ -529,6 +529,11 @@ async function handleEscolhaServico(phone: string, message: string) {
 
     if (cfgGuincho?.valor === "desabilitado") {
       await sendMessage({ to: phone, message: MSG.guinchoDesativado });
+      await notificarAdmin(
+        `🚗 *GUINCHO SOLICITADO (desabilitado)*`,
+        phone,
+        `Cliente pediu guincho mas o servico esta desativado no controle.`
+      );
       return;
     }
 
@@ -544,7 +549,7 @@ async function handleEscolhaServico(phone: string, message: string) {
 
   await sendMessage({
     to: phone,
-    message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Pequenos Fretes\n2️⃣ Mudanca completa\n3️⃣ Guincho (carro ou moto)\n4️⃣ Falar com nosso especialista Santos",
+    message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Pequenos Fretes\n2️⃣ Mudanca completa\n3️⃣ Guincho (carro ou moto)\n4️⃣ Falar com um especialista",
   });
 }
 
@@ -1065,15 +1070,31 @@ async function handleConfirmacao(phone: string, message: string) {
 // === ATENDIMENTO HUMANO ===
 
 async function handleAtendente(phone: string) {
+  await updateSession(phone, { step: "atendimento_humano" });
+
   if (isHorarioAtendimentoHumano()) {
-    await updateSession(phone, { step: "atendimento_humano" });
     await sendMessage({ to: phone, message: MSG.transferenciaHumano });
-    await sendMessage({
-      to: FABIO_PHONE,
-      message: `🔔 *Atendimento solicitado!*\n\nCliente: ${formatarTelefoneExibicao(phone)}\nHorario: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
-    });
   } else {
     await sendMessage({ to: phone, message: MSG.foraHorarioHumano });
+  }
+
+  // Notifica admin no WhatsApp pessoal
+  await notificarAdmin(
+    `🔔 *ATENDIMENTO SOLICITADO*`,
+    phone,
+    `Horario: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}\nDentro do horario: ${isHorarioAtendimentoHumano() ? "Sim" : "Nao"}`
+  );
+}
+
+// === NOTIFICACAO ADMIN ===
+async function notificarAdmin(titulo: string, clientePhone: string, detalhes: string) {
+  try {
+    await sendMessage({
+      to: ADMIN_PHONE,
+      message: `${titulo}\n\n👤 Cliente: ${formatarTelefoneExibicao(clientePhone)}\n📱 wa.me/${clientePhone}\n${detalhes}\n\n⏰ ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
+    });
+  } catch (e) {
+    console.error("Erro ao notificar admin:", e);
   }
 }
 
@@ -1088,8 +1109,13 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
       .eq("status", "aprovado");
 
     if (!prestadores || prestadores.length === 0) {
-      // Nenhum fretista disponivel - notifica cliente
+      // Nenhum fretista disponivel - notifica cliente + admin
       await sendMessage({ to: clientePhone, message: MSG.nenhumFretista });
+      await notificarAdmin(
+        `⚠️ *NENHUM FRETISTA DISPONIVEL*`,
+        clientePhone,
+        `Corrida: ${corridaId}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}`
+      );
       return;
     }
 
@@ -1129,7 +1155,7 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
         await notificarResultadoDispatch(corridaId, vencedor, clientePhone);
       } else {
         // Ninguem aceitou na janela - espera mais respostas
-        // Se ninguem aceitar em 5 min, notifica Santos
+        // Se ninguem aceitar em 5 min, notifica admin
         setTimeout(async () => {
           const dispatch = getDispatchByCorridaId(corridaId);
           if (dispatch && !dispatch.finalizado) {
@@ -1234,7 +1260,7 @@ async function handleCadastroTermos(phone: string, message: string) {
   if (lower !== "eu concordo") {
     await sendMessage({
       to: phone,
-      message: "Para prosseguir, digite exatamente: *eu concordo*\n\nOu se tiver duvidas, fale com nosso especialista Santos:\n📱 (11) 97142-9605",
+      message: "Para prosseguir, digite exatamente: *eu concordo*\n\nOu se tiver duvidas, digite *4* pra falar com um especialista.",
     });
     return;
   }
@@ -1308,11 +1334,12 @@ async function handleCadastroTermos(phone: string, message: string) {
 
     await sendMessage({ to: phone, message: MSG.cadastroConcluido });
 
-    // Notifica Santos
-    await sendMessage({
-      to: FABIO_PHONE,
-      message: `🆕 *Novo prestador pra aprovar!*\n\n👤 ${nome}\n📱 ${formatarTelefoneExibicao(phone)}\n🚗 ${tipoVeiculo}\n🪪 Placa: ${placa}\n\nAcesse o painel pra aprovar!`,
-    });
+    // Notifica admin
+    await notificarAdmin(
+      `🆕 *NOVO PRESTADOR PRA APROVAR*`,
+      phone,
+      `👤 ${nome}\n🚗 ${tipoVeiculo}\n🪪 Placa: ${placa}\n\n👉 Acesse /admin pra aprovar`
+    );
   }
 
   await updateSession(phone, { step: "cadastro_aguardando_aprovacao" });
@@ -1774,10 +1801,11 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
       await sendMessage({ to: fretistaTel, message: MSG.fretistaProblemaNaEntrega });
     }
 
-    await sendMessage({
-      to: FABIO_PHONE,
-      message: `⚠️ *Problema na entrega!*\n\nCliente: ${formatarTelefoneExibicao(phone)}\nCorrida: ${session.corrida_id}\n\nVerifique e resolva!`,
-    });
+    await notificarAdmin(
+      `🚨 *PROBLEMA NA ENTREGA*`,
+      phone,
+      `Corrida: ${session.corrida_id}\nCliente reportou problema.\nPagamento retido automaticamente.`
+    );
 
     await supabase
       .from("corridas")
@@ -1873,26 +1901,27 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
             }
           }, 10 * 60 * 1000);
 
-          // Apos 20 min: libera fretista + notifica Santos
+          // Apos 20 min: libera fretista + notifica admin
           setTimeout(async () => {
             const sessaoCliente = await getSession(clienteTel);
             if (sessaoCliente?.step === "aguardando_confirmacao_entrega") {
               // Libera fretista
               await sendMessage({
                 to: phone,
-                message: `⏳ *20 minutos sem confirmacao do cliente.*\n\nVoce pode se retirar do local. Aguarde o andamento das tratativas.\n\nSeu pagamento sera processado assim que o cliente confirmar.\n\nQualquer duvida, fale com Santos: (11) 97142-9605`,
+                message: `⏳ *20 minutos sem confirmacao do cliente.*\n\nVoce pode se retirar do local. Aguarde o andamento das tratativas.\n\nSeu pagamento sera processado assim que o cliente confirmar.`,
               });
 
-              // Notifica Santos
-              await sendMessage({
-                to: "5511970363713",
-                message: `⚠️ *Cliente nao confirmou entrega ha 20 min!*\n\nCliente: ${clienteTel}\nFretista liberado do local.\n\nVerifique e resolva!`,
-              });
+              // Notifica admin
+              await notificarAdmin(
+                `⏳ *CLIENTE NAO CONFIRMOU ENTREGA (20min)*`,
+                clienteTel,
+                `Fretista: ${formatarTelefoneExibicao(phone)}\nFretista liberado do local.\nPagamento pendente.`
+              );
 
               // Ultimo lembrete pro cliente
               await sendMessage({
                 to: clienteTel,
-                message: `⚠️ *O fretista aguardou 20 minutos e precisou se retirar.*\n\nPor favor, confirme se a entrega esta correta:\n\n1️⃣ *SIM* - Tudo certo, servicos concluidos com sucesso! ✅\n2️⃣ *NAO* - Tenho observacoes\n\nOu fale com nosso especialista Santos: (11) 97142-9605`,
+                message: `⚠️ *O fretista aguardou 20 minutos e precisou se retirar.*\n\nPor favor, confirme se a entrega esta correta:\n\n1️⃣ *SIM* - Tudo certo, servicos concluidos com sucesso! ✅\n2️⃣ *NAO* - Tenho observacoes`,
               });
             }
           }, 20 * 60 * 1000);

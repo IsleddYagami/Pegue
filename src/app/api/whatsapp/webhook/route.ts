@@ -2983,7 +2983,15 @@ async function handleGuinchoDestino(phone: string, message: string) {
 
   // Preco: base + R$8/km apos 5km
   const kmExtra = Math.max(0, distKm - 5);
-  const valorTotal = Math.round(precoBase + kmExtra * 8);
+  let valorTotal = Math.round(precoBase + kmExtra * 8);
+
+  // Taxa noturna: +30% entre 22h e 6h
+  const horaAtual = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false });
+  const hora = parseInt(horaAtual);
+  const isNoturno = hora >= 22 || hora < 6;
+  if (isNoturno) {
+    valorTotal = Math.round(valorTotal * 1.3);
+  }
 
   const categoria = GUINCHO_CATEGORIAS[categoriaNum] || "Guincho";
 
@@ -2998,7 +3006,7 @@ async function handleGuinchoDestino(phone: string, message: string) {
 
   await sendMessage({
     to: phone,
-    message: MSG.guinchoOrcamento(categoria, session.origem_endereco || "", destino, valorTotal.toString()),
+    message: MSG.guinchoOrcamento(categoria, session.origem_endereco || "", destino, valorTotal.toString(), isNoturno),
   });
 }
 

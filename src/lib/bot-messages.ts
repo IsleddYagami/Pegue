@@ -53,14 +53,15 @@ Manda o numero ou o endereco direto! 😊`,
     categoria: string,
     origem: string,
     destino: string,
-    valor: string
+    valor: string,
+    noturno: boolean = false
   ) =>
     `Preparei seu orcamento de guincho! 🚗
 
 🔧 *Servico:* ${categoria}
 📍 *Local:* ${origem}
 🏠 *Destino:* ${destino}
-
+${noturno ? "🌙 *Taxa noturna aplicada* (+30%)\n" : ""}
 ✅ *Total: R$ ${valor}*
 
 Pra quando voce precisa? Me manda a *data* e *horario* 📅

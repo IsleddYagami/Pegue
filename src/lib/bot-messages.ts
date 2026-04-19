@@ -20,13 +20,10 @@ Ou se preferir, digite o *CEP* ou *endereco com rua e bairro*`,
 
   guinchoMenu: `🚗 *SERVICO DE GUINCHO*
 
-Qual a situacao do seu veiculo?
+A gente busca seu veiculo no ponto A e leva pro ponto B!
 
 1️⃣ *Guincho Imediato* (preciso AGORA)
-2️⃣ *Pane mecanica* (nao liga / parou)
-3️⃣ *Acidente* (veiculo nao anda)
-4️⃣ *Guincho para oficina* (levar pra manutencao)
-5️⃣ *Moto* (guincho de moto)
+2️⃣ *Guincho Agendado* (escolher data e horario)
 
 Manda o numero da opcao! 😊`,
 

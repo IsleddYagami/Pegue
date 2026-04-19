@@ -2386,16 +2386,23 @@ async function handleHorario(phone: string, message: string) {
   let horario = "";
 
   if (lower === "1" || lower.includes("manha") || lower.includes("manhã")) {
-    horario = "Manhã (08:00 - 12:00)";
+    horario = "Manha (08:00 - 12:00)";
   } else if (lower === "2" || lower.includes("tarde")) {
     horario = "Tarde (13:00 - 17:00)";
-  } else if (lower === "3" || /\d{1,2}[h:]?\d{0,2}/.test(lower)) {
-    // Horario especifico - aceita formatos: 14:30, 14h30, 14h, 1430
+  } else if (lower === "3") {
+    // Pediu horario especifico - pede pra digitar
+    await sendMessage({
+      to: phone,
+      message: "Qual horario? Digite no formato *HH:MM*\n\nExemplo: *14:30* ou *09:00*",
+    });
+    return; // Fica no mesmo step aguardando o horario
+  } else if (/\d{1,2}[h:]\d{0,2}/.test(lower) || /^\d{1,2}$/.test(lower)) {
+    // Aceita formatos: 14:30, 14h30, 14h, 14
     horario = message.trim();
   } else {
     await sendMessage({
       to: phone,
-      message: "Escolha o horario:\n\n1️⃣ *Manhã* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)\n3️⃣ *Horário específico* (ex: 14:30)",
+      message: "Nao entendi o horario 😅\n\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)\n3️⃣ *Horario especifico* (ex: 14:30)",
     });
     return;
   }

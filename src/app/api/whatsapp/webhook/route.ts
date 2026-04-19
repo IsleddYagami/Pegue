@@ -549,6 +549,9 @@ Boa sorte! 🎯`,
     case "guincho_categoria":
       await handleGuinchoCategoria(phone, message);
       break;
+    case "guincho_tipo_veiculo":
+      await handleGuinchoTipoVeiculo(phone, message);
+      break;
     case "guincho_localizacao":
       await handleGuinchoLocalizacao(phone, message, lat, lng);
       break;
@@ -2857,12 +2860,52 @@ const GUINCHO_CATEGORIAS: Record<string, string> = {
   "5": "Guincho de moto",
 };
 
-const GUINCHO_PRECOS: Record<string, { base: number; porKm: number }> = {
-  "1": { base: 200, porKm: 7 },  // Guincho Imediato
-  "2": { base: 250, porKm: 7 },  // Pane mecanica
-  "3": { base: 350, porKm: 7 },  // Acidente
-  "4": { base: 200, porKm: 7 },  // Guincho oficina
-  "5": { base: 150, porKm: 5 },  // Moto
+// Precos por categoria x tipo de veiculo
+const GUINCHO_PRECOS: Record<string, Record<string, { base: number; porKm: number }>> = {
+  "1": { // Guincho Imediato
+    moto: { base: 150, porKm: 5 },
+    hatch_sedan: { base: 200, porKm: 5 },
+    suv_caminhonete: { base: 280, porKm: 7 },
+    van_utilitario: { base: 350, porKm: 8 },
+  },
+  "2": { // Pane mecanica
+    moto: { base: 180, porKm: 5 },
+    hatch_sedan: { base: 250, porKm: 5 },
+    suv_caminhonete: { base: 330, porKm: 7 },
+    van_utilitario: { base: 400, porKm: 8 },
+  },
+  "3": { // Acidente
+    moto: { base: 200, porKm: 5 },
+    hatch_sedan: { base: 350, porKm: 5 },
+    suv_caminhonete: { base: 450, porKm: 7 },
+    van_utilitario: { base: 550, porKm: 8 },
+  },
+  "4": { // Guincho oficina
+    moto: { base: 150, porKm: 5 },
+    hatch_sedan: { base: 200, porKm: 5 },
+    suv_caminhonete: { base: 280, porKm: 7 },
+    van_utilitario: { base: 350, porKm: 8 },
+  },
+  "5": { // Moto (sempre moto)
+    moto: { base: 150, porKm: 5 },
+    hatch_sedan: { base: 150, porKm: 5 },
+    suv_caminhonete: { base: 150, porKm: 5 },
+    van_utilitario: { base: 150, porKm: 5 },
+  },
+};
+
+const TIPO_VEICULO_GUINCHO: Record<string, string> = {
+  "1": "moto",
+  "2": "hatch_sedan",
+  "3": "suv_caminhonete",
+  "4": "van_utilitario",
+};
+
+const TIPO_VEICULO_NOME: Record<string, string> = {
+  moto: "Moto",
+  hatch_sedan: "Hatch/Sedan",
+  suv_caminhonete: "SUV/Caminhonete",
+  van_utilitario: "Van/Utilitario",
 };
 
 async function handleGuinchoCategoria(phone: string, message: string) {
@@ -2877,13 +2920,58 @@ async function handleGuinchoCategoria(phone: string, message: string) {
     return;
   }
 
+  // Moto (opcao 5) pula pergunta de tipo de veiculo
+  if (lower === "5") {
+    await updateSession(phone, {
+      step: "guincho_localizacao" as any,
+      descricao_carga: `Guincho: ${categoria} - Moto`,
+      veiculo_sugerido: "moto_guincho",
+      plano_escolhido: lower,
+    });
+    await sendMessage({ to: phone, message: MSG.guinchoPedirLocalizacao(categoria) });
+  } else {
+    await updateSession(phone, {
+      step: "guincho_tipo_veiculo" as any,
+      descricao_carga: `Guincho: ${categoria}`,
+      plano_escolhido: lower,
+    });
+    await sendMessage({
+      to: phone,
+      message: `Qual o tipo do seu veiculo?
+
+1️⃣ *Moto*
+2️⃣ *Hatch / Sedan* (Gol, Onix, Civic, Corolla...)
+3️⃣ *SUV / Caminhonete* (Tracker, Creta, Hilux, S10...)
+4️⃣ *Van / Utilitario* (Fiorino, HR, Master...)
+
+Manda o numero!`,
+    });
+  }
+}
+
+async function handleGuinchoTipoVeiculo(phone: string, message: string) {
+  const lower = message.trim();
+  const tipoVeiculo = TIPO_VEICULO_GUINCHO[lower];
+
+  if (!tipoVeiculo) {
+    await sendMessage({
+      to: phone,
+      message: "Escolha de 1 a 4:\n\n1️⃣ *Moto*\n2️⃣ *Hatch/Sedan*\n3️⃣ *SUV/Caminhonete*\n4️⃣ *Van/Utilitario*",
+    });
+    return;
+  }
+
+  const session = await getSession(phone);
+  const categoria = session?.descricao_carga || "Guincho";
+  const nomeVeiculo = TIPO_VEICULO_NOME[tipoVeiculo];
+
   await updateSession(phone, {
     step: "guincho_localizacao" as any,
-    descricao_carga: `Guincho: ${categoria}`,
-    veiculo_sugerido: lower === "6" ? "moto_guincho" : "guincho",
-    plano_escolhido: lower, // guarda a categoria
+    descricao_carga: `${categoria} - ${nomeVeiculo}`,
+    veiculo_sugerido: tipoVeiculo === "moto" ? "moto_guincho" : "guincho",
   });
-  await sendMessage({ to: phone, message: MSG.guinchoPedirLocalizacao(categoria) });
+
+  await sendMessage({ to: phone, message: MSG.guinchoPedirLocalizacao(`${categoria.replace("Guincho: ", "")} - ${nomeVeiculo}`) });
 }
 
 async function handleGuinchoLocalizacao(
@@ -2992,8 +3080,16 @@ async function handleGuinchoDestino(phone: string, message: string) {
     distKm = calcularDistanciaKm(session.origem_lat, session.origem_lng, destLat, destLng);
   }
 
+  // Detecta tipo de veiculo da descricao
+  const descCarga = session.descricao_carga || "";
+  let tipoVeic = "hatch_sedan"; // padrao
+  if (descCarga.includes("Moto")) tipoVeic = "moto";
+  else if (descCarga.includes("SUV") || descCarga.includes("Caminhonete")) tipoVeic = "suv_caminhonete";
+  else if (descCarga.includes("Van") || descCarga.includes("Utilitario")) tipoVeic = "van_utilitario";
+
   // Preco: base + porKm/km apos 5km
-  const precoInfo = GUINCHO_PRECOS[categoriaNum] || { base: 250, porKm: 7 };
+  const precoCategoria = GUINCHO_PRECOS[categoriaNum] || GUINCHO_PRECOS["1"];
+  const precoInfo = precoCategoria[tipoVeic] || { base: 250, porKm: 7 };
   const kmExtra = Math.max(0, distKm - 5);
   let valorTotal = Math.round(precoInfo.base + kmExtra * precoInfo.porKm);
 

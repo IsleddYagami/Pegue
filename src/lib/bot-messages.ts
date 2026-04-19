@@ -459,7 +459,6 @@ ${descricao}
 ⚠️ *CONFIRA AGORA com o guincheiro ainda no local:*
 
 🚗 O veiculo esta no local correto?
-🔍 Algum dano novo no veiculo?
 ✅ Esta tudo conforme o combinado?
 
 ━━━━━━━━━━━━━━━━

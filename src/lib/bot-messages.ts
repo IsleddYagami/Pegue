@@ -42,7 +42,7 @@ Ou digite o *CEP* ou *endereco com rua e bairro*`,
 
   guinchoPedirDestino: `Para onde vai o veiculo?
 
-Digite o *endereco e numero* do destino 📍`,
+Digite *nome da rua, bairro e numero* 📍`,
 
   guinchoOrcamento: (
     categoria: string,

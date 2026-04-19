@@ -62,8 +62,12 @@ Manda o numero ou o endereco direto! 😊`,
 ${taxaExtra ? `🌙 *Taxa ${taxaExtra} aplicada*\n` : ""}
 ✅ *Total: R$ ${valor}*
 
-Pra quando voce precisa? Me manda a *data* e *horario* 📅
-(Ou digite *AGORA* se for urgente!)`,
+Pra quando voce precisa?
+
+📅 Me manda a *data* (ex: 25/04, amanha, segunda)
+
+⚠️ *Data e horario sao obrigatorios* para o agendamento.
+O guincheiro precisa dessas informacoes pra garantir um bom servico!`,
 
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅

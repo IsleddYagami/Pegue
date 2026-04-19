@@ -1107,23 +1107,31 @@ async function handleData(phone: string, message: string) {
       data_agendada: "AGORA - Urgente",
     });
   } else {
+    // Valida se parece uma data (tem numero)
+    if (!/\d/.test(message)) {
+      const isGuincho = (session.descricao_carga || "").toLowerCase().includes("guincho");
+      await sendMessage({
+        to: phone,
+        message: isGuincho
+          ? `⚠️ *A data e obrigatoria para agendar o guincho.*\n\nDigite a data no formato:\n📅 *dia/mes* (ex: 25/04)\n\nOu se precisar agora, digite *AGORA*`
+          : `Preciso da *data*! 📅\n\nExemplo: *25/04* ou *amanha* ou *segunda*\n\nOu digite *AGORA* se for urgente.`,
+      });
+      return;
+    }
+
     // Salva a data e pede o horario
     await updateSession(phone, {
       step: "aguardando_horario" as any,
-      data_agendada: message,
+      data_agendada: message.trim(),
     });
+
+    const isGuincho = (session.descricao_carga || "").toLowerCase().includes("guincho");
 
     await sendMessage({
       to: phone,
-      message: `📅 ${message} - Anotado!
-
-Agora preciso do *horario*. Escolha:
-
-1️⃣ *Manha* (08:00 - 12:00)
-2️⃣ *Tarde* (13:00 - 17:00)
-3️⃣ *Horario especifico* (ex: 14:30)
-
-Manda o numero ou o horario direto!`,
+      message: isGuincho
+        ? `📅 *${message.trim()}* - Anotado!\n\n⚠️ *O horario e obrigatorio para o agendamento.*\nO guincheiro precisa dessa informacao pra se organizar.\n\nEscolha:\n\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)\n3️⃣ *Horario especifico* (ex: 14:30)\n\nManda o numero ou o horario direto!`
+        : `📅 ${message.trim()} - Anotado!\n\nAgora preciso do *horario*. Escolha:\n\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)\n3️⃣ *Horario especifico* (ex: 14:30)\n\nManda o numero ou o horario direto!`,
     });
     return;
   }
@@ -2866,17 +2874,17 @@ const GUINCHO_PRECOS_VEICULO: Record<string, { base: number; porKm: number }> = 
 };
 
 const TIPO_VEICULO_GUINCHO: Record<string, string> = {
-  "1": "moto",
-  "2": "carro_comum",
-  "3": "caminhonete_suv",
-  "4": "veiculo_grande",
+  "1": "carro_comum",
+  "2": "caminhonete_suv",
+  "3": "veiculo_grande",
+  "4": "moto",
 };
 
 const TIPO_VEICULO_NOME: Record<string, string> = {
+  carro_comum: "Hatch/Sedan",
+  caminhonete_suv: "SUV/Caminhonete",
+  veiculo_grande: "Van/Caminhao",
   moto: "Moto",
-  carro_comum: "Carro comum",
-  caminhonete_suv: "Caminhonete/SUV",
-  veiculo_grande: "Veiculo grande",
 };
 
 async function handleGuinchoCategoria(phone: string, message: string) {
@@ -2900,10 +2908,10 @@ async function handleGuinchoCategoria(phone: string, message: string) {
     to: phone,
     message: `Qual o tipo do seu veiculo?
 
-1️⃣ *Moto*
-2️⃣ *Carro comum* (Gol, Onix, Corolla, Strada, Fiorino, Saveiro...)
-3️⃣ *Caminhonete / SUV* (Hilux, S10, Ranger, Tracker, HR, Bongo...)
-4️⃣ *Veiculo grande* (Van, Caminhao medio, Sprinter, Master...)
+1️⃣ *Hatch / Sedan* (Gol, Onix, Corolla, Strada, Fiorino, Saveiro...)
+2️⃣ *SUV / Caminhonete* (Hilux, S10, Ranger, Tracker, HR, Bongo...)
+3️⃣ *Van / Caminhao* (Sprinter, Master, Caminhao medio...)
+4️⃣ *Moto*
 
 Manda o numero!`,
   });
@@ -2916,7 +2924,7 @@ async function handleGuinchoTipoVeiculo(phone: string, message: string) {
   if (!tipoVeiculo) {
     await sendMessage({
       to: phone,
-      message: "Escolha de 1 a 4:\n\n1️⃣ *Moto*\n2️⃣ *Carro comum* (Gol, Onix, Strada, Fiorino...)\n3️⃣ *Caminhonete/SUV* (Hilux, S10, HR, Bongo...)\n4️⃣ *Veiculo grande* (Van, Caminhao, Sprinter...)",
+      message: "Escolha de 1 a 4:\n\n1️⃣ *Hatch/Sedan* (Gol, Onix, Strada, Fiorino...)\n2️⃣ *SUV/Caminhonete* (Hilux, S10, HR, Bongo...)\n3️⃣ *Van/Caminhao* (Sprinter, Master...)\n4️⃣ *Moto*",
     });
     return;
   }

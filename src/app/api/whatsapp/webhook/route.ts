@@ -2847,17 +2847,19 @@ async function agendarLembretes(corridaId: string, fretistaTel: string, clienteT
 // === GUINCHO HANDLERS ===
 
 const GUINCHO_CATEGORIAS: Record<string, string> = {
-  "1": "Pane mecanica",
-  "2": "Acidente",
-  "3": "Guincho para oficina",
-  "4": "Guincho de moto",
+  "1": "Guincho Imediato",
+  "2": "Pane mecanica",
+  "3": "Acidente",
+  "4": "Guincho para oficina",
+  "5": "Guincho de moto",
 };
 
 const GUINCHO_PRECOS: Record<string, { base: number; porKm: number }> = {
-  "1": { base: 250, porKm: 7 },  // Pane mecanica
-  "2": { base: 350, porKm: 7 },  // Acidente
-  "3": { base: 200, porKm: 7 },  // Guincho oficina
-  "4": { base: 150, porKm: 5 },  // Moto (menor base e km)
+  "1": { base: 200, porKm: 7 },  // Guincho Imediato
+  "2": { base: 250, porKm: 7 },  // Pane mecanica
+  "3": { base: 350, porKm: 7 },  // Acidente
+  "4": { base: 200, porKm: 7 },  // Guincho oficina
+  "5": { base: 150, porKm: 5 },  // Moto
 };
 
 async function handleGuinchoCategoria(phone: string, message: string) {
@@ -2867,7 +2869,7 @@ async function handleGuinchoCategoria(phone: string, message: string) {
   if (!categoria) {
     await sendMessage({
       to: phone,
-      message: "Escolha uma opcao de 1 a 4! 😊\n\n" + Object.entries(GUINCHO_CATEGORIAS).map(([k, v]) => `${k}️⃣ *${v}*`).join("\n"),
+      message: "Escolha uma opcao de 1 a 5! 😊\n\n" + Object.entries(GUINCHO_CATEGORIAS).map(([k, v]) => `${k}️⃣ *${v}*`).join("\n"),
     });
     return;
   }
@@ -3020,19 +3022,56 @@ async function handleGuinchoDestino(phone: string, message: string) {
 
   const categoria = GUINCHO_CATEGORIAS[categoriaNum] || "Guincho";
 
-  await updateSession(phone, {
-    step: "aguardando_data",
-    destino_endereco: destino,
-    destino_lat: destLat,
-    destino_lng: destLng,
-    distancia_km: distKm || null,
-    valor_estimado: valorTotal,
-  });
+  // Guincho Imediato pula direto pra confirmacao
+  if (categoriaNum === "1") {
+    await updateSession(phone, {
+      step: "aguardando_confirmacao",
+      destino_endereco: destino,
+      destino_lat: destLat,
+      destino_lng: destLng,
+      distancia_km: distKm || null,
+      valor_estimado: valorTotal,
+      data_agendada: "AGORA - Urgente",
+    });
 
-  await sendMessage({
-    to: phone,
-    message: MSG.guinchoOrcamento(categoria, session.origem_endereco || "", destino, valorTotal.toString(), taxaExtra),
-  });
+    const veiculoNome: Record<string, string> = {
+      utilitario: "Utilitario (Strada/Saveiro)",
+      hr: "HR",
+      caminhao_bau: "Caminhao Bau",
+      guincho: "Guincho",
+      moto_guincho: "Guincho de Moto",
+    };
+
+    await sendMessage({
+      to: phone,
+      message: `🚨 *GUINCHO IMEDIATO*
+
+🔧 *Servico:* ${categoria}
+📍 *Local:* ${session.origem_endereco || ""}
+🏠 *Destino:* ${destino}
+📅 *AGORA - Saida imediata*
+🚗 *Veiculo:* ${veiculoNome[session.veiculo_sugerido || "guincho"] || "Guincho"}
+${taxaExtra ? `🌙 *Taxa ${taxaExtra} aplicada*\n` : ""}
+✅ *Total: R$ ${valorTotal}*
+
+Ta tudo certo? Posso confirmar? 😊
+Responda *SIM* pra confirmar ou *NAO* pra ajustar algo.`,
+    });
+  } else {
+    await updateSession(phone, {
+      step: "aguardando_data",
+      destino_endereco: destino,
+      destino_lat: destLat,
+      destino_lng: destLng,
+      distancia_km: distKm || null,
+      valor_estimado: valorTotal,
+    });
+
+    await sendMessage({
+      to: phone,
+      message: MSG.guinchoOrcamento(categoria, session.origem_endereco || "", destino, valorTotal.toString(), taxaExtra),
+    });
+  }
 }
 
 function getItemEmoji(item: string): string {

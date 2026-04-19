@@ -2846,11 +2846,11 @@ const GUINCHO_CATEGORIAS: Record<string, string> = {
   "4": "Guincho de moto",
 };
 
-const GUINCHO_PRECOS: Record<string, number> = {
-  "1": 250,  // Pane mecanica
-  "2": 350,  // Acidente
-  "3": 200,  // Guincho oficina
-  "4": 180,  // Moto
+const GUINCHO_PRECOS: Record<string, { base: number; porKm: number }> = {
+  "1": { base: 250, porKm: 7 },  // Pane mecanica
+  "2": { base: 350, porKm: 7 },  // Acidente
+  "3": { base: 200, porKm: 7 },  // Guincho oficina
+  "4": { base: 150, porKm: 5 },  // Moto (menor base e km)
 };
 
 async function handleGuinchoCategoria(phone: string, message: string) {
@@ -2972,8 +2972,7 @@ async function handleGuinchoDestino(phone: string, message: string) {
   }
 
   // Calcular preco baseado na categoria
-  const categoriaNum = session.plano_escolhido || "3";
-  const precoBase = GUINCHO_PRECOS[categoriaNum] || 250;
+  const categoriaNum = session.plano_escolhido || "1";
   let distKm = 0;
 
   // Se tem coordenadas dos dois pontos, calcula distancia
@@ -2981,16 +2980,35 @@ async function handleGuinchoDestino(phone: string, message: string) {
     distKm = calcularDistanciaKm(session.origem_lat, session.origem_lng, destLat, destLng);
   }
 
-  // Preco: base + R$8/km apos 5km
+  // Preco: base + porKm/km apos 5km
+  const precoInfo = GUINCHO_PRECOS[categoriaNum] || { base: 250, porKm: 7 };
   const kmExtra = Math.max(0, distKm - 5);
-  let valorTotal = Math.round(precoBase + kmExtra * 8);
+  let valorTotal = Math.round(precoInfo.base + kmExtra * precoInfo.porKm);
 
   // Taxa noturna: +30% entre 22h e 6h
-  const horaAtual = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false });
-  const hora = parseInt(horaAtual);
+  const agora = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const hora = agora.getHours();
+  const diaSemana = agora.getDay(); // 0=domingo, 6=sabado
   const isNoturno = hora >= 22 || hora < 6;
+  const isFimDeSemana = diaSemana === 0 || diaSemana === 6;
+
+  // Feriados nacionais fixos (mes-dia)
+  const feriados = ["01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "12-25"];
+  const mesdia = `${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
+  const isFeriado = feriados.includes(mesdia);
+
+  let taxaExtra = "";
   if (isNoturno) {
     valorTotal = Math.round(valorTotal * 1.3);
+    taxaExtra = "noturno";
+  }
+  if (isFeriado) {
+    valorTotal = Math.round(valorTotal * (isNoturno ? 1 : 1.3)); // nao acumula, aplica 30% se ainda nao aplicou
+    taxaExtra = taxaExtra ? "noturno + feriado" : "feriado";
+  }
+  if (isFimDeSemana && !isFeriado && !isNoturno) {
+    valorTotal = Math.round(valorTotal * 1.2); // fim de semana: +20%
+    taxaExtra = "fim de semana";
   }
 
   const categoria = GUINCHO_CATEGORIAS[categoriaNum] || "Guincho";
@@ -3006,7 +3024,7 @@ async function handleGuinchoDestino(phone: string, message: string) {
 
   await sendMessage({
     to: phone,
-    message: MSG.guinchoOrcamento(categoria, session.origem_endereco || "", destino, valorTotal.toString(), isNoturno),
+    message: MSG.guinchoOrcamento(categoria, session.origem_endereco || "", destino, valorTotal.toString(), taxaExtra),
   });
 }
 

@@ -22,12 +22,10 @@ Ou se preferir, digite o *CEP* ou *endereco com rua e bairro*`,
 
 Qual a situacao do seu veiculo?
 
-1️⃣ *Pneu furado* (sem estepe)
-2️⃣ *Bateria descarregada*
-3️⃣ *Pane mecanica* (nao liga / parou)
-4️⃣ *Acidente* (veiculo nao anda)
-5️⃣ *Guincho para oficina* (levar pra manutencao)
-6️⃣ *Moto* (guincho de moto)
+1️⃣ *Pane mecanica* (nao liga / parou)
+2️⃣ *Acidente* (veiculo nao anda)
+3️⃣ *Guincho para oficina* (levar pra manutencao)
+4️⃣ *Moto* (guincho de moto)
 
 Manda o numero da opcao! 😊`,
 

@@ -2840,21 +2840,17 @@ async function agendarLembretes(corridaId: string, fretistaTel: string, clienteT
 // === GUINCHO HANDLERS ===
 
 const GUINCHO_CATEGORIAS: Record<string, string> = {
-  "1": "Pneu furado",
-  "2": "Bateria descarregada",
-  "3": "Pane mecanica",
-  "4": "Acidente",
-  "5": "Guincho para oficina",
-  "6": "Guincho de moto",
+  "1": "Pane mecanica",
+  "2": "Acidente",
+  "3": "Guincho para oficina",
+  "4": "Guincho de moto",
 };
 
 const GUINCHO_PRECOS: Record<string, number> = {
-  "1": 180,  // Pneu furado
-  "2": 150,  // Bateria
-  "3": 250,  // Pane mecanica
-  "4": 350,  // Acidente
-  "5": 200,  // Guincho oficina
-  "6": 180,  // Moto
+  "1": 250,  // Pane mecanica
+  "2": 350,  // Acidente
+  "3": 200,  // Guincho oficina
+  "4": 180,  // Moto
 };
 
 async function handleGuinchoCategoria(phone: string, message: string) {
@@ -2864,7 +2860,7 @@ async function handleGuinchoCategoria(phone: string, message: string) {
   if (!categoria) {
     await sendMessage({
       to: phone,
-      message: "Escolha uma opcao de 1 a 6! 😊\n\n" + Object.entries(GUINCHO_CATEGORIAS).map(([k, v]) => `${k}️⃣ *${v}*`).join("\n"),
+      message: "Escolha uma opcao de 1 a 4! 😊\n\n" + Object.entries(GUINCHO_CATEGORIAS).map(([k, v]) => `${k}️⃣ *${v}*`).join("\n"),
     });
     return;
   }

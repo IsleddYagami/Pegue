@@ -40,12 +40,9 @@ Clique no *clipe* 📎 > *Localizacao* 📍
 
 Ou digite o *CEP* ou *endereco com rua e bairro*`,
 
-  guinchoPedirDestino: `Pra onde quer levar o veiculo?
+  guinchoPedirDestino: `Para onde vai o veiculo?
 
-1️⃣ *Mandar endereco* da oficina/borracharia
-2️⃣ *Nao sei* - quero que a Pegue indique uma proxima
-
-Manda o numero ou o endereco direto! 😊`,
+Digite o *endereco e numero* do destino 📍`,
 
   guinchoOrcamento: (
     categoria: string,

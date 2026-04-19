@@ -3003,40 +3003,29 @@ async function handleGuinchoDestino(phone: string, message: string) {
   let destLat: number | null = null;
   let destLng: number | null = null;
 
-  if (lower === "2" || lower.includes("nao sei") || lower.includes("indica")) {
-    // Pegue indica - usa destino generico
-    destino = "Oficina/borracharia mais proxima (Pegue indica)";
-  } else if (lower === "1") {
-    // Pediu pra mandar endereco
-    await sendMessage({
-      to: phone,
-      message: "Me manda o *endereco da oficina/borracharia* ou o *CEP* 🏠",
-    });
-    return; // Fica no mesmo step aguardando endereco
-  } else {
-    // Tentou mandar endereco direto
-    const cep = extrairCep(message);
-    if (cep) {
-      const endCep = await buscaCep(cep);
-      if (endCep) {
-        destino = endCep;
-        const coords = await geocodeAddress(endCep);
-        destLat = coords?.lat || null;
-        destLng = coords?.lng || null;
-      }
+  // Tenta CEP
+  const cep = extrairCep(message);
+  if (cep) {
+    const endCep = await buscaCep(cep);
+    if (endCep) {
+      destino = endCep;
+      const coords = await geocodeAddress(endCep);
+      destLat = coords?.lat || null;
+      destLng = coords?.lng || null;
     }
-    if (!destino && pareceEndereco(message)) {
-      const coords = await geocodeAddress(message);
-      if (coords) {
-        destino = message.trim();
-        destLat = coords.lat;
-        destLng = coords.lng;
-      }
-    }
-    if (!destino) {
-      // Aceita texto livre como nome da oficina
+  }
+  // Tenta endereco
+  if (!destino && pareceEndereco(message)) {
+    const coords = await geocodeAddress(message);
+    if (coords) {
       destino = message.trim();
+      destLat = coords.lat;
+      destLng = coords.lng;
     }
+  }
+  // Aceita texto livre
+  if (!destino) {
+    destino = message.trim();
   }
 
   // Calcular preco baseado na categoria

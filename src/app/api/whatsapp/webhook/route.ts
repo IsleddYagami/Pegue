@@ -405,7 +405,7 @@ Boa sorte! 🎯`,
     // Personaliza com nome se tiver
     const primeiroNome = pushName ? pushName.split(" ")[0] : "";
     const saudacao = primeiroNome
-      ? `Oii ${primeiroNome}! 😊 Que bom ter voce aqui no Pegue! 🚚\nEstou aqui pra te ajudar com o que precisar.\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho* (carro ou moto)\n4️⃣ *Falar com um especialista*`
+      ? `Oii ${primeiroNome}! 😊 Que bom ter voce aqui no Pegue! 🚚\nEstou aqui pra te ajudar com o que precisar.\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho* (carro ou moto)\n4️⃣ *Duvidas frequentes*`
       : MSG.boasVindas;
 
     await sendMessage({ to: phone, message: saudacao });
@@ -603,14 +603,50 @@ async function handleEscolhaServico(phone: string, message: string) {
     return;
   }
 
-  if (lower === "4" || lower.includes("santos") || lower.includes("especialista")) {
+  if (lower === "4" || lower.includes("duvida") || lower.includes("faq") || lower.includes("pergunta")) {
+    await sendMessage({
+      to: phone,
+      message: `📋 *DUVIDAS FREQUENTES*
+
+*Como funciona?*
+Voce manda a localizacao, foto dos itens e destino. A gente calcula o preco e envia um fretista verificado.
+
+*Quanto custa?*
+Pequenos fretes a partir de R$ 150. O preco depende da distancia e volume. Manda *1* pra fazer um orcamento gratis!
+
+*Como pago?*
+Pix (sem taxa) ou cartao de credito. O pagamento e feito por link seguro do Mercado Pago.
+
+*Quando recebo o frete?*
+Voce escolhe a data e horario. Temos disponibilidade pra hoje mesmo!
+
+*E se der problema na entrega?*
+O fretista fotografa tudo na coleta e entrega. Se houver qualquer problema, nosso time resolve.
+
+*Quero ser parceiro/fretista*
+Digite: *Parcerias Pegue*
+
+━━━━━━━━━━━━━━━━
+Sua duvida nao esta aqui?
+Digite *ajuda* que nosso time entrara em contato.
+
+Ou escolha um servico:
+1️⃣ Pequenos Fretes
+2️⃣ Mudanca completa
+3️⃣ Guincho`,
+    });
+    return;
+  }
+
+  // Pediu especialista explicitamente
+  if (lower.includes("especialista") || lower === "ajuda") {
     await handleAtendente(phone);
     return;
   }
 
   await sendMessage({
     to: phone,
-    message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Pequenos Fretes\n2️⃣ Mudanca completa\n3️⃣ Guincho (carro ou moto)\n4️⃣ Falar com um especialista",
+    message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Pequenos Fretes\n2️⃣ Mudanca completa\n3️⃣ Guincho (carro ou moto)\n4️⃣ Duvidas frequentes",
   });
 }
 

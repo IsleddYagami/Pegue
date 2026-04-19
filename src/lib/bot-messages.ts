@@ -10,7 +10,7 @@ O que voce precisa?
 1️⃣ *Pequenos Fretes*
 2️⃣ *Mudanca completa*
 3️⃣ *Guincho* (carro ou moto)
-4️⃣ *Falar com um especialista*`,
+4️⃣ *Duvidas frequentes*`,
 
   pedirLocalizacao: `Otimo! Vou te ajudar com seu frete! 🚚
 

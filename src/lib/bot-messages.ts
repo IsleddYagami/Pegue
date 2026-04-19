@@ -421,6 +421,57 @@ Quando terminar, digite *PRONTO*
 
 ⚠️ Sem fotos de entrega = pagamento bloqueado`,
 
+  // === GUINCHO - FOTOS COLETA/ENTREGA ===
+
+  guinchoPedirFotosColeta: `📸 *Hora de registrar a coleta do veiculo!*
+
+Manda foto do veiculo *ANTES* de carregar na plataforma:
+- Foto frontal
+- Foto traseira
+- Foto de cada lateral
+- Foto de danos visiveis (se houver)
+
+Pode mandar uma por uma.
+Quando terminar, digite *PRONTO*
+
+⚠️ Sem fotos de coleta = pagamento bloqueado`,
+
+  guinchoPedirFotosEntrega: `📸 *Hora de registrar a entrega do veiculo!*
+
+Manda foto do veiculo *APOS* descarregar da plataforma:
+- Foto frontal
+- Foto traseira
+- Foto de cada lateral
+- Foto mostrando que esta no local correto
+
+Pode mandar uma por uma.
+Quando terminar, digite *PRONTO*
+
+⚠️ Sem fotos de entrega = pagamento bloqueado`,
+
+  guinchoClienteConfirmarEntrega: (descricao: string) =>
+    `🚗 *Veiculo entregue!*
+
+${descricao}
+
+━━━━━━━━━━━━━━━━
+
+⚠️ *CONFIRA AGORA com o guincheiro ainda no local:*
+
+🚗 O veiculo esta no local correto?
+🔍 Algum dano novo no veiculo?
+✅ Esta tudo conforme o combinado?
+
+━━━━━━━━━━━━━━━━
+
+⏳ *O guincheiro esta aguardando sua confirmacao para ser liberado.*
+Por favor, confira rapidamente.
+
+*Esta tudo certo?*
+
+1️⃣ *SIM* - Tudo certo, servico concluido com sucesso! ✅
+2️⃣ *NAO* - Tenho observacoes`,
+
   fretistaFotoRecebida: (total: number) =>
     `Foto ${total} recebida! ✅ Tem mais? Manda outra ou digite *PRONTO*`,
 

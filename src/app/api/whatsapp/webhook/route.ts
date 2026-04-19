@@ -2086,11 +2086,14 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
 
         if (corrida?.clientes) {
           const clienteTel = (corrida.clientes as any).telefone;
+          const isGuincho = (corrida.descricao_carga || "").toLowerCase().includes("guincho");
           // Muda sessao do cliente pra aguardar confirmacao
           await updateSession(clienteTel, { step: "aguardando_confirmacao_entrega" });
           await sendMessage({
             to: clienteTel,
-            message: MSG.clienteConfirmarEntrega(corrida.descricao_carga || "seus materiais"),
+            message: isGuincho
+              ? MSG.guinchoClienteConfirmarEntrega(corrida.descricao_carga || "Servico de guincho")
+              : MSG.clienteConfirmarEntrega(corrida.descricao_carga || "seus materiais"),
           });
 
           // Lembrete apos 10 min se cliente nao responder

@@ -83,9 +83,44 @@ export async function POST(req: NextRequest) {
               ajudanteInfo = `Com ${qtdAjudantes} ajudante${qtdAjudantes > 1 ? "s" : ""}`;
             }
 
-            await sendMessage({
-              to: prestador.telefone,
-              message: `✅ *Pagamento confirmado! Servico liberado!*
+            const isGuincho = (corrida.descricao_carga || "").toLowerCase().includes("guincho");
+
+            if (isGuincho) {
+              await sendMessage({
+                to: prestador.telefone,
+                message: `✅ *Pagamento confirmado! Servico de guincho liberado!*
+
+👤 *Cliente:* ${clienteNome}
+📱 *Contato:* ${formatarTelefoneExibicao(clienteTel)}
+
+━━━━━━━━━━━━━━━━
+
+📍 *Coleta:* ${corrida.origem_endereco}
+🏠 *Destino:* ${corrida.destino_endereco}
+🚗 *Servico:* ${corrida.descricao_carga}
+📅 *Data:* ${corrida.periodo || "AGORA"}
+
+━━━━━━━━━━━━━━━━
+
+⚠️ *PROTOCOLO OBRIGATORIO:*
+📸 Fotografe o veiculo *ANTES* de carregar (frontal, traseira, laterais)
+📸 Fotografe o veiculo *APOS* descarregar
+📸 Fotografe danos pre-existentes
+🚫 Sem fotos = pagamento *BLOQUEADO*
+
+━━━━━━━━━━━━━━━━
+
+⏳ *IMPORTANTE - APOS A ENTREGA:*
+Apos descarregar o veiculo, *aguarde no local* ate o cliente confirmar que esta tudo certo.
+Seu pagamento so sera processado apos a confirmacao do cliente.
+*Nao saia do local sem a confirmacao!*
+
+Bom trabalho! 🚗✨`,
+              });
+            } else {
+              await sendMessage({
+                to: prestador.telefone,
+                message: `✅ *Pagamento confirmado! Servico liberado!*
 
 👤 *Cliente:* ${clienteNome}
 📱 *Contato:* ${formatarTelefoneExibicao(clienteTel)}
@@ -113,7 +148,8 @@ Seu pagamento so sera processado apos a confirmacao do cliente.
 *Nao saia do local sem a confirmacao!*
 
 Bom trabalho! 🚚✨`,
-            });
+              });
+            }
 
             // Rastreio sera ativado na coleta (quando fretista digitar PRONTO)
           }

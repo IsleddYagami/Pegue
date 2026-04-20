@@ -137,7 +137,44 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: "ok" });
       }
 
-      // Foto do cliente - IA Vision
+      // Foto sem sessao - inicia atendimento direto pela foto
+      if (!session || session.step === "aguardando_servico" || session.step === "concluido" || session.step === "inicio") {
+        await createSession(phoneNumber);
+        const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
+        await sendMessage({
+          to: phoneNumber,
+          message: `Ola ${primeiroNome}! 😊 Recebi sua foto, ja estou analisando!\n\nEnquanto isso, me manda a *localizacao de retirada*:\n\nClique no *clipe* 📎 > *Localizacao* 📍\nOu digite o *CEP* ou *endereco com rua e bairro*`,
+        });
+
+        // Analisa foto e salva
+        const analise = await analisarFotoIA(imageUrl);
+        if (analise) {
+          const emoji = getItemEmoji(analise.item);
+          let veiculoSugerido = analise.veiculo_sugerido;
+          if (veiculoSugerido === "van") veiculoSugerido = "hr";
+
+          await updateSession(phoneNumber, {
+            step: "aguardando_localizacao",
+            descricao_carga: analise.item,
+            veiculo_sugerido: veiculoSugerido,
+            foto_url: imageUrl,
+          });
+
+          await sendMessage({
+            to: phoneNumber,
+            message: `Vi! *${analise.item}* ${emoji} Anotado! ✅\n\nAgora me manda onde buscar 📍`,
+          });
+        } else {
+          await updateSession(phoneNumber, {
+            step: "aguardando_localizacao",
+            descricao_carga: "Material (foto)",
+            foto_url: imageUrl,
+          });
+        }
+        return NextResponse.json({ status: "ok" });
+      }
+
+      // Foto do cliente - IA Vision (sessao ja ativa)
       const stepsAceitamFoto = ["aguardando_foto", "aguardando_mais_fotos", "aguardando_destino"];
       if (session && stepsAceitamFoto.includes(session.step)) {
         const analise = await analisarFotoIA(imageUrl);
@@ -311,6 +348,7 @@ async function handleClienteMessage(
 *Para clientes:*
 ✅ *Oi* → iniciar atendimento
 ✅ *minha conta* → ver seu historico
+🔄 *REPETIR* → refazer ultimo pedido
 🎮 *JOGAR* → jogar Pegue Runner!
 
 *Para parceiros:*
@@ -373,6 +411,48 @@ Desvie dos obstaculos pelas ruas de SP, enfrente bosses e entre pro ranking!
 🏆 Recorde atual? Veja no ranking dentro do jogo!
 Boa sorte! 🎯`,
     });
+    return;
+  }
+
+  // Comando REPETIR - refazer ultimo pedido (cliente)
+  if (lower === "repetir" || lower === "refazer" || lower === "mesmo frete") {
+    // Busca ultima corrida do cliente
+    const { data: cliente } = await supabase
+      .from("clientes")
+      .select("id")
+      .eq("telefone", phone)
+      .single();
+
+    if (cliente) {
+      const { data: ultimaCorrida } = await supabase
+        .from("corridas")
+        .select("origem_endereco, destino_endereco, descricao_carga, tipo_veiculo, valor_estimado")
+        .eq("cliente_id", cliente.id)
+        .order("criado_em", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (ultimaCorrida) {
+        await createSession(phone);
+        await updateSession(phone, {
+          step: "aguardando_data",
+          origem_endereco: ultimaCorrida.origem_endereco,
+          destino_endereco: ultimaCorrida.destino_endereco,
+          descricao_carga: ultimaCorrida.descricao_carga,
+          veiculo_sugerido: ultimaCorrida.tipo_veiculo,
+          valor_estimado: ultimaCorrida.valor_estimado,
+        });
+
+        const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
+        await sendMessage({
+          to: phone,
+          message: `Ola ${primeiroNome}! 😊 Encontrei seu ultimo pedido:\n\n📍 *Retirada:* ${ultimaCorrida.origem_endereco}\n🏠 *Destino:* ${ultimaCorrida.destino_endereco}\n📦 *Material:* ${ultimaCorrida.descricao_carga}\n✅ *Valor:* R$ ${ultimaCorrida.valor_estimado}\n\n📅 *Informe o dia e horario* pra agendar novamente 😊\n\nOu digite *AGORA* se for urgente`,
+        });
+        return;
+      }
+    }
+
+    await sendMessage({ to: phone, message: "Voce ainda nao tem pedidos anteriores 😊\nDigite *oi* pra fazer seu primeiro!" });
     return;
   }
 

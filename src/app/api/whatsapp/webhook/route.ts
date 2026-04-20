@@ -137,6 +137,34 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: "ok" });
       }
 
+      // Foto no guincho - Cotacao Express
+      if (session && session.step === "guincho_categoria") {
+        const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
+        await sendMessage({
+          to: phoneNumber,
+          message: `📸 *Cotacao Express!* Analisando seu veiculo... 🔍`,
+        });
+
+        // IA identifica o veiculo pela foto
+        const analiseVeiculo = await analisarFotoGuincho(imageUrl);
+        const marcaModelo = analiseVeiculo || "Veiculo (identificado por foto)";
+        const categoriaDetectada = detectarCategoriaVeiculo(marcaModelo);
+
+        await updateSession(phoneNumber, {
+          step: "guincho_localizacao" as any,
+          descricao_carga: `Guincho: Imediato - ${categoriaDetectada.nome} | ${marcaModelo}`,
+          veiculo_sugerido: categoriaDetectada.tipo === "moto" ? "moto_guincho" : "guincho",
+          plano_escolhido: "1", // imediato
+          foto_url: imageUrl,
+        });
+
+        await sendMessage({
+          to: phoneNumber,
+          message: `✅ *${marcaModelo}* identificado!\n\nAgora me manda *onde esta o veiculo*:\n\nClique no *clipe* 📎 > *Localizacao* 📍\nOu digite o *endereco com rua, bairro e numero*`,
+        });
+        return NextResponse.json({ status: "ok" });
+      }
+
       // Foto sem sessao - inicia atendimento direto pela foto
       if (!session || session.step === "aguardando_servico" || session.step === "concluido" || session.step === "inicio") {
         await createSession(phoneNumber);
@@ -2546,6 +2574,46 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
 }
 
 // === OPENAI VISION ===
+
+// Analisa foto de veiculo pra guincho (Cotacao Express)
+async function analisarFotoGuincho(imageUrl: string): Promise<string | null> {
+  try {
+    const OpenAI = (await import("openai")).default;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `Voce e um assistente que identifica veiculos por foto.
+Analise a foto e retorne APENAS o texto: "Marca Modelo Ano"
+Exemplos: "Fiat Uno 2018", "Honda CG 160 2022", "Toyota Hilux 2020"
+Se nao conseguir identificar o ano, estime.
+Se nao conseguir identificar o veiculo, retorne "Veiculo nao identificado".
+Responda SOMENTE o texto, sem explicacao.`,
+        },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Identifique este veiculo:" },
+            { type: "image_url", image_url: { url: imageUrl } },
+          ],
+        },
+      ],
+      max_tokens: 50,
+    });
+
+    const resultado = response.choices[0]?.message?.content?.trim() || null;
+    if (resultado && !resultado.toLowerCase().includes("nao identificado")) {
+      return resultado;
+    }
+    return null;
+  } catch (error: any) {
+    console.error("Erro analisar foto guincho:", error?.message);
+    return null;
+  }
+}
 
 async function analisarFotoIA(imageUrl: string): Promise<{
   item: string; quantidade: string; tamanho: string;

@@ -23,10 +23,11 @@ Ou se preferir, digite o *CEP* ou *endereco com rua e bairro*`,
 
 A gente busca seu veiculo no ponto A e leva pro ponto B!
 
-1️⃣ *Guincho Imediato* (preciso AGORA)
-2️⃣ *Guincho Agendado* (escolher data e horario)
+📸 *COTACAO EXPRESS* - Manda uma *foto do veiculo* agora e receba o orcamento em segundos!
 
-Manda o numero da opcao! 😊`,
+Ou escolha:
+1️⃣ *Guincho Imediato* (preciso AGORA)
+2️⃣ *Guincho Agendado* (escolher data e horario)`,
 
   guinchoDesativado: `O servico de guincho esta temporariamente indisponivel 😔
 

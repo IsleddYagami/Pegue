@@ -254,7 +254,7 @@ export default function HomePage() {
             Veja a <span className="text-[#C9A84C]">Pegue</span> em acao
           </h2>
           <p className="mb-10 text-center text-gray-400">Fretes e guinchos reais feitos pela nossa equipe</p>
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-3">
             <div className="flex flex-col items-center">
               <div className="w-full overflow-hidden rounded-2xl border border-[#C9A84C]/20" style={{ aspectRatio: "9/16", maxHeight: "500px" }}>
                 <iframe
@@ -278,6 +278,18 @@ export default function HomePage() {
                 />
               </div>
               <p className="mt-3 text-sm font-bold text-[#C9A84C]">Guincho</p>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="w-full overflow-hidden rounded-2xl border border-[#C9A84C]/20" style={{ aspectRatio: "9/16", maxHeight: "500px" }}>
+                <iframe
+                  src="https://www.youtube.com/embed/4wqm7jY_B-s"
+                  title="Pegue em acao"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="h-full w-full"
+                />
+              </div>
+              <p className="mt-3 text-sm font-bold text-[#C9A84C]">Pegue em acao</p>
             </div>
           </div>
           <p className="mt-8 text-center text-sm text-gray-500">

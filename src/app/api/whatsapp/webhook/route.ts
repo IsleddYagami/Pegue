@@ -1093,7 +1093,7 @@ async function handleAjudante(phone: string, message: string) {
   });
 }
 
-// STEP 6: Data
+// STEP 6: Data e Horario
 async function handleData(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session) return;
@@ -1107,33 +1107,46 @@ async function handleData(phone: string, message: string) {
       data_agendada: "AGORA - Urgente",
     });
   } else {
-    // Valida se parece uma data (tem numero)
-    if (!/\d/.test(message)) {
-      const isGuincho = (session.descricao_carga || "").toLowerCase().includes("guincho");
+    // Tenta extrair horario da mensagem
+    const horarioExtraido = extrairHorario(lower);
+    // Tenta extrair data da mensagem
+    const dataExtraida = extrairData(lower);
+
+    if (dataExtraida && horarioExtraido) {
+      // Tem data E horario na mesma mensagem - pula direto pra confirmacao
+      const dataCompleta = `${dataExtraida} - ${horarioExtraido}`;
+      await updateSession(phone, {
+        step: "aguardando_confirmacao",
+        data_agendada: dataCompleta,
+      });
+    } else if (dataExtraida && !horarioExtraido) {
+      // So tem data, pede horario
+      await updateSession(phone, {
+        step: "aguardando_horario" as any,
+        data_agendada: dataExtraida,
+      });
       await sendMessage({
         to: phone,
-        message: isGuincho
-          ? `⚠️ *A data e obrigatoria para agendar o guincho.*\n\nDigite a data no formato:\n📅 *dia/mes* (ex: 25/04)\n\nOu se precisar agora, digite *AGORA*`
-          : `Preciso da *data*! 📅\n\nExemplo: *25/04* ou *amanha* ou *segunda*\n\nOu digite *AGORA* se for urgente.`,
+        message: `📅 *${dataExtraida}* - Anotado!\n\nAgora informe o *horario*:\n\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)\n\nOu digite o horario direto (ex: *14h*, *15:30*, *9 horas*)`,
+      });
+      return;
+    } else if (!dataExtraida && horarioExtraido) {
+      // So tem horario, pede data
+      await sendMessage({
+        to: phone,
+        message: `⏰ *${horarioExtraido}* - Anotado!\n\nAgora informe o *dia*:\n\nExemplo: *25/04*, *amanha*, *segunda*`,
+      });
+      // Salva horario temporariamente no periodo
+      await updateSession(phone, { periodo: horarioExtraido });
+      return;
+    } else {
+      // Nao entendeu nada
+      await sendMessage({
+        to: phone,
+        message: `📅 *Pra agendar, preciso do dia e horario* 😊\n\nEssas informacoes sao essenciais pra garantir o melhor atendimento!\n\nVoce pode enviar tudo junto ou um de cada vez:\n\n*Exemplos:*\n• *25/04 as 15h*\n• *amanha 14:30*\n• *segunda 9h*\n• *25/04* (depois pergunto o horario)\n• *15h* (depois pergunto o dia)\n\nOu digite *AGORA* se for urgente`,
       });
       return;
     }
-
-    // Salva a data e pede o horario
-    await updateSession(phone, {
-      step: "aguardando_horario" as any,
-      data_agendada: message.trim(),
-    });
-
-    const isGuincho = (session.descricao_carga || "").toLowerCase().includes("guincho");
-
-    await sendMessage({
-      to: phone,
-      message: isGuincho
-        ? `📅 *${message.trim()}* - Anotado!\n\n⚠️ *O horario e obrigatorio para o agendamento.*\nO guincheiro precisa dessa informacao pra se organizar.\n\nEscolha:\n\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)\n3️⃣ *Horario especifico* (ex: 14:30)\n\nManda o numero ou o horario direto!`
-        : `📅 ${message.trim()} - Anotado!\n\nAgora preciso do *horario*. Escolha:\n\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)\n3️⃣ *Horario especifico* (ex: 14:30)\n\nManda o numero ou o horario direto!`,
-    });
-    return;
   }
 
   const veiculo = session.veiculo_sugerido || "utilitario";
@@ -2397,50 +2410,19 @@ async function handleHorario(phone: string, message: string) {
   if (!session) return;
 
   const lower = message.toLowerCase().trim();
-  let horario = "";
 
-  if (lower === "1" || lower.includes("manha") || lower.includes("manhã")) {
-    horario = "Manha (08:00 - 12:00)";
-  } else if (lower === "2" || lower.includes("tarde")) {
-    horario = "Tarde (13:00 - 17:00)";
-  } else if (lower === "3") {
+  // Opcoes rapidas
+  let horario: string | null = null;
+  if (lower === "1") horario = "Manha (08:00 - 12:00)";
+  else if (lower === "2") horario = "Tarde (13:00 - 17:00)";
+  else horario = extrairHorario(lower);
+
+  if (!horario) {
     await sendMessage({
       to: phone,
-      message: "Qual horario? Pode digitar de qualquer forma:\n\nExemplos: *14:30*, *15h*, *9 horas*, *10hs*",
+      message: "Nao entendi o horario 😅\n\nPode digitar de qualquer forma:\n*14:30*, *15h*, *9 horas*, *10hs*, *15*\n\nOu escolha:\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)",
     });
     return;
-  } else {
-    // Tenta extrair horario de qualquer formato
-    // Remove palavras e deixa so numeros e separadores
-    const limpo = lower
-      .replace(/horas|hora|hrs|hs/g, "")
-      .replace(/h/g, ":")
-      .trim();
-
-    // Tenta extrair hora:minuto
-    const matchHoraMin = limpo.match(/(\d{1,2})[:\s](\d{1,2})/);
-    const matchHoraSo = limpo.match(/^(\d{1,2})$/);
-
-    if (matchHoraMin) {
-      const h = parseInt(matchHoraMin[1]);
-      const m = parseInt(matchHoraMin[2]);
-      if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
-        horario = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-      }
-    } else if (matchHoraSo) {
-      const h = parseInt(matchHoraSo[1]);
-      if (h >= 0 && h <= 23) {
-        horario = `${String(h).padStart(2, "0")}:00`;
-      }
-    }
-
-    if (!horario) {
-      await sendMessage({
-        to: phone,
-        message: "Nao entendi o horario 😅\n\nPode digitar de qualquer forma:\n*14:30*, *15h*, *9 horas*, *10hs*, *15*\n\nOu escolha:\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)",
-      });
-      return;
-    }
   }
 
   const dataCompleta = `${session.data_agendada} - ${horario}`;
@@ -3142,6 +3124,83 @@ Responda *SIM* pra confirmar ou *NAO* pra ajustar algo.`,
       message: MSG.guinchoOrcamento(categoria, session.origem_endereco || "", destino, valorTotal.toString(), taxaExtra),
     });
   }
+}
+
+// === EXTRAIR DATA E HORARIO ===
+
+function extrairHorario(texto: string): string | null {
+  const limpo = texto
+    .replace(/horas|hora|hrs|hs/g, "")
+    .replace(/h/g, ":")
+    .replace(/\bas\b/g, "")
+    .trim();
+
+  // Formatos: 14:30, 14 30, 14:00
+  const matchHM = limpo.match(/(\d{1,2})[:\s](\d{1,2})/);
+  if (matchHM) {
+    const h = parseInt(matchHM[1]);
+    const m = parseInt(matchHM[2]);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+  }
+
+  // Formato: so numero (15, 9, etc) - mas so se nao for dia do mes
+  // Pra diferenciar: se o texto original tem "/" ou palavras de data, nao e horario
+  const temData = /\d{1,2}\/\d{1,2}|amanh|segunda|terca|quarta|quinta|sexta|sabado|domingo/i.test(texto);
+  if (!temData) {
+    const matchH = limpo.match(/(\d{1,2})/);
+    if (matchH) {
+      const h = parseInt(matchH[1]);
+      if (h >= 6 && h <= 23) { // horarios razoaveis
+        return `${String(h).padStart(2, "0")}:00`;
+      }
+    }
+  }
+
+  // Palavras: manha, tarde
+  if (texto.includes("manha") || texto.includes("manhã")) return "Manha (08:00 - 12:00)";
+  if (texto.includes("tarde")) return "Tarde (13:00 - 17:00)";
+
+  return null;
+}
+
+function extrairData(texto: string): string | null {
+  // Formato: 25/04, 25/4, 25-04
+  const matchData = texto.match(/(\d{1,2})[\/\-](\d{1,2})/);
+  if (matchData) {
+    const dia = String(parseInt(matchData[1])).padStart(2, "0");
+    const mes = String(parseInt(matchData[2])).padStart(2, "0");
+    return `${dia}/${mes}`;
+  }
+
+  // Palavras
+  const hoje = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+
+  if (texto.includes("hoje")) {
+    return `${String(hoje.getDate()).padStart(2, "0")}/${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+  }
+  if (texto.includes("amanh")) {
+    const amanha = new Date(hoje);
+    amanha.setDate(amanha.getDate() + 1);
+    return `${String(amanha.getDate()).padStart(2, "0")}/${String(amanha.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  const diasSemana: Record<string, number> = {
+    domingo: 0, segunda: 1, terca: 2, terça: 2, quarta: 3,
+    quinta: 4, sexta: 5, sabado: 6, sábado: 6,
+  };
+
+  for (const [nome, numDia] of Object.entries(diasSemana)) {
+    if (texto.includes(nome)) {
+      const diff = (numDia - hoje.getDay() + 7) % 7 || 7;
+      const data = new Date(hoje);
+      data.setDate(data.getDate() + diff);
+      return `${String(data.getDate()).padStart(2, "0")}/${String(data.getMonth() + 1).padStart(2, "0")}`;
+    }
+  }
+
+  return null;
 }
 
 function getItemEmoji(item: string): string {

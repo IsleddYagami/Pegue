@@ -59,12 +59,16 @@ Digite *nome da rua, bairro e numero* 📍`,
 ${taxaExtra ? `🌙 *Taxa ${taxaExtra} aplicada*\n` : ""}
 ✅ *Total: R$ ${valor}*
 
-Pra quando voce precisa?
+📅 *Informe o dia e horario* 😊
 
-📅 Me manda a *data* (ex: 25/04, amanha, segunda)
+Essas informacoes sao essenciais pra garantir o melhor atendimento!
 
-⚠️ *Data e horario sao obrigatorios* para o agendamento.
-O guincheiro precisa dessas informacoes pra garantir um bom servico!`,
+Pode enviar tudo junto ou um de cada vez:
+• *25/04 as 15h*
+• *amanha 14:30*
+• *segunda 9h*
+
+Ou digite *AGORA* se for urgente`,
 
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅
@@ -188,12 +192,23 @@ Vai precisar de ajudante pra carregar? 😊
 
 ✅ *Total: R$ ${total}*
 
-Pra quando voce precisa? Me manda a *data* e *horario* 📅`,
+📅 *Informe o dia e horario* 😊
+
+Pode enviar tudo junto ou um de cada vez:
+• *25/04 as 15h*
+• *amanha 14:30*
+• *segunda 9h*
+
+Ou digite *AGORA* se for urgente`,
 
   planoEscolhido: `Otima escolha! ✨
-Vou preparar tudo pra voce.
 
-Pra quando voce precisa? Me manda a data e o horario que fica melhor pra voce 📅`,
+📅 *Informe o dia e horario* 😊
+
+Pode enviar tudo junto ou um de cada vez:
+• *25/04 as 15h*
+• *amanha 14:30*
+• *segunda 9h*`,
 
   resumoFrete: (
     origem: string,

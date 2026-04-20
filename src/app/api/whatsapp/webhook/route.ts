@@ -1112,14 +1112,19 @@ async function handleData(phone: string, message: string) {
     // Tenta extrair data da mensagem
     const dataExtraida = extrairData(lower);
 
-    if (dataExtraida && horarioExtraido) {
-      // Tem data E horario na mesma mensagem - pula direto pra confirmacao
-      const dataCompleta = `${dataExtraida} - ${horarioExtraido}`;
+    // Verifica se ja tem horario salvo de mensagem anterior (no campo periodo)
+    const horarioSalvo = session.periodo || null;
+    const horarioFinal = horarioExtraido || horarioSalvo;
+
+    if (dataExtraida && horarioFinal) {
+      // Tem data E horario - pula direto pra confirmacao
+      const dataCompleta = `${dataExtraida} - ${horarioFinal}`;
       await updateSession(phone, {
         step: "aguardando_confirmacao",
         data_agendada: dataCompleta,
+        periodo: null,
       });
-    } else if (dataExtraida && !horarioExtraido) {
+    } else if (dataExtraida && !horarioFinal) {
       // So tem data, pede horario
       await updateSession(phone, {
         step: "aguardando_horario" as any,
@@ -1248,19 +1253,65 @@ async function notificarAdmin(titulo: string, clientePhone: string, detalhes: st
 
 async function dispararParaFretistas(corridaId: string, session: BotSession, clientePhone: string) {
   try {
-    const { data: prestadores } = await supabase
-      .from("prestadores")
-      .select("telefone, nome")
-      .eq("disponivel", true)
-      .eq("status", "aprovado");
+    const isGuincho = (session.descricao_carga || "").toLowerCase().includes("guincho");
 
-    if (!prestadores || prestadores.length === 0) {
-      // Nenhum fretista disponivel - notifica cliente + admin
+    // Filtra prestadores pelo tipo de veiculo
+    // Guincho: so prestadores com veiculo tipo "guincho"
+    // Frete: so prestadores com veiculo tipo utilitario/hr/caminhao (exclui guincho)
+    let prestadores: { telefone: string; nome: string }[] = [];
+
+    if (isGuincho) {
+      const { data } = await supabase
+        .from("prestadores")
+        .select("telefone, nome, id")
+        .eq("disponivel", true)
+        .eq("status", "aprovado");
+
+      if (data) {
+        // Filtra prestadores que tem veiculo tipo guincho
+        for (const p of data) {
+          const { data: veiculos } = await supabase
+            .from("prestadores_veiculos")
+            .select("tipo")
+            .eq("prestador_id", p.id)
+            .eq("ativo", true);
+
+          const temGuincho = veiculos?.some(v =>
+            v.tipo === "guincho" || v.tipo === "guincho_plataforma"
+          );
+          if (temGuincho) prestadores.push(p);
+        }
+      }
+    } else {
+      const { data } = await supabase
+        .from("prestadores")
+        .select("telefone, nome, id")
+        .eq("disponivel", true)
+        .eq("status", "aprovado");
+
+      if (data) {
+        // Filtra prestadores que NAO sao guincheiros (tem veiculo de frete)
+        for (const p of data) {
+          const { data: veiculos } = await supabase
+            .from("prestadores_veiculos")
+            .select("tipo")
+            .eq("prestador_id", p.id)
+            .eq("ativo", true);
+
+          const ehFretista = veiculos?.some(v =>
+            ["utilitario", "hr", "caminhao_bau", "carro_comum"].includes(v.tipo)
+          );
+          if (ehFretista) prestadores.push(p);
+        }
+      }
+    }
+
+    if (prestadores.length === 0) {
       await sendMessage({ to: clientePhone, message: MSG.nenhumFretista });
       await notificarAdmin(
-        `⚠️ *NENHUM FRETISTA DISPONIVEL*`,
+        isGuincho ? `⚠️ *NENHUM GUINCHEIRO DISPONIVEL*` : `⚠️ *NENHUM FRETISTA DISPONIVEL*`,
         clientePhone,
-        `Corrida: ${corridaId}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}`
+        `Corrida: ${corridaId}\nTipo: ${isGuincho ? "GUINCHO" : "FRETE"}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}`
       );
       return;
     }
@@ -1270,27 +1321,34 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
 
     createDispatch(corridaId, clientePhone, telefones);
 
-    // Info ajudante - busca da corrida
-    let ajudanteInfo = "*Sem ajudante*";
-    if (session.precisa_ajudante) {
-      const { data: corridaInfo } = await supabase
-        .from("corridas")
-        .select("qtd_ajudantes")
-        .eq("id", corridaId)
-        .single();
-      const qtd = corridaInfo?.qtd_ajudantes || 1;
-      ajudanteInfo = `*Com ${qtd} ajudante${qtd > 1 ? "s" : ""}*`;
-    }
+    let mensagem = "";
 
-    const mensagem = MSG.novoFreteDisponivel(
-      session.origem_endereco || "SP",
-      session.destino_endereco || "Destino",
-      session.descricao_carga || "Material",
-      session.data_agendada || "A combinar",
-      valorPrestador.toString(),
-      corridaId,
-      ajudanteInfo
-    );
+    if (isGuincho) {
+      // Mensagem de GUINCHO pro guincheiro
+      mensagem = `🚗 *Guincho solicitado!*\n\n📍 Coleta: ${session.origem_endereco || "SP"}\n🏠 Destino: ${session.destino_endereco || "Destino"}\n🔧 ${session.descricao_carga || "Guincho"}\n📅 ${session.data_agendada || "AGORA"}\n💰 Voce recebe: R$ ${valorPrestador}\n\nQuer pegar? Responda *PEGAR*`;
+    } else {
+      // Mensagem de FRETE pro fretista
+      let ajudanteInfo = "*Sem ajudante*";
+      if (session.precisa_ajudante) {
+        const { data: corridaInfo } = await supabase
+          .from("corridas")
+          .select("qtd_ajudantes")
+          .eq("id", corridaId)
+          .single();
+        const qtd = corridaInfo?.qtd_ajudantes || 1;
+        ajudanteInfo = `*Com ${qtd} ajudante${qtd > 1 ? "s" : ""}*`;
+      }
+
+      mensagem = MSG.novoFreteDisponivel(
+        session.origem_endereco || "SP",
+        session.destino_endereco || "Destino",
+        session.descricao_carga || "Material",
+        session.data_agendada || "A combinar",
+        valorPrestador.toString(),
+        corridaId,
+        ajudanteInfo
+      );
+    }
 
     await sendMessageToMany(telefones, mensagem);
 
@@ -1383,12 +1441,14 @@ async function handleCadastroTipoVeiculo(phone: string, message: string) {
     tipoVeiculo = "carro_comum";
   } else if (lower === "2" || lower.includes("utilitario") || lower.includes("strada") || lower.includes("saveiro")) {
     tipoVeiculo = "utilitario";
-  } else if (lower === "3" || lower.includes("hr")) {
+  } else if (lower === "3" || lower.includes("hr") || lower.includes("bongo")) {
     tipoVeiculo = "hr";
   } else if (lower === "4" || lower.includes("caminhao") || lower.includes("bau")) {
     tipoVeiculo = "caminhao_bau";
+  } else if (lower === "5" || lower.includes("guincho") || lower.includes("plataforma")) {
+    tipoVeiculo = "guincho";
   } else {
-    await sendMessage({ to: phone, message: "Escolhe o tipo do veiculo:\n\n1️⃣ Carro comum\n2️⃣ Utilitario\n3️⃣ HR\n4️⃣ Caminhao Bau" });
+    await sendMessage({ to: phone, message: "Escolhe o tipo do veiculo:\n\n1️⃣ Carro comum\n2️⃣ Utilitario\n3️⃣ HR / Bongo\n4️⃣ Caminhao Bau\n5️⃣ Guincho / Plataforma" });
     return;
   }
 
@@ -3129,38 +3189,49 @@ Responda *SIM* pra confirmar ou *NAO* pra ajustar algo.`,
 // === EXTRAIR DATA E HORARIO ===
 
 function extrairHorario(texto: string): string | null {
-  const limpo = texto
-    .replace(/horas|hora|hrs|hs/g, "")
-    .replace(/h/g, ":")
-    .replace(/\bas\b/g, "")
-    .trim();
+  // Palavras: manha, tarde
+  if (texto.includes("manha") || texto.includes("manhã")) return "Manha (08:00 - 12:00)";
+  if (texto.includes("tarde")) return "Tarde (13:00 - 17:00)";
 
-  // Formatos: 14:30, 14 30, 14:00
-  const matchHM = limpo.match(/(\d{1,2})[:\s](\d{1,2})/);
-  if (matchHM) {
-    const h = parseInt(matchHM[1]);
-    const m = parseInt(matchHM[2]);
+  // Formato: 14:30, 14h30, 14hs30
+  const matchHM1 = texto.match(/(\d{1,2})\s*[h:]\s*(\d{1,2})/);
+  if (matchHM1) {
+    const h = parseInt(matchHM1[1]);
+    const m = parseInt(matchHM1[2]);
     if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
       return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     }
   }
 
-  // Formato: so numero (15, 9, etc) - mas so se nao for dia do mes
-  // Pra diferenciar: se o texto original tem "/" ou palavras de data, nao e horario
-  const temData = /\d{1,2}\/\d{1,2}|amanh|segunda|terca|quarta|quinta|sexta|sabado|domingo/i.test(texto);
+  // Formato: 15h, 15hs, 15 horas, 15 hs, 15hora
+  const matchH = texto.match(/(\d{1,2})\s*(?:h|hs|hrs|horas|hora)/);
+  if (matchH) {
+    const h = parseInt(matchH[1]);
+    if (h >= 0 && h <= 23) {
+      return `${String(h).padStart(2, "0")}:00`;
+    }
+  }
+
+  // Formato: "as 15", "às 15"
+  const matchAs = texto.match(/[aà]s?\s+(\d{1,2})(?!\s*[\/\-])/);
+  if (matchAs) {
+    const h = parseInt(matchAs[1]);
+    if (h >= 0 && h <= 23) {
+      return `${String(h).padStart(2, "0")}:00`;
+    }
+  }
+
+  // So numero solto (15, 9) - apenas se NAO tem data na mensagem
+  const temData = /\d{1,2}[\/\-]\d{1,2}|amanh|segunda|terca|terça|quarta|quinta|sexta|sabado|sábado|domingo|hoje/i.test(texto);
   if (!temData) {
-    const matchH = limpo.match(/(\d{1,2})/);
-    if (matchH) {
-      const h = parseInt(matchH[1]);
-      if (h >= 6 && h <= 23) { // horarios razoaveis
+    const matchNum = texto.match(/^(\d{1,2})$/);
+    if (matchNum) {
+      const h = parseInt(matchNum[1]);
+      if (h >= 6 && h <= 23) {
         return `${String(h).padStart(2, "0")}:00`;
       }
     }
   }
-
-  // Palavras: manha, tarde
-  if (texto.includes("manha") || texto.includes("manhã")) return "Manha (08:00 - 12:00)";
-  if (texto.includes("tarde")) return "Tarde (13:00 - 17:00)";
 
   return null;
 }

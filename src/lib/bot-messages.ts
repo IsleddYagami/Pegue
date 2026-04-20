@@ -346,8 +346,9 @@ Pode ser CPF, email, telefone ou chave aleatoria.
 
 1️⃣ *Carro comum* (Kicks, Livina, Renegade, Nivus, etc)
 2️⃣ *Utilitario* (Strada, Saveiro, Courier)
-3️⃣ *HR* (Hyundai HR)
-4️⃣ *Caminhao Bau*`,
+3️⃣ *HR* (Hyundai HR, Bongo)
+4️⃣ *Caminhao Bau*
+5️⃣ *Guincho / Plataforma*`,
 
   cadastroTermos: `📋 *TERMOS DE PARTICIPACAO - PEGUE*
 

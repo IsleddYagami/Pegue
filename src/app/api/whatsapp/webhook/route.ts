@@ -1157,6 +1157,10 @@ async function handleData(phone: string, message: string) {
     }
   }
 
+  // Re-le sessao pra pegar data_agendada atualizado
+  const sessaoAtualizada = await getSession(phone);
+  const dataFinal = sessaoAtualizada?.data_agendada || message;
+
   const veiculo = session.veiculo_sugerido || "utilitario";
   const veiculoNome: Record<string, string> = {
     utilitario: "Utilitario (Strada/Saveiro)",
@@ -1177,7 +1181,7 @@ async function handleData(phone: string, message: string) {
       session.origem_endereco || "Origem",
       session.destino_endereco || "Destino",
       session.descricao_carga || "Material",
-      message,
+      dataFinal,
       veiculoNome[veiculo] || "Utilitario",
       (session.valor_estimado || 0).toString(),
       detalhes

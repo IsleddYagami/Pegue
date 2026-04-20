@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendMessage } from "@/lib/chatpro";
+import { sendToClient } from "@/lib/chatpro";
 import { MSG } from "@/lib/bot-messages";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (tipo === "pegou_chegou") {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: MSG.clienteConfirmarEntrega("Geladeira, Maquina de lavar, Cama casal, Guarda-roupa, Sofa, Rack/Estante, TV, 5x Caixas"),
     });

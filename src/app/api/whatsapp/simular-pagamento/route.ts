@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendMessage } from "@/lib/chatpro";
+import { sendToClient } from "@/lib/chatpro";
 import { getSession, updateSession } from "@/lib/bot-sessions";
 import { MSG } from "@/lib/bot-messages";
 import { formatarTelefoneExibicao } from "@/lib/bot-utils";
@@ -51,13 +51,13 @@ export async function GET(req: NextRequest) {
   if (prestador) {
     const telFormatado = formatarTelefoneExibicao(prestador.telefone);
 
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: MSG.pagamentoConfirmado(prestador.nome, telFormatado),
     });
 
     // Envia orientacoes apos pagamento
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: MSG.orientacoesCliente,
     });
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Envia detalhes do servico pro fretista
-    await sendMessage({
+    await sendToClient({
       to: prestador.telefone,
       message: `✅ *Pagamento confirmado! Servico liberado!*
 

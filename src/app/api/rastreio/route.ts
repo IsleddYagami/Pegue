@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { distanciaRetaKm } from "@/lib/bot-utils";
-import { sendMessage } from "@/lib/chatpro";
+import { sendMessage, sendToClient } from "@/lib/chatpro";
 import { MSG } from "@/lib/bot-messages";
 import { updateSession } from "@/lib/bot-sessions";
 
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
             corrida_id: corrida.id,
           });
 
-          await sendMessage({
+          await sendToClient({
             to: clienteTel,
             message: MSG.fretistaChegouDestino,
           });
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
                 .eq("phone", clienteTel)
                 .single();
               if (sessao?.step === "aguardando_confirmacao_entrega") {
-                await sendMessage({ to: clienteTel, message: MSG.lembreteConfirmacao });
+                await sendToClient({ to: clienteTel, message: MSG.lembreteConfirmacao });
               }
             } catch {}
           }, 10 * 60 * 1000);
@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
                 await sendMessage({
                   to: "5511970363713",
                   message: `⚠️ *Cliente nao confirmou entrega ha 20 min!*\n\nCliente: ${clienteTel}\nCorrida: ${corrida.id}\n\nVerifique e resolva!`,
+                  instance: 1, // notificacao admin sempre pelo numero principal
                 });
               }
             } catch {}

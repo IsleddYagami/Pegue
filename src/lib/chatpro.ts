@@ -1,5 +1,6 @@
 // Lib para enviar mensagens via ChatPro WhatsApp API
 // Suporta 2 instancias (2 numeros)
+import { supabase } from "@/lib/supabase";
 
 const CHATPRO_ENDPOINT = process.env.CHATPRO_ENDPOINT || "";
 const CHATPRO_TOKEN = process.env.CHATPRO_TOKEN || "";
@@ -89,6 +90,62 @@ export function formatPhone(phone: string): string {
 export async function sendMessageToMany(numbers: string[], message: string, instance?: 1 | 2) {
   const results = await Promise.allSettled(
     numbers.map((to) => sendMessage({ to, message, instance }))
+  );
+  return results;
+}
+
+// === Helpers que resolvem instance via session do destinatario ===
+// Cada contato (cliente, prestador) conversa por um numero ChatPro. A session
+// guarda qual instancia. Assim o bot sempre responde na mesma conversa em que
+// o usuario escreveu, mesmo que o codigo chamador nao saiba a instancia.
+
+const instanceCache = new Map<string, { instance: 1 | 2; expires: number }>();
+
+async function resolveInstanceByPhone(phone: string, fallback: 1 | 2 = 1): Promise<1 | 2> {
+  // Cache leve de 30s pra evitar query por mensagem (serverless reinicia, ok)
+  const cached = instanceCache.get(phone);
+  if (cached && cached.expires > Date.now()) return cached.instance;
+
+  const { data } = await supabase
+    .from("bot_sessions")
+    .select("instance_chatpro")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  const resolved: 1 | 2 = data?.instance_chatpro === 2 ? 2 : fallback;
+  instanceCache.set(phone, { instance: resolved, expires: Date.now() + 30_000 });
+  return resolved;
+}
+
+// Envia mensagem pra um contato e resolve a instancia automaticamente via session
+// Use esta funcao em vez de sendMessage quando enviar pra cliente/prestador (nao-admin)
+export async function sendToClient(opts: { to: string; message: string; fallbackInstance?: 1 | 2 }) {
+  const instance = await resolveInstanceByPhone(opts.to, opts.fallbackInstance ?? 1);
+  return sendMessage({ to: opts.to, message: opts.message, instance });
+}
+
+export async function sendImageToClient(opts: { to: string; url: string; caption?: string; fallbackInstance?: 1 | 2 }) {
+  const instance = await resolveInstanceByPhone(opts.to, opts.fallbackInstance ?? 1);
+  return sendImage({ to: opts.to, url: opts.url, caption: opts.caption, instance });
+}
+
+// Invalida o cache de instance pra um phone (usar apos mudar instance_chatpro na session)
+export function invalidateInstanceCache(phone: string) {
+  instanceCache.delete(phone);
+}
+
+// Pre-popula o cache com a instancia detectada pelo webhook. Garante que mesmo
+// antes da session ser criada no DB, sendToClient responda pela instancia certa.
+export function setInstanceCache(phone: string, instance: 1 | 2) {
+  instanceCache.set(phone, { instance, expires: Date.now() + 30_000 });
+}
+
+// Versao em batch de sendToClient: cada destinatario recebe pela instancia correta
+// (resolvida via session). Usado pra dispatch de fretistas, em que cada fretista pode
+// estar conversando por um numero diferente.
+export async function sendToClients(phones: string[], message: string) {
+  const results = await Promise.allSettled(
+    phones.map((to) => sendToClient({ to, message }))
   );
   return results;
 }

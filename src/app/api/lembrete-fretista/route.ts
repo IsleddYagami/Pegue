@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendMessage } from "@/lib/chatpro";
+import { sendMessage, sendToClient } from "@/lib/chatpro";
 import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       if (!urgencia || urgencia === "lembrete_agendado") {
         await supabase.from("corridas").update({ urgencia: "lembrete_2h" }).eq("id", corrida.id);
 
-        await sendMessage({
+        await sendToClient({
           to: fretistaTel,
           message: `📋 *Lembrete de frete!*\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${periodoStr}\n💰 R$ ${corrida.valor_prestador}\n\nTudo certo pra hoje? Confirme com *SIM* ✅`,
         });
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
         // Verifica se ja respondeu SIM (campo urgencia teria "confirmado")
         await supabase.from("corridas").update({ urgencia: "lembrete_1h" }).eq("id", corrida.id);
 
-        await sendMessage({
+        await sendToClient({
           to: fretistaTel,
           message: `⚠️ *LEMBRETE: Frete em breve!*\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${periodoStr}\n\nPor favor confirme com *SIM* que esta a caminho!`,
         });
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
       else if (urgencia === "lembrete_1h") {
         await supabase.from("corridas").update({ urgencia: "lembrete_40min" }).eq("id", corrida.id);
 
-        await sendMessage({
+        await sendToClient({
           to: fretistaTel,
           message: `🚨 *URGENTE: Confirme AGORA!*\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${periodoStr}\n\n⚠️ Se nao confirmar, o frete sera *redistribuido* para outro parceiro.\n\nResponda *SIM* pra confirmar!`,
         });
@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
             ...(desativar ? { disponivel: false } : {}),
           }).eq("id", prestador.id);
 
-          await sendMessage({
+          await sendToClient({
             to: fretistaTel,
             message: desativar
               ? `⛔ *Sua conta esta INATIVA.*\n\nVoce nao confirmou presenca no frete e nao respondeu aos lembretes.\nScore: -5 pontos.\n\nPara reativar, envie justificativa com provas pelo WhatsApp.\nSua situacao sera analisada pela equipe.`
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
 
         // Avisa cliente
         if (clienteTel) {
-          await sendMessage({
+          await sendToClient({
             to: clienteTel,
             message: "⚠️ Seu fretista teve um imprevisto.\n\n*Ja estamos providenciando outro fretista de confianca!*\nVoce sera notificado assim que confirmarmos. 😊",
           });
@@ -118,6 +118,7 @@ export async function GET(req: NextRequest) {
         await sendMessage({
           to: ADMIN_PHONE,
           message: `🚨 *ABANDONO DE FRETE*\n\n👤 Fretista: ${(corrida.prestadores as any)?.nome} (${fretistaTel})\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${periodoStr}\nStatus: ${corrida.status === "paga" ? "PAGAMENTO JA FEITO - conta desativada" : "Re-dispatch em andamento"}\n\n⏰ ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
+          instance: 1, // notificacao admin sempre pelo numero principal
         });
 
         lembreteEnviados++;

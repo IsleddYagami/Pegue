@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { sendMessage } from "@/lib/chatpro";
+import { sendToClient } from "@/lib/chatpro";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         .eq("id", prestadorId);
 
       // Notifica prestador - mensagem completa
-      await sendMessage({
+      await sendToClient({
         to: prestador.telefone,
         message: `🎉 *Parabens ${prestador.nome}!*
 
@@ -43,7 +43,7 @@ A partir de agora voce recebe indicacoes de fretes direto aqui no WhatsApp. Fiqu
       });
 
       // Segunda mensagem - Ferramentas disponiveis
-      await sendMessage({
+      await sendToClient({
         to: prestador.telefone,
         message: `📋 *SUAS FERRAMENTAS PEGUE*
 
@@ -124,7 +124,7 @@ Conte com a gente! 🚚✨`,
         .update({ status: "rejeitado", disponivel: false })
         .eq("id", prestadorId);
 
-      await sendMessage({
+      await sendToClient({
         to: prestador.telefone,
         message: `Oi ${prestador.nome}, agradecemos muito seu interesse em ser parceiro da Pegue! 😊
 

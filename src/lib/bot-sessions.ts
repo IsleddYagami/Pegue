@@ -69,6 +69,7 @@ export interface BotSession {
   andar: number;
   precisa_ajudante: boolean;
   corrida_id: string | null;
+  instance_chatpro?: number | null;
 }
 
 export async function getSession(phone: string): Promise<BotSession | null> {
@@ -91,7 +92,22 @@ export async function getSession(phone: string): Promise<BotSession | null> {
   return data as BotSession;
 }
 
-export async function createSession(phone: string): Promise<BotSession> {
+export async function createSession(
+  phone: string,
+  instance?: 1 | 2
+): Promise<BotSession> {
+  // Se instance nao for passado, preserva o da session existente (mesmo expirada)
+  // Isso permite que handlers chamem createSession(phone) sem saber a instancia
+  // e o bot continue respondendo na conversa correta do cliente.
+  if (!instance) {
+    const { data } = await supabase
+      .from("bot_sessions")
+      .select("instance_chatpro")
+      .eq("phone", phone)
+      .maybeSingle();
+    instance = data?.instance_chatpro === 2 ? 2 : 1;
+  }
+
   const session: Record<string, any> = {
     phone,
     step: "inicio",
@@ -113,6 +129,7 @@ export async function createSession(phone: string): Promise<BotSession> {
     andar: 0,
     precisa_ajudante: false,
     corrida_id: null,
+    instance_chatpro: instance,
     criado_em: new Date().toISOString(),
     atualizado_em: new Date().toISOString(),
   };

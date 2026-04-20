@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
       await sendMessage({
         to: FABIO_PHONE,
         message: `🆕 *Novo pre-cadastro pelo SITE!*\n\n👤 ${nome}\n📱 ${formatarTelefoneExibicao(telCompleto)}\n📧 ${email}\n🚗 ${tipoVeiculo}\n🪪 Placa: ${placa}\n\n⚠️ Faltam fotos - aguarde envio pelo WhatsApp`,
+        instance: 1, // notificacao interna sempre pelo numero principal
       });
     } catch {
       // nao bloqueia se notificacao falhar

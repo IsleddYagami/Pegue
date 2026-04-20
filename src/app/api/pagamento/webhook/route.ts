@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { buscarPagamento } from "@/lib/mercadopago";
-import { sendMessage } from "@/lib/chatpro";
+import { sendToClient } from "@/lib/chatpro";
 import { formatarTelefoneExibicao } from "@/lib/bot-utils";
 import { MSG } from "@/lib/bot-messages";
 import { updateSession } from "@/lib/bot-sessions";
@@ -62,13 +62,13 @@ export async function POST(req: NextRequest) {
           // Notifica cliente - pagamento confirmado
           if (prestador) {
             const telFormatado = formatarTelefoneExibicao(prestador.telefone);
-            await sendMessage({
+            await sendToClient({
               to: clienteTel,
               message: MSG.pagamentoConfirmado(prestador.nome, telFormatado),
             });
 
             // Envia orientacoes
-            await sendMessage({
+            await sendToClient({
               to: clienteTel,
               message: MSG.orientacoesCliente,
             });
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
             const isGuincho = (corrida.descricao_carga || "").toLowerCase().includes("guincho");
 
             if (isGuincho) {
-              await sendMessage({
+              await sendToClient({
                 to: prestador.telefone,
                 message: `✅ *Pagamento confirmado! Servico de guincho liberado!*
 
@@ -118,7 +118,7 @@ Seu pagamento so sera processado apos a confirmacao do cliente.
 Bom trabalho! 🚗✨`,
               });
             } else {
-              await sendMessage({
+              await sendToClient({
                 to: prestador.telefone,
                 message: `✅ *Pagamento confirmado! Servico liberado!*
 

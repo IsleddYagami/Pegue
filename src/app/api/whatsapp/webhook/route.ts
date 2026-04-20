@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendMessage, sendMessageToMany } from "@/lib/chatpro";
+import { sendMessage, sendToClient, sendToClients, sendImageToClient, invalidateInstanceCache, setInstanceCache } from "@/lib/chatpro";
 import {
   type BotSession,
   getSession,
@@ -41,8 +41,12 @@ export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.json();
 
+    // Detecta qual instancia recebeu a mensagem (via query param ?instance=2)
+    const instanceParam = req.nextUrl.searchParams.get("instance");
+    const instance: 1 | 2 = instanceParam === "2" ? 2 : 1;
+
     // Log no Supabase
-    await supabase.from("bot_logs").insert({ payload: rawBody });
+    await supabase.from("bot_logs").insert({ payload: { ...rawBody, _instance: instance } });
 
     const eventType = rawBody.Type || rawBody.type || "";
 
@@ -99,6 +103,10 @@ export async function POST(req: NextRequest) {
 
     const phoneNumber = from.replace("@s.whatsapp.net", "");
 
+    // Pre-popula cache de instance pra este phone: garante que sendToClient responda
+    // pela mesma instancia que recebeu a mensagem, mesmo antes da session existir no DB
+    setInstanceCache(phoneNumber, instance);
+
     // Foto - processa de acordo com o step
     if (hasMedia && imageUrl) {
       const session = await getSession(phoneNumber);
@@ -106,7 +114,7 @@ export async function POST(req: NextRequest) {
       // Cadastro prestador - selfie com documento
       if (session && session.step === "cadastro_selfie") {
         await updateSession(phoneNumber, { step: "cadastro_foto_placa", foto_url: imageUrl });
-        await sendMessage({ to: phoneNumber, message: `Selfie recebida! ✅\n\n${MSG.cadastroFotoPlaca}` });
+        await sendToClient({ to: phoneNumber, message: `Selfie recebida! ✅\n\n${MSG.cadastroFotoPlaca}` });
         return NextResponse.json({ status: "ok" });
       }
 
@@ -114,7 +122,7 @@ export async function POST(req: NextRequest) {
       if (session && session.step === "cadastro_foto_placa") {
         await updateSession(phoneNumber, { step: "cadastro_foto_veiculo" });
         // TODO: salvar foto placa no storage
-        await sendMessage({ to: phoneNumber, message: `Foto da placa recebida! ✅\n\n${MSG.cadastroFotoVeiculo}` });
+        await sendToClient({ to: phoneNumber, message: `Foto da placa recebida! ✅\n\n${MSG.cadastroFotoVeiculo}` });
         return NextResponse.json({ status: "ok" });
       }
 
@@ -122,7 +130,7 @@ export async function POST(req: NextRequest) {
       if (session && session.step === "cadastro_foto_veiculo") {
         await updateSession(phoneNumber, { step: "cadastro_placa" });
         // TODO: salvar foto veiculo no storage
-        await sendMessage({ to: phoneNumber, message: `Foto do veiculo recebida! ✅\n\nAgora me passa a *placa* do veiculo por texto` });
+        await sendToClient({ to: phoneNumber, message: `Foto do veiculo recebida! ✅\n\nAgora me passa a *placa* do veiculo por texto` });
         return NextResponse.json({ status: "ok" });
       }
 
@@ -133,14 +141,14 @@ export async function POST(req: NextRequest) {
         const novoContador = contadorAtual + 1;
         await updateSession(phoneNumber, { descricao_carga: novoContador.toString() });
         // TODO: salvar foto no storage vinculada a corrida
-        await sendMessage({ to: phoneNumber, message: MSG.fretistaFotoRecebida(novoContador) });
+        await sendToClient({ to: phoneNumber, message: MSG.fretistaFotoRecebida(novoContador) });
         return NextResponse.json({ status: "ok" });
       }
 
       // Foto no guincho - Cotacao Express
       if (session && session.step === "guincho_categoria") {
         const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
-        await sendMessage({
+        await sendToClient({
           to: phoneNumber,
           message: `📸 *Cotacao Express!* Analisando seu veiculo... 🔍`,
         });
@@ -157,7 +165,7 @@ export async function POST(req: NextRequest) {
           foto_url: imageUrl,
         });
 
-        await sendMessage({
+        await sendToClient({
           to: phoneNumber,
           message: `✅ *${marcaModelo}* identificado!\n\nVoce precisa do guincho pra quando?\n\n1️⃣ *Guincho Imediato* (preciso AGORA)\n2️⃣ *Guincho Agendado* (escolher dia e horario)`,
         });
@@ -166,9 +174,10 @@ export async function POST(req: NextRequest) {
 
       // Foto sem sessao - inicia atendimento direto pela foto
       if (!session || session.step === "aguardando_servico" || session.step === "concluido" || session.step === "inicio") {
-        await createSession(phoneNumber);
+        await createSession(phoneNumber, instance);
+        invalidateInstanceCache(phoneNumber);
         const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
-        await sendMessage({
+        await sendToClient({
           to: phoneNumber,
           message: `Ola ${primeiroNome}! 😊 Recebi sua foto, ja estou analisando!\n\nEnquanto isso, me manda a *localizacao de retirada*:\n\nClique no *clipe* 📎 > *Localizacao* 📍\nOu digite o *CEP* ou *endereco com rua e bairro*`,
         });
@@ -187,7 +196,7 @@ export async function POST(req: NextRequest) {
             foto_url: imageUrl,
           });
 
-          await sendMessage({
+          await sendToClient({
             to: phoneNumber,
             message: `Vi! *${analise.item}* ${emoji} Anotado! ✅\n\nAgora me manda onde buscar 📍`,
           });
@@ -243,7 +252,7 @@ export async function POST(req: NextRequest) {
             foto_url: imageUrl,
           });
 
-          await sendMessage({
+          await sendToClient({
             to: phoneNumber,
             message: MSG.fotoItemAdicionado(novoItem, emoji, listaFinal),
           });
@@ -263,7 +272,7 @@ export async function POST(req: NextRequest) {
           foto_url: imageUrl,
         });
 
-        await sendMessage({
+        await sendToClient({
           to: phoneNumber,
           message: `📸 Recebi a foto! Anotado! ✅\n\nAte agora temos: ${listaItens}\n\nTem mais algum item? Manda outra foto ou digite *PRONTO* pra seguir 😊`,
         });
@@ -297,7 +306,7 @@ export async function POST(req: NextRequest) {
 
         if (corridaLembrete) {
           await supabase.from("corridas").update({ urgencia: "confirmado" }).eq("id", corridaLembrete.id);
-          await sendMessage({
+          await sendToClient({
             to: phoneNumber,
             message: "Presenca confirmada! ✅ Bom trabalho no frete! 🚚",
           });
@@ -308,7 +317,7 @@ export async function POST(req: NextRequest) {
 
     // Fluxo do cliente
     try {
-      await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia, imageUrl, pushName);
+      await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia, imageUrl, pushName, instance);
     } catch (flowError: any) {
       console.error("Erro no fluxo:", flowError?.message);
     }
@@ -333,7 +342,8 @@ async function handleClienteMessage(
   lng: number | null,
   hasMedia: boolean,
   imageUrl: string | null = null,
-  pushName: string = ""
+  pushName: string = "",
+  instance: 1 | 2 = 1
 ) {
   // Salva nome do WhatsApp se tiver
   if (pushName && pushName.length > 1) {
@@ -348,7 +358,7 @@ async function handleClienteMessage(
   }
 
   if (isAgradecimento(message)) {
-    await sendMessage({ to: phone, message: MSG.obrigado });
+    await sendToClient({ to: phone, message: MSG.obrigado });
     return;
   }
 
@@ -368,7 +378,7 @@ async function handleClienteMessage(
 
   // Lista de comandos
   if (lower === "esqueci" || lower === "comandos" || lower === "ajuda" || lower === "help") {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `📋 *COMANDOS PEGUE*
 
@@ -425,7 +435,7 @@ async function handleClienteMessage(
   // Comando JOGAR - envia link do jogo Pegue Runner
   if (lower === "jogar" || lower === "jogo" || lower === "game" || lower === "pegue runner") {
     const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `🎮 *PEGUE RUNNER!*
 
@@ -460,7 +470,7 @@ Boa sorte! 🎯`,
         .single();
 
       if (ultimaCorrida) {
-        await createSession(phone);
+        await createSession(phone, instance);
         await updateSession(phone, {
           step: "aguardando_data",
           origem_endereco: ultimaCorrida.origem_endereco,
@@ -471,7 +481,7 @@ Boa sorte! 🎯`,
         });
 
         const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
-        await sendMessage({
+        await sendToClient({
           to: phone,
           message: `Ola ${primeiroNome}! 😊 Encontrei seu ultimo pedido:\n\n📍 *Retirada:* ${ultimaCorrida.origem_endereco}\n🏠 *Destino:* ${ultimaCorrida.destino_endereco}\n📦 *Material:* ${ultimaCorrida.descricao_carga}\n✅ *Valor:* R$ ${ultimaCorrida.valor_estimado}\n\n📅 *Informe o dia e horario* pra agendar novamente 😊\n\nOu digite *AGORA* se for urgente`,
         });
@@ -479,7 +489,7 @@ Boa sorte! 🎯`,
       }
     }
 
-    await sendMessage({ to: phone, message: "Voce ainda nao tem pedidos anteriores 😊\nDigite *oi* pra fazer seu primeiro!" });
+    await sendToClient({ to: phone, message: "Voce ainda nao tem pedidos anteriores 😊\nDigite *oi* pra fazer seu primeiro!" });
     return;
   }
 
@@ -497,9 +507,9 @@ Boa sorte! 🎯`,
 
   // Detecta interesse em ser prestador
   if (lower.includes("parcerias pegue") || lower.includes("parceria pegue") || lower.includes("quero ser parceiro") || lower.includes("ser parceiro") || lower.includes("cadastro prestador")) {
-    await createSession(phone);
+    await createSession(phone, instance);
     await updateSession(phone, { step: "cadastro_nome" });
-    await sendMessage({ to: phone, message: MSG.cadastroInicio });
+    await sendToClient({ to: phone, message: MSG.cadastroInicio });
     return;
   }
 
@@ -507,7 +517,7 @@ Boa sorte! 🎯`,
 
   // Nova conversa, saudacao ou termo de servico direto
   if (!session || isSaudacao(message) || (!session && isInicioServico(message))) {
-    await createSession(phone);
+    await createSession(phone, instance);
     await updateSession(phone, { step: "aguardando_servico" });
 
     const primeiroNome = pushName ? pushName.split(" ")[0] : "";
@@ -516,7 +526,7 @@ Boa sorte! 🎯`,
     // Se digitou termo de servico direto (frete, guincho, carreto, mudanca)
     if (isInicioServico(message)) {
       const saudacaoRapida = `Ola ${nome}! 😊 Que bom ter voce aqui na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
-      await sendMessage({ to: phone, message: saudacaoRapida });
+      await sendToClient({ to: phone, message: saudacaoRapida });
 
       // Se ja da pra identificar o servico, encaminha direto
       const lowerMsg = lower;
@@ -535,16 +545,16 @@ Boa sorte! 🎯`,
 
     // Saudacao normal
     const saudacao = `Ola ${nome}! 😊 Que bom ter voce aqui na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
-    await sendMessage({ to: phone, message: saudacao });
+    await sendToClient({ to: phone, message: saudacao });
     return;
   }
 
   // Cliente com sessao ativa que digita termo de servico - reinicia
   if (session && session.step === "concluido" && isInicioServico(message)) {
-    await createSession(phone);
+    await createSession(phone, instance);
     await updateSession(phone, { step: "aguardando_servico" });
     const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `Ola ${primeiroNome}! 😊 Que bom ter voce de volta na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
     });
@@ -594,11 +604,11 @@ Boa sorte! 🎯`,
       break;
 
     case "aguardando_confirmacao":
-      await handleConfirmacao(phone, message);
+      await handleConfirmacao(phone, message, instance);
       break;
 
     case "aguardando_fretista":
-      await sendMessage({
+      await sendToClient({
         to: phone,
         message: "Estamos reservando a agenda! 😊 Ja ja te retornamos com a confirmacao!",
       });
@@ -615,13 +625,13 @@ Boa sorte! 🎯`,
       await handleCadastroEmail(phone, message);
       break;
     case "cadastro_selfie":
-      await sendMessage({ to: phone, message: MSG.cadastroSelfie });
+      await sendToClient({ to: phone, message: MSG.cadastroSelfie });
       break;
     case "cadastro_foto_placa":
-      await sendMessage({ to: phone, message: MSG.cadastroFotoPlaca });
+      await sendToClient({ to: phone, message: MSG.cadastroFotoPlaca });
       break;
     case "cadastro_foto_veiculo":
-      await sendMessage({ to: phone, message: MSG.cadastroFotoVeiculo });
+      await sendToClient({ to: phone, message: MSG.cadastroFotoVeiculo });
       break;
     case "cadastro_placa":
       await handleCadastroPlaca(phone, message);
@@ -636,7 +646,7 @@ Boa sorte! 🎯`,
       await handleCadastroTermos(phone, message);
       break;
     case "cadastro_aguardando_aprovacao":
-      await sendMessage({ to: phone, message: "Seu cadastro esta em analise! 😊 Te avisamos assim que for aprovado!" });
+      await sendToClient({ to: phone, message: "Seu cadastro esta em analise! 😊 Te avisamos assim que for aprovado!" });
       break;
 
     // === FOTOS COLETA/ENTREGA ===
@@ -665,7 +675,7 @@ Boa sorte! 🎯`,
       break;
 
     case "aguardando_pagamento":
-      await sendMessage({
+      await sendToClient({
         to: phone,
         message: "Seu frete já tá confirmado! 😊 Assim que o pagamento for identificado, te aviso aqui!",
       });
@@ -704,9 +714,9 @@ Boa sorte! 🎯`,
       break;
 
     default:
-      await createSession(phone);
+      await createSession(phone, instance);
       await updateSession(phone, { step: "aguardando_servico" });
-      await sendMessage({ to: phone, message: MSG.boasVindas });
+      await sendToClient({ to: phone, message: MSG.boasVindas });
       break;
   }
 }
@@ -717,13 +727,13 @@ async function handleEscolhaServico(phone: string, message: string) {
 
   if (lower === "1" || lower.includes("pequeno") || lower.includes("frete")) {
     await updateSession(phone, { step: "aguardando_localizacao" });
-    await sendMessage({ to: phone, message: MSG.pedirLocalizacao });
+    await sendToClient({ to: phone, message: MSG.pedirLocalizacao });
     return;
   }
 
   if (lower === "2" || lower.includes("mudanca") || lower.includes("mudança")) {
     await updateSession(phone, { step: "aguardando_localizacao" });
-    await sendMessage({ to: phone, message: MSG.pedirLocalizacao });
+    await sendToClient({ to: phone, message: MSG.pedirLocalizacao });
     return;
   }
 
@@ -736,7 +746,7 @@ async function handleEscolhaServico(phone: string, message: string) {
       .single();
 
     if (cfgGuincho?.valor === "desabilitado") {
-      await sendMessage({ to: phone, message: MSG.guinchoDesativado });
+      await sendToClient({ to: phone, message: MSG.guinchoDesativado });
       await notificarAdmin(
         `🚗 *GUINCHO SOLICITADO (desabilitado)*`,
         phone,
@@ -746,12 +756,12 @@ async function handleEscolhaServico(phone: string, message: string) {
     }
 
     await updateSession(phone, { step: "guincho_categoria" as any });
-    await sendMessage({ to: phone, message: MSG.guinchoMenu });
+    await sendToClient({ to: phone, message: MSG.guinchoMenu });
     return;
   }
 
   if (lower === "4" || lower.includes("duvida") || lower.includes("faq") || lower.includes("pergunta")) {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `📋 *DUVIDAS FREQUENTES*
 
@@ -791,7 +801,7 @@ Ou escolha um servico:
     return;
   }
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Pequenos Fretes\n2️⃣ Mudanca completa\n3️⃣ Guincho (carro ou moto)\n4️⃣ Duvidas frequentes",
   });
@@ -809,7 +819,7 @@ async function handleLocalizacao(
       origem_lat: lat,
       origem_lng: lng,
     });
-    await sendMessage({ to: phone, message: MSG.localizacaoRecebida(endereco) });
+    await sendToClient({ to: phone, message: MSG.localizacaoRecebida(endereco) });
     return;
   }
 
@@ -824,7 +834,7 @@ async function handleLocalizacao(
         origem_lat: coords?.lat || null,
         origem_lng: coords?.lng || null,
       });
-      await sendMessage({ to: phone, message: MSG.enderecoRecebido(endereco) });
+      await sendToClient({ to: phone, message: MSG.enderecoRecebido(endereco) });
       return;
     }
   }
@@ -837,7 +847,7 @@ async function handleLocalizacao(
       origem_lat: coords?.lat || null,
       origem_lng: coords?.lng || null,
     });
-    await sendMessage({ to: phone, message: MSG.enderecoRecebido(message) });
+    await sendToClient({ to: phone, message: MSG.enderecoRecebido(message) });
     return;
   }
 
@@ -851,12 +861,12 @@ async function handleLocalizacao(
         origem_lat: coords.lat,
         origem_lng: coords.lng,
       });
-      await sendMessage({ to: phone, message: MSG.enderecoRecebido(message) });
+      await sendToClient({ to: phone, message: MSG.enderecoRecebido(message) });
       return;
     }
   }
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: `Nao consegui identificar o endereco 😅
 
@@ -889,19 +899,19 @@ async function handleFoto(
 
   // Opcao 2 - Lista rapida
   if (lower === "2" || lower === "lista" || lower.includes("lista rapida")) {
-    await sendMessage({ to: phone, message: MSG.listaMudanca });
+    await sendToClient({ to: phone, message: MSG.listaMudanca });
     return;
   }
 
   // Opcao 1 - Foto (so texto, foto real e processada no topo do POST)
   if (lower === "1" || lower === "foto") {
-    await sendMessage({ to: phone, message: "Manda a foto do material 📸" });
+    await sendToClient({ to: phone, message: "Manda a foto do material 📸" });
     return;
   }
 
   // Opcao 3 ou texto livre
   if (lower === "3" || lower === "texto" || lower === "descrever") {
-    await sendMessage({ to: phone, message: "Descreve os materiais que precisa transportar 😊\n\nEx: *geladeira, fogao, cama casal, 5 caixas*" });
+    await sendToClient({ to: phone, message: "Descreve os materiais que precisa transportar 😊\n\nEx: *geladeira, fogao, cama casal, 5 caixas*" });
     return;
   }
 
@@ -948,7 +958,7 @@ async function handleFoto(
         caminhao_bau: "Caminhao Bau",
       };
 
-      await sendMessage({
+      await sendToClient({
         to: phone,
         message: `Anotado! ✅\n\n📦 *Seus itens:*\n${itensEncontrados.map(i => `- ${i}`).join("\n")}\n\n🚚 Veiculo sugerido: *${veiculoNome[veiculo]}*\n\nE pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠`,
       });
@@ -962,11 +972,11 @@ async function handleFoto(
       step: "aguardando_destino",
       descricao_carga: message,
     });
-    await sendMessage({ to: phone, message: MSG.fotoRecebida(message) });
+    await sendToClient({ to: phone, message: MSG.fotoRecebida(message) });
     return;
   }
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: "Escolha como informar os materiais:\n\n1️⃣ *Mandar foto* 📸\n2️⃣ *Lista rapida de mudanca*\n3️⃣ *Descrever por texto*",
   });
@@ -995,7 +1005,7 @@ async function handleMaisFotos(phone: string, message: string) {
 
     await updateSession(phone, { step: "aguardando_destino" });
 
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: MSG.todosItensProntos(
         itensFormatados,
@@ -1012,14 +1022,14 @@ async function handleMaisFotos(phone: string, message: string) {
 
     await updateSession(phone, { descricao_carga: listaItens });
 
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `Anotado! ✅\n\nAte agora temos: ${listaItens}\n\nTem mais algum item? Manda outra foto ou digite *PRONTO* pra seguir 😊`,
     });
     return;
   }
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: "Manda outra foto ou digite *PRONTO* pra seguir 😊",
   });
@@ -1071,7 +1081,7 @@ async function handleDestino(phone: string, message: string) {
   // Verifica se destino é area indisponivel (favela/area livre)
   const zonaDestino = detectarZona(destinoEndereco);
   if (zonaDestino === "indisponivel") {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `Que pena 😕 Mas essa rota está *indisponível* no momento.\n\nSe quiser tentar outro destino, manda o endereço! 📍`,
     });
@@ -1086,7 +1096,7 @@ async function handleDestino(phone: string, message: string) {
   });
 
   const cidadeDestino = destinoEndereco.split(",").pop()?.trim() || destinoEndereco;
-  await sendMessage({ to: phone, message: MSG.destinoRecebido(cidadeDestino) });
+  await sendToClient({ to: phone, message: MSG.destinoRecebido(cidadeDestino) });
 }
 
 // STEP 4: Tipo do local (terreo/elevador/escada)
@@ -1100,7 +1110,7 @@ async function handleTipoLocal(phone: string, message: string) {
       tem_escada: false,
       andar: 0,
     });
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: MSG.precisaAjudante("Local terreo, anotado! ✅"),
     });
@@ -1114,7 +1124,7 @@ async function handleTipoLocal(phone: string, message: string) {
       tem_escada: false,
       andar: 0,
     });
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: MSG.precisaAjudante("Predio com elevador, anotado! ✅"),
     });
@@ -1123,11 +1133,11 @@ async function handleTipoLocal(phone: string, message: string) {
 
   if (lower === "3" || lower.includes("escada") || lower.includes("sem elevador")) {
     await updateSession(phone, { step: "aguardando_andar", tem_escada: true });
-    await sendMessage({ to: phone, message: MSG.qualAndar });
+    await sendToClient({ to: phone, message: MSG.qualAndar });
     return;
   }
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Casa ou terreo\n2️⃣ Predio com elevador (+R$ 50)\n3️⃣ Predio sem elevador / escada (+R$ 30 por andar)",
   });
@@ -1144,14 +1154,14 @@ async function handleAndar(phone: string, message: string) {
       step: "aguardando_ajudante",
       andar,
     });
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: MSG.precisaAjudante(`${andar}o andar por escada, anotado! ✅`),
     });
     return;
   }
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: "Me manda o numero do andar 😊 Exemplo: *5*",
   });
@@ -1172,7 +1182,7 @@ async function handleAjudante(phone: string, message: string) {
   } else if (lower === "3" || lower === "2 ajudantes" || lower.includes("2 ajudante") || lower.includes("dois")) {
     qtdAjudantes = 2;
   } else {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "Vai precisar de ajudante? 😊\n\n1️⃣ *Nao*, sem ajudante\n2️⃣ *Sim*, 1 ajudante\n3️⃣ *Sim*, 2 ajudantes",
     });
@@ -1225,7 +1235,7 @@ async function handleAjudante(phone: string, message: string) {
     valor_estimado: p.total,
   });
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: MSG.orcamento(
       session.origem_endereco || "Origem",
@@ -1274,14 +1284,14 @@ async function handleData(phone: string, message: string) {
         step: "aguardando_horario" as any,
         data_agendada: dataExtraida,
       });
-      await sendMessage({
+      await sendToClient({
         to: phone,
         message: `📅 *${dataExtraida}* - Anotado!\n\nAgora informe o *horario*:\n\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)\n\nOu digite o horario direto (ex: *14h*, *15:30*, *9 horas*)`,
       });
       return;
     } else if (!dataExtraida && horarioExtraido) {
       // So tem horario, pede data
-      await sendMessage({
+      await sendToClient({
         to: phone,
         message: `⏰ *${horarioExtraido}* - Anotado!\n\nAgora informe o *dia*:\n\nExemplo: *25/04*, *amanha*, *segunda*`,
       });
@@ -1290,7 +1300,7 @@ async function handleData(phone: string, message: string) {
       return;
     } else {
       // Nao entendeu nada
-      await sendMessage({
+      await sendToClient({
         to: phone,
         message: `📅 *Pra agendar, preciso do dia e horario* 😊\n\nEssas informacoes sao essenciais pra garantir o melhor atendimento!\n\nVoce pode enviar tudo junto ou um de cada vez:\n\n*Exemplos:*\n• *25/04 as 15h*\n• *amanha 14:30*\n• *segunda 9h*\n• *25/04* (depois pergunto o horario)\n• *15h* (depois pergunto o dia)\n\nOu digite *AGORA* se for urgente`,
       });
@@ -1316,7 +1326,7 @@ async function handleData(phone: string, message: string) {
   if (session.precisa_ajudante) detalhes += "🙋 Com ajudante\n";
   if (session.tem_escada && session.andar && session.andar > 0) detalhes += `🪜 ${session.andar}o andar (escada)\n`;
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: MSG.resumoFrete(
       session.origem_endereco || "Origem",
@@ -1331,7 +1341,7 @@ async function handleData(phone: string, message: string) {
 }
 
 // STEP 7: Confirmacao
-async function handleConfirmacao(phone: string, message: string) {
+async function handleConfirmacao(phone: string, message: string, instance: 1 | 2 = 1) {
   const session = await getSession(phone);
   if (!session) return;
 
@@ -1344,22 +1354,22 @@ async function handleConfirmacao(phone: string, message: string) {
       await updateSession(phone, { step: "aguardando_fretista", corrida_id: corridaId });
 
       // Informa que esta reservando a agenda
-      await sendMessage({ to: phone, message: MSG.freteRecebido });
+      await sendToClient({ to: phone, message: MSG.freteRecebido });
 
       // Dispara para fretistas e aguarda resposta
       await dispararParaFretistas(corridaId, session, phone);
     } else {
-      await sendMessage({ to: phone, message: MSG.erroInterno });
+      await sendToClient({ to: phone, message: MSG.erroInterno });
     }
   } else if (lower === "2" || lower === "alterar" || lower.includes("corrigir") || lower.includes("mudar") || lower.startsWith("nao") || lower === "n" || lower === "não") {
-    await createSession(phone);
+    await createSession(phone, instance);
     await updateSession(phone, { step: "aguardando_servico" });
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "Sem problema! 😊 Vamos refazer pra ficar tudo certinho.\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho* (carro ou moto)\n4️⃣ *Duvidas frequentes*",
     });
   } else {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "1️⃣ ✅ *SIM* - Tudo certo, confirmar!\n2️⃣ ✏️ *ALTERAR* - Quero corrigir algo",
     });
@@ -1372,9 +1382,9 @@ async function handleAtendente(phone: string) {
   await updateSession(phone, { step: "atendimento_humano" });
 
   if (isHorarioAtendimentoHumano()) {
-    await sendMessage({ to: phone, message: MSG.transferenciaHumano });
+    await sendToClient({ to: phone, message: MSG.transferenciaHumano });
   } else {
-    await sendMessage({ to: phone, message: MSG.foraHorarioHumano });
+    await sendToClient({ to: phone, message: MSG.foraHorarioHumano });
   }
 
   // Notifica admin no WhatsApp pessoal
@@ -1388,9 +1398,11 @@ async function handleAtendente(phone: string) {
 // === NOTIFICACAO ADMIN ===
 async function notificarAdmin(titulo: string, clientePhone: string, detalhes: string) {
   try {
+    // Admin sempre pela instancia 1 (numero principal) pra convergir notificacoes
     await sendMessage({
       to: ADMIN_PHONE,
       message: `${titulo}\n\n👤 Cliente: ${formatarTelefoneExibicao(clientePhone)}\n📱 wa.me/${clientePhone}\n${detalhes}\n\n⏰ ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
+      instance: 1,
     });
   } catch (e) {
     console.error("Erro ao notificar admin:", e);
@@ -1455,7 +1467,7 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
     }
 
     if (prestadores.length === 0) {
-      await sendMessage({ to: clientePhone, message: MSG.nenhumFretista });
+      await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
       await notificarAdmin(
         isGuincho ? `⚠️ *NENHUM GUINCHEIRO DISPONIVEL*` : `⚠️ *NENHUM FRETISTA DISPONIVEL*`,
         clientePhone,
@@ -1503,9 +1515,9 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
       ? `🚨🚨🚨 *GUINCHO DISPONIVEL* 🚨🚨🚨\n\n⚡ Responda rapido! Primeiro que aceitar, leva!`
       : `🚨🚨🚨 *NOVO FRETE DISPONIVEL* 🚨🚨🚨\n\n⚡ Responda rapido! Primeiro que aceitar, leva!`;
 
-    await sendMessageToMany(telefones, alertaSom);
+    await sendToClients(telefones, alertaSom);
     await new Promise(r => setTimeout(r, 1500));
-    await sendMessageToMany(telefones, mensagem);
+    await sendToClients(telefones, mensagem);
 
     // Apos 31s, se ninguem aceitou, notifica cliente
     setTimeout(async () => {
@@ -1519,14 +1531,14 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
           const dispatch = getDispatchByCorridaId(corridaId);
           if (dispatch && !dispatch.finalizado) {
             finalizeDispatch(corridaId);
-            await sendMessage({ to: clientePhone, message: MSG.nenhumFretista });
+            await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
           }
         }, 270000); // 4.5 min adicionais (total 5 min)
       }
     }, 31000);
   } catch (error: any) {
     console.error("Erro dispatch:", error?.message);
-    await sendMessage({ to: clientePhone, message: MSG.nenhumFretista });
+    await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
   }
 }
 
@@ -1534,47 +1546,47 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
 
 async function handleCadastroNome(phone: string, message: string) {
   if (message.length < 3) {
-    await sendMessage({ to: phone, message: "Me passa seu nome completo, por favor 😊" });
+    await sendToClient({ to: phone, message: "Me passa seu nome completo, por favor 😊" });
     return;
   }
   // Salva nome temporariamente no campo origem_endereco
   await updateSession(phone, { step: "cadastro_cpf", origem_endereco: message });
-  await sendMessage({ to: phone, message: MSG.cadastroCpf });
+  await sendToClient({ to: phone, message: MSG.cadastroCpf });
 }
 
 async function handleCadastroCpf(phone: string, message: string) {
   const cpf = message.replace(/\D/g, "");
   if (cpf.length !== 11) {
-    await sendMessage({ to: phone, message: "CPF precisa ter 11 dígitos. Tenta de novo 😊" });
+    await sendToClient({ to: phone, message: "CPF precisa ter 11 dígitos. Tenta de novo 😊" });
     return;
   }
   await updateSession(phone, { step: "cadastro_email", destino_endereco: cpf });
-  await sendMessage({ to: phone, message: MSG.cadastroEmail });
+  await sendToClient({ to: phone, message: MSG.cadastroEmail });
 }
 
 async function handleCadastroEmail(phone: string, message: string) {
   const email = message.trim().toLowerCase();
   if (!email.includes("@") || !email.includes(".")) {
-    await sendMessage({ to: phone, message: "Email inválido. Tenta de novo 😊\nExemplo: *seunome@email.com*" });
+    await sendToClient({ to: phone, message: "Email inválido. Tenta de novo 😊\nExemplo: *seunome@email.com*" });
     return;
   }
   // Salva email no campo plano_escolhido (campo temporário)
   await updateSession(phone, { step: "cadastro_selfie", plano_escolhido: email });
-  await sendMessage({ to: phone, message: MSG.cadastroSelfie });
+  await sendToClient({ to: phone, message: MSG.cadastroSelfie });
 }
 
 async function handleCadastroPlaca(phone: string, message: string) {
   if (message.length < 5) {
-    await sendMessage({ to: phone, message: "Me passa a placa do veiculo, por favor 😊" });
+    await sendToClient({ to: phone, message: "Me passa a placa do veiculo, por favor 😊" });
     return;
   }
   await updateSession(phone, { step: "cadastro_chave_pix", periodo: message.toUpperCase() });
-  await sendMessage({ to: phone, message: MSG.cadastroChavePix });
+  await sendToClient({ to: phone, message: MSG.cadastroChavePix });
 }
 
 async function handleCadastroChavePix(phone: string, message: string) {
   if (message.length < 5) {
-    await sendMessage({ to: phone, message: "Me passa sua chave Pix (CPF, email, telefone ou chave aleatoria) 😊" });
+    await sendToClient({ to: phone, message: "Me passa sua chave Pix (CPF, email, telefone ou chave aleatoria) 😊" });
     return;
   }
   // Salva chave Pix no bot_logs (sera usada no pagamento)
@@ -1582,7 +1594,7 @@ async function handleCadastroChavePix(phone: string, message: string) {
     payload: { tipo: "chave_pix_prestador", phone, chave_pix: message.trim() },
   });
   await updateSession(phone, { step: "cadastro_tipo_veiculo" });
-  await sendMessage({ to: phone, message: MSG.cadastroTipoVeiculo });
+  await sendToClient({ to: phone, message: MSG.cadastroTipoVeiculo });
 }
 
 async function handleCadastroTipoVeiculo(phone: string, message: string) {
@@ -1603,13 +1615,13 @@ async function handleCadastroTipoVeiculo(phone: string, message: string) {
   } else if (lower === "5" || lower.includes("guincho") || lower.includes("plataforma")) {
     tipoVeiculo = "guincho";
   } else {
-    await sendMessage({ to: phone, message: "Escolhe o tipo do veiculo:\n\n1️⃣ Carro comum\n2️⃣ Utilitario\n3️⃣ HR / Bongo\n4️⃣ Caminhao Bau\n5️⃣ Guincho / Plataforma" });
+    await sendToClient({ to: phone, message: "Escolhe o tipo do veiculo:\n\n1️⃣ Carro comum\n2️⃣ Utilitario\n3️⃣ HR / Bongo\n4️⃣ Caminhao Bau\n5️⃣ Guincho / Plataforma" });
     return;
   }
 
   // Salva tipo veiculo temporariamente e envia termos
   await updateSession(phone, { step: "cadastro_termos", veiculo_sugerido: tipoVeiculo });
-  await sendMessage({ to: phone, message: MSG.cadastroTermos });
+  await sendToClient({ to: phone, message: MSG.cadastroTermos });
 }
 
 async function handleCadastroTermos(phone: string, message: string) {
@@ -1619,7 +1631,7 @@ async function handleCadastroTermos(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
 
   if (lower !== "eu concordo") {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "Para prosseguir, digite exatamente: *eu concordo*\n\nOu se tiver duvidas, digite *4* pra falar com um especialista.",
     });
@@ -1675,7 +1687,7 @@ async function handleCadastroTermos(phone: string, message: string) {
   });
 
   if (error && error.code === "23505") {
-    await sendMessage({ to: phone, message: "Voce ja tem cadastro na Pegue! 😊 Em breve recebera indicacoes!" });
+    await sendToClient({ to: phone, message: "Voce ja tem cadastro na Pegue! 😊 Em breve recebera indicacoes!" });
   } else {
     const { data: prestador } = await supabase
       .from("prestadores")
@@ -1710,7 +1722,7 @@ async function handleCadastroTermos(phone: string, message: string) {
         .update({ status: "aprovado", disponivel: true })
         .eq("id", prestador.id);
 
-      await sendMessage({
+      await sendToClient({
         to: phone,
         message: `🎉 *Parabens ${nome}!*\n\nSeu cadastro foi *aprovado automaticamente*! Bem-vindo a familia Pegue! 🚚✨\n\nA partir de agora voce recebe indicacoes de fretes direto aqui no WhatsApp. Fique atento! 📱\n\nDigite *esqueci* pra ver todos os comandos disponiveis.`,
       });
@@ -1723,7 +1735,7 @@ async function handleCadastroTermos(phone: string, message: string) {
       );
     } else {
       // Aprovacao manual - notifica admin
-      await sendMessage({ to: phone, message: MSG.cadastroConcluido });
+      await sendToClient({ to: phone, message: MSG.cadastroConcluido });
 
       await notificarAdmin(
         `🆕 *NOVO PRESTADOR PRA APROVAR*`,
@@ -1749,7 +1761,7 @@ async function handleDashboardFretista(phone: string) {
     .single();
 
   if (!prestador) {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "Você ainda não tem cadastro de parceiro na Pegue 😊\n\nPra se cadastrar, envie: *Parcerias Pegue*",
     });
@@ -1771,7 +1783,7 @@ async function handleDashboardFretista(phone: string) {
     ? prestador.disponivel ? "✅ Ativo" : "⏸️ Pausado"
     : prestador.status === "pendente" ? "🔄 Em análise" : "❌ Inativo";
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: MSG.dashboardFretista(
       prestador.nome,
@@ -1793,12 +1805,12 @@ async function handlePausarPrestador(phone: string) {
     .single();
 
   if (!prestador) {
-    await sendMessage({ to: phone, message: "Voce nao tem cadastro de parceiro na Pegue. Para se cadastrar, envie *Parcerias Pegue*" });
+    await sendToClient({ to: phone, message: "Voce nao tem cadastro de parceiro na Pegue. Para se cadastrar, envie *Parcerias Pegue*" });
     return;
   }
 
   if (!prestador.disponivel) {
-    await sendMessage({ to: phone, message: "Voce ja esta pausado! 😊\n\nPra voltar a receber indicacoes, digite *voltei*" });
+    await sendToClient({ to: phone, message: "Voce ja esta pausado! 😊\n\nPra voltar a receber indicacoes, digite *voltei*" });
     return;
   }
 
@@ -1807,7 +1819,7 @@ async function handlePausarPrestador(phone: string) {
     .update({ disponivel: false })
     .eq("id", prestador.id);
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: `⏸️ *Modo ferias ativado!*
 
@@ -1829,17 +1841,17 @@ async function handleAtivarPrestador(phone: string) {
     .single();
 
   if (!prestador) {
-    await sendMessage({ to: phone, message: "Voce nao tem cadastro de parceiro na Pegue. Para se cadastrar, envie *Parcerias Pegue*" });
+    await sendToClient({ to: phone, message: "Voce nao tem cadastro de parceiro na Pegue. Para se cadastrar, envie *Parcerias Pegue*" });
     return;
   }
 
   if (prestador.status !== "aprovado") {
-    await sendMessage({ to: phone, message: "Seu cadastro ainda esta em analise. Aguarde a aprovacao! 😊" });
+    await sendToClient({ to: phone, message: "Seu cadastro ainda esta em analise. Aguarde a aprovacao! 😊" });
     return;
   }
 
   if (prestador.disponivel) {
-    await sendMessage({ to: phone, message: "Voce ja esta ativo! 😊 Fique atento as indicacoes de frete!" });
+    await sendToClient({ to: phone, message: "Voce ja esta ativo! 😊 Fique atento as indicacoes de frete!" });
     return;
   }
 
@@ -1848,7 +1860,7 @@ async function handleAtivarPrestador(phone: string) {
     .update({ disponivel: true })
     .eq("id", prestador.id);
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: `✅ *Voce esta de volta!*
 
@@ -1869,7 +1881,7 @@ async function handleRegistrarDespesa(phone: string, message: string) {
   const match = partes.match(/^(\d+[.,]?\d*)\s*(.*)/);
 
   if (!match) {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `Para registrar uma despesa, use o formato:\n\n*despesa [valor] [descricao]*\n\nExemplos:\n- despesa 50 combustivel\n- despesa 12.90 almoco\n- despesa 6.20 gasolina`,
     });
@@ -1880,7 +1892,7 @@ async function handleRegistrarDespesa(phone: string, message: string) {
   const descricao = match[2] || "Despesa geral";
 
   if (isNaN(valor) || valor <= 0) {
-    await sendMessage({ to: phone, message: "Valor invalido. Use: *despesa 50 combustivel*" });
+    await sendToClient({ to: phone, message: "Valor invalido. Use: *despesa 50 combustivel*" });
     return;
   }
 
@@ -1917,7 +1929,7 @@ async function handleRegistrarDespesa(phone: string, message: string) {
         .reduce((s, d) => s + ((d.payload as any).valor || 0), 0)
     : 0;
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: `✅ Despesa registrada!\n\n📝 ${descricao}: *R$ ${valor.toFixed(2)}*\n\n📊 Total de gastos este mes: *R$ ${totalMes.toFixed(2)}*\n\nPra ver o resumo completo, digite *meus gastos*`,
   });
@@ -2012,7 +2024,7 @@ async function handleVerGastos(phone: string) {
   msg += "\n\n💡 Registre seus gastos diarios pra ter controle total!";
   msg += "\nExemplo: *despesa 6.20 gasolina*";
 
-  await sendMessage({ to: phone, message: msg });
+  await sendToClient({ to: phone, message: msg });
 }
 
 // === DASHBOARD CLIENTE ===
@@ -2025,7 +2037,7 @@ async function handleDashboardCliente(phone: string) {
     .single();
 
   if (!cliente) {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "Voce ainda nao tem historico na Pegue 😊\n\nPra solicitar um frete, envie: *Oi*\n\n📱 Painel completo: pegue-eta.vercel.app/minha-conta",
     });
@@ -2051,7 +2063,7 @@ async function handleDashboardCliente(phone: string) {
     });
   }
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: `📊 *Sua Conta - Pegue*
 
@@ -2072,7 +2084,7 @@ async function handleAvaliacao(phone: string, message: string, tipo: "atendiment
   const nota = parseInt(message.trim());
 
   if (isNaN(nota) || nota < 1 || nota > 5) {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "Me manda uma nota de *1 a 5* 😊\n(1 = péssimo, 5 = excelente)",
     });
@@ -2094,13 +2106,13 @@ async function handleAvaliacao(phone: string, message: string, tipo: "atendiment
 
   if (tipo === "atendimento") {
     await updateSession(phone, { step: "avaliacao_praticidade" });
-    await sendMessage({ to: phone, message: MSG.clientePedirNotaPraticidade });
+    await sendToClient({ to: phone, message: MSG.clientePedirNotaPraticidade });
   } else if (tipo === "praticidade") {
     await updateSession(phone, { step: "avaliacao_fretista" });
-    await sendMessage({ to: phone, message: MSG.clientePedirNotaFretista });
+    await sendToClient({ to: phone, message: MSG.clientePedirNotaFretista });
   } else if (tipo === "fretista") {
     await updateSession(phone, { step: "avaliacao_sugestao" });
-    await sendMessage({ to: phone, message: MSG.clientePedirSugestao });
+    await sendToClient({ to: phone, message: MSG.clientePedirSugestao });
   }
 }
 
@@ -2122,7 +2134,7 @@ async function handleAvaliacaoSugestao(phone: string, message: string) {
   }
 
   await updateSession(phone, { step: "concluido" });
-  await sendMessage({ to: phone, message: MSG.clienteAvaliacaoConcluida });
+  await sendToClient({ to: phone, message: MSG.clienteAvaliacaoConcluida });
 }
 
 // === CONFIRMAÇÃO DE ENTREGA PELO CLIENTE ===
@@ -2135,7 +2147,7 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
 
   if (lower === "1" || lower.startsWith("sim") || lower === "s") {
     await updateSession(phone, { step: "avaliacao_atendimento" });
-    await sendMessage({ to: phone, message: MSG.clienteConfirmouEntrega });
+    await sendToClient({ to: phone, message: MSG.clienteConfirmouEntrega });
 
     await supabase
       .from("corridas")
@@ -2162,8 +2174,8 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
 
       if ((clienteData.total_corridas || 0) === 0) {
         // Primeiro frete concluido!
-        await sendMessage({ to: phone, message: MSG.primeiroFreteCliente });
-        await sendMessage({ to: phone, message: MSG.ferramentasCliente });
+        await sendToClient({ to: phone, message: MSG.primeiroFreteCliente });
+        await sendToClient({ to: phone, message: MSG.ferramentasCliente });
       }
     }
 
@@ -2202,7 +2214,7 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
       }
 
       // Notifica fretista que pagamento foi liberado
-      await sendMessage({
+      await sendToClient({
         to: fretistaTel,
         message: `✅ *Pagamento LIBERADO!* 🎉\n\nO cliente confirmou a entrega.\n💰 *Valor: R$ ${valorPrestador}*\n\nSeu pagamento sera processado em breve via Pix.\n\nObrigado pelo excelente servico! 🚚✨`,
       });
@@ -2227,7 +2239,7 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
     }
   } else if (lower === "2" || lower.startsWith("nao") || lower.startsWith("não") || lower === "n") {
     await updateSession(phone, { step: "concluido" });
-    await sendMessage({ to: phone, message: MSG.clienteReclamouEntrega });
+    await sendToClient({ to: phone, message: MSG.clienteReclamouEntrega });
 
     const { data: corrida } = await supabase
       .from("corridas")
@@ -2237,7 +2249,7 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
 
     if (corrida?.prestadores) {
       const fretistaTel = (corrida.prestadores as any).telefone;
-      await sendMessage({ to: fretistaTel, message: MSG.fretistaProblemaNaEntrega });
+      await sendToClient({ to: fretistaTel, message: MSG.fretistaProblemaNaEntrega });
     }
 
     await notificarAdmin(
@@ -2251,7 +2263,7 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
       .update({ status: "problema" })
       .eq("id", session.corrida_id);
   } else {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "Está tudo certo com a entrega? 😊\n\n1️⃣ *SIM* - Tudo OK\n2️⃣ *NÃO* - Tive algum problema",
     });
@@ -2264,7 +2276,7 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
   if (lower === "pronto") {
     if (tipo === "coleta") {
       await updateSession(phone, { step: "concluido" });
-      await sendMessage({ to: phone, message: MSG.fretistaColetaConfirmada });
+      await sendToClient({ to: phone, message: MSG.fretistaColetaConfirmada });
 
       // === ATIVA RASTREIO EM TEMPO REAL ===
       // Fretista coletou os itens, agora vai dirigir pro destino
@@ -2291,7 +2303,7 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
 
           // Link pro fretista (GPS sender)
           const linkFretista = `${baseUrl}/rastrear/motorista/${rastreioToken}`;
-          await sendMessage({
+          await sendToClient({
             to: phone,
             message: MSG.rastreioLinkFretista(linkFretista),
           });
@@ -2300,7 +2312,7 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
           const clienteTel = (corridaRastreio.clientes as any)?.telefone;
           if (clienteTel) {
             const linkCliente = `${baseUrl}/rastrear/${codigoCorrida}?t=${rastreioToken}`;
-            await sendMessage({
+            await sendToClient({
               to: clienteTel,
               message: MSG.rastreioLinkCliente(linkCliente, nomePrestador),
             });
@@ -2312,7 +2324,7 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
       await updateSession(phone, { step: "concluido" });
 
       // Avisa fretista pra aguardar no local
-      await sendMessage({ to: phone, message: MSG.fretistaAguardarConfirmacao });
+      await sendToClient({ to: phone, message: MSG.fretistaAguardarConfirmacao });
 
       // Busca corrida pra encontrar o cliente
       const session = await getSession(phone);
@@ -2328,7 +2340,7 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
           const isGuincho = (corrida.descricao_carga || "").toLowerCase().includes("guincho");
           // Muda sessao do cliente pra aguardar confirmacao
           await updateSession(clienteTel, { step: "aguardando_confirmacao_entrega" });
-          await sendMessage({
+          await sendToClient({
             to: clienteTel,
             message: isGuincho
               ? MSG.guinchoClienteConfirmarEntrega(corrida.descricao_carga || "Servico de guincho")
@@ -2339,7 +2351,7 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
           setTimeout(async () => {
             const sessaoCliente = await getSession(clienteTel);
             if (sessaoCliente?.step === "aguardando_confirmacao_entrega") {
-              await sendMessage({ to: clienteTel, message: MSG.lembreteConfirmacao });
+              await sendToClient({ to: clienteTel, message: MSG.lembreteConfirmacao });
             }
           }, 10 * 60 * 1000);
 
@@ -2348,7 +2360,7 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
             const sessaoCliente = await getSession(clienteTel);
             if (sessaoCliente?.step === "aguardando_confirmacao_entrega") {
               // Libera fretista
-              await sendMessage({
+              await sendToClient({
                 to: phone,
                 message: `⏳ *20 minutos sem confirmacao do cliente.*\n\nVoce pode se retirar do local. Aguarde o andamento das tratativas.\n\nSeu pagamento sera processado assim que o cliente confirmar.`,
               });
@@ -2361,7 +2373,7 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
               );
 
               // Ultimo lembrete pro cliente
-              await sendMessage({
+              await sendToClient({
                 to: clienteTel,
                 message: `⚠️ *O fretista aguardou 20 minutos e precisou se retirar.*\n\nPor favor, confirme se a entrega esta correta:\n\n1️⃣ *SIM* - Tudo certo, servicos concluidos com sucesso! ✅\n2️⃣ *NAO* - Tenho observacoes`,
               });
@@ -2373,7 +2385,7 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
     return;
   }
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: `Manda as fotos ou digite *PRONTO* quando terminar 📸`,
   });
@@ -2406,7 +2418,7 @@ async function handlePrestadorResponse(prestadorPhone: string, message: string, 
 
   // Resposta "em atendimento" / "2" - prestador ocupado
   if (lower === "2" || lower === "em atendimento" || lower.includes("atendimento") || lower.includes("ocupado")) {
-    await sendMessage({
+    await sendToClient({
       to: prestadorPhone,
       message: "🙏 Entendido! Quando estiver disponivel, fique atento as proximas indicacoes! 🚚",
     });
@@ -2420,7 +2432,7 @@ async function handlePrestadorResponse(prestadorPhone: string, message: string, 
     || lower === "aceitar" || lower === "vou sim" || lower === "pode ser";
 
   if (!aceitou) {
-    await sendMessage({
+    await sendToClient({
       to: prestadorPhone,
       message: "Pra aceitar, responda:\n\n1️⃣ ✅ *PEGAR*\n2️⃣ 🙏 *EM ATENDIMENTO*\n\n⚠️ Respostas automaticas nao sao aceitas.",
     });
@@ -2435,7 +2447,7 @@ async function handlePrestadorResponse(prestadorPhone: string, message: string, 
     const clientePhone = dispatch?.clientePhone || "";
     await notificarResultadoDispatch(corridaId, vencedor, clientePhone);
   } else {
-    await sendMessage({
+    await sendToClient({
       to: prestadorPhone,
       message: "Resposta recebida! ✅ Aguardando outros prestadores... Resultado em instantes!",
     });
@@ -2447,12 +2459,12 @@ async function notificarResultadoDispatch(corridaId: string, vencedorPhone: stri
   if (!dispatch) return;
 
   // Avisa fretista vencedor
-  await sendMessage({ to: vencedorPhone, message: MSG.freteAceito });
+  await sendToClient({ to: vencedorPhone, message: MSG.freteAceito });
 
   // Avisa os outros
   for (const phone of dispatch.prestadores) {
     if (phone !== vencedorPhone) {
-      await sendMessage({ to: phone, message: MSG.freteJaPego });
+      await sendToClient({ to: phone, message: MSG.freteJaPego });
     }
   }
 
@@ -2484,7 +2496,7 @@ async function notificarResultadoDispatch(corridaId: string, vencedorPhone: stri
       // TODO: Gerar link Mercado Pago
       const linkPagamento = "https://pegue-eta.vercel.app/simular";
 
-      await sendMessage({
+      await sendToClient({
         to: clientePhone,
         message: MSG.freteConfirmadoEnviaPagamento(linkPagamento, dataFrete),
       });
@@ -2687,7 +2699,7 @@ async function handleHorario(phone: string, message: string) {
   else horario = extrairHorario(lower);
 
   if (!horario) {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "Nao entendi o horario 😅\n\nPode digitar de qualquer forma:\n*14:30*, *15h*, *9 horas*, *10hs*, *15*\n\nOu escolha:\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)",
     });
@@ -2714,7 +2726,7 @@ async function handleHorario(phone: string, message: string) {
   if (session.precisa_ajudante) detalhes += "🙋 Com ajudante\n";
   if (session.tem_escada && session.andar && session.andar > 0) detalhes += `🪜 ${session.andar}o andar (escada)\n`;
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: MSG.resumoFrete(
       session.origem_endereco || "Origem",
@@ -2739,7 +2751,7 @@ async function handleCancelarFrete(phone: string) {
     .single();
 
   if (!prestador) {
-    await sendMessage({ to: phone, message: "Voce nao tem cadastro de prestador na Pegue." });
+    await sendToClient({ to: phone, message: "Voce nao tem cadastro de prestador na Pegue." });
     return;
   }
 
@@ -2751,7 +2763,7 @@ async function handleCancelarFrete(phone: string) {
     .order("criado_em", { ascending: true });
 
   if (!corridas || corridas.length === 0) {
-    await sendMessage({ to: phone, message: "Voce nao tem fretes ativos pra cancelar. 😊" });
+    await sendToClient({ to: phone, message: "Voce nao tem fretes ativos pra cancelar. 😊" });
     return;
   }
 
@@ -2759,7 +2771,7 @@ async function handleCancelarFrete(phone: string) {
     // So tem 1 frete - pergunta direto
     const c = corridas[0];
     await updateSession(phone, { step: "fretista_cancelar_confirma" as any, corrida_id: c.id });
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `⚠️ *Quer cancelar este frete?*\n\n📍 ${c.origem_endereco} → ${c.destino_endereco}\n📅 ${c.periodo}\n💰 R$ ${c.valor_prestador}\n\n⚠️ Cancelar afeta seu *score* na plataforma.\n\nConfirma? Responda *SIM* ou *NAO*`,
     });
@@ -2779,7 +2791,7 @@ async function handleCancelarFrete(phone: string) {
     plano_escolhido: JSON.stringify(corridas.map(c => c.id)),
   });
 
-  await sendMessage({ to: phone, message: lista });
+  await sendToClient({ to: phone, message: lista });
 }
 
 async function handleCancelarQual(phone: string, message: string) {
@@ -2790,7 +2802,7 @@ async function handleCancelarQual(phone: string, message: string) {
   const num = parseInt(message.trim());
 
   if (isNaN(num) || num < 1 || num > ids.length) {
-    await sendMessage({ to: phone, message: `Manda um numero de 1 a ${ids.length}` });
+    await sendToClient({ to: phone, message: `Manda um numero de 1 a ${ids.length}` });
     return;
   }
 
@@ -2805,7 +2817,7 @@ async function handleCancelarQual(phone: string, message: string) {
   if (!corrida) return;
 
   await updateSession(phone, { step: "fretista_cancelar_confirma" as any, corrida_id: corridaId });
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: `⚠️ *Quer cancelar este frete?*\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${corrida.periodo}\n💰 R$ ${corrida.valor_prestador}\n\n⚠️ Cancelar afeta seu *score* na plataforma.\n3 cancelamentos = conta inativa.\n\nConfirma? Responda *SIM* ou *NAO*`,
   });
@@ -2819,12 +2831,12 @@ async function handleCancelarConfirma(phone: string, message: string) {
 
   if (lower.startsWith("nao") || lower === "n" || lower.startsWith("não")) {
     await updateSession(phone, { step: "aguardando_servico" as any });
-    await sendMessage({ to: phone, message: "Cancelamento anulado! ✅ Bom trabalho no frete! 🚚" });
+    await sendToClient({ to: phone, message: "Cancelamento anulado! ✅ Bom trabalho no frete! 🚚" });
     return;
   }
 
   if (!lower.startsWith("sim") && lower !== "s") {
-    await sendMessage({ to: phone, message: "Responda *SIM* pra confirmar ou *NAO* pra manter o frete." });
+    await sendToClient({ to: phone, message: "Responda *SIM* pra confirmar ou *NAO* pra manter o frete." });
     return;
   }
 
@@ -2859,7 +2871,7 @@ async function handleCancelarConfirma(phone: string, message: string) {
       .eq("id", prestador.id);
 
     if (desativar) {
-      await sendMessage({
+      await sendToClient({
         to: phone,
         message: "⛔ *Sua conta esta INATIVA* por excesso de cancelamentos.\n\nPara reativar, envie justificativa com provas pelo WhatsApp.\nSua situacao sera analisada pela equipe.",
       });
@@ -2872,12 +2884,12 @@ async function handleCancelarConfirma(phone: string, message: string) {
     .update({ prestador_id: null, status: "pendente" })
     .eq("id", corridaId);
 
-  await sendMessage({ to: phone, message: "Frete cancelado. ⚠️ Seu score foi penalizado (-2 pontos)." });
+  await sendToClient({ to: phone, message: "Frete cancelado. ⚠️ Seu score foi penalizado (-2 pontos)." });
 
   // Avisa o cliente
   const clienteTel = (corrida?.clientes as any)?.telefone;
   if (clienteTel) {
-    await sendMessage({
+    await sendToClient({
       to: clienteTel,
       message: "⚠️ Seu fretista teve um imprevisto e nao podera realizar o servico.\n\n*Ja estamos providenciando outro fretista de confianca!*\nVoce sera notificado assim que confirmarmos. 😊",
     });
@@ -2909,7 +2921,7 @@ async function handleIndicarFrete(phone: string) {
     .single();
 
   if (!prestador) {
-    await sendMessage({ to: phone, message: "Voce nao tem cadastro de prestador na Pegue." });
+    await sendToClient({ to: phone, message: "Voce nao tem cadastro de prestador na Pegue." });
     return;
   }
 
@@ -2921,14 +2933,14 @@ async function handleIndicarFrete(phone: string) {
     .order("criado_em", { ascending: true });
 
   if (!corridas || corridas.length === 0) {
-    await sendMessage({ to: phone, message: "Voce nao tem fretes ativos pra indicar. 😊" });
+    await sendToClient({ to: phone, message: "Voce nao tem fretes ativos pra indicar. 😊" });
     return;
   }
 
   if (corridas.length === 1) {
     await updateSession(phone, { step: "fretista_indicar_telefone" as any, corrida_id: corridas[0].id });
     const c = corridas[0];
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `🤝 *Indicar amigo para este frete:*\n\n📍 ${c.origem_endereco} → ${c.destino_endereco}\n📅 ${c.periodo}\n💰 R$ ${c.valor_prestador}\n\nManda o *numero de WhatsApp* do parceiro (com DDD):`,
     });
@@ -2946,7 +2958,7 @@ async function handleIndicarFrete(phone: string) {
     plano_escolhido: JSON.stringify(corridas.map(c => c.id)),
   });
 
-  await sendMessage({ to: phone, message: lista });
+  await sendToClient({ to: phone, message: lista });
 }
 
 async function handleIndicarQual(phone: string, message: string) {
@@ -2957,7 +2969,7 @@ async function handleIndicarQual(phone: string, message: string) {
   const num = parseInt(message.trim());
 
   if (isNaN(num) || num < 1 || num > ids.length) {
-    await sendMessage({ to: phone, message: `Manda um numero de 1 a ${ids.length}` });
+    await sendToClient({ to: phone, message: `Manda um numero de 1 a ${ids.length}` });
     return;
   }
 
@@ -2971,7 +2983,7 @@ async function handleIndicarQual(phone: string, message: string) {
   if (!corrida) return;
 
   await updateSession(phone, { step: "fretista_indicar_telefone" as any, corrida_id: corridaId });
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: `🤝 *Indicar amigo para:*\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${corrida.periodo}\n\nManda o *numero de WhatsApp* do parceiro (com DDD):`,
   });
@@ -2986,7 +2998,7 @@ async function handleIndicarTelefone(phone: string, message: string) {
   const telFormatado = tel.startsWith("55") ? tel : `55${tel}`;
 
   if (tel.length < 10) {
-    await sendMessage({ to: phone, message: "Numero invalido. Manda com DDD (ex: 11 95555-1234)" });
+    await sendToClient({ to: phone, message: "Numero invalido. Manda com DDD (ex: 11 95555-1234)" });
     return;
   }
 
@@ -2998,7 +3010,7 @@ async function handleIndicarTelefone(phone: string, message: string) {
     .single();
 
   if (!amigo) {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `Esse numero nao esta cadastrado na Pegue. 😔\n\nPede pro seu amigo se cadastrar mandando *Parcerias Pegue* pro nosso WhatsApp!`,
     });
@@ -3007,7 +3019,7 @@ async function handleIndicarTelefone(phone: string, message: string) {
   }
 
   if (amigo.status !== "aprovado") {
-    await sendMessage({ to: phone, message: "Esse parceiro ainda nao foi aprovado no sistema. Assim que for aprovado, podera receber indicacoes." });
+    await sendToClient({ to: phone, message: "Esse parceiro ainda nao foi aprovado no sistema. Assim que for aprovado, podera receber indicacoes." });
     await updateSession(phone, { step: "aguardando_servico" as any });
     return;
   }
@@ -3022,7 +3034,7 @@ async function handleIndicarTelefone(phone: string, message: string) {
   if (!corrida) return;
 
   // Envia convite pro amigo
-  await sendMessage({
+  await sendToClient({
     to: amigo.telefone,
     message: `🤝 *Indicacao de parceiro!*\n\nUm parceiro Pegue esta te indicando pra um frete:\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📦 ${corrida.descricao_carga || "Material"}\n📅 ${corrida.periodo}\n💰 Voce recebe: R$ ${corrida.valor_prestador}\n\nQuer *PEGAR* esse frete? Responda *PEGAR*`,
   });
@@ -3033,7 +3045,7 @@ async function handleIndicarTelefone(phone: string, message: string) {
     .update({ prestador_id: amigo.id })
     .eq("id", session.corrida_id);
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: `Frete transferido pra *${amigo.nome}*! ✅\nEle ja foi notificado. Obrigado pela indicacao! 🤝`,
   });
@@ -3059,7 +3071,7 @@ async function reDispatchUrgente(corridaId: string, session: BotSession, cliente
       .eq("status", "aprovado");
 
     if (!prestadores || prestadores.length === 0) {
-      await sendMessage({ to: clientePhone, message: MSG.nenhumFretista });
+      await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
       await notificarAdmin(
         `🚨 *URGENTE: NENHUM FRETISTA PRA RE-DISPATCH*`,
         clientePhone,
@@ -3074,7 +3086,7 @@ async function reDispatchUrgente(corridaId: string, session: BotSession, cliente
       .filter(t => t !== excluirPhone);
 
     if (telefones.length === 0) {
-      await sendMessage({ to: clientePhone, message: MSG.nenhumFretista });
+      await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
       await notificarAdmin(`🚨 *SEM FRETISTAS DISPONIVEIS PRA RE-DISPATCH*`, clientePhone, `Corrida: ${corridaId}`);
       return;
     }
@@ -3086,11 +3098,11 @@ async function reDispatchUrgente(corridaId: string, session: BotSession, cliente
     const mensagem = `🚨 *PRIORIDADE IMEDIATA*\n⚡ Servico URGENTE!\n\n📍 Origem: ${session.origem_endereco || "SP"}\n🏠 Destino: ${session.destino_endereco || "Destino"}\n📦 ${session.descricao_carga || "Material"}\n📅 ${session.data_agendada || "AGORA"}\n💰 Voce recebe: R$ ${valorPrestador}\n\n━━━━━━━━━━━━━━━━\n1️⃣ ✅ *PEGAR* - Posso ir AGORA!\n2️⃣ 🙏 *EM ATENDIMENTO* - Estou ocupado`;
 
     // Disparo triplo pra urgencia maxima (3 toques)
-    await sendMessageToMany(telefones, `🚨🚨🚨 *URGENTE URGENTE URGENTE* 🚨🚨🚨`);
+    await sendToClients(telefones, `🚨🚨🚨 *URGENTE URGENTE URGENTE* 🚨🚨🚨`);
     await new Promise(r => setTimeout(r, 1000));
-    await sendMessageToMany(telefones, `⚡ *SERVICO URGENTE - PRECISA SAIR AGORA!*`);
+    await sendToClients(telefones, `⚡ *SERVICO URGENTE - PRECISA SAIR AGORA!*`);
     await new Promise(r => setTimeout(r, 1000));
-    await sendMessageToMany(telefones, mensagem);
+    await sendToClients(telefones, mensagem);
 
     // Timeout: se ninguem aceitar em 5min, notifica admin
     setTimeout(async () => {
@@ -3170,7 +3182,7 @@ async function handleGuinchoCategoria(phone: string, message: string) {
 
   const categoria = GUINCHO_CATEGORIAS[lower];
   if (!categoria) {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "Escolha uma opcao! 😊\n\n1️⃣ *Guincho Imediato* (preciso AGORA)\n2️⃣ *Guincho Agendado* (escolher data e horario)",
     });
@@ -3188,7 +3200,7 @@ async function handleGuinchoCategoria(phone: string, message: string) {
       descricao_carga: descAtual.replace("Guincho -", `Guincho: ${categoria} -`),
       plano_escolhido: lower,
     });
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `Onde esta o veiculo? 📍\n\nClique no *clipe* 📎 > *Localizacao*\nOu digite o *endereco com rua, bairro e numero*`,
     });
@@ -3199,7 +3211,7 @@ async function handleGuinchoCategoria(phone: string, message: string) {
       descricao_carga: `Guincho: ${categoria}`,
       plano_escolhido: lower,
     });
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `Qual a *marca, modelo e ano* do seu veiculo? 🚗\n\nExemplo: *Fiat Uno 2018*, *Honda CG 160 2022*, *Hilux 2020*`,
     });
@@ -3211,7 +3223,7 @@ async function handleGuinchoTipoVeiculo(phone: string, message: string) {
   const tipoVeiculo = TIPO_VEICULO_GUINCHO[lower];
 
   if (!tipoVeiculo) {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "Escolha de 1 a 4:\n\n1️⃣ *Hatch/Sedan* (Gol, Onix, Strada, Fiorino...)\n2️⃣ *SUV/Caminhonete* (Hilux, S10, HR, Bongo...)\n3️⃣ *Van/Caminhao* (Sprinter, Master...)\n4️⃣ *Moto*",
     });
@@ -3228,7 +3240,7 @@ async function handleGuinchoTipoVeiculo(phone: string, message: string) {
     veiculo_sugerido: tipoVeiculo === "moto" ? "moto_guincho" : "guincho",
   });
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: `Qual a *marca, modelo e ano* do veiculo?\n\nExemplo: *Fiat Uno 2018* ou *Honda CG 160 2022*`,
   });
@@ -3273,7 +3285,7 @@ async function handleGuinchoMarcaModelo(phone: string, message: string) {
   const texto = message.trim();
 
   if (texto.length < 3) {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "Informe a *marca, modelo e ano* do veiculo 😊\n\nExemplo: *Fiat Uno 2018* ou *Honda CG 160 2022*",
     });
@@ -3290,7 +3302,7 @@ async function handleGuinchoMarcaModelo(phone: string, message: string) {
     veiculo_sugerido: categoria.tipo === "moto" ? "moto_guincho" : "guincho",
   });
 
-  await sendMessage({
+  await sendToClient({
     to: phone,
     message: `*${texto}* - Anotado! ✅\n\n${MSG.guinchoPedirLocalizacao(texto)}`,
   });
@@ -3331,7 +3343,7 @@ async function handleGuinchoLocalizacao(
   }
 
   if (!endereco) {
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: "Nao consegui achar esse endereco 😅\n\nManda sua *localizacao pelo clipe* 📎 ou digite o *CEP* ou *endereco completo* (rua + bairro)",
     });
@@ -3345,7 +3357,7 @@ async function handleGuinchoLocalizacao(
     origem_lng: longitude,
   });
 
-  await sendMessage({ to: phone, message: MSG.guinchoPedirDestino });
+  await sendToClient({ to: phone, message: MSG.guinchoPedirDestino });
 }
 
 async function handleGuinchoDestino(phone: string, message: string) {
@@ -3445,7 +3457,7 @@ async function handleGuinchoDestino(phone: string, message: string) {
 
     const nomeVeic = TIPO_VEICULO_NOME[tipoVeic] || "Veiculo";
 
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `📋 *Resumo do seu pedido:*
 
@@ -3475,7 +3487,7 @@ ${taxaExtra ? `🌙 *Taxa ${taxaExtra} aplicada*\n` : ""}
       valor_estimado: valorTotal,
     });
 
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: MSG.guinchoOrcamento(categoria, session.origem_endereco || "", destino, valorTotal.toString(), taxaExtra),
     });

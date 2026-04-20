@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendMessage } from "@/lib/chatpro";
+import { sendToClient } from "@/lib/chatpro";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Telefone obrigatorio" }, { status: 400 });
     }
 
-    await sendMessage({
+    await sendToClient({
       to: phone,
       message: `Oi! 😊 Percebi que voce estava fazendo uma cotacao e nao finalizou.
 

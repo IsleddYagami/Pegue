@@ -3281,17 +3281,57 @@ function extrairHorario(texto: string): string | null {
 }
 
 function extrairData(texto: string): string | null {
-  // Formato: 25/04, 25/4, 25-04
-  const matchData = texto.match(/(\d{1,2})[\/\-](\d{1,2})/);
-  if (matchData) {
-    const dia = String(parseInt(matchData[1])).padStart(2, "0");
-    const mes = String(parseInt(matchData[2])).padStart(2, "0");
+  const hoje = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+
+  // Meses por nome
+  const meses: Record<string, number> = {
+    janeiro: 1, fevereiro: 2, marco: 3, março: 3, abril: 4,
+    maio: 5, junho: 6, julho: 7, agosto: 8, setembro: 9,
+    outubro: 10, novembro: 11, dezembro: 12,
+    jan: 1, fev: 2, mar: 3, abr: 4, mai: 5, jun: 6,
+    jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12,
+  };
+
+  // Formato: 25/04, 25/4, 25-04, 02.05
+  const matchBarra = texto.match(/(\d{1,2})[\/\-\.](\d{1,2})/);
+  if (matchBarra) {
+    const dia = String(parseInt(matchBarra[1])).padStart(2, "0");
+    const mes = String(parseInt(matchBarra[2])).padStart(2, "0");
     return `${dia}/${mes}`;
   }
 
-  // Palavras
-  const hoje = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  // Formato: "02 de maio", "2 de maio", "dia 02 de maio"
+  for (const [nomeMes, numMes] of Object.entries(meses)) {
+    const regexDeMes = new RegExp(`(\\d{1,2})\\s*(?:de\\s*)?${nomeMes}`);
+    const matchMes = texto.match(regexDeMes);
+    if (matchMes) {
+      const dia = String(parseInt(matchMes[1])).padStart(2, "0");
+      const mes = String(numMes).padStart(2, "0");
+      return `${dia}/${mes}`;
+    }
+  }
 
+  // Formato: "dia 25", "dia 02" (assume mes atual)
+  const matchDia = texto.match(/dia\s+(\d{1,2})/);
+  if (matchDia) {
+    const dia = String(parseInt(matchDia[1])).padStart(2, "0");
+    const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+    return `${dia}/${mes}`;
+  }
+
+  // Formato: "02 05" (dois numeros separados por espaco, sem horario no meio)
+  // So pega se nao tem h/hora/hs junto do segundo numero
+  const matchEspaco = texto.match(/(\d{1,2})\s+(\d{1,2})(?!\s*[h:]|\s*hora|\s*hs)/);
+  if (matchEspaco) {
+    const n1 = parseInt(matchEspaco[1]);
+    const n2 = parseInt(matchEspaco[2]);
+    // Se n1 <= 31 e n2 <= 12, assume dia/mes
+    if (n1 >= 1 && n1 <= 31 && n2 >= 1 && n2 <= 12) {
+      return `${String(n1).padStart(2, "0")}/${String(n2).padStart(2, "0")}`;
+    }
+  }
+
+  // Palavras: hoje, amanha
   if (texto.includes("hoje")) {
     return `${String(hoje.getDate()).padStart(2, "0")}/${String(hoje.getMonth() + 1).padStart(2, "0")}`;
   }
@@ -3301,6 +3341,7 @@ function extrairData(texto: string): string | null {
     return `${String(amanha.getDate()).padStart(2, "0")}/${String(amanha.getMonth() + 1).padStart(2, "0")}`;
   }
 
+  // Dias da semana
   const diasSemana: Record<string, number> = {
     domingo: 0, segunda: 1, terca: 2, terça: 2, quarta: 3,
     quinta: 4, sexta: 5, sabado: 6, sábado: 6,

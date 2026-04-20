@@ -1498,6 +1498,13 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
       );
     }
 
+    // Disparo duplo - 2 mensagens pra chamar mais atencao (celular toca 2x)
+    const alertaSom = isGuincho
+      ? `🚨🚨🚨 *GUINCHO DISPONIVEL* 🚨🚨🚨\n\n⚡ Responda rapido! Primeiro que aceitar, leva!`
+      : `🚨🚨🚨 *NOVO FRETE DISPONIVEL* 🚨🚨🚨\n\n⚡ Responda rapido! Primeiro que aceitar, leva!`;
+
+    await sendMessageToMany(telefones, alertaSom);
+    await new Promise(r => setTimeout(r, 1500));
     await sendMessageToMany(telefones, mensagem);
 
     // Apos 31s, se ninguem aceitou, notifica cliente
@@ -3078,6 +3085,11 @@ async function reDispatchUrgente(corridaId: string, session: BotSession, cliente
 
     const mensagem = `🚨 *PRIORIDADE IMEDIATA*\n⚡ Servico URGENTE!\n\n📍 Origem: ${session.origem_endereco || "SP"}\n🏠 Destino: ${session.destino_endereco || "Destino"}\n📦 ${session.descricao_carga || "Material"}\n📅 ${session.data_agendada || "AGORA"}\n💰 Voce recebe: R$ ${valorPrestador}\n\n━━━━━━━━━━━━━━━━\n1️⃣ ✅ *PEGAR* - Posso ir AGORA!\n2️⃣ 🙏 *EM ATENDIMENTO* - Estou ocupado`;
 
+    // Disparo triplo pra urgencia maxima (3 toques)
+    await sendMessageToMany(telefones, `🚨🚨🚨 *URGENTE URGENTE URGENTE* 🚨🚨🚨`);
+    await new Promise(r => setTimeout(r, 1000));
+    await sendMessageToMany(telefones, `⚡ *SERVICO URGENTE - PRECISA SAIR AGORA!*`);
+    await new Promise(r => setTimeout(r, 1000));
     await sendMessageToMany(telefones, mensagem);
 
     // Timeout: se ninguem aceitar em 5min, notifica admin

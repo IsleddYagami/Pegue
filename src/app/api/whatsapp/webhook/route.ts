@@ -586,9 +586,6 @@ Boa sorte! 🎯`,
     case "guincho_categoria":
       await handleGuinchoCategoria(phone, message);
       break;
-    case "guincho_tipo_veiculo":
-      await handleGuinchoTipoVeiculo(phone, message);
-      break;
     case "guincho_marca_modelo":
       await handleGuinchoMarcaModelo(phone, message);
       break;
@@ -3022,20 +3019,13 @@ async function handleGuinchoCategoria(phone: string, message: string) {
   }
 
   await updateSession(phone, {
-    step: "guincho_tipo_veiculo" as any,
+    step: "guincho_marca_modelo" as any,
     descricao_carga: `Guincho: ${categoria}`,
     plano_escolhido: lower, // 1=imediato, 2=agendado
   });
   await sendMessage({
     to: phone,
-    message: `Qual o tipo do seu veiculo?
-
-1️⃣ *Hatch / Sedan* (Gol, Onix, Corolla, Strada, Fiorino, Saveiro...)
-2️⃣ *SUV / Caminhonete* (Hilux, S10, Ranger, Tracker, HR, Bongo...)
-3️⃣ *Van / Caminhao* (Sprinter, Master, Caminhao medio...)
-4️⃣ *Moto*
-
-Manda o numero!`,
+    message: `Qual a *marca, modelo e ano* do seu veiculo? 🚗\n\nExemplo: *Fiat Uno 2018*, *Honda CG 160 2022*, *Hilux 2020*`,
   });
 }
 
@@ -3067,6 +3057,38 @@ async function handleGuinchoTipoVeiculo(phone: string, message: string) {
   });
 }
 
+// Detecta categoria do veiculo pelo nome
+function detectarCategoriaVeiculo(texto: string): { tipo: string; nome: string } {
+  const lower = texto.toLowerCase();
+
+  // Motos
+  const motos = ["cg", "fan", "titan", "biz", "pop", "cb", "xre", "fazer", "factor", "crosser", "lander", "tenere", "ninja", "z400", "mt", "duke", "burgman", "pcx", "nmax", "sahara", "moto", "scooter", "honda cg", "yamaha", "suzuki", "triumph", "bmw gs", "harley", "kawasaki"];
+  if (motos.some(m => lower.includes(m))) {
+    return { tipo: "moto", nome: "Moto" };
+  }
+
+  // Vans e caminhoes
+  const grandes = ["sprinter", "master", "ducato", "daily", "iveco", "caminhao", "caminhão", "toco", "truck", "vuc", "furgao", "furgão", "van", "boxer", "transit"];
+  if (grandes.some(g => lower.includes(g))) {
+    return { tipo: "veiculo_grande", nome: "Van/Caminhao" };
+  }
+
+  // SUVs e caminhonetes
+  const suvs = ["hilux", "s10", "s-10", "ranger", "amarok", "frontier", "triton", "l200", "toro", "maverick", "ram", "silverado", "f250", "tracker", "creta", "renegade", "compass", "commander", "taos", "tcross", "t-cross", "kicks", "hr", "bongo", "kia", "hyundai hr", "tucson", "sw4", "fortuner", "pajero", "trailblazer", "equinox", "territory", "bronco", "defender", "wrangler", "jimny", "duster", "captur", "sportage", "sorento", "tiggo", "suv", "caminhonete", "picape", "pickup"];
+  if (suvs.some(s => lower.includes(s))) {
+    return { tipo: "caminhonete_suv", nome: "SUV/Caminhonete" };
+  }
+
+  // Utilitarios pequenos (na mesma categoria de carro comum)
+  const utilitarios = ["strada", "saveiro", "montana", "fiorino", "courier", "kangoo", "partner", "doblo", "berlingo", "pampa"];
+  if (utilitarios.some(u => lower.includes(u))) {
+    return { tipo: "carro_comum", nome: "Hatch/Sedan" };
+  }
+
+  // Carro comum (default)
+  return { tipo: "carro_comum", nome: "Hatch/Sedan" };
+}
+
 async function handleGuinchoMarcaModelo(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session) return;
@@ -3081,14 +3103,20 @@ async function handleGuinchoMarcaModelo(phone: string, message: string) {
     return;
   }
 
-  // Adiciona info do veiculo na descricao
+  // Detecta categoria automaticamente
+  const categoria = detectarCategoriaVeiculo(texto);
+
   const descAtual = session.descricao_carga || "Guincho";
   await updateSession(phone, {
     step: "guincho_localizacao" as any,
-    descricao_carga: `${descAtual} | ${texto}`,
+    descricao_carga: `${descAtual} - ${categoria.nome} | ${texto}`,
+    veiculo_sugerido: categoria.tipo === "moto" ? "moto_guincho" : "guincho",
   });
 
-  await sendMessage({ to: phone, message: MSG.guinchoPedirLocalizacao(texto) });
+  await sendMessage({
+    to: phone,
+    message: `*${texto}* - Anotado! ✅\n\n${MSG.guinchoPedirLocalizacao(texto)}`,
+  });
 }
 
 async function handleGuinchoLocalizacao(

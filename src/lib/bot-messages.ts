@@ -285,7 +285,9 @@ Relaxa. A gente leva. 🚚✨`,
 🙋 ${ajudante}
 💰 Voce recebe: R$ ${valorPrestador}
 
-Quer pegar? Responda *PEGAR*`,
+━━━━━━━━━━━━━━━━
+1️⃣ ✅ *PEGAR* - Quero esse frete!
+2️⃣ 🙏 *EM ATENDIMENTO* - Estou ocupado no momento`,
 
   freteAceito: `Voce ganhou o frete! ✅🎉
 Este servico ja esta reservado pra voce!

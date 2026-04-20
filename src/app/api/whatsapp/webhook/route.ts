@@ -1325,7 +1325,7 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
 
     if (isGuincho) {
       // Mensagem de GUINCHO pro guincheiro
-      mensagem = `🚗 *Guincho solicitado!*\n\n📍 Coleta: ${session.origem_endereco || "SP"}\n🏠 Destino: ${session.destino_endereco || "Destino"}\n🔧 ${session.descricao_carga || "Guincho"}\n📅 ${session.data_agendada || "AGORA"}\n💰 Voce recebe: R$ ${valorPrestador}\n\nQuer pegar? Responda *PEGAR*`;
+      mensagem = `🚗 *Guincho solicitado!*\n\n📍 Coleta: ${session.origem_endereco || "SP"}\n🏠 Destino: ${session.destino_endereco || "Destino"}\n🔧 ${session.descricao_carga || "Guincho"}\n📅 ${session.data_agendada || "AGORA"}\n💰 Voce recebe: R$ ${valorPrestador}\n\n━━━━━━━━━━━━━━━━\n1️⃣ ✅ *PEGAR* - Quero esse guincho!\n2️⃣ 🙏 *EM ATENDIMENTO* - Estou ocupado no momento`;
     } else {
       // Mensagem de FRETE pro fretista
       let ajudanteInfo = "*Sem ajudante*";
@@ -2249,11 +2249,25 @@ async function handlePrestadorResponse(prestadorPhone: string, message: string, 
     return; // Ignora silenciosamente
   }
 
-  // Aceita SOMENTE "pegar"
-  if (lower !== "pegar") {
+  // Resposta "em atendimento" / "2" - prestador ocupado
+  if (lower === "2" || lower === "em atendimento" || lower.includes("atendimento") || lower.includes("ocupado")) {
     await sendMessage({
       to: prestadorPhone,
-      message: "Pra aceitar o frete, responda exatamente *PEGAR*\n\n⚠️ Respostas automaticas nao sao aceitas. Voce precisa digitar manualmente.",
+      message: "🙏 Entendido! Quando estiver disponivel, fique atento as proximas indicacoes! 🚚",
+    });
+    return;
+  }
+
+  // Aceita variações de aceite: pegar, 1, quero, sim, aceito, vou, pode, eu quero, bora
+  const aceitou = lower === "pegar" || lower === "1" || lower === "quero" || lower === "sim"
+    || lower === "aceito" || lower === "vou" || lower === "pode" || lower === "bora"
+    || lower === "eu quero" || lower === "vou pegar" || lower === "quero pegar"
+    || lower === "aceitar" || lower === "vou sim" || lower === "pode ser";
+
+  if (!aceitou) {
+    await sendMessage({
+      to: prestadorPhone,
+      message: "Pra aceitar, responda:\n\n1️⃣ ✅ *PEGAR*\n2️⃣ 🙏 *EM ATENDIMENTO*\n\n⚠️ Respostas automaticas nao sao aceitas.",
     });
     return;
   }
@@ -2874,7 +2888,7 @@ async function reDispatchUrgente(corridaId: string, session: BotSession, cliente
 
     const valorPrestador = Math.round((session.valor_estimado || 0) * 0.88);
 
-    const mensagem = `🚨 *PRIORIDADE IMEDIATA*\n⚡ Frete URGENTE!\n\n📍 Origem: ${session.origem_endereco || "SP"}\n🏠 Destino: ${session.destino_endereco || "Destino"}\n📦 ${session.descricao_carga || "Material"}\n📅 ${session.data_agendada || "AGORA"}\n💰 Voce recebe: R$ ${valorPrestador}\n\n⚠️ *Precisa confirmar disponibilidade IMEDIATA*\nResponda *PEGAR* se pode ir!`;
+    const mensagem = `🚨 *PRIORIDADE IMEDIATA*\n⚡ Servico URGENTE!\n\n📍 Origem: ${session.origem_endereco || "SP"}\n🏠 Destino: ${session.destino_endereco || "Destino"}\n📦 ${session.descricao_carga || "Material"}\n📅 ${session.data_agendada || "AGORA"}\n💰 Voce recebe: R$ ${valorPrestador}\n\n━━━━━━━━━━━━━━━━\n1️⃣ ✅ *PEGAR* - Posso ir AGORA!\n2️⃣ 🙏 *EM ATENDIMENTO* - Estou ocupado`;
 
     await sendMessageToMany(telefones, mensagem);
 

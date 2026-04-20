@@ -614,6 +614,10 @@ Boa sorte! 🎯`,
       });
       break;
 
+    case "aguardando_numero_coleta":
+      await handleNumeroColeta(phone, message);
+      break;
+
     // === CADASTRO PRESTADOR ===
     case "cadastro_nome":
       await handleCadastroNome(phone, message);
@@ -1374,6 +1378,70 @@ async function handleConfirmacao(phone: string, message: string, instance: 1 | 2
       message: "1️⃣ ✅ *SIM* - Tudo certo, confirmar!\n2️⃣ ✏️ *ALTERAR* - Quero corrigir algo",
     });
   }
+}
+
+// === NUMERO E COMPLEMENTO DA COLETA (apos pagamento) ===
+async function handleNumeroColeta(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session || !session.corrida_id) {
+    await sendToClient({ to: phone, message: "Poxa, nao achei seu pedido ativo 😕 Manda *oi* pra recomecar." });
+    return;
+  }
+
+  const detalhe = message.trim();
+  // Valida minimamente: precisa ter pelo menos 1 digito (numero da casa/predio)
+  if (detalhe.length < 1 || !/\d/.test(detalhe)) {
+    await sendToClient({
+      to: phone,
+      message: "Preciso do *numero* do endereco de retirada pro fretista nao errar 😊\n\nExemplo:\n• *450*\n• *230, Casa 2*\n• *1500, Apto 12B*",
+    });
+    return;
+  }
+
+  // Concatena o detalhe no origem_endereco (mantem o original e anexa numero/complemento)
+  const origemAtual = session.origem_endereco || "";
+  const origemCompleta = origemAtual
+    ? `${origemAtual} - Nº ${detalhe}`
+    : `Nº ${detalhe}`;
+
+  // Atualiza a corrida no banco pro fretista ver o endereco completo
+  await supabase
+    .from("corridas")
+    .update({ origem_endereco: origemCompleta })
+    .eq("id", session.corrida_id);
+
+  // Atualiza a session tambem
+  await updateSession(phone, {
+    origem_endereco: origemCompleta,
+    step: "aguardando_pagamento", // volta pro step que indica servico em andamento
+  });
+
+  // Busca o fretista pra reenviar o endereco atualizado
+  const { data: corrida } = await supabase
+    .from("corridas")
+    .select("prestadores(telefone, nome)")
+    .eq("id", session.corrida_id)
+    .single();
+
+  const prestador = (corrida?.prestadores as any);
+
+  if (prestador?.telefone) {
+    await sendToClient({
+      to: prestador.telefone,
+      message: `📍 *Atualizacao do endereco de coleta:*\n\n${origemCompleta}\n\nO cliente complementou com o numero e detalhes. Boa coleta! 🚚`,
+    });
+  }
+
+  // Confirma pro cliente e manda orientacoes finais
+  await sendToClient({
+    to: phone,
+    message: `✅ Anotado! Endereco completo:\n*${origemCompleta}*\n\nJa avisei o fretista pra ir direitinho no lugar certo! 🚚`,
+  });
+
+  await sendToClient({
+    to: phone,
+    message: MSG.orientacoesCliente,
+  });
 }
 
 // === ATENDIMENTO HUMANO ===

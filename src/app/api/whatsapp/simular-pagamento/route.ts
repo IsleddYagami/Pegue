@@ -56,10 +56,11 @@ export async function GET(req: NextRequest) {
       message: MSG.pagamentoConfirmado(prestador.nome, telFormatado),
     });
 
-    // Envia orientacoes apos pagamento
+    // Pede numero e complemento da coleta (pra precisao do endereco)
+    await updateSession(phone, { step: "aguardando_numero_coleta" });
     await sendToClient({
       to: phone,
-      message: MSG.orientacoesCliente,
+      message: `📍 *Pra o fretista nao errar na coleta:*\n\nMe manda o *numero* e *complemento* do endereco de retirada 😊\n\nExemplo:\n• *450, Apto 12B*\n• *230, Casa 2*\n• *1500, Bloco 3 Apto 45*\n\nSe for so numero, manda so o numero 👍`,
     });
 
     // Busca nome do cliente e qtd ajudantes
@@ -110,7 +111,7 @@ Bom trabalho! 🚚✨`,
     });
   }
 
-  await updateSession(phone, { step: "concluido" });
+  // Step ja foi setado pra "aguardando_numero_coleta" acima, cliente vai responder com numero/complemento
 
   return NextResponse.json({
     status: "ok",

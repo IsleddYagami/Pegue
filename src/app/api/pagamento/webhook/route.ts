@@ -56,9 +56,6 @@ export async function POST(req: NextRequest) {
         const prestador = corrida.prestadores as any;
 
         if (clienteTel) {
-          // Atualiza sessao do cliente
-          await updateSession(clienteTel, { step: "aguardando_pagamento" });
-
           // Notifica cliente - pagamento confirmado
           if (prestador) {
             const telFormatado = formatarTelefoneExibicao(prestador.telefone);
@@ -67,10 +64,11 @@ export async function POST(req: NextRequest) {
               message: MSG.pagamentoConfirmado(prestador.nome, telFormatado),
             });
 
-            // Envia orientacoes
+            // Pede numero e complemento da coleta (pra precisao do endereco)
+            await updateSession(clienteTel, { step: "aguardando_numero_coleta" });
             await sendToClient({
               to: clienteTel,
-              message: MSG.orientacoesCliente,
+              message: `📍 *Pra o fretista nao errar na coleta:*\n\nMe manda o *numero* e *complemento* do endereco de retirada 😊\n\nExemplo:\n• *450, Apto 12B*\n• *230, Casa 2*\n• *1500, Bloco 3 Apto 45*\n\nSe for so numero, manda so o numero 👍`,
             });
           }
 

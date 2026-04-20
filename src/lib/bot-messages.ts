@@ -2,14 +2,15 @@
 
 export const MSG = {
   // Menu inicial
-  boasVindas: `Oii! 😊 Que bom ter voce aqui no Pegue! 🚚
-Estou aqui pra te ajudar com o que precisar.
+  boasVindas: `Ola! 😊 Que bom ter voce aqui na Pegue!
+
+Vamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚
 
 O que voce precisa?
 
 1️⃣ *Pequenos Fretes*
 2️⃣ *Mudanca completa*
-3️⃣ *Guincho* (carro ou moto)
+3️⃣ *Guincho*
 4️⃣ *Duvidas frequentes*`,
 
   pedirLocalizacao: `Otimo! Vou te ajudar com seu frete! 🚚

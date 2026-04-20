@@ -28,6 +28,7 @@ import {
   extrairRespostaPrestador,
   isHorarioAtendimentoHumano,
   formatarTelefoneExibicao,
+  isInicioServico,
 } from "@/lib/bot-utils";
 import { supabase } from "@/lib/supabase";
 
@@ -397,18 +398,54 @@ Boa sorte! 🎯`,
 
   let session = await getSession(phone);
 
-  // Nova conversa ou saudacao
-  if (!session || isSaudacao(message)) {
+  // Nova conversa, saudacao ou termo de servico direto
+  if (!session || isSaudacao(message) || (!session && isInicioServico(message))) {
     await createSession(phone);
     await updateSession(phone, { step: "aguardando_servico" });
 
-    // Personaliza com nome se tiver
     const primeiroNome = pushName ? pushName.split(" ")[0] : "";
-    const saudacao = primeiroNome
-      ? `Oii ${primeiroNome}! 😊 Que bom ter voce aqui no Pegue! 🚚\nEstou aqui pra te ajudar com o que precisar.\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho* (carro ou moto)\n4️⃣ *Duvidas frequentes*`
-      : MSG.boasVindas;
+    const nome = primeiroNome || "voce";
 
+    // Se digitou termo de servico direto (frete, guincho, carreto, mudanca)
+    if (isInicioServico(message)) {
+      const saudacaoRapida = `Ola ${nome}! 😊 Que bom ter voce aqui na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
+      await sendMessage({ to: phone, message: saudacaoRapida });
+
+      // Se ja da pra identificar o servico, encaminha direto
+      const lowerMsg = lower;
+      if (lowerMsg.includes("guincho")) {
+        await handleEscolhaServico(phone, "3");
+        return;
+      } else if (lowerMsg.includes("mudanca") || lowerMsg.includes("mudança")) {
+        await handleEscolhaServico(phone, "2");
+        return;
+      } else if (lowerMsg.includes("frete") || lowerMsg.includes("carreto")) {
+        await handleEscolhaServico(phone, "1");
+        return;
+      }
+      return;
+    }
+
+    // Saudacao normal
+    const saudacao = `Ola ${nome}! 😊 Que bom ter voce aqui na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
     await sendMessage({ to: phone, message: saudacao });
+    return;
+  }
+
+  // Cliente com sessao ativa que digita termo de servico - reinicia
+  if (session && session.step === "concluido" && isInicioServico(message)) {
+    await createSession(phone);
+    await updateSession(phone, { step: "aguardando_servico" });
+    const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
+    await sendMessage({
+      to: phone,
+      message: `Ola ${primeiroNome}! 😊 Que bom ter voce de volta na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
+    });
+
+    const lowerMsg = lower;
+    if (lowerMsg.includes("guincho")) { await handleEscolhaServico(phone, "3"); return; }
+    if (lowerMsg.includes("mudanca") || lowerMsg.includes("mudança")) { await handleEscolhaServico(phone, "2"); return; }
+    if (lowerMsg.includes("frete") || lowerMsg.includes("carreto")) { await handleEscolhaServico(phone, "1"); return; }
     return;
   }
 

@@ -448,22 +448,23 @@ export function pareceEndereco(texto: string): boolean {
 // Detecta saudacao
 export function isSaudacao(texto: string): boolean {
   const saudacoes = [
-    "oi",
-    "ola",
-    "bom dia",
-    "boa tarde",
-    "boa noite",
-    "hey",
-    "eae",
-    "e ai",
-    "hello",
-    "hi",
-    "fala",
-    "salve",
-    "opa",
+    "oi", "ola", "olá", "bom dia", "boa tarde", "boa noite",
+    "hey", "eae", "e ai", "hello", "hi", "fala", "salve", "opa",
+    "boa", "blz", "beleza",
   ];
   const lower = texto.toLowerCase().trim();
   return saudacoes.some((s) => lower.startsWith(s));
+}
+
+export function isInicioServico(texto: string): boolean {
+  const termos = [
+    "frete", "fretes", "carreto", "carretos", "mudanca", "mudança",
+    "mudancas", "mudanças", "guincho", "guinchos", "transporte",
+    "transportar", "levar", "buscar", "preciso", "quero",
+    "cotacao", "cotação", "orcamento", "orçamento", "quanto custa",
+  ];
+  const lower = texto.toLowerCase().trim();
+  return termos.some((t) => lower.includes(t));
 }
 
 // Detecta agradecimento

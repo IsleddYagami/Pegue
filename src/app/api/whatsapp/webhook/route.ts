@@ -552,6 +552,9 @@ Boa sorte! 🎯`,
     case "guincho_tipo_veiculo":
       await handleGuinchoTipoVeiculo(phone, message);
       break;
+    case "guincho_marca_modelo":
+      await handleGuinchoMarcaModelo(phone, message);
+      break;
     case "guincho_localizacao":
       await handleGuinchoLocalizacao(phone, message, lat, lng);
       break;
@@ -3012,12 +3015,39 @@ async function handleGuinchoTipoVeiculo(phone: string, message: string) {
   const nomeVeiculo = TIPO_VEICULO_NOME[tipoVeiculo];
 
   await updateSession(phone, {
-    step: "guincho_localizacao" as any,
+    step: "guincho_marca_modelo" as any,
     descricao_carga: `${categoria} - ${nomeVeiculo}`,
     veiculo_sugerido: tipoVeiculo === "moto" ? "moto_guincho" : "guincho",
   });
 
-  await sendMessage({ to: phone, message: MSG.guinchoPedirLocalizacao(`${categoria.replace("Guincho: ", "")} - ${nomeVeiculo}`) });
+  await sendMessage({
+    to: phone,
+    message: `Qual a *marca, modelo e ano* do veiculo?\n\nExemplo: *Fiat Uno 2018* ou *Honda CG 160 2022*`,
+  });
+}
+
+async function handleGuinchoMarcaModelo(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const texto = message.trim();
+
+  if (texto.length < 3) {
+    await sendMessage({
+      to: phone,
+      message: "Informe a *marca, modelo e ano* do veiculo 😊\n\nExemplo: *Fiat Uno 2018* ou *Honda CG 160 2022*",
+    });
+    return;
+  }
+
+  // Adiciona info do veiculo na descricao
+  const descAtual = session.descricao_carga || "Guincho";
+  await updateSession(phone, {
+    step: "guincho_localizacao" as any,
+    descricao_carga: `${descAtual} | ${texto}`,
+  });
+
+  await sendMessage({ to: phone, message: MSG.guinchoPedirLocalizacao(texto) });
 }
 
 async function handleGuinchoLocalizacao(

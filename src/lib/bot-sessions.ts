@@ -36,6 +36,7 @@ export type BotStep =
   | "aguardando_pagamento"
   | "guincho_categoria"
   | "guincho_tipo_veiculo"
+  | "guincho_marca_modelo"
   | "guincho_localizacao"
   | "guincho_destino"
   | "aguardando_horario"

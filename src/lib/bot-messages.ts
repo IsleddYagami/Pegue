@@ -160,14 +160,11 @@ E pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠`,
   destinoRecebido: (destino: string) =>
     `${destino}! Otimo destino! ✅
 
-⚠️ *Informacao importante pro fretista:*
 Como e o local de *entrega*?
 
 1️⃣ *Casa / Terreo*
 2️⃣ *Predio com elevador*
-3️⃣ *Predio sem elevador / escada*
-
-Essa informacao define o valor e ajuda o fretista a se preparar!`,
+3️⃣ *Predio sem elevador / escada*`,
 
   qualAndar: `Entendi, predio sem elevador! 🏢
 Qual andar? Me manda o numero`,

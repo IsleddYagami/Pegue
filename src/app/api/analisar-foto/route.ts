@@ -26,9 +26,17 @@ Analise a foto enviada pelo cliente e retorne APENAS um JSON com:
   "item": "nome do item principal na foto (ex: Geladeira, Sofa, Caixas, Maquina de lavar)",
   "quantidade": "quantidade estimada de itens (ex: 1, 3, varias caixas)",
   "tamanho": "pequeno, medio ou grande",
-  "veiculo_sugerido": "utilitario, van ou caminhao_bau",
+  "veiculo_sugerido": "utilitario, hr ou caminhao_bau",
   "observacao": "uma frase curta sobre o que voce ve (max 15 palavras)"
 }
+
+REGRAS RIGIDAS para veiculo_sugerido (siga nesta ordem):
+1. Se for APENAS 1 item (mesmo grande como geladeira, maquina de lavar, fogao, sofa, cama) => "utilitario".
+2. Se forem 2 itens pequenos/medios => "utilitario".
+3. Se forem 2-3 itens grandes juntos => "hr".
+4. Se for mudanca quase completa (4+ itens grandes) => "caminhao_bau".
+5. Na duvida entre utilitario e hr => SEMPRE "utilitario".
+
 Responda SOMENTE o JSON, nada mais.`,
         },
         {

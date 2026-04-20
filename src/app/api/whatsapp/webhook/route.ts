@@ -1139,7 +1139,7 @@ async function handleTipoLocal(phone: string, message: string) {
 
   await sendToClient({
     to: phone,
-    message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Casa ou terreo\n2️⃣ Predio com elevador (+R$ 50)\n3️⃣ Predio sem elevador / escada (+R$ 30 por andar)",
+    message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Casa ou terreo\n2️⃣ Predio com elevador\n3️⃣ Predio sem elevador / escada",
   });
 }
 
@@ -2655,11 +2655,19 @@ Analise a foto e retorne APENAS um JSON:
   "veiculo_sugerido": "utilitario, hr ou caminhao_bau",
   "observacao": "frase curta (max 15 palavras)"
 }
+
+REGRAS RIGIDAS para veiculo_sugerido (siga nesta ordem, a primeira que bater vence):
+1. Se for APENAS 1 item (mesmo sendo grande como geladeira, maquina de lavar, fogao, sofa 2 lugares, cama box solteiro, guarda-roupa 2 portas) => SEMPRE "utilitario".
+2. Se forem 2 itens pequenos/medios (ex: fogao+microondas, 2 caixas, bicicleta+mesa pequena) => "utilitario".
+3. Se forem 2-3 itens grandes juntos (ex: geladeira+fogao+maquina, ou sofa 3 lugares+cama casal) => "hr".
+4. Se for mudanca quase completa (4+ itens grandes, ou geladeira+sofa+cama+guarda-roupa+mais) => "caminhao_bau".
+5. Na duvida entre utilitario e hr => SEMPRE "utilitario" (cabe mais coisa do que se imagina na Strada/Saveiro, que tem cacamba 1.2m x 1.5m x 0.5m).
+
 Veiculos disponiveis:
-- carro_comum: Kicks/Livina/Renegade (porta-malas) - itens muito pequenos (caixas, malas, pacotes)
-- utilitario: Strada/Saveiro (cacamba 1.2m x 1.5m) - itens pequenos e medios ate 1 item grande
-- hr: Hyundai HR (1.7m x 2.8m) - 1-3 itens grandes (geladeira+fogao+cama)
-- caminhao_bau: (2.5m x 3.5m) - mudanca completa, muitos itens grandes
+- utilitario: Strada/Saveiro - padrao pra 1 item avulso ou 2 pequenos/medios
+- hr: Hyundai HR - so quando tem 2-3 itens grandes juntos
+- caminhao_bau: so pra mudanca completa (4+ itens grandes)
+
 Responda SOMENTE o JSON.`,
         },
         {

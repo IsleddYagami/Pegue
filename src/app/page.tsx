@@ -30,15 +30,15 @@ export default function HomePage() {
 
           {/* PRECO + VELOCIDADE = CONVERSAO */}
           <h1 className="text-3xl font-extrabold leading-tight md:text-5xl lg:text-6xl">
-            Guincho e Frete a partir de <span className="text-[#C9A84C]">R$ 150</span>
+            Carreto, Mudanca e Guincho a partir de <span className="text-[#C9A84C]">R$ 150</span>
           </h1>
 
           <p className="mt-3 text-xl font-semibold text-[#C9A84C] md:text-2xl">
-            Preço na hora. Pelo WhatsApp.
+            Manda foto, recebe o preco na hora!
           </p>
 
           <p className="mt-3 text-base text-gray-400">
-            Sem app. Sem cadastro. Sem espera.
+            Rapido, acessivel e pelo WhatsApp. Sem app, sem cadastro.
           </p>
 
           {/* BOTAO PRINCIPAL */}
@@ -66,9 +66,9 @@ export default function HomePage() {
       <section className="border-y border-[#C9A84C]/10 bg-[#000]">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-8 px-4 py-5 md:gap-16">
           {[
-            { numero: "+850", label: "fretes realizados" },
+            { numero: "+850", label: "carretos e mudancas" },
             { numero: "4.9", label: "nota dos clientes" },
-            { numero: "2 min", label: "preço na hora" },
+            { numero: "2 min", label: "preco na hora" },
           ].map((item) => (
             <div key={item.label} className="text-center">
               <p className="text-2xl font-extrabold text-[#C9A84C] md:text-3xl">{item.numero}</p>
@@ -82,16 +82,16 @@ export default function HomePage() {
       <section className="bg-[#000] py-16 md:py-20">
         <div className="mx-auto max-w-4xl px-4">
           <h2 className="mb-10 text-center text-2xl font-extrabold md:text-4xl">
-            Seu frete pelo <span className="text-[#C9A84C]">WhatsApp</span>.
+            Seu carreto pelo <span className="text-[#C9A84C]">WhatsApp</span>.
             <br />
-            <span className="text-gray-400 text-lg md:text-2xl font-normal">Sem app, sem cadastro, sem complicação.</span>
+            <span className="text-gray-400 text-lg md:text-2xl font-normal">Simples, rapido e com preco justo.</span>
           </h2>
 
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              { titulo: "Pequenos Fretes", preco: "A partir de R$ 160", desc: "Móvel, eletro, caixas. No mesmo dia." },
-              { titulo: "Mudança Completa", preco: "A partir de R$ 500", desc: "De um quarto a casa inteira. A Pegue Resolve." },
-              { titulo: "Guincho", preco: "A partir de R$ 150", desc: "Carro ou moto. 24h. Rápido e seguro." },
+              { titulo: "Carreto / Frete", preco: "A partir de R$ 150", desc: "Sofa, geladeira, caixas. Busca e entrega no mesmo dia." },
+              { titulo: "Mudanca", preco: "A partir de R$ 500", desc: "De um quarto a casa inteira. A Pegue Resolve." },
+              { titulo: "Guincho 24h", preco: "A partir de R$ 150", desc: "Carro ou moto. Dia e noite. Rapido e seguro." },
             ].map((srv) => (
               <a
                 key={srv.titulo}

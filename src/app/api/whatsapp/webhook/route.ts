@@ -618,6 +618,10 @@ Boa sorte! 🎯`,
       await handleNumeroColeta(phone, message);
       break;
 
+    case "aguardando_contraoferta_data":
+      await handleContraofertaData(phone, message);
+      break;
+
     // === CADASTRO PRESTADOR ===
     case "cadastro_nome":
       await handleCadastroNome(phone, message);
@@ -1444,6 +1448,107 @@ async function handleNumeroColeta(phone: string, message: string) {
   });
 }
 
+// === CONTRAOFERTA DE DATA (cliente responde proposta do fretista) ===
+async function handleContraofertaData(phone: string, message: string) {
+  const lower = message.toLowerCase().trim();
+  const session = await getSession(phone);
+
+  if (!session?.corrida_id) {
+    await sendToClient({ to: phone, message: "Poxa, nao achei seu pedido 😕 Manda *oi* pra recomecar." });
+    return;
+  }
+
+  const { data: corrida } = await supabase
+    .from("corridas")
+    .select("id, periodo, contraoferta_prestador_id, contraoferta_data, contraoferta_prestador:contraoferta_prestador_id(id, nome, telefone)")
+    .eq("id", session.corrida_id)
+    .single();
+
+  if (!corrida?.contraoferta_prestador_id || !corrida.contraoferta_data) {
+    await sendToClient({ to: phone, message: "Essa proposta ja expirou 😕 Manda *oi* pra recomecar." });
+    await updateSession(phone, { step: "concluido" });
+    return;
+  }
+
+  const prestador = (corrida as any).contraoferta_prestador;
+  const fretistaNome = prestador?.nome || "O fretista";
+  const fretistaTel = prestador?.telefone;
+
+  const aceitou = lower === "1" || lower === "sim" || lower === "aceito" || lower === "aceitar";
+  const recusou = lower === "2" || lower === "nao" || lower === "não" || lower === "recusar";
+
+  if (aceitou) {
+    // Cliente aceitou: atualiza corrida com novo prestador e nova data, pula pagamento
+    await supabase
+      .from("corridas")
+      .update({
+        prestador_id: corrida.contraoferta_prestador_id,
+        periodo: corrida.contraoferta_data,
+        status: "aceita",
+        contraoferta_prestador_id: null,
+        contraoferta_data: null,
+        contraoferta_criada_em: null,
+      })
+      .eq("id", corrida.id);
+
+    await updateSession(phone, { step: "aguardando_pagamento" });
+
+    await sendToClient({
+      to: phone,
+      message: `✅ Fechado! Frete confirmado com *${fretistaNome}* pra *${corrida.contraoferta_data}*.\n\nVou enviar o link de pagamento em instantes! 💰`,
+    });
+
+    if (fretistaTel) {
+      await sendToClient({
+        to: fretistaTel,
+        message: `✅ *Cliente aceitou sua sugestao!*\n\nFrete confirmado pra *${corrida.contraoferta_data}*.\n\nAssim que o pagamento for confirmado, voce recebe os detalhes completos pra coleta. 🚚`,
+      });
+    }
+
+    // Notifica admin
+    await notificarAdmin(
+      `✅ *Contraoferta aceita*`,
+      phone,
+      `Fretista: ${fretistaNome}\nData nova: ${corrida.contraoferta_data}\nCorrida: ${corrida.id}`
+    );
+    return;
+  }
+
+  if (recusou) {
+    // Cliente recusou: limpa contraoferta, re-dispatch pros demais na data original
+    await supabase
+      .from("corridas")
+      .update({
+        contraoferta_prestador_id: null,
+        contraoferta_data: null,
+        contraoferta_criada_em: null,
+      })
+      .eq("id", corrida.id);
+
+    if (fretistaTel) {
+      await sendToClient({
+        to: fretistaTel,
+        message: `ℹ️ Cliente preferiu manter a data original. Obrigado pela disposicao! 🚚`,
+      });
+    }
+
+    await sendToClient({
+      to: phone,
+      message: `✅ Entendido! Vou buscar outros parceiros pra data original *${corrida.periodo || ""}*. Te aviso em instantes!`,
+    });
+
+    // Tenta re-dispatch urgente excluindo quem ja sugeriu
+    await reDispatchUrgente(corrida.id, session, phone, fretistaTel || undefined);
+    return;
+  }
+
+  // Resposta nao entendida
+  await sendToClient({
+    to: phone,
+    message: `Escolhe uma opcao:\n\n1️⃣ *SIM* - Aceito ${corrida.contraoferta_data} com ${fretistaNome}\n2️⃣ *NAO* - Prefiro manter ${corrida.periodo || "data original"}`,
+  });
+}
+
 // === ATENDIMENTO HUMANO ===
 
 async function handleAtendente(phone: string) {
@@ -1592,17 +1697,42 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
       const vencedor = resolveDispatch(corridaId);
       if (vencedor) {
         await notificarResultadoDispatch(corridaId, vencedor, clientePhone);
-      } else {
-        // Ninguem aceitou na janela - espera mais respostas
-        // Se ninguem aceitar em 5 min, notifica admin
-        setTimeout(async () => {
-          const dispatch = getDispatchByCorridaId(corridaId);
-          if (dispatch && !dispatch.finalizado) {
-            finalizeDispatch(corridaId);
-            await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
-          }
-        }, 270000); // 4.5 min adicionais (total 5 min)
+        return;
       }
+
+      // Ninguem aceitou a data original. Se houver contraoferta de fretista,
+      // envia proposta pro cliente decidir. Senao, espera mais 4.5min.
+      const { data: corridaCheck } = await supabase
+        .from("corridas")
+        .select("contraoferta_prestador_id, contraoferta_data, periodo, prestadores:contraoferta_prestador_id(nome, telefone)")
+        .eq("id", corridaId)
+        .single();
+
+      if (corridaCheck?.contraoferta_prestador_id && corridaCheck.contraoferta_data) {
+        // Envia contraoferta pro cliente
+        finalizeDispatch(corridaId);
+        const fretistaNome = (corridaCheck.prestadores as any)?.nome || "O fretista";
+        const dataOriginal = corridaCheck.periodo || "a data original";
+
+        await updateSession(clientePhone, {
+          step: "aguardando_contraoferta_data",
+          corrida_id: corridaId,
+        });
+        await sendToClient({
+          to: clientePhone,
+          message: `📅 *Sobre sua data de ${dataOriginal}:*\n\nNao conseguimos confirmar nenhum parceiro pra essa data. Mas o parceiro *${fretistaNome}* pode atender em *${corridaCheck.contraoferta_data}*.\n\nVoce aceita remarcar?\n\n1️⃣ *SIM* - Aceito ${corridaCheck.contraoferta_data} com ${fretistaNome}\n2️⃣ *NAO* - Prefiro manter ${dataOriginal} e esperar outro parceiro`,
+        });
+        return;
+      }
+
+      // Sem contraoferta: espera mais 4.5 min (total 5 min)
+      setTimeout(async () => {
+        const dispatch = getDispatchByCorridaId(corridaId);
+        if (dispatch && !dispatch.finalizado) {
+          finalizeDispatch(corridaId);
+          await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
+        }
+      }, 270000);
     }, 31000);
   } catch (error: any) {
     console.error("Erro dispatch:", error?.message);
@@ -2464,6 +2594,13 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
 async function handlePrestadorResponse(prestadorPhone: string, message: string, corridaId: string) {
   const lower = message.toLowerCase().trim();
 
+  // Se prestador ja esta em step de confirmacao de alteracao de data, trata separado
+  const sessionPrestador = await getSession(prestadorPhone);
+  if (sessionPrestador?.step === "fretista_confirmar_alteracao_data") {
+    await handleFretistaConfirmarAlteracao(prestadorPhone, message, corridaId);
+    return;
+  }
+
   // Filtra respostas automaticas do WhatsApp Business
   const respostasAutomaticas = [
     "obrigado por entrar em contato",
@@ -2482,6 +2619,35 @@ async function handlePrestadorResponse(prestadorPhone: string, message: string, 
   const ehRespostaAutomatica = respostasAutomaticas.some(r => lower.includes(r));
   if (ehRespostaAutomatica) {
     return; // Ignora silenciosamente
+  }
+
+  // Comando DATA / SUGERIR / PROPOR - fretista pede pra mudar a data
+  // Ex: "DATA 03/05", "data 3", "sugerir 03", "propor amanha", "nova data 04/05"
+  const comandoAlterarData = /^\s*(nova\s+data|data|sugerir|propor)\s+(.+)/i.exec(message);
+  if (comandoAlterarData) {
+    const dataPropostaBruta = comandoAlterarData[2].trim();
+    const dataNormalizada = extrairData(dataPropostaBruta) || dataPropostaBruta;
+
+    // Salva proposta temporariamente na session do prestador (campo data_agendada reutilizado)
+    await updateSession(prestadorPhone, {
+      step: "fretista_confirmar_alteracao_data",
+      data_agendada: dataNormalizada,
+      corrida_id: corridaId,
+    });
+
+    // Busca data original da corrida pra mostrar
+    const { data: corrida } = await supabase
+      .from("corridas")
+      .select("periodo")
+      .eq("id", corridaId)
+      .single();
+    const dataOriginal = corrida?.periodo || "a data original";
+
+    await sendToClient({
+      to: prestadorPhone,
+      message: `📅 Tem certeza que nao consegue atender no *${dataOriginal}*?\n\nVou tentar achar outro parceiro pra essa data primeiro. Se ninguem aceitar, sua sugestao de *${dataNormalizada}* vai pro cliente decidir.\n\n1️⃣ *SIM* - Confirmar sugestao de ${dataNormalizada}\n2️⃣ *VOLTAR* - Esqueci, ainda posso atender no ${dataOriginal}`,
+    });
+    return;
   }
 
   // Resposta "em atendimento" / "2" - prestador ocupado
@@ -2520,6 +2686,83 @@ async function handlePrestadorResponse(prestadorPhone: string, message: string, 
       message: "Resposta recebida! ✅ Aguardando outros prestadores... Resultado em instantes!",
     });
   }
+}
+
+// Fretista confirmou que quer propor data alternativa
+async function handleFretistaConfirmarAlteracao(prestadorPhone: string, message: string, corridaId: string) {
+  const lower = message.toLowerCase().trim();
+  const sessionPrestador = await getSession(prestadorPhone);
+  const dataProposta = sessionPrestador?.data_agendada || "";
+
+  const confirmou = lower === "1" || lower === "sim" || lower === "confirmar" || lower === "confirmo";
+  const voltou = lower === "2" || lower === "voltar" || lower === "nao" || lower === "não";
+
+  if (voltou) {
+    // Fretista volta pro fluxo normal, pode ainda PEGAR data original
+    await updateSession(prestadorPhone, { step: "inicio", data_agendada: null });
+    await sendToClient({
+      to: prestadorPhone,
+      message: `✅ Ok! Voce continua na disputa pela data original.\n\nSe quiser aceitar, responda *PEGAR*.`,
+    });
+    return;
+  }
+
+  if (!confirmou) {
+    await sendToClient({
+      to: prestadorPhone,
+      message: `Escolhe uma opcao:\n\n1️⃣ *SIM* - Confirmar sugestao de ${dataProposta}\n2️⃣ *VOLTAR* - Cancelar e continuar na data original`,
+    });
+    return;
+  }
+
+  // Busca prestador pra salvar id na corrida
+  const { data: prestador } = await supabase
+    .from("prestadores")
+    .select("id, nome")
+    .eq("telefone", prestadorPhone)
+    .single();
+
+  if (!prestador) {
+    await sendToClient({
+      to: prestadorPhone,
+      message: `⚠️ Nao consegui registrar sua sugestao. Tente novamente ou responda *PEGAR* pra atender na data original.`,
+    });
+    await updateSession(prestadorPhone, { step: "inicio" });
+    return;
+  }
+
+  // Salva contraoferta na corrida (sobrescreve se ja tinha de outro fretista - primeiro ganha)
+  const { data: corridaAtual } = await supabase
+    .from("corridas")
+    .select("contraoferta_prestador_id")
+    .eq("id", corridaId)
+    .single();
+
+  if (corridaAtual?.contraoferta_prestador_id && corridaAtual.contraoferta_prestador_id !== prestador.id) {
+    // Ja existe proposta de outro fretista, prevalece a primeira
+    await sendToClient({
+      to: prestadorPhone,
+      message: `⚠️ Outro parceiro ja sugeriu data alternativa pra esse frete. Voce continua podendo atender na data original - responda *PEGAR* se quiser.`,
+    });
+    await updateSession(prestadorPhone, { step: "inicio", data_agendada: null });
+    return;
+  }
+
+  await supabase
+    .from("corridas")
+    .update({
+      contraoferta_prestador_id: prestador.id,
+      contraoferta_data: dataProposta,
+      contraoferta_criada_em: new Date().toISOString(),
+    })
+    .eq("id", corridaId);
+
+  await updateSession(prestadorPhone, { step: "inicio", data_agendada: null });
+
+  await sendToClient({
+    to: prestadorPhone,
+    message: `✅ Sua sugestao de *${dataProposta}* foi registrada.\n\nVou tentar achar outro parceiro pra data original primeiro. Se ninguem aceitar, vou enviar sua proposta pro cliente. Te aviso o resultado! 🚚`,
+  });
 }
 
 async function notificarResultadoDispatch(corridaId: string, vencedorPhone: string, clientePhone: string) {

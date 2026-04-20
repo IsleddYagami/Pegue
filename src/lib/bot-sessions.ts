@@ -35,6 +35,8 @@ export type BotStep =
   | "aguardando_confirmacao"
   | "aguardando_pagamento"
   | "aguardando_numero_coleta"
+  | "fretista_confirmar_alteracao_data"
+  | "aguardando_contraoferta_data"
   | "guincho_categoria"
   | "guincho_tipo_veiculo"
   | "guincho_marca_modelo"

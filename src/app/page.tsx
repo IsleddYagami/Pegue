@@ -247,6 +247,48 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ===== VIDEOS ===== */}
+      <section className="border-y border-[#C9A84C]/10 bg-[#000] py-16 md:py-20">
+        <div className="mx-auto max-w-4xl px-4">
+          <h2 className="mb-4 text-center text-3xl font-extrabold md:text-4xl">
+            Veja a <span className="text-[#C9A84C]">Pegue</span> em acao
+          </h2>
+          <p className="mb-10 text-center text-gray-400">Fretes e guinchos reais feitos pela nossa equipe</p>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="flex flex-col items-center">
+              <div className="w-full overflow-hidden rounded-2xl border border-[#C9A84C]/20" style={{ aspectRatio: "9/16", maxHeight: "500px" }}>
+                <iframe
+                  src="https://www.youtube.com/embed/RNUyyjl3vpI"
+                  title="Frete Pegue"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="h-full w-full"
+                />
+              </div>
+              <p className="mt-3 text-sm font-bold text-[#C9A84C]">Frete</p>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="w-full overflow-hidden rounded-2xl border border-[#C9A84C]/20" style={{ aspectRatio: "9/16", maxHeight: "500px" }}>
+                <iframe
+                  src="https://www.youtube.com/embed/XgnQNWg-gJI"
+                  title="Guincho Pegue"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="h-full w-full"
+                />
+              </div>
+              <p className="mt-3 text-sm font-bold text-[#C9A84C]">Guincho</p>
+            </div>
+          </div>
+          <p className="mt-8 text-center text-sm text-gray-500">
+            Mais videos no nosso canal:{" "}
+            <a href="https://youtube.com/@chamepegue" target="_blank" rel="noopener noreferrer" className="font-bold text-[#C9A84C] hover:underline">
+              YouTube @chamepegue
+            </a>
+          </p>
+        </div>
+      </section>
+
       {/* ===== INSTAGRAM ===== */}
       <section className="border-y border-[#C9A84C]/10 bg-[#000] py-8">
         <div className="mx-auto flex max-w-2xl flex-col items-center px-4 text-center">

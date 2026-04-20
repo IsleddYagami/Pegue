@@ -2404,21 +2404,43 @@ async function handleHorario(phone: string, message: string) {
   } else if (lower === "2" || lower.includes("tarde")) {
     horario = "Tarde (13:00 - 17:00)";
   } else if (lower === "3") {
-    // Pediu horario especifico - pede pra digitar
     await sendMessage({
       to: phone,
-      message: "Qual horario? Digite no formato *HH:MM*\n\nExemplo: *14:30* ou *09:00*",
-    });
-    return; // Fica no mesmo step aguardando o horario
-  } else if (/\d{1,2}[h:]\d{0,2}/.test(lower) || /^\d{1,2}$/.test(lower)) {
-    // Aceita formatos: 14:30, 14h30, 14h, 14
-    horario = message.trim();
-  } else {
-    await sendMessage({
-      to: phone,
-      message: "Nao entendi o horario 😅\n\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)\n3️⃣ *Horario especifico* (ex: 14:30)",
+      message: "Qual horario? Pode digitar de qualquer forma:\n\nExemplos: *14:30*, *15h*, *9 horas*, *10hs*",
     });
     return;
+  } else {
+    // Tenta extrair horario de qualquer formato
+    // Remove palavras e deixa so numeros e separadores
+    const limpo = lower
+      .replace(/horas|hora|hrs|hs/g, "")
+      .replace(/h/g, ":")
+      .trim();
+
+    // Tenta extrair hora:minuto
+    const matchHoraMin = limpo.match(/(\d{1,2})[:\s](\d{1,2})/);
+    const matchHoraSo = limpo.match(/^(\d{1,2})$/);
+
+    if (matchHoraMin) {
+      const h = parseInt(matchHoraMin[1]);
+      const m = parseInt(matchHoraMin[2]);
+      if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+        horario = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      }
+    } else if (matchHoraSo) {
+      const h = parseInt(matchHoraSo[1]);
+      if (h >= 0 && h <= 23) {
+        horario = `${String(h).padStart(2, "0")}:00`;
+      }
+    }
+
+    if (!horario) {
+      await sendMessage({
+        to: phone,
+        message: "Nao entendi o horario 😅\n\nPode digitar de qualquer forma:\n*14:30*, *15h*, *9 horas*, *10hs*, *15*\n\nOu escolha:\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)",
+      });
+      return;
+    }
   }
 
   const dataCompleta = `${session.data_agendada} - ${horario}`;

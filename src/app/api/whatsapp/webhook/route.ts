@@ -151,16 +151,15 @@ export async function POST(req: NextRequest) {
         const categoriaDetectada = detectarCategoriaVeiculo(marcaModelo);
 
         await updateSession(phoneNumber, {
-          step: "guincho_localizacao" as any,
-          descricao_carga: `Guincho: Imediato - ${categoriaDetectada.nome} | ${marcaModelo}`,
+          step: "guincho_categoria" as any,
+          descricao_carga: `Guincho - ${categoriaDetectada.nome} | ${marcaModelo}`,
           veiculo_sugerido: categoriaDetectada.tipo === "moto" ? "moto_guincho" : "guincho",
-          plano_escolhido: "1", // imediato
           foto_url: imageUrl,
         });
 
         await sendMessage({
           to: phoneNumber,
-          message: `✅ *${marcaModelo}* identificado!\n\nAgora me manda *onde esta o veiculo*:\n\nClique no *clipe* 📎 > *Localizacao* 📍\nOu digite o *endereco com rua, bairro e numero*`,
+          message: `✅ *${marcaModelo}* identificado!\n\nVoce precisa do guincho pra quando?\n\n1️⃣ *Guincho Imediato* (preciso AGORA)\n2️⃣ *Guincho Agendado* (escolher dia e horario)`,
         });
         return NextResponse.json({ status: "ok" });
       }
@@ -3166,15 +3165,33 @@ async function handleGuinchoCategoria(phone: string, message: string) {
     return;
   }
 
-  await updateSession(phone, {
-    step: "guincho_marca_modelo" as any,
-    descricao_carga: `Guincho: ${categoria}`,
-    plano_escolhido: lower, // 1=imediato, 2=agendado
-  });
-  await sendMessage({
-    to: phone,
-    message: `Qual a *marca, modelo e ano* do seu veiculo? 🚗\n\nExemplo: *Fiat Uno 2018*, *Honda CG 160 2022*, *Hilux 2020*`,
-  });
+  const session = await getSession(phone);
+  const jaTemVeiculo = session?.descricao_carga?.includes("|");
+
+  if (jaTemVeiculo) {
+    // Cotacao Express - ja tem marca/modelo, pula pra localizacao
+    const descAtual = session?.descricao_carga || "";
+    await updateSession(phone, {
+      step: "guincho_localizacao" as any,
+      descricao_carga: descAtual.replace("Guincho -", `Guincho: ${categoria} -`),
+      plano_escolhido: lower,
+    });
+    await sendMessage({
+      to: phone,
+      message: `Onde esta o veiculo? 📍\n\nClique no *clipe* 📎 > *Localizacao*\nOu digite o *endereco com rua, bairro e numero*`,
+    });
+  } else {
+    // Fluxo normal - pede marca/modelo
+    await updateSession(phone, {
+      step: "guincho_marca_modelo" as any,
+      descricao_carga: `Guincho: ${categoria}`,
+      plano_escolhido: lower,
+    });
+    await sendMessage({
+      to: phone,
+      message: `Qual a *marca, modelo e ano* do seu veiculo? 🚗\n\nExemplo: *Fiat Uno 2018*, *Honda CG 160 2022*, *Hilux 2020*`,
+    });
+  }
 }
 
 async function handleGuinchoTipoVeiculo(phone: string, message: string) {

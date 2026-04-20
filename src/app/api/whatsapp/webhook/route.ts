@@ -1192,7 +1192,7 @@ async function handleConfirmacao(phone: string, message: string) {
 
   const lower = message.toLowerCase().trim();
 
-  if (lower.startsWith("sim") || lower === "s" || lower === "confirmar") {
+  if (lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "confirmar" || lower === "confirmo" || lower === "correto") {
     const corridaId = await salvarCorrida(session);
 
     if (corridaId) {
@@ -1206,17 +1206,17 @@ async function handleConfirmacao(phone: string, message: string) {
     } else {
       await sendMessage({ to: phone, message: MSG.erroInterno });
     }
-  } else if (lower.startsWith("nao") || lower === "n" || lower === "não") {
+  } else if (lower === "2" || lower === "alterar" || lower.includes("corrigir") || lower.includes("mudar") || lower.startsWith("nao") || lower === "n" || lower === "não") {
     await createSession(phone);
     await updateSession(phone, { step: "aguardando_servico" });
     await sendMessage({
       to: phone,
-      message: "Sem problema! 😊 Vamos comecar de novo.\n\n" + MSG.boasVindas,
+      message: "Sem problema! 😊 Vamos refazer pra ficar tudo certinho.\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho* (carro ou moto)\n4️⃣ *Duvidas frequentes*",
     });
   } else {
     await sendMessage({
       to: phone,
-      message: "Responda *SIM* pra confirmar ou *NAO* pra ajustar algo 😊",
+      message: "1️⃣ ✅ *SIM* - Tudo certo, confirmar!\n2️⃣ ✏️ *ALTERAR* - Quero corrigir algo",
     });
   }
 }
@@ -3201,17 +3201,23 @@ async function handleGuinchoDestino(phone: string, message: string) {
 
     await sendMessage({
       to: phone,
-      message: `🚨 *GUINCHO IMEDIATO*
+      message: `📋 *Resumo do seu pedido:*
 
+🚨 *GUINCHO IMEDIATO*
 📍 *Coleta:* ${session.origem_endereco || ""}
 🏠 *Destino:* ${destino}
 🚗 *Veiculo:* ${nomeVeic}
+🔧 *Servico:* ${session.descricao_carga || "Guincho"}
 📅 *AGORA - Saida imediata*
 ${taxaExtra ? `🌙 *Taxa ${taxaExtra} aplicada*\n` : ""}
 ✅ *Total: R$ ${valorTotal}*
 
-Ta tudo certo? Posso confirmar? 😊
-Responda *SIM* pra confirmar ou *NAO* pra ajustar algo.`,
+━━━━━━━━━━━━━━━━
+
+⚠️ *Confirma que todas as informacoes estao corretas?*
+
+1️⃣ ✅ *SIM* - Tudo certo, confirmar!
+2️⃣ ✏️ *ALTERAR* - Quero corrigir algo`,
     });
   } else {
     await updateSession(phone, {

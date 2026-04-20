@@ -219,18 +219,22 @@ Pode enviar tudo junto ou um de cada vez:
     valor: string,
     detalhes: string
   ) =>
-    `Deixa eu resumir tudo:
+    `📋 *Resumo do seu pedido:*
 
-📍 Retirada: ${origem}
-🏠 Destino: ${destino}
-📦 Material: ${carga}
-🚚 Veiculo: ${veiculo}
-📅 ${data}
+📍 *Retirada:* ${origem}
+🏠 *Destino:* ${destino}
+📦 *Material:* ${carga}
+🚚 *Veiculo:* ${veiculo}
+📅 *Data:* ${data}
 ${detalhes}
 ✅ *Total: R$ ${valor}*
 
-Ta tudo certo? Posso confirmar? 😊
-Responda *SIM* pra confirmar ou *NAO* pra ajustar algo.`,
+━━━━━━━━━━━━━━━━
+
+⚠️ *Confirma que todas as informacoes estao corretas?*
+
+1️⃣ ✅ *SIM* - Tudo certo, confirmar!
+2️⃣ ✏️ *ALTERAR* - Quero corrigir algo`,
 
   freteRecebido: `Ok! Um momento, estamos preparando sua reserva 😊
 

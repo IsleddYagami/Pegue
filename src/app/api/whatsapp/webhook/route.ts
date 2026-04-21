@@ -3919,30 +3919,34 @@ async function handleGuinchoDestino(phone: string, message: string) {
   const kmExtra = Math.max(0, distKm - 5);
   let valorTotal = Math.round(precoInfo.base + kmExtra * precoInfo.porKm);
 
-  // Taxa noturna: +30% entre 22h e 6h
-  const agora = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-  const hora = agora.getHours();
-  const diaSemana = agora.getDay(); // 0=domingo, 6=sabado
-  const isNoturno = hora >= 22 || hora < 6;
-  const isFimDeSemana = diaSemana === 0 || diaSemana === 6;
-
-  // Feriados nacionais fixos (mes-dia)
-  const feriados = ["01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "12-25"];
-  const mesdia = `${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
-  const isFeriado = feriados.includes(mesdia);
-
+  // Taxas adicionais (noturno/feriado/fim de semana) so aplicam pra guincho IMEDIATO,
+  // porque a data/hora de execucao e agora. Pra guincho AGENDADO, o cliente ainda
+  // vai escolher data e horario - recalculamos depois com essa info.
   let taxaExtra = "";
-  if (isNoturno) {
-    valorTotal = Math.round(valorTotal * 1.3);
-    taxaExtra = "noturno";
-  }
-  if (isFeriado) {
-    valorTotal = Math.round(valorTotal * (isNoturno ? 1 : 1.3)); // nao acumula, aplica 30% se ainda nao aplicou
-    taxaExtra = taxaExtra ? "noturno + feriado" : "feriado";
-  }
-  if (isFimDeSemana && !isFeriado && !isNoturno) {
-    valorTotal = Math.round(valorTotal * 1.2); // fim de semana: +20%
-    taxaExtra = "fim de semana";
+  if (categoriaNum === "1") {
+    const agora = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    const hora = agora.getHours();
+    const diaSemana = agora.getDay(); // 0=domingo, 6=sabado
+    const isNoturno = hora >= 22 || hora < 6;
+    const isFimDeSemana = diaSemana === 0 || diaSemana === 6;
+
+    // Feriados nacionais fixos (mes-dia)
+    const feriados = ["01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "12-25"];
+    const mesdia = `${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
+    const isFeriado = feriados.includes(mesdia);
+
+    if (isNoturno) {
+      valorTotal = Math.round(valorTotal * 1.3);
+      taxaExtra = "noturno";
+    }
+    if (isFeriado) {
+      valorTotal = Math.round(valorTotal * (isNoturno ? 1 : 1.3)); // nao acumula
+      taxaExtra = taxaExtra ? "noturno + feriado" : "feriado";
+    }
+    if (isFimDeSemana && !isFeriado && !isNoturno) {
+      valorTotal = Math.round(valorTotal * 1.2); // fim de semana: +20%
+      taxaExtra = "fim de semana";
+    }
   }
 
   const categoria = GUINCHO_CATEGORIAS[categoriaNum] || "Guincho";

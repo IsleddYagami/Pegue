@@ -253,6 +253,14 @@ Para confirmar, conclua o pagamento:
 
 ⏳ A reserva se mantem disponivel por *20 minutos*. Apos esse tempo, sera necessaria uma nova cotacao para verificar e garantir nova agenda.`,
 
+  freteConfirmadoSemPagamento: (nomePrestador: string, telPrestador: string, data: string) =>
+    `🎉 *Frete confirmado pra ${data}!*
+
+Seu parceiro e o *${nomePrestador}*.
+📱 ${telPrestador}
+
+O pagamento sera combinado direto com o fretista. Qualquer duvida, fala comigo! 🚚✨`,
+
   nenhumFretista: `Nosso especialista logo enviara a confirmacao do seu frete! 😊
 Fique tranquilo, ja estamos cuidando disso!`,
 

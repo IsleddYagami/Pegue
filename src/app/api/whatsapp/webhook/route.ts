@@ -1420,20 +1420,50 @@ async function handleNumeroColeta(phone: string, message: string) {
     step: "aguardando_pagamento", // volta pro step que indica servico em andamento
   });
 
-  // Busca o fretista pra reenviar o endereco atualizado
+  // Busca a corrida completa pra reenviar o endereco atualizado ao fretista
   const { data: corrida } = await supabase
     .from("corridas")
-    .select("prestadores(telefone, nome)")
+    .select("id, destino_endereco, descricao_carga, periodo, data_agendada, qtd_ajudantes, prestadores(telefone, nome), clientes(nome, telefone)")
     .eq("id", session.corrida_id)
     .single();
 
   const prestador = (corrida?.prestadores as any);
 
+  // Verifica se pagamento estava habilitado: se estava, fretista ja recebeu detalhes
+  // completos via pagamento/webhook (MP). Aqui so mandamos atualizacao de endereco.
+  // Se pagamento estava OFF, e a primeira vez que fretista recebe detalhes completos.
+  const { data: configPagto } = await supabase
+    .from("configuracoes")
+    .select("valor")
+    .eq("chave", "pagamento_automatico_fretista")
+    .single();
+  const pagamentoHabilitado = configPagto?.valor === "habilitado";
+
   if (prestador?.telefone) {
-    await sendToClient({
-      to: prestador.telefone,
-      message: `📍 *Atualizacao do endereco de coleta:*\n\n${origemCompleta}\n\nO cliente complementou com o numero e detalhes. Boa coleta! 🚚`,
-    });
+    if (pagamentoHabilitado) {
+      await sendToClient({
+        to: prestador.telefone,
+        message: `📍 *Atualizacao do endereco de coleta:*\n\n${origemCompleta}\n\nO cliente complementou com o numero e detalhes. Boa coleta! 🚚`,
+      });
+    } else {
+      // Sem pagamento: fretista recebe agora os detalhes completos do servico
+      const cliente = (corrida?.clientes as any);
+      const clienteNome = cliente?.nome || formatarTelefoneExibicao(cliente?.telefone || phone);
+      const clienteTel = cliente?.telefone || phone;
+      const qtdAjudantes = corrida?.qtd_ajudantes || 0;
+      const ajudanteInfo = qtdAjudantes > 0
+        ? `Com ${qtdAjudantes} ajudante${qtdAjudantes > 1 ? "s" : ""}`
+        : "Sem ajudante";
+      const isGuincho = (corrida?.descricao_carga || "").toLowerCase().includes("guincho");
+      const dataFrete = corrida?.periodo || corrida?.data_agendada || "A combinar";
+
+      await sendToClient({
+        to: prestador.telefone,
+        message: isGuincho
+          ? `✅ *Servico de guincho confirmado!*\n\n👤 *Cliente:* ${clienteNome}\n📱 *Contato:* ${formatarTelefoneExibicao(clienteTel)}\n\n━━━━━━━━━━━━━━━━\n\n📍 *Coleta:* ${origemCompleta}\n🏠 *Destino:* ${corrida?.destino_endereco || "-"}\n🚗 *Servico:* ${corrida?.descricao_carga || "-"}\n📅 *Data:* ${dataFrete}\n\n━━━━━━━━━━━━━━━━\n\n⚠️ *PROTOCOLO OBRIGATORIO:*\n📸 Fotografe o veiculo *ANTES* de carregar (frontal, traseira, laterais)\n📸 Fotografe o veiculo *APOS* descarregar\n📸 Fotografe danos pre-existentes\n🚫 Sem fotos = pagamento *BLOQUEADO*\n\n━━━━━━━━━━━━━━━━\n\n⏳ *APOS A ENTREGA:*\nAguarde no local ate o cliente confirmar que esta tudo certo.\n\nBom trabalho! 🚗✨`
+          : `✅ *Servico confirmado!*\n\n👤 *Cliente:* ${clienteNome}\n📱 *Contato:* ${formatarTelefoneExibicao(clienteTel)}\n\n━━━━━━━━━━━━━━━━\n\n📍 *Retirada:* ${origemCompleta}\n🏠 *Entrega:* ${corrida?.destino_endereco || "-"}\n📦 *Material:* ${corrida?.descricao_carga || "-"}\n📅 *Data:* ${dataFrete}\n🙋 *${ajudanteInfo}*\n\n━━━━━━━━━━━━━━━━\n\n⚠️ *PROTOCOLO OBRIGATORIO:*\n📸 Fotografe TODOS os itens na *COLETA*\n📸 Fotografe TODOS os itens na *ENTREGA*\n🚫 Sem fotos = pagamento *BLOQUEADO*\n\n━━━━━━━━━━━━━━━━\n\n⏳ *APOS A ENTREGA:*\nAguarde no local ate o cliente confirmar que esta tudo certo.\n\nBom trabalho! 🚚✨`,
+      });
+    }
   }
 
   // Confirma pro cliente e manda orientacoes finais
@@ -2803,19 +2833,50 @@ async function notificarResultadoDispatch(corridaId: string, vencedorPhone: stri
 
       const dataFrete = corridaData?.periodo || corridaData?.data_agendada || "a data combinada";
 
-      // Notifica cliente com link de pagamento
-      // TODO: Gerar link Mercado Pago
-      const linkPagamento = "https://pegue-eta.vercel.app/simular";
+      // Verifica se pagamento automatico esta habilitado
+      const { data: configPagto } = await supabase
+        .from("configuracoes")
+        .select("valor")
+        .eq("chave", "pagamento_automatico_fretista")
+        .single();
 
-      await sendToClient({
-        to: clientePhone,
-        message: MSG.freteConfirmadoEnviaPagamento(linkPagamento, dataFrete),
-      });
+      const pagamentoHabilitado = configPagto?.valor === "habilitado";
 
-      await updateSession(clientePhone, { step: "aguardando_pagamento" });
+      if (pagamentoHabilitado) {
+        // Fluxo com pagamento: envia link, fica em aguardando_pagamento
+        // TODO: Gerar link Mercado Pago real via /api/pagamento/criar
+        const linkPagamento = "https://pegue-eta.vercel.app/simular";
+
+        await sendToClient({
+          to: clientePhone,
+          message: MSG.freteConfirmadoEnviaPagamento(linkPagamento, dataFrete),
+        });
+
+        await updateSession(clientePhone, { step: "aguardando_pagamento" });
+      } else {
+        // Fluxo sem pagamento: confirma direto e ja pede numero/complemento da coleta
+        const telFormatado = formatarTelefoneExibicao(prestador.telefone);
+
+        await sendToClient({
+          to: clientePhone,
+          message: MSG.freteConfirmadoSemPagamento(prestador.nome, telFormatado, dataFrete),
+        });
+
+        // Pede numero e complemento (pula a etapa de pagamento)
+        await updateSession(clientePhone, { step: "aguardando_numero_coleta" });
+        await sendToClient({
+          to: clientePhone,
+          message: `📍 *Pra o fretista nao errar na coleta:*\n\nMe manda o *numero* e *complemento* do endereco de retirada 😊\n\nExemplo:\n• *450, Apto 12B*\n• *230, Casa 2*\n• *1500, Bloco 3 Apto 45*\n\nSe for so numero, manda so o numero 👍`,
+        });
+      }
     }
   } catch (error: any) {
     console.error("Erro atualizar corrida:", error?.message);
+    await notificarAdmin(
+      `🚨 *ERRO APOS ACEITE DO FRETE*`,
+      clientePhone,
+      `Erro: ${error?.message}\nCorrida: ${corridaId}\nFretista: ${vencedorPhone}`
+    );
   }
 
   finalizeDispatch(corridaId);

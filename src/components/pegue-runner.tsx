@@ -2991,10 +2991,15 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
             else if (type === "cachorro") { width = 40; height = 20; }
             else if (type === "cavalete") { width = 50; height = 35; }
 
-            // Garante distancia minima do ultimo obstaculo (evita impossivel de pular)
+            // Garante distancia minima do ultimo obstaculo E do semaforo mais proximo
+            // (evita impossivel de pular, especialmente farol+obstaculo colados)
+            // Fases 1-6 = experiencia tranquila, muito espaco entre obstaculos
             const lastObs = g.obstacles.filter(o => o.type !== "boss" && o.type !== "cachorro").slice(-1)[0];
-            const minDist = g.phase <= 6 ? 300 : g.phase <= 8 ? 200 : 150;
-            if (lastObs && (W + 20 - lastObs.x) < minDist) {
+            const lastSemaforo = g.trafficLights.slice(-1)[0];
+            const minDist = g.phase <= 6 ? 400 : g.phase <= 8 ? 250 : 150;
+            const tooCloseObs = lastObs && (W + 20 - lastObs.x) < minDist;
+            const tooCloseSem = lastSemaforo && (W + 20 - lastSemaforo.x) < minDist;
+            if (tooCloseObs || tooCloseSem) {
               g.nextSpawn = 30; // tenta de novo em 0.5s
             } else {
               g.obstacles.push({ x: W + 20, width, height, type, variant: Math.floor(Math.random() * 10), vy: 0, flashTimer: 0, multado: false });
@@ -3024,12 +3029,23 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
           g.nextTrafficLight--;
           const semaforoDelay = g.phase <= 2 ? 300 : g.phase <= 3 ? 200 : 120;
           if (g.nextTrafficLight <= 0 && g.phaseTimer > 400) {
-            g.trafficLights.push({
-              x: W + 30,
-              state: Math.random() > (g.phase >= 4 ? 0.55 : 0.4) ? "red" : "green",
-              passed: false,
-            });
-            g.nextTrafficLight = semaforoDelay + Math.random() * 100;
+            // Verifica distancia com o obstaculo mais proximo antes de spawnar
+            // (evita semaforo colado em outro obstaculo nas fases iniciais)
+            const lastObs = g.obstacles.filter(o => o.type !== "boss" && o.type !== "cachorro").slice(-1)[0];
+            const lastSemaforo = g.trafficLights.slice(-1)[0];
+            const minDist = g.phase <= 6 ? 400 : g.phase <= 8 ? 250 : 150;
+            const tooCloseObs = lastObs && (W + 30 - lastObs.x) < minDist;
+            const tooCloseSem = lastSemaforo && (W + 30 - lastSemaforo.x) < minDist;
+            if (tooCloseObs || tooCloseSem) {
+              g.nextTrafficLight = 30; // tenta de novo em 0.5s
+            } else {
+              g.trafficLights.push({
+                x: W + 30,
+                state: Math.random() > (g.phase >= 4 ? 0.55 : 0.4) ? "red" : "green",
+                passed: false,
+              });
+              g.nextTrafficLight = semaforoDelay + Math.random() * 100;
+            }
           }
         }
 

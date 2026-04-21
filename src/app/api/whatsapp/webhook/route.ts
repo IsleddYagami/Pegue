@@ -1777,12 +1777,24 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
         if (dispatch && !dispatch.finalizado) {
           finalizeDispatch(corridaId);
           await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
+
+          // Notifica admin que precisa resolver manualmente
+          await notificarAdmin(
+            isGuincho ? `⏳ *GUINCHO SEM RESPOSTA (5min)*` : `⏳ *FRETE SEM RESPOSTA (5min)*`,
+            clientePhone,
+            `Nenhum fretista respondeu em 5min. Cliente avisado que equipe vai resolver.\n\nCorrida: ${corridaId}\nTipo: ${isGuincho ? "GUINCHO" : "FRETE"}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nData: ${session.data_agendada || "A combinar"}\nValor: R$ ${session.valor_estimado}`
+          );
         }
       }, 270000);
     }, 31000);
   } catch (error: any) {
     console.error("Erro dispatch:", error?.message);
     await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
+    await notificarAdmin(
+      `🚨 *ERRO NO DISPATCH*`,
+      clientePhone,
+      `Erro: ${error?.message}\nCorrida: ${corridaId}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}\n\nCliente avisado que equipe vai resolver.`
+    );
   }
 }
 

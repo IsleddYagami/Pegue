@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { MessageCircle, ArrowRight, CheckCircle, Shield, Clock, Star, Zap, Phone } from "lucide-react";
+import Link from "next/link";
+import { MessageCircle, ArrowRight, CheckCircle, Shield, Clock, Star, Zap, Phone, Truck, DollarSign } from "lucide-react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { FloatingNotification } from "@/components/floating-notification";
@@ -149,6 +150,106 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== SEJA PARCEIRO - PRESTADORES ===== */}
+      <section className="relative overflow-hidden border-y border-[#C9A84C]/20 bg-gradient-to-br from-[#0A0A0A] via-[#000] to-[#0A0A0A] py-20 md:py-28">
+        {/* Glow decorativo */}
+        <div className="pointer-events-none absolute -top-20 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-[#C9A84C]/10 blur-[100px]" />
+
+        <div className="relative mx-auto max-w-5xl px-4">
+          <div className="mb-3 flex justify-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-[#C9A84C]">
+              <Truck className="h-3.5 w-3.5" /> Para Fretistas e Guincheiros
+            </span>
+          </div>
+
+          <h2 className="font-display text-center text-3xl font-bold leading-tight md:text-5xl">
+            Tem carro, utilitário, HR, caminhão ou guincho? <br className="hidden md:block" />
+            <span className="text-[#C9A84C]">Ganhe dinheiro com a Pegue.</span>
+          </h2>
+
+          <p className="mx-auto mt-5 max-w-2xl text-center text-base text-gray-400 md:text-lg">
+            Cadastro 100% gratuito, sem taxa de adesão. Você decide quando trabalhar
+            e recebe <strong className="text-[#C9A84C]">88% do valor do frete</strong> em cada serviço aceito.
+          </p>
+
+          {/* Benefícios rápidos */}
+          <div className="mx-auto mt-10 grid max-w-4xl gap-4 md:grid-cols-4">
+            {[
+              { icon: <DollarSign className="h-6 w-6" />, titulo: "88% pra você", desc: "Comissão baixa, ganho alto" },
+              { icon: <Clock className="h-6 w-6" />, titulo: "Trabalha quando quer", desc: "Aceita ou recusa cada frete" },
+              { icon: <Shield className="h-6 w-6" />, titulo: "100% grátis", desc: "Zero taxa de adesão" },
+              { icon: <MessageCircle className="h-6 w-6" />, titulo: "Tudo no WhatsApp", desc: "Sem app, sem burocracia" },
+            ].map((b, i) => (
+              <div key={i} className="rounded-xl border border-[#C9A84C]/15 bg-[#0A0A0A] p-4 text-center">
+                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-[#C9A84C]/10 text-[#C9A84C]">
+                  {b.icon}
+                </div>
+                <p className="font-bold text-sm text-white">{b.titulo}</p>
+                <p className="mt-1 text-xs text-gray-500">{b.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Como começar - DESTAQUE do comando "Parcerias Pegue" */}
+          <div className="mx-auto mt-12 max-w-3xl rounded-2xl border border-[#C9A84C]/30 bg-[#0A0A0A] p-6 md:p-8">
+            <p className="text-center text-xs font-semibold uppercase tracking-wider text-[#C9A84C]">
+              É SUPER RÁPIDO — 3 PASSOS
+            </p>
+
+            <div className="mt-6 grid gap-5 md:grid-cols-3">
+              <div className="text-center">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#C9A84C] text-lg font-bold text-black">1</div>
+                <p className="mt-3 font-semibold text-white">Envia no WhatsApp da Pegue</p>
+                <div className="mt-2 inline-block rounded-lg border border-[#C9A84C]/40 bg-[#C9A84C]/10 px-3 py-1.5 font-mono text-sm font-bold text-[#C9A84C]">
+                  Parcerias Pegue
+                </div>
+                <p className="mt-2 text-xs text-gray-500">Exatamente essas palavras</p>
+              </div>
+
+              <div className="text-center">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#C9A84C] text-lg font-bold text-black">2</div>
+                <p className="mt-3 font-semibold text-white">O bot te guia</p>
+                <p className="mt-2 text-xs text-gray-500">
+                  Nome, CPF, foto de RG/CNH, foto do veículo, chave Pix e pronto. Leva ~5 min.
+                </p>
+              </div>
+
+              <div className="text-center">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#C9A84C] text-lg font-bold text-black">3</div>
+                <p className="mt-3 font-semibold text-white">Recebe os fretes</p>
+                <p className="mt-2 text-xs text-gray-500">
+                  Após aprovação, indicações chegam direto no seu WhatsApp.
+                </p>
+              </div>
+            </div>
+
+            {/* CTAs */}
+            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <a
+                href="https://wa.me/5511970363713?text=Parcerias%20Pegue"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#C9A84C] px-8 py-3.5 text-base font-bold text-black shadow-lg shadow-[#C9A84C]/20 transition-all hover:scale-105"
+              >
+                <MessageCircle className="h-5 w-5" />
+                Começar agora no WhatsApp
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </a>
+              <Link
+                href="/parceiro"
+                className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-[#C9A84C]/40 px-8 py-3.5 text-base font-semibold text-[#C9A84C] transition-all hover:bg-[#C9A84C]/10"
+              >
+                Ver mais detalhes
+              </Link>
+            </div>
+
+            <p className="mt-5 text-center text-xs text-gray-500">
+              📄 Cadastro seguro com aceite de termos e upload criptografado das suas fotos
+            </p>
           </div>
         </div>
       </section>

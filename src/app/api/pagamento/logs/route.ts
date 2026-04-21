@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { isValidAdminKey } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 // Verifica logs de webhook do Mercado Pago
 export async function GET(req: NextRequest) {
   const key = req.nextUrl.searchParams.get("key");
-  if (key !== "P3gu32026@@") {
+  if (!isValidAdminKey(key)) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
   }
 

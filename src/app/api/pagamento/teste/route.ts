@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MercadoPagoConfig, Preference } from "mercadopago";
+import { isValidAdminKey } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -7,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const key = req.nextUrl.searchParams.get("key");
 
-  if (key !== "P3gu32026@@") {
+  if (!isValidAdminKey(key)) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
   }
 

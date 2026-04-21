@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendToClient } from "@/lib/chatpro";
+import { isValidAdminKey } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,7 @@ export async function GET(req: NextRequest) {
   const tipo = req.nextUrl.searchParams.get("tipo") || "frete"; // frete ou guincho
   const phone = req.nextUrl.searchParams.get("phone") || "5511971429605";
 
-  if (key !== "P3gu32026@@") {
+  if (!isValidAdminKey(key)) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
   }
 

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { isValidAdminKey } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 // GET - busca todas configuracoes
 export async function GET(req: NextRequest) {
   const key = req.nextUrl.searchParams.get("key");
-  if (key !== "P3gu32026@@") {
+  if (!isValidAdminKey(key)) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
   }
 
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
   try {
     const { key, chave, valor } = await req.json();
 
-    if (key !== "P3gu32026@@") {
+    if (!isValidAdminKey(key)) {
       return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
     }
 

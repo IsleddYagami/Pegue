@@ -19,12 +19,17 @@ function TestePagamentoInner() {
   const [sandboxLink, setSandboxLink] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
+  const [senha, setSenha] = useState("");
 
   async function gerarLink() {
+    if (!senha) {
+      setErro("Digite a senha de admin primeiro");
+      return;
+    }
     setLoading(true);
     setErro("");
     try {
-      const r = await fetch("/api/pagamento/teste?key=P3gu32026@@");
+      const r = await fetch(`/api/pagamento/teste?key=${encodeURIComponent(senha)}`);
       const data = await r.json();
       if (data.link) {
         setLink(data.link);
@@ -88,20 +93,29 @@ function TestePagamentoInner() {
         </div>
 
         {!link ? (
-          <button
-            onClick={gerarLink}
-            disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C9A84C] py-4 text-lg font-bold text-[#000] hover:bg-[#b8963f] disabled:opacity-50"
-          >
-            {loading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <>
-                <CreditCard className="h-5 w-5" />
-                Gerar Link de Teste (R$ 1,00)
-              </>
-            )}
-          </button>
+          <div className="space-y-3">
+            <input
+              type="password"
+              placeholder="Senha de admin"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              className="w-full rounded-xl border border-[#C9A84C]/20 bg-[#000] px-4 py-3 text-white placeholder:text-gray-600 focus:border-[#C9A84C] focus:outline-none"
+            />
+            <button
+              onClick={gerarLink}
+              disabled={loading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C9A84C] py-4 text-lg font-bold text-[#000] hover:bg-[#b8963f] disabled:opacity-50"
+            >
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <CreditCard className="h-5 w-5" />
+                  Gerar Link de Teste (R$ 1,00)
+                </>
+              )}
+            </button>
+          </div>
         ) : (
           <div className="space-y-4">
             <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendMessage, sendToClient } from "@/lib/chatpro";
 import { supabase } from "@/lib/supabase";
+import { isValidAdminKey } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ const ADMIN_PHONE = "5511971429605";
 // Verifica fretes que estao proximos do horario e envia lembretes progressivos
 export async function GET(req: NextRequest) {
   const key = req.nextUrl.searchParams.get("key");
-  if (key !== "P3gu32026@@") {
+  if (!isValidAdminKey(key)) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
   }
 
@@ -135,7 +136,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const { corrida_id, key } = await req.json();
-    if (key !== "P3gu32026@@") {
+    if (!isValidAdminKey(key)) {
       return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
     }
 

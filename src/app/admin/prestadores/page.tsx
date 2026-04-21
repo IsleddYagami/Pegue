@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Star, CheckCircle, XCircle, Plus } from "lucide-react";
+import Link from "next/link";
+import { Search, Star, CheckCircle, XCircle, Plus, UserPlus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Prestador } from "@/lib/types";
 
@@ -51,6 +52,12 @@ export default function PrestadoresPage() {
           <h1 className="text-2xl font-extrabold text-[#0A0A0A]">Prestadores</h1>
           <p className="text-sm text-gray-400">Gerencie os motoristas e prestadores</p>
         </div>
+        <Link
+          href="/admin/prestadores/novo"
+          className="flex items-center gap-2 rounded-xl bg-[#C9A84C] px-4 py-2 font-semibold text-white hover:bg-[#b8963f]"
+        >
+          <UserPlus size={16} /> Cadastrar novo
+        </Link>
       </div>
 
       <div className="relative mt-4">

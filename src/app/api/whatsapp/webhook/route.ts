@@ -31,6 +31,7 @@ import {
   isInicioServico,
 } from "@/lib/bot-utils";
 import { supabase } from "@/lib/supabase";
+import { uploadFotoPrestador } from "@/lib/storage-prestadores";
 
 export const dynamic = "force-dynamic";
 
@@ -113,23 +114,37 @@ export async function POST(req: NextRequest) {
 
       // Cadastro prestador - selfie com documento
       if (session && session.step === "cadastro_selfie") {
-        await updateSession(phoneNumber, { step: "cadastro_foto_placa", foto_url: imageUrl });
+        // Sobe foto pro Storage permanente (URL do ChatPro expira ~30d)
+        const urlPermanente = await uploadFotoPrestador(imageUrl, phoneNumber, "selfie");
+        const urlFinal = urlPermanente || imageUrl; // fallback pra URL temporaria se upload falhar
+        await updateSession(phoneNumber, { step: "cadastro_foto_placa", foto_url: urlFinal });
+        await supabase.from("bot_logs").insert({
+          payload: { tipo: "foto_cadastro_selfie", phone: phoneNumber, url: urlFinal, uploaded_to_storage: !!urlPermanente },
+        });
         await sendToClient({ to: phoneNumber, message: `Selfie recebida! ✅\n\n${MSG.cadastroFotoPlaca}` });
         return NextResponse.json({ status: "ok" });
       }
 
       // Cadastro prestador - foto da placa
       if (session && session.step === "cadastro_foto_placa") {
+        const urlPermanente = await uploadFotoPrestador(imageUrl, phoneNumber, "placa");
+        const urlFinal = urlPermanente || imageUrl;
         await updateSession(phoneNumber, { step: "cadastro_foto_veiculo" });
-        // TODO: salvar foto placa no storage
+        await supabase.from("bot_logs").insert({
+          payload: { tipo: "foto_cadastro_placa", phone: phoneNumber, url: urlFinal, uploaded_to_storage: !!urlPermanente },
+        });
         await sendToClient({ to: phoneNumber, message: `Foto da placa recebida! ✅\n\n${MSG.cadastroFotoVeiculo}` });
         return NextResponse.json({ status: "ok" });
       }
 
       // Cadastro prestador - foto do veiculo inteiro
       if (session && session.step === "cadastro_foto_veiculo") {
+        const urlPermanente = await uploadFotoPrestador(imageUrl, phoneNumber, "veiculo");
+        const urlFinal = urlPermanente || imageUrl;
         await updateSession(phoneNumber, { step: "cadastro_placa" });
-        // TODO: salvar foto veiculo no storage
+        await supabase.from("bot_logs").insert({
+          payload: { tipo: "foto_cadastro_veiculo", phone: phoneNumber, url: urlFinal, uploaded_to_storage: !!urlPermanente },
+        });
         await sendToClient({ to: phoneNumber, message: `Foto do veiculo recebida! ✅\n\nAgora me passa a *placa* do veiculo por texto` });
         return NextResponse.json({ status: "ok" });
       }
@@ -1690,7 +1705,7 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
       await notificarAdmin(
         isGuincho ? `⚠️ *NENHUM GUINCHEIRO DISPONIVEL*` : `⚠️ *NENHUM FRETISTA DISPONIVEL*`,
         clientePhone,
-        `Corrida: ${corridaId}\nTipo: ${isGuincho ? "GUINCHO" : "FRETE"}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}`
+        `Corrida: ${corridaId}\nTipo: ${isGuincho ? "GUINCHO" : "FRETE"}\n📅 Data/Horario: ${session.data_agendada || "A combinar"}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}`
       );
       return;
     }
@@ -2018,18 +2033,50 @@ async function handleCadastroTermos(phone: string, message: string) {
   const cpf = session.destino_endereco || "";
   const placa = session.periodo || "";
   const selfieUrl = session.foto_url || "";
+  const email = session.plano_escolhido || "";
   const tipoVeiculo = session.veiculo_sugerido || "utilitario";
+
+  // Busca URLs das fotos uploaded (placa e veiculo) no bot_logs
+  async function buscarFotoUpload(tipo: string): Promise<string> {
+    const { data } = await supabase
+      .from("bot_logs")
+      .select("payload")
+      .filter("payload->>tipo", "eq", tipo)
+      .filter("payload->>phone", "eq", phone)
+      .order("criado_em", { ascending: false })
+      .limit(1);
+    return data?.[0]?.payload?.url || "";
+  }
+  const fotoPlacaUrl = await buscarFotoUpload("foto_cadastro_placa");
+  const fotoVeiculoUrl = await buscarFotoUpload("foto_cadastro_veiculo");
+
+  // Busca chave Pix do bot_logs (salvo em handleCadastroChavePix)
+  const { data: pixLog } = await supabase
+    .from("bot_logs")
+    .select("payload")
+    .filter("payload->>tipo", "eq", "chave_pix_prestador")
+    .filter("payload->>phone", "eq", phone)
+    .order("criado_em", { ascending: false })
+    .limit(1);
+  const chavePix = pixLog?.[0]?.payload?.chave_pix || "";
 
   const { error } = await supabase.from("prestadores").insert({
     telefone: phone,
     nome,
     cpf,
+    email,
+    chave_pix: chavePix,
+    selfie_url: selfieUrl,
+    foto_placa_url: fotoPlacaUrl,
+    foto_veiculo_url: fotoVeiculoUrl,
     status: "pendente",
     score: 5.0,
     total_corridas: 0,
     total_reclamacoes: 0,
     disponivel: false,
     termos_aceitos: true,
+    termos_aceitos_em: new Date().toISOString(),
+    termos_aceitos_ip: "whatsapp",
   });
 
   if (error && error.code === "23505") {
@@ -3579,7 +3626,7 @@ async function reDispatchUrgente(corridaId: string, session: BotSession, cliente
       await notificarAdmin(
         `🚨 *URGENTE: NENHUM FRETISTA PRA RE-DISPATCH*`,
         clientePhone,
-        `Corrida: ${corridaId}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}`
+        `Corrida: ${corridaId}\n📅 Data/Horario: ${session.data_agendada || "A combinar"}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}`
       );
       return;
     }

@@ -1771,30 +1771,120 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
         return;
       }
 
-      // Sem contraoferta: espera mais 4.5 min (total 5 min)
+      // Sem contraoferta: espera ate completar 10min total (31s ja passaram -> 569s adicionais)
       setTimeout(async () => {
         const dispatch = getDispatchByCorridaId(corridaId);
         if (dispatch && !dispatch.finalizado) {
           finalizeDispatch(corridaId);
           await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
 
-          // Notifica admin que precisa resolver manualmente
+          // Notifica admin com TODAS as informacoes da corrida pra dar continuidade
+          const detalhesCompletos = await montarResumoCompletoOcorrencia(corridaId);
           await notificarAdmin(
-            isGuincho ? `⏳ *GUINCHO SEM RESPOSTA (5min)*` : `⏳ *FRETE SEM RESPOSTA (5min)*`,
+            isGuincho ? `⏳ *GUINCHO SEM RESPOSTA (10min)*` : `⏳ *FRETE SEM RESPOSTA (10min)*`,
             clientePhone,
-            `Nenhum fretista respondeu em 5min. Cliente avisado que equipe vai resolver.\n\nCorrida: ${corridaId}\nTipo: ${isGuincho ? "GUINCHO" : "FRETE"}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nData: ${session.data_agendada || "A combinar"}\nValor: R$ ${session.valor_estimado}`
+            `Nenhum fretista respondeu em 10min. Cliente avisado que equipe vai resolver.\n\n${detalhesCompletos}`
           );
         }
-      }, 270000);
+      }, 569000);
     }, 31000);
   } catch (error: any) {
     console.error("Erro dispatch:", error?.message);
     await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
+    const detalhesCompletos = await montarResumoCompletoOcorrencia(corridaId);
     await notificarAdmin(
       `🚨 *ERRO NO DISPATCH*`,
       clientePhone,
-      `Erro: ${error?.message}\nCorrida: ${corridaId}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}\n\nCliente avisado que equipe vai resolver.`
+      `Erro: ${error?.message}\nCliente avisado que equipe vai resolver.\n\n${detalhesCompletos}`
     );
+  }
+}
+
+// Monta um resumo com TUDO que o cliente informou na cotacao, pra admin dar continuidade
+// sem precisar fazer novas perguntas. Usado em ocorrencias (timeout, erros, etc).
+async function montarResumoCompletoOcorrencia(corridaId: string): Promise<string> {
+  try {
+    const { data: corrida } = await supabase
+      .from("corridas")
+      .select(`
+        codigo, tipo_servico, tipo_veiculo, descricao_carga,
+        origem_endereco, origem_lat, origem_lng,
+        destino_endereco, destino_lat, destino_lng,
+        distancia_km, periodo, data_agendada,
+        qtd_ajudantes, escada_origem, andares_origem,
+        valor_estimado, valor_prestador, valor_final,
+        status, criado_em,
+        clientes(nome, telefone, email)
+      `)
+      .eq("id", corridaId)
+      .single();
+
+    if (!corrida) return `Corrida: ${corridaId} (dados nao encontrados)`;
+
+    const cliente = (corrida.clientes as any) || {};
+    const nomeCliente = cliente.nome || "Sem nome";
+    const telCliente = cliente.telefone ? formatarTelefoneExibicao(cliente.telefone) : "-";
+    const emailCliente = cliente.email || "-";
+
+    const veiculoNome: Record<string, string> = {
+      utilitario: "Utilitario (Strada/Saveiro)",
+      hr: "HR",
+      caminhao_bau: "Caminhao Bau",
+      guincho: "Guincho",
+      moto_guincho: "Guincho de Moto",
+      carro_comum: "Carro Comum",
+    };
+
+    const qtdAjudantes = corrida.qtd_ajudantes || 0;
+    const ajudanteInfo = qtdAjudantes > 0
+      ? `Sim, ${qtdAjudantes} ajudante${qtdAjudantes > 1 ? "s" : ""}`
+      : "Nao";
+
+    let tipoLocal = "Terreo/nao informado";
+    if (corrida.escada_origem && corrida.andares_origem && corrida.andares_origem > 0) {
+      tipoLocal = `Escada, ${corrida.andares_origem}o andar`;
+    } else if (corrida.escada_origem) {
+      tipoLocal = "Escada";
+    }
+
+    const dataFrete = corrida.periodo || corrida.data_agendada || "A combinar";
+
+    return [
+      `📋 *DADOS COMPLETOS DA COTACAO*`,
+      ``,
+      `🔖 Codigo: ${corrida.codigo}`,
+      `🆔 Corrida: ${corridaId}`,
+      `📅 Status: ${corrida.status}`,
+      `🕒 Criada em: ${new Date(corrida.criado_em).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
+      ``,
+      `👤 *Cliente*`,
+      `Nome: ${nomeCliente}`,
+      `Telefone: ${telCliente}`,
+      `Email: ${emailCliente}`,
+      `📱 wa.me/${cliente.telefone || ""}`,
+      ``,
+      `📦 *Servico*`,
+      `Tipo: ${corrida.tipo_servico || "frete"}`,
+      `Veiculo: ${veiculoNome[corrida.tipo_veiculo || ""] || corrida.tipo_veiculo || "-"}`,
+      `Carga: ${corrida.descricao_carga || "-"}`,
+      ``,
+      `📍 *Retirada*`,
+      `${corrida.origem_endereco || "-"}`,
+      `Local: ${tipoLocal}`,
+      `Ajudante: ${ajudanteInfo}`,
+      ``,
+      `🏠 *Entrega*`,
+      `${corrida.destino_endereco || "-"}`,
+      ``,
+      `📅 *Data/Horario:* ${dataFrete}`,
+      `📏 *Distancia:* ${corrida.distancia_km || "-"} km`,
+      ``,
+      `💰 *Valores*`,
+      `Cliente paga: R$ ${corrida.valor_final || corrida.valor_estimado || "-"}`,
+      `Fretista recebe: R$ ${corrida.valor_prestador || "-"}`,
+    ].join("\n");
+  } catch (e: any) {
+    return `Corrida: ${corridaId} (erro ao buscar detalhes: ${e?.message})`;
   }
 }
 

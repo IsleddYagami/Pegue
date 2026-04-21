@@ -2824,6 +2824,8 @@ async function notificarResultadoDispatch(corridaId: string, vencedorPhone: stri
 // === SALVAR CORRIDA ===
 
 async function salvarCorrida(session: BotSession): Promise<string | null> {
+  const contextoErro = `📍 ${session.origem_endereco || "-"}\n🏠 ${session.destino_endereco || "-"}\n📦 ${session.descricao_carga || "-"}\n💰 R$ ${session.valor_estimado || "-"}`;
+
   try {
     let clienteId: string | null = null;
 
@@ -2844,6 +2846,7 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
 
       if (errCliente) {
         await supabase.from("bot_logs").insert({ payload: { debug: "erro_criar_cliente", error: errCliente.message, phone: session.phone } });
+        await notificarAdmin(`🚨 *ERRO AO SALVAR CORRIDA (cliente novo)*`, session.phone, `Erro: ${errCliente.message}\n${contextoErro}`);
         return null;
       }
       clienteId = novoCliente?.id || null;
@@ -2851,6 +2854,7 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
 
     if (!clienteId) {
       await supabase.from("bot_logs").insert({ payload: { debug: "cliente_id_null", phone: session.phone } });
+      await notificarAdmin(`🚨 *ERRO AO SALVAR CORRIDA (cliente_id null)*`, session.phone, `${contextoErro}`);
       return null;
     }
 
@@ -2892,12 +2896,14 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
 
     if (errCorrida) {
       await supabase.from("bot_logs").insert({ payload: { debug: "erro_criar_corrida", error: errCorrida.message, code: errCorrida.code } });
+      await notificarAdmin(`🚨 *ERRO AO SALVAR CORRIDA (insert)*`, session.phone, `Erro: ${errCorrida.message}\nCodigo: ${errCorrida.code}\n${contextoErro}`);
       return null;
     }
 
     return corrida?.id || null;
   } catch (error: any) {
     await supabase.from("bot_logs").insert({ payload: { debug: "erro_salvar_catch", error: error?.message } });
+    await notificarAdmin(`🚨 *ERRO AO SALVAR CORRIDA (exception)*`, session.phone, `Erro: ${error?.message}\n${contextoErro}`);
     return null;
   }
 }

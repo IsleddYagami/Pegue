@@ -749,9 +749,10 @@ Me conta o que voce precisa que eu te ajudo!
 Ou digite *4* pra falar com um especialista.`,
 
   erroInterno: `Ops, tive um probleminha aqui 😅
-Mas ja ja normaliza!
 
-Tente novamente em alguns instantes ou digite *4* pra falar com um especialista.`,
+Ja avisei a equipe Pegue e em breve entramos em contato pra finalizar seu pedido.
+
+Se preferir, digite *oi* pra recomecar ou *4* pra falar com um especialista agora.`,
 
   obrigado: `Por nada! 😊
 Estamos aqui sempre que precisar.

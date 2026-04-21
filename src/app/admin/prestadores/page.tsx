@@ -2,9 +2,31 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, Star, CheckCircle, XCircle, Plus, UserPlus, Send } from "lucide-react";
+import { Search, Star, CheckCircle, XCircle, Plus, UserPlus, Send, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Prestador } from "@/lib/types";
+
+// Dispara email de teste pra validar integracao Resend + dominio chamepegue
+async function testarEmail() {
+  let senha = sessionStorage.getItem("admin_key") || "";
+  if (!senha) {
+    senha = prompt("Digite a senha de admin:") || "";
+    if (!senha) return;
+    sessionStorage.setItem("admin_key", senha);
+  }
+  try {
+    const res = await fetch(`/api/admin-testar-email?key=${encodeURIComponent(senha)}`);
+    const data = await res.json();
+    if (res.ok) {
+      alert(`✅ ${data.mensagem}`);
+    } else {
+      if (res.status === 401) sessionStorage.removeItem("admin_key");
+      alert(`❌ Erro: ${data.mensagem || data.error || "desconhecido"}`);
+    }
+  } catch {
+    alert("❌ Erro de conexao.");
+  }
+}
 
 // Reenvia termos atualizados pro prestador via WhatsApp. Pede a senha de admin uma vez
 // por sessao (sessionStorage) - nao salva em lugar nenhum no servidor.
@@ -77,12 +99,20 @@ export default function PrestadoresPage() {
           <h1 className="text-2xl font-extrabold text-[#0A0A0A]">Prestadores</h1>
           <p className="text-sm text-gray-400">Gerencie os motoristas e prestadores</p>
         </div>
-        <Link
-          href="/admin/prestadores/novo"
-          className="flex items-center gap-2 rounded-xl bg-[#C9A84C] px-4 py-2 font-semibold text-white hover:bg-[#b8963f]"
-        >
-          <UserPlus size={16} /> Cadastrar novo
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={testarEmail}
+            className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-[#C9A84C] hover:text-[#C9A84C]"
+          >
+            <Mail size={14} /> Testar email
+          </button>
+          <Link
+            href="/admin/prestadores/novo"
+            className="flex items-center gap-2 rounded-xl bg-[#C9A84C] px-4 py-2 font-semibold text-white hover:bg-[#b8963f]"
+          >
+            <UserPlus size={16} /> Cadastrar novo
+          </Link>
+        </div>
       </div>
 
       <div className="relative mt-4">

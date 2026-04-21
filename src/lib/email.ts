@@ -8,7 +8,7 @@ const resend = new Resend(process.env.RESEND_API_KEY || "");
 const EMAIL_ARCHIVE_PRINCIPAL = "fretesresgatespg@gmail.com";
 const EMAIL_ARCHIVE_COPIA = "ioriiorivendas@gmail.com";
 const EMAIL_PESSOAL_FABIO = "fabiosantoscrispim@gmail.com";
-const FROM_PEGUE = "Pegue <onboarding@resend.dev>"; // trocar pra @chamepegue.com.br depois de verificar dominio
+const FROM_PEGUE = "Pegue <no-reply@chamepegue.com.br>";
 
 // Helper: baixa um arquivo de URL e retorna como anexo do Resend
 async function baixarComoAnexo(url: string | null | undefined, filename: string) {
@@ -328,7 +328,7 @@ export async function enviarEmailTermosAceitos(
       : cpf;
 
     await resend.emails.send({
-      from: "Pegue <onboarding@resend.dev>",
+      from: FROM_PEGUE,
       to: email,
       subject: "Termos de Participacao - Pegue",
       html: `<!DOCTYPE html>

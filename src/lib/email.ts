@@ -373,10 +373,19 @@ export async function enviarEmailTermosAceitos(
     - Sem fotos = pagamento BLOQUEADO<br>
     - As fotos servem como prova para proteger voce e o cliente</p>
 
-    <p><strong>4. RESPONSABILIDADE POR DANOS</strong><br>
+    <p><strong>4. RESPONSABILIDADE POR DANOS E PREJUIZOS</strong><br>
     - O prestador e responsavel por qualquer dano, avaria ou extravio de materiais durante o transporte<br>
     - Em caso de dano comprovado, o valor sera descontado dos seus recebiveis<br>
     - Transporte com cuidado! Proteja os materiais adequadamente</p>
+
+    <div style="background:#2a1a0a;border:2px solid #C9A84C;border-radius:8px;padding:15px;margin:15px 0;">
+      <p style="margin:0 0 8px;color:#C9A84C;font-weight:bold;font-size:14px;">⚠️ ATENCAO - COBRANCA ADICIONAL</p>
+      <p style="margin:0;color:#ffffff;font-size:13px;line-height:1.6;">
+        Caso o <strong>valor do frete nao seja suficiente</strong> para cobrir os danos e prejuizos causados ao cliente contratante, uma <strong>cobranca adicional sera necessaria</strong> para sanar a ocorrencia.
+        <br><br>
+        O pagamento desta cobranca adicional podera ser feito via <strong>Pix</strong> ou <strong>cartao de credito</strong>.
+      </p>
+    </div>
 
     <p><strong>5. PAGAMENTO</strong><br>
     - Voce recebe 88% do valor do frete<br>

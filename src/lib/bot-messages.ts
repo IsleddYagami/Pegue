@@ -390,9 +390,11 @@ A Pegue e uma plataforma de intermediacao de servicos de frete e transporte. Nao
 - Sem fotos = pagamento *BLOQUEADO*
 - As fotos servem como prova para proteger voce e o cliente
 
-*4. RESPONSABILIDADE POR DANOS*
+*4. RESPONSABILIDADE POR DANOS E PREJUIZOS*
 - O prestador e *responsavel* por qualquer dano, avaria ou extravio de materiais durante o transporte
 - Em caso de dano comprovado, o valor sera descontado dos seus recebiveis
+- ⚠️ *ATENCAO*: caso o valor do frete *nao seja suficiente* para cobrir os danos e prejuizos causados ao cliente contratante, uma *cobranca adicional sera necessaria* para sanar a ocorrencia
+- O pagamento desta cobranca adicional podera ser feito via *Pix* ou *cartao de credito*
 - Transporte com cuidado! Proteja os materiais adequadamente
 
 *5. PAGAMENTO*

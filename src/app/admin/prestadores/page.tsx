@@ -28,6 +28,34 @@ async function testarEmail() {
   }
 }
 
+// Dispara email de arquivamento com dados e fotos reais do prestador ja cadastrado.
+// Util pra validar que fotos estao chegando no email sem precisar refazer cadastro.
+async function reenviarEmailCadastro(phone: string, nome: string) {
+  if (!confirm(`Disparar email de arquivamento de ${nome} pros inboxes configurados?\n\nO email inclui dados reais + 3 fotos anexadas (selfie, placa, veiculo).`)) return;
+  let senha = sessionStorage.getItem("admin_key") || "";
+  if (!senha) {
+    senha = prompt("Digite a senha de admin:") || "";
+    if (!senha) return;
+    sessionStorage.setItem("admin_key", senha);
+  }
+  try {
+    const res = await fetch("/api/admin-reenviar-email-cadastro", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: senha, phone }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      alert(`✅ ${data.mensagem}`);
+    } else {
+      if (res.status === 401) sessionStorage.removeItem("admin_key");
+      alert(`❌ Erro: ${data.error || "desconhecido"}`);
+    }
+  } catch {
+    alert("❌ Erro de conexao.");
+  }
+}
+
 // Reenvia termos atualizados pro prestador via WhatsApp. Pede a senha de admin uma vez
 // por sessao (sessionStorage) - nao salva em lugar nenhum no servidor.
 async function reenviarTermosAtualizados(phone: string, nome: string) {
@@ -208,14 +236,22 @@ export default function PrestadoresPage() {
                   </div>
                 )}
 
-                {/* Botao de reenviar termos - disponivel pra qualquer prestador com status diferente de bloqueado */}
+                {/* Botoes de acao admin - reenviar termos (WhatsApp) e email de arquivamento */}
                 {p.status !== "bloqueado" && (
-                  <button
-                    onClick={() => reenviarTermosAtualizados(p.telefone, p.nome)}
-                    className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-600 transition hover:border-[#C9A84C] hover:bg-[#C9A84C]/5 hover:text-[#C9A84C]"
-                  >
-                    <Send size={12} /> Reenviar termos atualizados
-                  </button>
+                  <div className="mt-3 grid gap-2">
+                    <button
+                      onClick={() => reenviarTermosAtualizados(p.telefone, p.nome)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-600 transition hover:border-[#C9A84C] hover:bg-[#C9A84C]/5 hover:text-[#C9A84C]"
+                    >
+                      <Send size={12} /> Reenviar termos atualizados
+                    </button>
+                    <button
+                      onClick={() => reenviarEmailCadastro(p.telefone, p.nome)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-600 transition hover:border-[#C9A84C] hover:bg-[#C9A84C]/5 hover:text-[#C9A84C]"
+                    >
+                      <Mail size={12} /> Enviar email de arquivamento
+                    </button>
+                  </div>
                 )}
               </div>
             );

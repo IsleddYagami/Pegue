@@ -2,9 +2,34 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, Star, CheckCircle, XCircle, Plus, UserPlus } from "lucide-react";
+import { Search, Star, CheckCircle, XCircle, Plus, UserPlus, Send } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Prestador } from "@/lib/types";
+
+// Reenvia termos atualizados pro prestador via WhatsApp. Pede a senha de admin uma vez
+// por sessao (sessionStorage) - nao salva em lugar nenhum no servidor.
+async function reenviarTermosAtualizados(phone: string, nome: string) {
+  if (!confirm(`Reenviar termos atualizados pra ${nome} (${phone}) via WhatsApp?\n\nEle vai receber 3 mensagens em sequencia explicando as mudancas.`)) return;
+  let senha = sessionStorage.getItem("admin_key") || "";
+  if (!senha) {
+    senha = prompt("Digite a senha de admin (a mesma que usa pra entrar no painel):") || "";
+    if (!senha) return;
+    sessionStorage.setItem("admin_key", senha);
+  }
+  const url = `/api/admin-enviar?key=${encodeURIComponent(senha)}&phone=${encodeURIComponent(phone)}&tipo=termos_atualizados`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (res.ok) {
+      alert(`✅ Termos atualizados enviados pra ${nome}!\n\nO prestador recebera em instantes no WhatsApp.`);
+    } else {
+      sessionStorage.removeItem("admin_key");
+      alert(`❌ Erro: ${data.error || "desconhecido"}.\n\nSe foi senha errada, clica em "Reenviar termos" de novo e digita a senha correta.`);
+    }
+  } catch {
+    alert("❌ Erro de conexao. Tenta de novo em alguns segundos.");
+  }
+}
 
 export default function PrestadoresPage() {
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
@@ -151,6 +176,16 @@ export default function PrestadoresPage() {
                       Bloquear
                     </button>
                   </div>
+                )}
+
+                {/* Botao de reenviar termos - disponivel pra qualquer prestador com status diferente de bloqueado */}
+                {p.status !== "bloqueado" && (
+                  <button
+                    onClick={() => reenviarTermosAtualizados(p.telefone, p.nome)}
+                    className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-600 transition hover:border-[#C9A84C] hover:bg-[#C9A84C]/5 hover:text-[#C9A84C]"
+                  >
+                    <Send size={12} /> Reenviar termos atualizados
+                  </button>
                 )}
               </div>
             );

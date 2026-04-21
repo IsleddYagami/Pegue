@@ -1423,7 +1423,7 @@ async function handleNumeroColeta(phone: string, message: string) {
   // Busca a corrida completa pra reenviar o endereco atualizado ao fretista
   const { data: corrida } = await supabase
     .from("corridas")
-    .select("id, destino_endereco, descricao_carga, periodo, data_agendada, qtd_ajudantes, prestadores(telefone, nome), clientes(nome, telefone)")
+    .select("id, destino_endereco, descricao_carga, periodo, data_agendada, qtd_ajudantes, valor_final, prestadores(telefone, nome), clientes(nome, telefone)")
     .eq("id", session.corrida_id)
     .single();
 
@@ -1476,6 +1476,22 @@ async function handleNumeroColeta(phone: string, message: string) {
     to: phone,
     message: MSG.orientacoesCliente,
   });
+
+  // Se pagamento automatico esta OFF, avisa que equipe enviara link manualmente
+  // e notifica admin pra tomar acao
+  if (!pagamentoHabilitado) {
+    await sendToClient({
+      to: phone,
+      message: MSG.aguardarLinkPagamentoAvulso,
+    });
+
+    // Notifica admin que precisa enviar link de pagamento manual
+    await notificarAdmin(
+      `💳 *ENVIAR LINK DE PAGAMENTO*`,
+      phone,
+      `Corrida: ${session.corrida_id}\nValor: R$ ${(corrida as any)?.valor_final || "-"}\nFretista: ${prestador?.nome || "-"}\nAguardando voce enviar o link de pagamento avulso.`
+    );
+  }
 }
 
 // === CONTRAOFERTA DE DATA (cliente responde proposta do fretista) ===

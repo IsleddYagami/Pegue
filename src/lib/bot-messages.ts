@@ -280,6 +280,12 @@ O ${nomePrestador} vai entrar em contato pra alinhar os detalhes com voce.
 Qualquer coisa, estamos aqui!
 Relaxa. A gente leva. 🚚✨`,
 
+  aguardarLinkPagamentoAvulso: `💳 *Pagamento:*
+
+O link de pagamento sera enviado manualmente pela equipe Pegue em alguns minutos. Fique de olho aqui no WhatsApp!
+
+Apos o pagamento, seu frete esta 100% confirmado. 🚚`,
+
   // Dispatch para fretistas
   novoFreteDisponivel: (
     origem: string,

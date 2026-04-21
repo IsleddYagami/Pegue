@@ -19,7 +19,7 @@ export async function GET() {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="https://pegue-eta.vercel.app/logo-pegue-novo.png"
+          src="https://chamepegue.com.br/logo-pegue-novo.png"
           width={320}
           height={320}
           alt="Pegue"

@@ -670,7 +670,7 @@ ${
     : "⚠️ Atencao! Melhore seu atendimento pra receber mais indicacoes."
 }
 
-📱 Painel completo no site: pegue-eta.vercel.app/parceiro#dashboard
+📱 Painel completo no site: chamepegue.com.br/parceiro#dashboard
 📸 Siga @chamepegue no Instagram pra vagas e novidades!
 
 Pra ver novamente, digite *meu painel* a qualquer momento 😊`,
@@ -703,7 +703,7 @@ Ex: *despesa 50 combustivel*
 
 🌐 *PAINEL NO SITE*
 Acesse graficos completos pelo navegador:
-👉 pegue-eta.vercel.app/minha-conta
+👉 chamepegue.com.br/minha-conta
 
 📱 *INSTAGRAM*
 Siga *@chamepegue* pra cupons exclusivos!

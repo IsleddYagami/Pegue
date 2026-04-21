@@ -83,7 +83,7 @@ Voce vera: ganhos x gastos x lucro e com o que mais gasta!
 
 🌐 *PAINEL NO SITE*
 Acesse graficos completos pelo navegador:
-👉 pegue-eta.vercel.app/parceiro
+👉 chamepegue.com.br/parceiro
 (role ate "Seu painel" e digite seu telefone)
 
 ━━━━━━━━━━━━━━━━

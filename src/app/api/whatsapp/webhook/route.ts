@@ -443,7 +443,7 @@ ${primeiroNome}, jogue enquanto espera seu frete! 🚚💨
 
 Desvie dos obstaculos pelas ruas de SP, enfrente bosses e entre pro ranking!
 
-👉 pegue-eta.vercel.app/jogo
+👉 chamepegue.com.br/jogo
 
 🏆 Recorde atual? Veja no ranking dentro do jogo!
 Boa sorte! 🎯`,
@@ -2385,7 +2385,7 @@ async function handleDashboardCliente(phone: string) {
   if (!cliente) {
     await sendToClient({
       to: phone,
-      message: "Voce ainda nao tem historico na Pegue 😊\n\nPra solicitar um frete, envie: *Oi*\n\n📱 Painel completo: pegue-eta.vercel.app/minha-conta",
+      message: "Voce ainda nao tem historico na Pegue 😊\n\nPra solicitar um frete, envie: *Oi*\n\n📱 Painel completo: chamepegue.com.br/minha-conta",
     });
     return;
   }
@@ -2418,7 +2418,7 @@ async function handleDashboardCliente(phone: string) {
 🚚 Servicos contratados: *${concluidas.length}*
 💰 Total investido: *R$ ${totalGasto.toFixed(0)}*
 ${historico}
-📱 Painel completo: pegue-eta.vercel.app/minha-conta
+📱 Painel completo: chamepegue.com.br/minha-conta
 
 Pra ver novamente, digite *minha conta* 😊`,
   });
@@ -2644,7 +2644,7 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
         if (corridaRastreio?.rastreio_token) {
           const rastreioToken = corridaRastreio.rastreio_token;
           const codigoCorrida = corridaRastreio.codigo;
-          const baseUrl = "https://pegue-eta.vercel.app";
+          const baseUrl = "https://chamepegue.com.br";
           const nomePrestador = (corridaRastreio.prestadores as any)?.nome || "Fretista";
 
           // Link pro fretista (GPS sender)
@@ -2963,7 +2963,7 @@ async function notificarResultadoDispatch(corridaId: string, vencedorPhone: stri
       if (pagamentoHabilitado) {
         // Fluxo com pagamento: envia link, fica em aguardando_pagamento
         // TODO: Gerar link Mercado Pago real via /api/pagamento/criar
-        const linkPagamento = "https://pegue-eta.vercel.app/simular";
+        const linkPagamento = "https://chamepegue.com.br/simular";
 
         await sendToClient({
           to: clientePhone,

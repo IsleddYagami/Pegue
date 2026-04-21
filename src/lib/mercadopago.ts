@@ -38,11 +38,11 @@ export async function criarLinkPagamento(params: {
         email: params.clienteEmail || undefined,
       },
       external_reference: params.corridaId,
-      notification_url: "https://pegue-eta.vercel.app/api/pagamento/webhook",
+      notification_url: "https://chamepegue.com.br/api/pagamento/webhook",
       back_urls: {
-        success: "https://pegue-eta.vercel.app/pagamento-sucesso",
-        failure: "https://pegue-eta.vercel.app/pagamento-erro",
-        pending: "https://pegue-eta.vercel.app/pagamento-pendente",
+        success: "https://chamepegue.com.br/pagamento-sucesso",
+        failure: "https://chamepegue.com.br/pagamento-erro",
+        pending: "https://chamepegue.com.br/pagamento-pendente",
       },
       auto_return: "approved",
       payment_methods: {

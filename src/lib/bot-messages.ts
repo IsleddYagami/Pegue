@@ -259,7 +259,7 @@ Para confirmar, conclua o pagamento:
 Seu parceiro e o *${nomePrestador}*.
 📱 ${telPrestador}
 
-O pagamento sera combinado direto com o fretista. Qualquer duvida, fala comigo! 🚚✨`,
+Em instantes nossa equipe Pegue entra em contato pra combinar os detalhes. Qualquer coisa, fala comigo! 🚚✨`,
 
   nenhumFretista: `Nosso especialista logo enviara a confirmacao do seu frete! 😊
 Fique tranquilo, ja estamos cuidando disso!`,

@@ -153,6 +153,22 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Arquiva cadastro por email (so quando completo - convite so arquiva depois da finalizacao)
+    if (modo === "completo") {
+      try {
+        const { enviarEmailCadastroPrestador } = await import("@/lib/email");
+        await enviarEmailCadastroPrestador({
+          nome, telefone: telComDDI, cpf, email, chavePix,
+          tipoVeiculo, placa,
+          selfieUrl, fotoPlacaUrl, fotoVeiculoUrl,
+          dataAceite: agora,
+          origem: "admin_manual",
+        });
+      } catch (e: any) {
+        console.error("Erro email cadastro admin:", e?.message);
+      }
+    }
+
     return NextResponse.json({
       status: "ok",
       prestadorId: novoPrestador?.id,

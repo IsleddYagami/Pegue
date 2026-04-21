@@ -4,6 +4,318 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY || "");
 
+// === EMAILS DE ARQUIVAMENTO (ocorrencias e cadastros) ===
+const EMAIL_ARCHIVE_PRINCIPAL = "fretesresgatespg@gmail.com";
+const EMAIL_ARCHIVE_COPIA = "ioriiorivendas@gmail.com";
+const EMAIL_PESSOAL_FABIO = "fabiosantoscrispim@gmail.com";
+const FROM_PEGUE = "Pegue <onboarding@resend.dev>"; // trocar pra @chamepegue.com.br depois de verificar dominio
+
+// Helper: baixa um arquivo de URL e retorna como anexo do Resend
+async function baixarComoAnexo(url: string | null | undefined, filename: string) {
+  if (!url) return null;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return { filename, content: buffer };
+  } catch {
+    return null;
+  }
+}
+
+// Bloco HTML padrao para emails de arquivamento (header/footer Pegue)
+function layoutEmail(titulo: string, corpo: string) {
+  return `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:640px;margin:0 auto;background:#ffffff;padding:30px;">
+  <div style="border-bottom:3px solid #C9A84C;padding-bottom:15px;margin-bottom:25px;">
+    <h1 style="color:#C9A84C;margin:0;font-size:24px;">PEGUE</h1>
+    <p style="color:#666;margin:5px 0 0;font-size:13px;">${titulo}</p>
+  </div>
+  ${corpo}
+  <p style="color:#999;font-size:11px;text-align:center;margin-top:30px;border-top:1px solid #eee;padding-top:15px;">
+    Arquivo automatico de ocorrencia - Pegue - ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+  </p>
+</div></body></html>`;
+}
+
+// Tabela chave-valor simples pra corpo dos emails
+function tabela(pares: Record<string, string | number | null | undefined>) {
+  const linhas = Object.entries(pares)
+    .filter(([, v]) => v !== null && v !== undefined && v !== "")
+    .map(([k, v]) => `<tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;width:35%;"><strong>${k}</strong></td><td style="padding:8px;border-bottom:1px solid #eee;">${v}</td></tr>`)
+    .join("");
+  return `<table style="width:100%;border-collapse:collapse;font-size:14px;">${linhas}</table>`;
+}
+
+// === 1. Cadastro de prestador concluido ===
+export async function enviarEmailCadastroPrestador(dados: {
+  nome: string;
+  telefone: string;
+  cpf: string;
+  email: string;
+  chavePix: string;
+  tipoVeiculo: string;
+  placa: string;
+  selfieUrl?: string | null;
+  fotoPlacaUrl?: string | null;
+  fotoVeiculoUrl?: string | null;
+  dataAceite?: string;
+  origem: "whatsapp" | "admin_manual" | "link_convite";
+}) {
+  try {
+    // Anexa fotos se disponiveis (cada um pode retornar null - tolera falha)
+    const anexos = (await Promise.all([
+      baixarComoAnexo(dados.selfieUrl, `selfie-${dados.telefone}.jpg`),
+      baixarComoAnexo(dados.fotoPlacaUrl, `placa-${dados.telefone}.jpg`),
+      baixarComoAnexo(dados.fotoVeiculoUrl, `veiculo-${dados.telefone}.jpg`),
+    ])).filter(Boolean) as Array<{ filename: string; content: Buffer }>;
+
+    const corpo = `
+<h2 style="color:#333;margin-top:0;">Cadastro de Prestador Finalizado</h2>
+<p>Um novo prestador foi cadastrado na plataforma. Dados completos abaixo:</p>
+${tabela({
+  "Nome": dados.nome,
+  "Telefone": dados.telefone,
+  "CPF": dados.cpf,
+  "Email": dados.email,
+  "Chave Pix": dados.chavePix,
+  "Tipo de veiculo": dados.tipoVeiculo,
+  "Placa": dados.placa,
+  "Origem do cadastro": dados.origem === "whatsapp" ? "Fluxo WhatsApp" : dados.origem === "admin_manual" ? "Cadastro manual admin" : "Link de convite",
+  "Data/Hora do aceite": dados.dataAceite || new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+})}
+<p style="margin-top:20px;color:#666;font-size:13px;">
+As fotos (selfie com documento, placa, veiculo) estao anexadas neste email e tambem salvas no Supabase Storage.
+</p>
+${dados.selfieUrl ? `<p style="font-size:12px;color:#999;">Links permanentes:<br>
+Selfie: ${dados.selfieUrl}<br>
+Placa: ${dados.fotoPlacaUrl || "-"}<br>
+Veiculo: ${dados.fotoVeiculoUrl || "-"}</p>` : ""}
+`;
+
+    await resend.emails.send({
+      from: FROM_PEGUE,
+      to: [EMAIL_ARCHIVE_PRINCIPAL, EMAIL_ARCHIVE_COPIA],
+      subject: `[Pegue] Cadastro Prestador - ${dados.nome} (${dados.telefone})`,
+      html: layoutEmail("Cadastro de Prestador", corpo),
+      attachments: anexos,
+    });
+    return true;
+  } catch (error: any) {
+    console.error("Erro email cadastro prestador:", error?.message);
+    return false;
+  }
+}
+
+// === 2. Reclamacao de cliente ===
+export async function enviarEmailReclamacao(dados: {
+  clienteNome: string;
+  clienteTelefone: string;
+  fretistaNome: string;
+  fretistaTelefone: string;
+  corridaCodigo: string;
+  corridaId: string;
+  origem: string;
+  destino: string;
+  valor: number;
+  mensagemReclamacao: string;
+}) {
+  try {
+    const corpo = `
+<h2 style="color:#d00;margin-top:0;">⚠️ Reclamacao de Cliente</h2>
+<p>O cliente reportou problema na entrega. Avalie e entre em contato pra resolver.</p>
+${tabela({
+  "Cliente": dados.clienteNome,
+  "Telefone cliente": dados.clienteTelefone,
+  "Fretista": dados.fretistaNome,
+  "Telefone fretista": dados.fretistaTelefone,
+  "Codigo corrida": dados.corridaCodigo,
+  "ID corrida": dados.corridaId,
+  "Origem": dados.origem,
+  "Destino": dados.destino,
+  "Valor": `R$ ${dados.valor}`,
+})}
+<div style="background:#fff5f5;border-left:4px solid #d00;padding:15px;margin:20px 0;">
+  <strong>Mensagem do cliente:</strong><br>
+  <em>${dados.mensagemReclamacao}</em>
+</div>
+`;
+    await resend.emails.send({
+      from: FROM_PEGUE,
+      to: [EMAIL_ARCHIVE_PRINCIPAL, EMAIL_ARCHIVE_COPIA],
+      subject: `[Pegue] Reclamacao - Cliente (${dados.clienteTelefone}) - Corrida ${dados.corridaCodigo}`,
+      html: layoutEmail("Reclamacao de Cliente", corpo),
+    });
+    return true;
+  } catch (error: any) {
+    console.error("Erro email reclamacao:", error?.message);
+    return false;
+  }
+}
+
+// === 3. Corrida confirmada ===
+export async function enviarEmailCorridaConfirmada(dados: {
+  corridaCodigo: string;
+  corridaId: string;
+  clienteNome: string;
+  clienteTelefone: string;
+  fretistaNome: string;
+  fretistaTelefone: string;
+  origem: string;
+  destino: string;
+  descricaoCarga: string;
+  tipoVeiculo: string;
+  dataFrete: string;
+  valorCliente: number;
+  valorPrestador: number;
+  comissaoPegue: number;
+}) {
+  try {
+    const corpo = `
+<h2 style="color:#2a7;margin-top:0;">✅ Corrida Confirmada</h2>
+<p>Um frete foi confirmado (cliente e fretista). Arquivo fiscal.</p>
+${tabela({
+  "Codigo": dados.corridaCodigo,
+  "ID corrida": dados.corridaId,
+  "Cliente": dados.clienteNome,
+  "Telefone cliente": dados.clienteTelefone,
+  "Fretista": dados.fretistaNome,
+  "Telefone fretista": dados.fretistaTelefone,
+  "Origem": dados.origem,
+  "Destino": dados.destino,
+  "Material": dados.descricaoCarga,
+  "Veiculo": dados.tipoVeiculo,
+  "Data/Horario": dados.dataFrete,
+  "Valor cliente pagou": `R$ ${dados.valorCliente}`,
+  "Valor fretista recebe": `R$ ${dados.valorPrestador}`,
+  "Comissao Pegue": `R$ ${dados.comissaoPegue}`,
+})}
+`;
+    await resend.emails.send({
+      from: FROM_PEGUE,
+      to: [EMAIL_ARCHIVE_PRINCIPAL, EMAIL_ARCHIVE_COPIA],
+      subject: `[Pegue] Corrida Confirmada - ${dados.corridaCodigo} - R$ ${dados.valorCliente}`,
+      html: layoutEmail("Corrida Confirmada", corpo),
+    });
+    return true;
+  } catch (error: any) {
+    console.error("Erro email corrida confirmada:", error?.message);
+    return false;
+  }
+}
+
+// === 4. Abandono de fretista ===
+export async function enviarEmailAbandono(dados: {
+  fretistaNome: string;
+  fretistaTelefone: string;
+  corridaCodigo: string;
+  corridaId: string;
+  origem: string;
+  destino: string;
+  dataFrete: string;
+  valor: number;
+  statusCorrida: string;
+}) {
+  try {
+    const corpo = `
+<h2 style="color:#c60;margin-top:0;">🚨 Abandono de Fretista</h2>
+<p>Fretista aceitou frete, nao respondeu os lembretes em 40min. Penalidade aplicada.</p>
+${tabela({
+  "Fretista": dados.fretistaNome,
+  "Telefone": dados.fretistaTelefone,
+  "Corrida": dados.corridaCodigo,
+  "ID corrida": dados.corridaId,
+  "Origem": dados.origem,
+  "Destino": dados.destino,
+  "Data/Horario do frete": dados.dataFrete,
+  "Valor": `R$ ${dados.valor}`,
+  "Status corrida": dados.statusCorrida,
+  "Acao": "Score -5, conta desativada se ja foi pago",
+})}
+`;
+    await resend.emails.send({
+      from: FROM_PEGUE,
+      to: [EMAIL_ARCHIVE_PRINCIPAL, EMAIL_ARCHIVE_COPIA],
+      subject: `[Pegue] Abandono de Fretista - ${dados.fretistaNome} (${dados.fretistaTelefone})`,
+      html: layoutEmail("Abandono de Fretista", corpo),
+    });
+    return true;
+  } catch (error: any) {
+    console.error("Erro email abandono:", error?.message);
+    return false;
+  }
+}
+
+// === 5. Resumo operacional diario (so pro email pessoal) ===
+export async function enviarEmailResumoDia(dados: {
+  dataStr: string;
+  totalCotacoes: number;
+  totalCorridasConfirmadas: number;
+  totalCanceladas: number;
+  totalAbandonos: number;
+  faturamentoBruto: number;
+  comissaoPegue: number;
+  pagoPrestadores: number;
+  novosPrestadores: number;
+  novosClientes: number;
+  topClientes: { nome: string; corridas: number }[];
+  topFretistas: { nome: string; corridas: number; score: number }[];
+}) {
+  try {
+    const topClientesHtml = dados.topClientes.length > 0
+      ? dados.topClientes.map(c => `<li>${c.nome} - ${c.corridas} corridas</li>`).join("")
+      : "<li><em>Nenhum</em></li>";
+    const topFretistasHtml = dados.topFretistas.length > 0
+      ? dados.topFretistas.map(f => `<li>${f.nome} - ${f.corridas} corridas (score ${f.score.toFixed(1)})</li>`).join("")
+      : "<li><em>Nenhum</em></li>";
+
+    const corpo = `
+<h2 style="color:#333;margin-top:0;">📊 Resumo do Dia ${dados.dataStr}</h2>
+<p>Panorama operacional das ultimas 24h.</p>
+
+<h3 style="color:#C9A84C;margin-top:25px;">Operacao</h3>
+${tabela({
+  "Cotacoes iniciadas": dados.totalCotacoes,
+  "Corridas confirmadas": dados.totalCorridasConfirmadas,
+  "Canceladas": dados.totalCanceladas,
+  "Abandonos": dados.totalAbandonos,
+})}
+
+<h3 style="color:#C9A84C;margin-top:25px;">Financeiro</h3>
+${tabela({
+  "Faturamento bruto": `R$ ${dados.faturamentoBruto.toFixed(2)}`,
+  "Comissao Pegue (12%)": `R$ ${dados.comissaoPegue.toFixed(2)}`,
+  "Pago a prestadores (88%)": `R$ ${dados.pagoPrestadores.toFixed(2)}`,
+})}
+
+<h3 style="color:#C9A84C;margin-top:25px;">Crescimento</h3>
+${tabela({
+  "Novos clientes": dados.novosClientes,
+  "Novos prestadores": dados.novosPrestadores,
+})}
+
+<h3 style="color:#C9A84C;margin-top:25px;">Top 5 Clientes</h3>
+<ul style="font-size:14px;color:#333;">${topClientesHtml}</ul>
+
+<h3 style="color:#C9A84C;margin-top:25px;">Top 5 Fretistas</h3>
+<ul style="font-size:14px;color:#333;">${topFretistasHtml}</ul>
+`;
+
+    await resend.emails.send({
+      from: FROM_PEGUE,
+      to: [EMAIL_PESSOAL_FABIO], // so pessoal, nao vai pro arquivo
+      subject: `[Pegue] Resumo do Dia ${dados.dataStr}`,
+      html: layoutEmail(`Resumo operacional - ${dados.dataStr}`, corpo),
+    });
+    return true;
+  } catch (error: any) {
+    console.error("Erro email resumo dia:", error?.message);
+    return false;
+  }
+}
+
 export async function enviarEmailTermosAceitos(
   email: string,
   nome: string,

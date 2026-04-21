@@ -2098,6 +2098,23 @@ async function handleCadastroTermos(phone: string, message: string) {
       });
     }
 
+    // Arquiva cadastro por email (cria backup juridico com fotos anexadas)
+    try {
+      const { enviarEmailCadastroPrestador } = await import("@/lib/email");
+      await enviarEmailCadastroPrestador({
+        nome, telefone: phone, cpf, email,
+        chavePix: chavePix,
+        tipoVeiculo, placa,
+        selfieUrl: selfieUrl || null,
+        fotoPlacaUrl: fotoPlacaUrl || null,
+        fotoVeiculoUrl: fotoVeiculoUrl || null,
+        dataAceite: dataHoraAceite,
+        origem: "whatsapp",
+      });
+    } catch (e: any) {
+      console.error("Erro email cadastro:", e?.message);
+    }
+
     // Verifica se aprovacao automatica esta ativa
     const { data: cfgAutoAprov } = await supabase
       .from("configuracoes")

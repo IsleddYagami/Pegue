@@ -81,6 +81,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Erro ao atualizar prestador: ${errUpdate.message}` }, { status: 500 });
     }
 
+    // Busca dados completos pra email de arquivamento
+    try {
+      const { data: completo } = await supabase
+        .from("prestadores")
+        .select("nome, telefone, cpf, email, chave_pix, prestador_veiculos(tipo, placa)")
+        .eq("id", prestador.id)
+        .single();
+      if (completo) {
+        const veic = (completo as any).prestador_veiculos?.[0] || {};
+        const { enviarEmailCadastroPrestador } = await import("@/lib/email");
+        await enviarEmailCadastroPrestador({
+          nome: completo.nome,
+          telefone: completo.telefone,
+          cpf: completo.cpf,
+          email: completo.email || "",
+          chavePix: (completo as any).chave_pix || "",
+          tipoVeiculo: veic.tipo || "",
+          placa: veic.placa || "",
+          selfieUrl, fotoPlacaUrl, fotoVeiculoUrl,
+          dataAceite: agora,
+          origem: "link_convite",
+        });
+      }
+    } catch (e: any) {
+      console.error("Erro email cadastro convite:", e?.message);
+    }
+
     return NextResponse.json({
       status: "ok",
       mensagem: `Cadastro finalizado com sucesso, ${prestador.nome}! 🎉\n\nVoce ja esta aprovado e vai receber indicacoes de frete no WhatsApp.`,

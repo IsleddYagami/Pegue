@@ -28,18 +28,24 @@ export default function HomePage() {
         <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 py-16 text-center md:py-24">
           <Image src="/logo-pegue-novo.png" alt="Pegue" width={200} height={200} className="mb-6 h-24 w-auto md:h-32" priority />
 
-          {/* PRECO + VELOCIDADE = CONVERSAO */}
-          <h1 className="text-3xl font-extrabold leading-tight md:text-5xl lg:text-6xl">
-            Carreto, Mudanca e Guincho a partir de <span className="text-[#C9A84C]">R$ 150</span>
+          {/* FRASE PRINCIPAL - A PRIMEIRA QUE O CLIENTE LE */}
+          <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
+            Carreto, Mudança, Frete e <span className="text-[#C9A84C]">Guincho</span>?
           </h1>
 
-          <p className="mt-3 text-xl font-semibold text-[#C9A84C] md:text-2xl">
-            Manda foto, recebe o preco na hora!
+          <p className="font-display mt-5 max-w-2xl text-lg font-medium leading-snug text-white md:text-2xl">
+            Não precisa procurar mais, vamos te ajudar <span className="text-[#C9A84C] font-semibold">rápido</span>, pode ter certeza!
           </p>
 
-          <p className="mt-3 text-base text-gray-400">
-            Rapido, acessivel e pelo WhatsApp. Sem app, sem cadastro.
+          <p className="font-display mt-2 text-2xl font-bold italic text-[#C9A84C] md:text-3xl">
+            Vamos lá! 🚚
           </p>
+
+          {/* BADGE DE PRECO */}
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-5 py-2 text-sm font-medium text-[#C9A84C] md:text-base">
+            <Zap className="h-4 w-4" />
+            A partir de R$ 150 · Preço na hora pelo WhatsApp
+          </div>
 
           {/* BOTAO PRINCIPAL */}
           <a

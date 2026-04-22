@@ -11,6 +11,32 @@ type Cotacao = {
   comissaoPegue: number; valorPrestador: number;
 };
 
+// Catalogo completo de itens (espelha o do backend)
+const CATALOGO = {
+  pequenos: [
+    "Microondas", "TV 32\"", "Ventilador de coluna", "Tanquinho",
+    "Mesa de centro", "Bicicleta", "Maquina de costura",
+    "Ar condicionado split", "Impressora grande", "Berco desmontado",
+    "Mala grande", "Cadeira gamer", "Aquario medio", "10 caixas",
+  ],
+  medios: [
+    "Geladeira pequena", "Fogao 4 bocas", "Maquina de lavar 8kg",
+    "Cama solteiro", "Colchao solteiro", "Escrivaninha",
+    "Rack de TV", "Poltrona", "Comoda 4 gavetas",
+    "Freezer horizontal pequeno", "Armario de cozinha pequeno",
+    "Mesa de jantar 4 lugares", "Conjunto 4 cadeiras",
+    "Sofa 2 lugares", "TV 55\"",
+  ],
+  grandes: [
+    "Geladeira duplex", "Fogao 5 bocas", "Maquina de lavar 12kg",
+    "Cama casal box", "Colchao casal", "Guarda-roupa 3 portas",
+    "Guarda-roupa 6 portas", "Sofa 3 lugares", "Sofa retratil",
+    "Mesa de jantar 6 lugares", "Estante grande",
+    "Armario de cozinha modulado", "Freezer vertical",
+  ],
+};
+const TODOS_ITENS = [...CATALOGO.pequenos, ...CATALOGO.medios, ...CATALOGO.grandes];
+
 type Resumo = {
   total: number; precoMedio: number; precoMin: number; precoMax: number;
   porVeiculo: Record<string, { count: number; media: number }>;
@@ -21,9 +47,8 @@ export default function SimuladorPage() {
 
   // Filtros
   const [veiculos, setVeiculos] = useState<string[]>(["utilitario", "hr"]);
-  const [qtdMin, setQtdMin] = useState(1);
-  const [qtdMax, setQtdMax] = useState(4);
-  const [tamanhos, setTamanhos] = useState<string[]>(["pequeno", "medio", "grande"]);
+  const [qtdPorFrete, setQtdPorFrete] = useState(3);
+  const [itensSelecionados, setItensSelecionados] = useState<string[]>([]);
   const [distanciasStr, setDistanciasStr] = useState("3,5,10,15,20,30,50");
   const [ajudantes, setAjudantes] = useState<number[]>([0, 1]);
   const [tiposLocal, setTiposLocal] = useState<string[]>(["terreo"]);
@@ -51,6 +76,11 @@ export default function SimuladorPage() {
 
     const distancias = distanciasStr.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0);
     if (distancias.length === 0) { setErro("Distancias invalidas (ex: 3,5,10,20)"); return; }
+    if (itensSelecionados.length === 0) { setErro("Selecione pelo menos 1 material disponivel"); return; }
+    if (itensSelecionados.length < qtdPorFrete) {
+      setErro(`Marque pelo menos ${qtdPorFrete} materiais (voce marcou ${itensSelecionados.length})`);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -60,7 +90,10 @@ export default function SimuladorPage() {
         body: JSON.stringify({
           key: senha,
           filtros: {
-            veiculos, qtdMin, qtdMax, tamanhos, distancias, ajudantes,
+            veiculos,
+            qtdMin: qtdPorFrete, qtdMax: qtdPorFrete,
+            itensPool: itensSelecionados,
+            distancias, ajudantes,
             tiposLocal, andaresEscada, zonas, taxasTemporais,
             totalCotacoes, enviarEmail,
             destinatarioEmail: enviarEmail ? destinatarioEmail : undefined,
@@ -127,28 +160,58 @@ export default function SimuladorPage() {
             />
           </Section>
 
-          {/* Qtd itens */}
-          <Section titulo="Quantidade de itens">
+          {/* Quantos itens por frete */}
+          <Section titulo="Quantos itens por frete">
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-500">De</span>
-              <input type="number" min={1} max={10} value={qtdMin} onChange={e => setQtdMin(parseInt(e.target.value) || 1)} className={`${inputStyle} w-16`} />
-              <span className="text-gray-500">ate</span>
-              <input type="number" min={1} max={10} value={qtdMax} onChange={e => setQtdMax(parseInt(e.target.value) || 1)} className={`${inputStyle} w-16`} />
-              <span className="text-gray-500">itens</span>
+              <input
+                type="number" min={1} max={10}
+                value={qtdPorFrete}
+                onChange={e => setQtdPorFrete(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                className={`${inputStyle} w-20`}
+              />
+              <span className="text-gray-500 text-xs">itens por cotacao</span>
             </div>
+            <p className="mt-1 text-xs text-gray-400">
+              Cada cotacao gerada tera essa quantidade de itens, sorteados da lista abaixo.
+            </p>
           </Section>
 
-          {/* Tamanhos */}
-          <Section titulo="Tamanho dos itens">
-            <Checkboxes
-              opcoes={[
-                { value: "pequeno", label: "Pequeno (microondas, caixas)" },
-                { value: "medio", label: "Medio (fogao, cama solteiro)" },
-                { value: "grande", label: "Grande (geladeira, sofa 3 lugares)" },
-              ]}
-              selecionados={tamanhos}
-              onToggle={v => toggle(tamanhos, v, setTamanhos)}
-            />
+          {/* Materiais disponiveis - pool pra sortear */}
+          <Section titulo={`Materiais disponiveis (marque os que podem aparecer - ${itensSelecionados.length} selecionados)`}>
+            {/* Filtros rapidos */}
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              <button type="button" onClick={() => setItensSelecionados(TODOS_ITENS)} className={filtroBtn}>Todos</button>
+              <button type="button" onClick={() => setItensSelecionados([])} className={filtroBtn}>Nenhum</button>
+              <button type="button" onClick={() => setItensSelecionados(CATALOGO.pequenos)} className={filtroBtn}>So pequenos</button>
+              <button type="button" onClick={() => setItensSelecionados(CATALOGO.medios)} className={filtroBtn}>So medios</button>
+              <button type="button" onClick={() => setItensSelecionados(CATALOGO.grandes)} className={filtroBtn}>So grandes</button>
+            </div>
+
+            <div className="max-h-64 space-y-3 overflow-auto rounded-lg border border-gray-100 p-3">
+              <GrupoItens
+                titulo="Pequenos"
+                itens={CATALOGO.pequenos}
+                selecionados={itensSelecionados}
+                onToggle={v => toggle(itensSelecionados, v, setItensSelecionados)}
+              />
+              <GrupoItens
+                titulo="Medios"
+                itens={CATALOGO.medios}
+                selecionados={itensSelecionados}
+                onToggle={v => toggle(itensSelecionados, v, setItensSelecionados)}
+              />
+              <GrupoItens
+                titulo="Grandes"
+                itens={CATALOGO.grandes}
+                selecionados={itensSelecionados}
+                onToggle={v => toggle(itensSelecionados, v, setItensSelecionados)}
+              />
+            </div>
+            {itensSelecionados.length > 0 && itensSelecionados.length < qtdPorFrete && (
+              <p className="mt-2 text-xs text-orange-600">
+                ⚠️ Voce marcou {itensSelecionados.length} mas cada frete tem {qtdPorFrete} itens. Marque pelo menos {qtdPorFrete}.
+              </p>
+            )}
           </Section>
 
           {/* Distancias */}
@@ -332,6 +395,32 @@ export default function SimuladorPage() {
 }
 
 const inputStyle = "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#C9A84C] focus:outline-none";
+const filtroBtn = "rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-medium text-gray-600 hover:border-[#C9A84C] hover:text-[#C9A84C]";
+
+function GrupoItens({ titulo, itens, selecionados, onToggle }: {
+  titulo: string; itens: string[]; selecionados: string[]; onToggle: (v: string) => void;
+}) {
+  const marcadosNesse = itens.filter(i => selecionados.includes(i)).length;
+  return (
+    <div>
+      <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-gray-500">
+        {titulo} ({marcadosNesse}/{itens.length})
+      </p>
+      <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+        {itens.map(item => (
+          <label key={item} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-gray-50">
+            <input
+              type="checkbox" checked={selecionados.includes(item)}
+              onChange={() => onToggle(item)}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-[#C9A84C] focus:ring-[#C9A84C]"
+            />
+            <span className="text-gray-700">{item}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function Section({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (

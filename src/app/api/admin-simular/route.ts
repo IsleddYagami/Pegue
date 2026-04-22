@@ -37,7 +37,8 @@ type Filtros = {
   veiculos: string[]; // ["utilitario", "hr", "caminhao_bau", "carro_comum"]
   qtdMin: number;
   qtdMax: number;
-  tamanhos: string[]; // ["pequeno", "medio", "grande"]
+  tamanhos?: string[]; // ["pequeno", "medio", "grande"] - modo antigo
+  itensPool?: string[]; // Modo novo: lista exata de itens que o admin selecionou
   distancias: number[]; // [3, 5, 10, 20, 50]
   ajudantes: number[]; // [0, 1, 2]
   tiposLocal: Array<"terreo" | "elevador" | "escada">;
@@ -115,15 +116,25 @@ export async function POST(req: NextRequest) {
 
     // Validacao basica
     if (!f.veiculos?.length) return NextResponse.json({ error: "Escolha pelo menos 1 veiculo" }, { status: 400 });
-    if (!f.tamanhos?.length) return NextResponse.json({ error: "Escolha pelo menos 1 tamanho de item" }, { status: 400 });
     if (!f.distancias?.length) return NextResponse.json({ error: "Escolha pelo menos 1 distancia" }, { status: 400 });
     if (!f.ajudantes?.length) f.ajudantes = [0];
     if (!f.tiposLocal?.length) f.tiposLocal = ["terreo"];
     if (!f.zonas?.length) f.zonas = ["normal"];
     if (!f.taxasTemporais?.length) f.taxasTemporais = ["normal"];
 
-    const pool = poolItensFiltrado(f.tamanhos);
-    if (pool.length === 0) return NextResponse.json({ error: "Nenhum item disponivel pra tamanhos escolhidos" }, { status: 400 });
+    // Pool de itens: usa itensPool (modo novo) se fornecido, senao cai no tamanhos (modo antigo)
+    let pool: string[];
+    if (f.itensPool && f.itensPool.length > 0) {
+      pool = f.itensPool;
+    } else if (f.tamanhos && f.tamanhos.length > 0) {
+      pool = poolItensFiltrado(f.tamanhos);
+    } else {
+      return NextResponse.json({ error: "Selecione itens ou tamanhos" }, { status: 400 });
+    }
+    if (pool.length === 0) return NextResponse.json({ error: "Nenhum item disponivel" }, { status: 400 });
+    if (pool.length < f.qtdMin) {
+      return NextResponse.json({ error: `Pool tem ${pool.length} itens mas cada cotacao precisa de ${f.qtdMin}. Selecione mais materiais.` }, { status: 400 });
+    }
 
     const total = Math.min(f.totalCotacoes || 100, 2000);
     const cotacoes: Array<Record<string, any>> = [];

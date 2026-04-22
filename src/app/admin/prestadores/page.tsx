@@ -2,9 +2,32 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, Star, CheckCircle, XCircle, Plus, UserPlus, Send, Mail } from "lucide-react";
+import { Search, Star, CheckCircle, XCircle, Plus, UserPlus, Send, Mail, BarChart3 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Prestador } from "@/lib/types";
+
+// Gera 300 cotacoes simuladas e envia por email pro Fabio
+async function gerarSimulacao() {
+  if (!confirm("Gerar 300 cotacoes simuladas e enviar por email pra fabiosantoscrispim@gmail.com?")) return;
+  let senha = sessionStorage.getItem("admin_key") || "";
+  if (!senha) {
+    senha = prompt("Digite a senha de admin:") || "";
+    if (!senha) return;
+    sessionStorage.setItem("admin_key", senha);
+  }
+  try {
+    const res = await fetch(`/api/admin-gerar-simulacao?key=${encodeURIComponent(senha)}`);
+    const data = await res.json();
+    if (res.ok) {
+      alert(`✅ ${data.mensagem}\n\nUtilitario: ${data.resumo.utilitario} · HR: ${data.resumo.hr}\nPreco medio Util: R$ ${data.resumo.precoMedioUtil}\nPreco medio HR: R$ ${data.resumo.precoMedioHR}`);
+    } else {
+      if (res.status === 401) sessionStorage.removeItem("admin_key");
+      alert(`❌ Erro: ${data.error || "desconhecido"}`);
+    }
+  } catch {
+    alert("❌ Erro de conexao.");
+  }
+}
 
 // Dispara email de teste pra validar integracao Resend + dominio chamepegue
 async function testarEmail() {
@@ -128,6 +151,12 @@ export default function PrestadoresPage() {
           <p className="text-sm text-gray-400">Gerencie os motoristas e prestadores</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={gerarSimulacao}
+            className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-[#C9A84C] hover:text-[#C9A84C]"
+          >
+            <BarChart3 size={14} /> Simular 300 cotacoes
+          </button>
           <button
             onClick={testarEmail}
             className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-[#C9A84C] hover:text-[#C9A84C]"

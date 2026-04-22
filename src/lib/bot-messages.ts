@@ -353,6 +353,13 @@ Vamos la! Qual seu *nome completo*?`,
 ⚠️ O documento precisa estar *aberto e legivel* na foto!
 Segure proximo ao rosto pra ficar bem claro.`,
 
+  cadastroFotoDocumento: `Agora manda uma *foto do documento aberto sozinho* (RG ou CNH) 📄
+
+⚠️ Foto bem de perto, com TUDO legivel (nome, CPF, numero do documento).
+Se for CNH, mostre a pagina da *foto e dados*.
+
+Pode ser a mesma foto que voce mostrou na selfie, mas agora so o documento - sem o rosto.`,
+
   cadastroFotoPlaca: `Agora manda uma *foto da placa* do seu veiculo 📸`,
 
   cadastroFotoVeiculo: `Agora manda uma *foto do veiculo inteiro* 🚗

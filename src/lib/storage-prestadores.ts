@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 
 const BUCKET = "prestadores-docs";
 
-export type TipoFotoPrestador = "selfie" | "placa" | "veiculo";
+export type TipoFotoPrestador = "selfie" | "documento" | "placa" | "veiculo";
 
 // Baixa a foto da URL do ChatPro e sobe pro Supabase Storage.
 // Retorna a URL publica permanente.

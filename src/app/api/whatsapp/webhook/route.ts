@@ -117,11 +117,23 @@ export async function POST(req: NextRequest) {
         // Sobe foto pro Storage permanente (URL do ChatPro expira ~30d)
         const urlPermanente = await uploadFotoPrestador(imageUrl, phoneNumber, "selfie");
         const urlFinal = urlPermanente || imageUrl; // fallback pra URL temporaria se upload falhar
-        await updateSession(phoneNumber, { step: "cadastro_foto_placa", foto_url: urlFinal });
+        await updateSession(phoneNumber, { step: "cadastro_foto_documento", foto_url: urlFinal });
         await supabase.from("bot_logs").insert({
           payload: { tipo: "foto_cadastro_selfie", phone: phoneNumber, url: urlFinal, uploaded_to_storage: !!urlPermanente },
         });
-        await sendToClient({ to: phoneNumber, message: `Selfie recebida! ✅\n\n${MSG.cadastroFotoPlaca}` });
+        await sendToClient({ to: phoneNumber, message: `Selfie recebida! ✅\n\n${MSG.cadastroFotoDocumento}` });
+        return NextResponse.json({ status: "ok" });
+      }
+
+      // Cadastro prestador - foto do documento aberto (RG/CNH sozinho)
+      if (session && session.step === "cadastro_foto_documento") {
+        const urlPermanente = await uploadFotoPrestador(imageUrl, phoneNumber, "documento");
+        const urlFinal = urlPermanente || imageUrl;
+        await updateSession(phoneNumber, { step: "cadastro_foto_placa" });
+        await supabase.from("bot_logs").insert({
+          payload: { tipo: "foto_cadastro_documento", phone: phoneNumber, url: urlFinal, uploaded_to_storage: !!urlPermanente },
+        });
+        await sendToClient({ to: phoneNumber, message: `Documento recebido! ✅\n\n${MSG.cadastroFotoPlaca}` });
         return NextResponse.json({ status: "ok" });
       }
 

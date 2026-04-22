@@ -151,12 +151,12 @@ export default function PrestadoresPage() {
           <p className="text-sm text-gray-400">Gerencie os motoristas e prestadores</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={gerarSimulacao}
+          <Link
+            href="/admin/simulador"
             className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-[#C9A84C] hover:text-[#C9A84C]"
           >
-            <BarChart3 size={14} /> Simular 300 cotacoes
-          </button>
+            <BarChart3 size={14} /> Simulador
+          </Link>
           <button
             onClick={testarEmail}
             className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-[#C9A84C] hover:text-[#C9A84C]"

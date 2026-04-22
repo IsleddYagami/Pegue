@@ -50,7 +50,9 @@ export default function SimuladorPage() {
 
   // Filtros
   const [veiculos, setVeiculos] = useState<string[]>(["utilitario", "hr"]);
-  const [qtdPorFrete, setQtdPorFrete] = useState(3);
+  const [qtdPorFrete, setQtdPorFrete] = useState(3); // modo manual (valor fixo)
+  const [qtdMinAleatorio, setQtdMinAleatorio] = useState(1); // modo aleatorio (range)
+  const [qtdMaxAleatorio, setQtdMaxAleatorio] = useState(4);
   const [itensSelecionados, setItensSelecionados] = useState<string[]>([]);
   const [distanciasStr, setDistanciasStr] = useState("3,5,10,15,20,30,50");
   const [ajudantes, setAjudantes] = useState<number[]>([0, 1]);
@@ -82,10 +84,15 @@ export default function SimuladorPage() {
     // Monta filtros conforme o modo
     let corpo: any;
     if (modoAleatorio) {
-      // Sistema sorteia tudo exceto veiculo e qtd de itens
+      // Valida range
+      if (qtdMinAleatorio > qtdMaxAleatorio) {
+        setErro("Quantidade minima nao pode ser maior que a maxima");
+        return;
+      }
+      // Sistema sorteia tudo exceto veiculo e range de qtd de itens
       corpo = {
         veiculos,
-        qtdMin: qtdPorFrete, qtdMax: qtdPorFrete,
+        qtdMin: qtdMinAleatorio, qtdMax: qtdMaxAleatorio,
         tamanhos: ["pequeno", "medio", "grande"], // todos
         distancias: [3, 5, 8, 10, 15, 20, 25, 30, 40, 50],
         ajudantes: [0, 1, 2],
@@ -203,19 +210,46 @@ export default function SimuladorPage() {
           </Section>
 
           {/* Quantos itens por frete */}
-          <Section titulo="Quantos itens por frete">
-            <div className="flex items-center gap-2 text-sm">
-              <input
-                type="number" min={1} max={10}
-                value={qtdPorFrete}
-                onChange={e => setQtdPorFrete(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
-                className={`${inputStyle} w-20`}
-              />
-              <span className="text-gray-500 text-xs">itens por cotacao</span>
-            </div>
-            <p className="mt-1 text-xs text-gray-400">
-              Cada cotacao gerada tera essa quantidade de itens, sorteados da lista abaixo.
-            </p>
+          <Section titulo="Quantidade de itens por frete">
+            {modoAleatorio ? (
+              <>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-500">De</span>
+                  <input
+                    type="number" min={1} max={10}
+                    value={qtdMinAleatorio}
+                    onChange={e => setQtdMinAleatorio(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                    className={`${inputStyle} w-16`}
+                  />
+                  <span className="text-gray-500">ate</span>
+                  <input
+                    type="number" min={1} max={10}
+                    value={qtdMaxAleatorio}
+                    onChange={e => setQtdMaxAleatorio(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                    className={`${inputStyle} w-16`}
+                  />
+                  <span className="text-gray-500 text-xs">itens</span>
+                </div>
+                <p className="mt-1 text-xs text-gray-400">
+                  Cada cotacao tera uma quantidade aleatoria dentro desse range.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 text-sm">
+                  <input
+                    type="number" min={1} max={10}
+                    value={qtdPorFrete}
+                    onChange={e => setQtdPorFrete(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                    className={`${inputStyle} w-20`}
+                  />
+                  <span className="text-gray-500 text-xs">itens por cotacao</span>
+                </div>
+                <p className="mt-1 text-xs text-gray-400">
+                  Cada cotacao tera essa quantidade fixa de itens, sorteados da lista abaixo.
+                </p>
+              </>
+            )}
           </Section>
 
           {/* Filtros detalhados - escondidos no modo aleatorio */}

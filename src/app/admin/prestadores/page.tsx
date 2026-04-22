@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, Star, CheckCircle, XCircle, Plus, UserPlus, Send, Mail, BarChart3 } from "lucide-react";
+import { Search, Star, CheckCircle, XCircle, Plus, UserPlus, Send, Mail, BarChart3, MessageSquare } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Prestador } from "@/lib/types";
 
@@ -156,6 +156,12 @@ export default function PrestadoresPage() {
             className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-[#C9A84C] hover:text-[#C9A84C]"
           >
             <BarChart3 size={14} /> Simulador
+          </Link>
+          <Link
+            href="/admin/feedback-precos"
+            className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-[#C9A84C] hover:text-[#C9A84C]"
+          >
+            <MessageSquare size={14} /> Feedback precos
           </Link>
           <button
             onClick={testarEmail}

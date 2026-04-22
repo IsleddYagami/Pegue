@@ -41,6 +41,7 @@ export type BotStep =
   | "avaliar_escolher_veiculos"
   | "avaliar_aguardando_preco"
   | "admin_confirmar_ajuste"
+  | "aguardando_revisao_admin"
   | "guincho_categoria"
   | "guincho_tipo_veiculo"
   | "guincho_marca_modelo"

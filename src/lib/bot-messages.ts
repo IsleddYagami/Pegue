@@ -357,8 +357,26 @@ Qualquer hora que quiser avaliar mais, so digitar *AVALIAR* aqui.
 Ate mais! 🚚✨`,
 
   // === ADMIN - APLICAR AJUSTE DE PRECOS ===
-  adminPerguntaAjuste: (veiculo: string, zona: string, kmMin: number, kmMax: number, qtdMin: number, qtdMax: number, comAjudante: boolean, gapPct: number) => {
+  adminPerguntaAjuste: (
+    veiculo: string, zona: string, kmMin: number, kmMax: number,
+    qtdMin: number, qtdMax: number, comAjudante: boolean, gapPct: number,
+    impactoHist: { qtdSimilares: number; faturamentoAntes: number; faturamentoDepois: number }
+  ) => {
     const sinal = gapPct > 0 ? `+${gapPct}%` : `${gapPct}%`;
+    const diff = impactoHist.faturamentoDepois - impactoHist.faturamentoAntes;
+    const diffSinal = diff >= 0 ? `+R$ ${Math.round(diff)}` : `-R$ ${Math.abs(Math.round(diff))}`;
+
+    let impactoTxt = "";
+    if (impactoHist.qtdSimilares === 0) {
+      impactoTxt = `\n📊 *Impacto historico:* Nenhuma cotacao similar nos ultimos 30 dias. Regra valera pra cotacoes futuras.`;
+    } else {
+      impactoTxt = `\n📊 *Impacto nos ultimos 30 dias:*
+${impactoHist.qtdSimilares} cotacoes similares
+Faturamento ANTES: R$ ${Math.round(impactoHist.faturamentoAntes)}
+Faturamento DEPOIS: R$ ${Math.round(impactoHist.faturamentoDepois)}
+Diferenca: *${diffSinal}*`;
+    }
+
     return `🔧 *Quer JA aplicar esse ajuste nas cotacoes reais?*
 
 A regra criada vai afetar:
@@ -369,6 +387,7 @@ A regra criada vai afetar:
 🙋 Ajudante: *${comAjudante ? "Sim" : "Nao"}*
 
 Ajuste: *${sinal}* sobre o preco base
+${impactoTxt}
 
 1️⃣ SIM, aplicar agora (afeta cotacoes novas)
 2️⃣ NAO, so guardar feedback`;
@@ -385,6 +404,15 @@ Proximo frete chegando...`,
   adminAjusteNaoAplicado: `👍 Entendido, so guardei o feedback pra analisar depois.
 
 Proximo frete chegando...`,
+
+  // Mensagem pro cliente quando o preco cai em revisao admin (anomalia detectada)
+  precoEmRevisao: `Tudo anotado! 😊
+
+Por se tratar de um servico com *valor mais elevado*, seu pedido passa por uma *segunda camada de analise* da nossa equipe pra garantir o melhor preco e condicoes pra voce.
+
+Isso e rapido: em *poucos minutos* te retornamos com o valor final e os detalhes pra seguir.
+
+Obrigado pela paciencia! Relaxa, a gente resolve tudo direitinho. 🚚✨`,
 
   // Dispatch para fretistas
   novoFreteDisponivel: (

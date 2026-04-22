@@ -665,6 +665,13 @@ Boa sorte! 🎯`,
       await handleAvaliarAguardandoPreco(phone, message);
       break;
 
+    case "aguardando_revisao_admin":
+      await sendToClient({
+        to: phone,
+        message: "Ainda esta na segunda camada de analise com a nossa equipe 😊 Em poucos minutos te retornamos com o valor final. Obrigado pela paciencia!",
+      });
+      break;
+
     case "admin_confirmar_ajuste":
       // Dupla protecao: handler tambem valida internamente, mas aqui ja filtramos
       if (phone === ADMIN_PHONE) {
@@ -1280,17 +1287,69 @@ async function handleAjudante(phone: string, message: string) {
   // Aplica regras de ajuste manual (criadas pelo admin via WhatsApp ou painel)
   // Nao mexe na formula base - soma depois como excecao
   const { aplicarAjustes } = await import("@/lib/ajustes-precos");
+  const qtdItensTotal = (session.descricao_carga || "").split(",").length;
   const { precoFinal } = await aplicarAjustes(totalAntes, {
     veiculo,
     zona: precos.zona,
     km: distanciaKm,
-    qtdItens: (session.descricao_carga || "").split(",").length,
+    qtdItens: qtdItensTotal,
     comAjudante: qtdAjudantes > 0,
   });
 
+  // CAMADA 1 + 2: Sanidade de preco (limite absoluto + comparacao historica)
+  // Se preco anomalo, cotacao fica em "revisao_admin" e cliente espera aprovacao manual
+  const { validarPrecoFinal } = await import("@/lib/sanidade-preco");
+  const sanidade = await validarPrecoFinal(precoFinal, {
+    veiculo,
+    km: distanciaKm,
+    qtdItens: qtdItensTotal,
+    temAjudante: qtdAjudantes > 0,
+  });
+
+  let precoValidado: number;
+  let emRevisao = false;
+
+  if (!sanidade.ok) {
+    // Preco anomalo detectado - nao envia pro cliente, notifica admin
+    emRevisao = true;
+    precoValidado = sanidade.precoOriginal;
+
+    await updateSession(phone, {
+      step: "aguardando_revisao_admin",
+      distancia_km: distanciaKm,
+      valor_estimado: precoValidado,
+    });
+
+    // Mensagem calma pro cliente
+    await sendToClient({ to: phone, message: MSG.precoEmRevisao });
+
+    // Notifica admin com TUDO pra decidir
+    await notificarAdmin(
+      `🚨 *PRECO EM REVISAO (${sanidade.tipo === "acima_max" ? "acima do limite" : "anomalia historica"})*`,
+      phone,
+      `${sanidade.motivo}
+
+📦 *Pedido:*
+Veiculo: ${veiculo}
+Origem: ${session.origem_endereco || "-"}
+Destino: ${session.destino_endereco || "-"}
+Distancia: ${distanciaKm}km
+Itens: ${session.descricao_carga || "-"}
+Ajudante: ${qtdAjudantes > 0 ? "Sim" : "Nao"}
+
+💰 *Preco calculado: R$ ${precoValidado}*
+
+O cliente recebeu mensagem de espera. Acesse o admin pra aprovar ou ajustar.`
+    );
+    return; // Para aqui, nao continua o fluxo normal
+  }
+
+  // Preco ok (ou ajustado pra minimo pela camada 1)
+  precoValidado = sanidade.preco;
+
   const p = {
     ...precos.padrao,
-    total: precoFinal,
+    total: precoValidado,
   };
   const zonaInfo = precos.zona;
 
@@ -1722,6 +1781,27 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
     await salvarEstadoAvaliacao(phone, { ...estado, simAtual: estado.simAtual, total: novoTotal, pendingAjuste } as any);
     await updateSession(phone, { step: "admin_confirmar_ajuste" });
 
+    // Calcula impacto historico: busca corridas similares dos ultimos 30 dias
+    const trintaDias = new Date();
+    trintaDias.setDate(trintaDias.getDate() - 30);
+    const { data: historicas } = await supabase
+      .from("corridas")
+      .select("valor_estimado, valor_final")
+      .eq("tipo_veiculo", sim.veiculo)
+      .gte("distancia_km", criterios.km_min)
+      .lte("distancia_km", criterios.km_max)
+      .gte("criado_em", trintaDias.toISOString())
+      .in("status", ["aceita", "paga", "concluida"]);
+
+    const valoresHist = (historicas || []).map(c => c.valor_final || c.valor_estimado || 0).filter(v => v > 0);
+    const fatAntes = valoresHist.reduce((a, b) => a + b, 0);
+    const fatDepois = fatAntes * (preco / sim.precoPegue);
+    const impactoHist = {
+      qtdSimilares: valoresHist.length,
+      faturamentoAntes: fatAntes,
+      faturamentoDepois: fatDepois,
+    };
+
     await new Promise(r => setTimeout(r, 800));
     await sendToClient({
       to: phone,
@@ -1734,6 +1814,7 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
         criterios.qtd_itens_max,
         sim.temAjudante,
         Math.round(gap * 100) / 100,
+        impactoHist,
       ),
     });
     return;

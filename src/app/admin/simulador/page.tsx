@@ -45,6 +45,9 @@ type Resumo = {
 export default function SimuladorPage() {
   const [senha, setSenha] = useState("");
 
+  // Modo: manual (admin escolhe tudo) ou aleatorio (sistema sorteia)
+  const [modoAleatorio, setModoAleatorio] = useState(false);
+
   // Filtros
   const [veiculos, setVeiculos] = useState<string[]>(["utilitario", "hr"]);
   const [qtdPorFrete, setQtdPorFrete] = useState(3);
@@ -74,12 +77,43 @@ export default function SimuladorPage() {
     setResultado(null);
     if (!senha) { setErro("Digite a senha de admin"); return; }
 
-    const distancias = distanciasStr.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0);
-    if (distancias.length === 0) { setErro("Distancias invalidas (ex: 3,5,10,20)"); return; }
-    if (itensSelecionados.length === 0) { setErro("Selecione pelo menos 1 material disponivel"); return; }
-    if (itensSelecionados.length < qtdPorFrete) {
-      setErro(`Marque pelo menos ${qtdPorFrete} materiais (voce marcou ${itensSelecionados.length})`);
-      return;
+    if (!veiculos.length) { setErro("Escolha pelo menos 1 veiculo"); return; }
+
+    // Monta filtros conforme o modo
+    let corpo: any;
+    if (modoAleatorio) {
+      // Sistema sorteia tudo exceto veiculo e qtd de itens
+      corpo = {
+        veiculos,
+        qtdMin: qtdPorFrete, qtdMax: qtdPorFrete,
+        tamanhos: ["pequeno", "medio", "grande"], // todos
+        distancias: [3, 5, 8, 10, 15, 20, 25, 30, 40, 50],
+        ajudantes: [0, 1, 2],
+        tiposLocal: ["terreo", "elevador", "escada"],
+        andaresEscada: 2,
+        zonas: ["normal", "dificil", "fundao"],
+        taxasTemporais: ["normal", "noturno", "feriado", "fim_semana"],
+        totalCotacoes, enviarEmail,
+        destinatarioEmail: enviarEmail ? destinatarioEmail : undefined,
+      };
+    } else {
+      // Modo manual: admin escolheu tudo
+      const distancias = distanciasStr.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0);
+      if (distancias.length === 0) { setErro("Distancias invalidas (ex: 3,5,10,20)"); return; }
+      if (itensSelecionados.length === 0) { setErro("Selecione pelo menos 1 material disponivel"); return; }
+      if (itensSelecionados.length < qtdPorFrete) {
+        setErro(`Marque pelo menos ${qtdPorFrete} materiais (voce marcou ${itensSelecionados.length})`);
+        return;
+      }
+      corpo = {
+        veiculos,
+        qtdMin: qtdPorFrete, qtdMax: qtdPorFrete,
+        itensPool: itensSelecionados,
+        distancias, ajudantes,
+        tiposLocal, andaresEscada, zonas, taxasTemporais,
+        totalCotacoes, enviarEmail,
+        destinatarioEmail: enviarEmail ? destinatarioEmail : undefined,
+      };
     }
 
     setLoading(true);
@@ -87,18 +121,7 @@ export default function SimuladorPage() {
       const res = await fetch("/api/admin-simular", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: senha,
-          filtros: {
-            veiculos,
-            qtdMin: qtdPorFrete, qtdMax: qtdPorFrete,
-            itensPool: itensSelecionados,
-            distancias, ajudantes,
-            tiposLocal, andaresEscada, zonas, taxasTemporais,
-            totalCotacoes, enviarEmail,
-            destinatarioEmail: enviarEmail ? destinatarioEmail : undefined,
-          },
-        }),
+        body: JSON.stringify({ key: senha, filtros: corpo }),
       });
       const data = await res.json();
       if (!res.ok) { setErro(data.error || "Erro"); }
@@ -144,6 +167,25 @@ export default function SimuladorPage() {
               placeholder="Digite uma vez" className={inputStyle} />
           </Section>
 
+          {/* Modo aleatorio */}
+          <div className="mb-5 rounded-xl border-2 border-[#C9A84C]/30 bg-[#C9A84C]/5 p-3">
+            <label className="flex cursor-pointer items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={modoAleatorio}
+                onChange={e => setModoAleatorio(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#C9A84C] focus:ring-[#C9A84C]"
+              />
+              <div>
+                <p className="font-bold text-[#0A0A0A]">🎲 Modo aleatorio</p>
+                <p className="mt-0.5 text-xs text-gray-600">
+                  Voce escolhe apenas o veiculo e a quantidade de itens.
+                  O sistema sorteia tudo: materiais, distancia, ajudantes, local, zona, taxa.
+                </p>
+              </div>
+            </label>
+          </div>
+
           {/* Veiculos */}
           <Section titulo="Veiculos">
             <Checkboxes
@@ -175,6 +217,9 @@ export default function SimuladorPage() {
               Cada cotacao gerada tera essa quantidade de itens, sorteados da lista abaixo.
             </p>
           </Section>
+
+          {/* Filtros detalhados - escondidos no modo aleatorio */}
+          {!modoAleatorio && <>
 
           {/* Materiais disponiveis - pool pra sortear */}
           <Section titulo={`Materiais disponiveis (marque os que podem aparecer - ${itensSelecionados.length} selecionados)`}>
@@ -278,6 +323,9 @@ export default function SimuladorPage() {
               onToggle={v => toggle(taxasTemporais, v, setTaxasTemporais)}
             />
           </Section>
+
+          </>}
+          {/* Fim dos filtros detalhados (escondidos no modo aleatorio) */}
 
           {/* Qtd cotacoes */}
           <Section titulo="Quantas cotacoes gerar">

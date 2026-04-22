@@ -356,6 +356,36 @@ Qualquer hora que quiser avaliar mais, so digitar *AVALIAR* aqui.
 
 Ate mais! 🚚✨`,
 
+  // === ADMIN - APLICAR AJUSTE DE PRECOS ===
+  adminPerguntaAjuste: (veiculo: string, zona: string, kmMin: number, kmMax: number, qtdMin: number, qtdMax: number, comAjudante: boolean, gapPct: number) => {
+    const sinal = gapPct > 0 ? `+${gapPct}%` : `${gapPct}%`;
+    return `🔧 *Quer JA aplicar esse ajuste nas cotacoes reais?*
+
+A regra criada vai afetar:
+🚚 Veiculo: *${veiculo}*
+🗺 Zona: *${zona}*
+📏 Distancia: *${kmMin}-${kmMax}km*
+📦 Itens: *${qtdMin}-${qtdMax}*
+🙋 Ajudante: *${comAjudante ? "Sim" : "Nao"}*
+
+Ajuste: *${sinal}* sobre o preco base
+
+1️⃣ SIM, aplicar agora (afeta cotacoes novas)
+2️⃣ NAO, so guardar feedback`;
+  },
+
+  adminAjusteAplicado: `✅ *Regra aplicada!*
+
+Cotacoes novas que baterem nesse cenario vao levar o ajuste automaticamente.
+
+Pra ver/editar/desativar regras: https://www.chamepegue.com.br/admin/feedback-precos
+
+Proximo frete chegando...`,
+
+  adminAjusteNaoAplicado: `👍 Entendido, so guardei o feedback pra analisar depois.
+
+Proximo frete chegando...`,
+
   // Dispatch para fretistas
   novoFreteDisponivel: (
     origem: string,

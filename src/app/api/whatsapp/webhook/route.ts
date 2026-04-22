@@ -33,6 +33,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
 import { gerarSimulacao, formatarMensagemSimulacao, nomeVeiculo as nomeVeiculoAval, type SimulacaoAvaliacao } from "@/lib/simulacao-avaliacao";
+import { criteriosMediaDaSimulacao, invalidarCacheAjustes } from "@/lib/ajustes-precos";
 
 export const dynamic = "force-dynamic";
 
@@ -664,6 +665,15 @@ Boa sorte! 🎯`,
       await handleAvaliarAguardandoPreco(phone, message);
       break;
 
+    case "admin_confirmar_ajuste":
+      // Dupla protecao: handler tambem valida internamente, mas aqui ja filtramos
+      if (phone === ADMIN_PHONE) {
+        await handleAdminConfirmarAjuste(phone, message);
+      } else {
+        await updateSession(phone, { step: "inicio" });
+      }
+      break;
+
     // === CADASTRO PRESTADOR ===
     case "cadastro_nome":
       await handleCadastroNome(phone, message);
@@ -1265,9 +1275,22 @@ async function handleAjudante(phone: string, message: string) {
 
   // Adiciona segundo ajudante se necessario
   const ajudanteExtra = qtdAjudantes === 2 ? (distanciaKm <= 10 ? 80 : 100) : 0;
+  let totalAntes = precos.padrao.total + ajudanteExtra;
+
+  // Aplica regras de ajuste manual (criadas pelo admin via WhatsApp ou painel)
+  // Nao mexe na formula base - soma depois como excecao
+  const { aplicarAjustes } = await import("@/lib/ajustes-precos");
+  const { precoFinal } = await aplicarAjustes(totalAntes, {
+    veiculo,
+    zona: precos.zona,
+    km: distanciaKm,
+    qtdItens: (session.descricao_carga || "").split(",").length,
+    comAjudante: qtdAjudantes > 0,
+  });
+
   const p = {
     ...precos.padrao,
-    total: precos.padrao.total + ajudanteExtra,
+    total: precoFinal,
   };
   const zonaInfo = precos.zona;
 
@@ -1662,10 +1685,11 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
     .eq("telefone", phone)
     .maybeSingle();
 
-  // Salva feedback
+  // Salva feedback (nome = "Admin Fabio" se for o admin)
+  const nomeFretista = phone === ADMIN_PHONE ? "👑 Admin Fabio" : (prestador?.nome || null);
   await supabase.from("feedback_precos").insert({
     fretista_phone: phone,
-    fretista_nome: prestador?.nome || null,
+    fretista_nome: nomeFretista,
     veiculo: sim.veiculo,
     rota_id: sim.rota.id,
     origem: sim.rota.origem,
@@ -1683,12 +1707,100 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
   const novoTotal = estado.total + 1;
   await sendToClient({ to: phone, message: MSG.avaliarRespostaSalva(sim.precoPegue, preco) });
 
-  // Gera proxima simulacao
+  // ADMIN ONLY: se for o Fabio e o gap for significativo (>= 5% ou <= -5%),
+  // pergunta se quer JA aplicar como regra de ajuste.
+  // Essa funcionalidade SO funciona pro ADMIN_PHONE, qualquer outro numero ignora.
+  const adminSignificativo = phone === ADMIN_PHONE && Math.abs(gap) >= 5;
+  if (adminSignificativo) {
+    const criterios = criteriosMediaDaSimulacao(sim);
+    // Guarda criterios + ajuste a aplicar no estado pra handler confirmar depois
+    const pendingAjuste = {
+      criterios,
+      fatorMultiplicador: preco / sim.precoPegue,
+      gapPct: Math.round(gap * 100) / 100,
+    };
+    await salvarEstadoAvaliacao(phone, { ...estado, simAtual: estado.simAtual, total: novoTotal, pendingAjuste } as any);
+    await updateSession(phone, { step: "admin_confirmar_ajuste" });
+
+    await new Promise(r => setTimeout(r, 800));
+    await sendToClient({
+      to: phone,
+      message: MSG.adminPerguntaAjuste(
+        nomeVeiculoAval(sim.veiculo),
+        sim.rota.zonaDestino,
+        criterios.km_min,
+        criterios.km_max,
+        criterios.qtd_itens_min,
+        criterios.qtd_itens_max,
+        sim.temAjudante,
+        Math.round(gap * 100) / 100,
+      ),
+    });
+    return;
+  }
+
+  // Fluxo normal: gera proxima simulacao direto
   const proxima = gerarSimulacao(estado.veiculos);
   await salvarEstadoAvaliacao(phone, { ...estado, simAtual: proxima, total: novoTotal });
 
   await new Promise(r => setTimeout(r, 800));
   await sendToClient({ to: phone, message: formatarMensagemSimulacao(proxima, novoTotal + 1) });
+}
+
+// Handler do step admin_confirmar_ajuste (SOMENTE admin)
+async function handleAdminConfirmarAjuste(phone: string, message: string) {
+  // Proteção: se qualquer número que NÃO seja o ADMIN_PHONE chegar aqui, ignora
+  // (isso não deveria acontecer, mas é uma defesa em profundidade)
+  if (phone !== ADMIN_PHONE) {
+    await updateSession(phone, { step: "inicio" });
+    await sendToClient({ to: phone, message: "Comando nao reconhecido. Digite *oi* pra comecar." });
+    return;
+  }
+
+  const lower = message.toLowerCase().trim();
+  const estado = await getEstadoAvaliacao(phone);
+  if (!estado) {
+    await updateSession(phone, { step: "inicio" });
+    return;
+  }
+  const pendingAjuste = (estado as any).pendingAjuste;
+
+  const confirmou = lower === "1" || lower === "sim" || lower === "aplicar";
+  const cancelou = lower === "2" || lower === "nao" || lower === "não";
+
+  if (confirmou && pendingAjuste) {
+    // Cria regra em ajustes_precos
+    const { criterios, fatorMultiplicador, gapPct } = pendingAjuste;
+    await supabase.from("ajustes_precos").insert({
+      veiculo: criterios.veiculo,
+      zona: criterios.zona,
+      km_min: criterios.km_min,
+      km_max: criterios.km_max,
+      qtd_itens_min: criterios.qtd_itens_min,
+      qtd_itens_max: criterios.qtd_itens_max,
+      com_ajudante: criterios.com_ajudante,
+      fator_multiplicador: Math.round(fatorMultiplicador * 1000) / 1000,
+      valor_fixo: 0,
+      descricao: `Ajuste via WhatsApp (${gapPct > 0 ? "+" : ""}${gapPct}%)`,
+      ativo: true,
+    });
+    invalidarCacheAjustes(); // forca recarga das regras no cache
+
+    await sendToClient({ to: phone, message: MSG.adminAjusteAplicado });
+  } else if (cancelou) {
+    await sendToClient({ to: phone, message: MSG.adminAjusteNaoAplicado });
+  } else {
+    await sendToClient({ to: phone, message: "Responda *1* pra aplicar ou *2* pra so guardar o feedback" });
+    return;
+  }
+
+  // Retoma o loop de avaliacao com proxima simulacao
+  const proxima = gerarSimulacao(estado.veiculos);
+  await salvarEstadoAvaliacao(phone, { veiculos: estado.veiculos, simAtual: proxima, total: estado.total });
+  await updateSession(phone, { step: "avaliar_aguardando_preco" });
+
+  await new Promise(r => setTimeout(r, 800));
+  await sendToClient({ to: phone, message: formatarMensagemSimulacao(proxima, estado.total + 1) });
 }
 
 async function handleContraofertaData(phone: string, message: string) {

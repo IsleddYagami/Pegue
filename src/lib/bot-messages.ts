@@ -286,6 +286,76 @@ O link de pagamento sera enviado manualmente pela equipe Pegue em alguns minutos
 
 Apos o pagamento, seu frete esta 100% confirmado. 🚚`,
 
+  // === AVALIACAO DE PRECOS PELOS FRETISTAS ===
+
+  avaliarIntro: `🎯 *Avaliacao de Precos - Pegue*
+
+Obrigado por ajudar a Pegue a manter precos justos!
+
+Como funciona:
+1. Voce escolhe quais veiculos quer avaliar (pode ser varios)
+2. Vou te mostrar varios fretes aleatorios, um por vez
+3. Pra cada um, voce me diz quanto cobraria
+4. Pode responder quantos quiser! Digite *PARAR* quando cansar
+
+Nao precisa pensar muito - me diga o primeiro valor justo que vier na cabeca.
+
+Vamos la! *Quais veiculos voce quer avaliar?*
+
+Escolha um ou mais (separe por virgula ou espaco):
+1️⃣ Carro comum (Kicks, Livina)
+2️⃣ Utilitario (Strada, Saveiro)
+3️⃣ HR (Hyundai HR, Bongo)
+4️⃣ Caminhao Bau
+
+Exemplo: *2* (so utilitario) ou *2 3* (utilitario e HR)`,
+
+  avaliarOpcaoInvalida: `Nao entendi 😅
+
+Escolha um ou mais veiculos separando por espaco ou virgula:
+
+1️⃣ Carro comum
+2️⃣ Utilitario
+3️⃣ HR
+4️⃣ Caminhao Bau
+
+Exemplo: *2 3* (pra avaliar Utilitario e HR)
+
+Ou digite *PARAR* pra sair.`,
+
+  avaliarIniciando: (veiculos: string) =>
+    `✅ Otimo! Voce vai avaliar: *${veiculos}*
+
+Vou te mandar o primeiro frete agora...`,
+
+  avaliarPrecoInvalido: `Nao entendi o valor 😅
+
+Me manda *so o numero*, sem "R$" nem ".", nem virgula. Exemplo: *450*
+
+Ou digite:
+- *PARAR* pra finalizar
+- *PROXIMO* pra pular sem avaliar`,
+
+  avaliarRespostaSalva: (precoPegue: number, precoFretista: number) => {
+    const gap = Math.round(((precoFretista - precoPegue) / precoPegue) * 100);
+    const sinal = gap > 0 ? `+${gap}%` : `${gap}%`;
+    const icone = Math.abs(gap) <= 10 ? "🟢" : Math.abs(gap) <= 25 ? "🟡" : "🔴";
+    return `${icone} Registrado! Voce cobraria *R$ ${precoFretista}* (${sinal} vs Pegue)
+
+Proximo frete chegando...`;
+  },
+
+  avaliarFinalizado: (total: number) =>
+    `🎉 *Obrigado pela ajuda!*
+
+Voce avaliou *${total} frete${total > 1 ? "s" : ""}*.
+
+Seus feedbacks vao me ajudar a calibrar precos pra todos - voces, clientes e a Pegue.
+
+Qualquer hora que quiser avaliar mais, so digitar *AVALIAR* aqui.
+
+Ate mais! 🚚✨`,
+
   // Dispatch para fretistas
   novoFreteDisponivel: (
     origem: string,

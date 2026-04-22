@@ -32,6 +32,7 @@ import {
 } from "@/lib/bot-utils";
 import { supabase } from "@/lib/supabase";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
+import { gerarSimulacao, formatarMensagemSimulacao, nomeVeiculo as nomeVeiculoAval, type SimulacaoAvaliacao } from "@/lib/simulacao-avaliacao";
 
 export const dynamic = "force-dynamic";
 
@@ -397,6 +398,12 @@ async function handleClienteMessage(
     return;
   }
 
+  // Comando AVALIAR - inicia fluxo de avaliacao de precos
+  if (lower === "avaliar" || lower === "avaliar precos" || lower === "avaliar preço" || lower === "avaliar preços") {
+    await handleAvaliarIniciar(phone);
+    return;
+  }
+
   // Dashboard do cliente
   if (lower === "minha conta" || lower === "meu historico" || lower === "meus servicos") {
     await handleDashboardCliente(phone);
@@ -647,6 +654,14 @@ Boa sorte! 🎯`,
 
     case "aguardando_contraoferta_data":
       await handleContraofertaData(phone, message);
+      break;
+
+    case "avaliar_escolher_veiculos":
+      await handleAvaliarEscolherVeiculos(phone, message);
+      break;
+
+    case "avaliar_aguardando_preco":
+      await handleAvaliarAguardandoPreco(phone, message);
       break;
 
     // === CADASTRO PRESTADOR ===
@@ -1522,6 +1537,160 @@ async function handleNumeroColeta(phone: string, message: string) {
 }
 
 // === CONTRAOFERTA DE DATA (cliente responde proposta do fretista) ===
+// === AVALIACAO DE PRECOS PELOS FRETISTAS ===
+
+// Estado temporario guardado em bot_logs (tipo = "avaliacao_estado_fretista")
+async function getEstadoAvaliacao(phone: string): Promise<{
+  veiculos: string[];
+  simAtual: SimulacaoAvaliacao | null;
+  total: number;
+} | null> {
+  const { data } = await supabase
+    .from("bot_logs")
+    .select("payload")
+    .filter("payload->>tipo", "eq", "avaliacao_estado_fretista")
+    .filter("payload->>phone", "eq", phone)
+    .order("criado_em", { ascending: false })
+    .limit(1);
+  if (!data || data.length === 0) return null;
+  const p = data[0].payload as any;
+  return {
+    veiculos: p.veiculos || [],
+    simAtual: p.simAtual || null,
+    total: p.total || 0,
+  };
+}
+
+async function salvarEstadoAvaliacao(phone: string, estado: {
+  veiculos: string[];
+  simAtual: SimulacaoAvaliacao | null;
+  total: number;
+}) {
+  await supabase.from("bot_logs").insert({
+    payload: { tipo: "avaliacao_estado_fretista", phone, ...estado },
+  });
+}
+
+async function handleAvaliarIniciar(phone: string) {
+  await updateSession(phone, { step: "avaliar_escolher_veiculos" });
+  await sendToClient({ to: phone, message: MSG.avaliarIntro });
+}
+
+async function handleAvaliarEscolherVeiculos(phone: string, message: string) {
+  const lower = message.toLowerCase().trim();
+
+  if (lower === "parar" || lower === "sair" || lower === "cancelar") {
+    await updateSession(phone, { step: "inicio" });
+    await sendToClient({ to: phone, message: "Ok, sem problema! Qualquer hora digite *AVALIAR* pra recomecar. 🚚" });
+    return;
+  }
+
+  // Parseia numeros da mensagem (aceita "2", "2 3", "2,3", "2, 3")
+  const numeros = message.match(/[1-4]/g);
+  if (!numeros || numeros.length === 0) {
+    await sendToClient({ to: phone, message: MSG.avaliarOpcaoInvalida });
+    return;
+  }
+
+  const mapaVeiculos: Record<string, string> = {
+    "1": "carro_comum",
+    "2": "utilitario",
+    "3": "hr",
+    "4": "caminhao_bau",
+  };
+  const veiculos = [...new Set(numeros.map(n => mapaVeiculos[n]).filter(Boolean))];
+
+  if (veiculos.length === 0) {
+    await sendToClient({ to: phone, message: MSG.avaliarOpcaoInvalida });
+    return;
+  }
+
+  const nomes = veiculos.map(nomeVeiculoAval).join(", ");
+  await sendToClient({ to: phone, message: MSG.avaliarIniciando(nomes) });
+
+  // Gera primeira simulacao
+  const sim = gerarSimulacao(veiculos);
+  await salvarEstadoAvaliacao(phone, { veiculos, simAtual: sim, total: 0 });
+  await updateSession(phone, { step: "avaliar_aguardando_preco" });
+
+  await new Promise(r => setTimeout(r, 1000));
+  await sendToClient({ to: phone, message: formatarMensagemSimulacao(sim, 1) });
+}
+
+async function handleAvaliarAguardandoPreco(phone: string, message: string) {
+  const lower = message.toLowerCase().trim();
+  const estado = await getEstadoAvaliacao(phone);
+
+  if (!estado || !estado.simAtual) {
+    await updateSession(phone, { step: "inicio" });
+    await sendToClient({ to: phone, message: "Ops, perdi o contexto da avaliacao. Digite *AVALIAR* pra comecar de novo." });
+    return;
+  }
+
+  // PARAR finaliza
+  if (lower === "parar" || lower === "sair" || lower === "cancelar" || lower === "fim" || lower === "chega") {
+    await updateSession(phone, { step: "inicio" });
+    await sendToClient({ to: phone, message: MSG.avaliarFinalizado(estado.total) });
+    return;
+  }
+
+  // PROXIMO pula sem avaliar
+  if (lower === "proximo" || lower === "próximo" || lower === "pular" || lower === "skip") {
+    const sim = gerarSimulacao(estado.veiculos);
+    await salvarEstadoAvaliacao(phone, { ...estado, simAtual: sim });
+    await sendToClient({ to: phone, message: "⏭️ Pulado. Proximo frete:" });
+    await new Promise(r => setTimeout(r, 500));
+    await sendToClient({ to: phone, message: formatarMensagemSimulacao(sim, estado.total + 1) });
+    return;
+  }
+
+  // Tenta extrair numero (aceita "R$ 450", "450", "450,00", "450.00", "R$ 450,00")
+  const numMatch = message.replace(/[^\d]/g, "");
+  const preco = parseInt(numMatch);
+  if (!preco || preco < 50 || preco > 10000) {
+    await sendToClient({ to: phone, message: MSG.avaliarPrecoInvalido });
+    return;
+  }
+
+  const sim = estado.simAtual;
+  const gap = ((preco - sim.precoPegue) / sim.precoPegue) * 100;
+
+  // Busca nome do fretista se cadastrado
+  const { data: prestador } = await supabase
+    .from("prestadores")
+    .select("nome")
+    .eq("telefone", phone)
+    .maybeSingle();
+
+  // Salva feedback
+  await supabase.from("feedback_precos").insert({
+    fretista_phone: phone,
+    fretista_nome: prestador?.nome || null,
+    veiculo: sim.veiculo,
+    rota_id: sim.rota.id,
+    origem: sim.rota.origem,
+    destino: sim.rota.destino,
+    distancia_km: sim.rota.km,
+    zona: sim.rota.zonaDestino,
+    itens: sim.itens.join(" + "),
+    qtd_itens: sim.qtdItens,
+    tem_ajudante: sim.temAjudante,
+    preco_pegue: sim.precoPegue,
+    preco_sugerido: preco,
+    gap_percentual: Math.round(gap * 100) / 100,
+  });
+
+  const novoTotal = estado.total + 1;
+  await sendToClient({ to: phone, message: MSG.avaliarRespostaSalva(sim.precoPegue, preco) });
+
+  // Gera proxima simulacao
+  const proxima = gerarSimulacao(estado.veiculos);
+  await salvarEstadoAvaliacao(phone, { ...estado, simAtual: proxima, total: novoTotal });
+
+  await new Promise(r => setTimeout(r, 800));
+  await sendToClient({ to: phone, message: formatarMensagemSimulacao(proxima, novoTotal + 1) });
+}
+
 async function handleContraofertaData(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
   const session = await getSession(phone);

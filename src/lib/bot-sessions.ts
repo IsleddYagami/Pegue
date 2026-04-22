@@ -38,6 +38,8 @@ export type BotStep =
   | "aguardando_numero_coleta"
   | "fretista_confirmar_alteracao_data"
   | "aguardando_contraoferta_data"
+  | "avaliar_escolher_veiculos"
+  | "avaliar_aguardando_preco"
   | "guincho_categoria"
   | "guincho_tipo_veiculo"
   | "guincho_marca_modelo"

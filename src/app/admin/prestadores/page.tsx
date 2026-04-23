@@ -274,6 +274,12 @@ export default function PrestadoresPage() {
                 {/* Botoes de acao admin - reenviar termos (WhatsApp) e email de arquivamento */}
                 {p.status !== "bloqueado" && (
                   <div className="mt-3 grid gap-2">
+                    <a
+                      href={`/admin/prestadores/veiculos?prestador_id=${p.id}&nome=${encodeURIComponent(p.nome || "")}`}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#C9A84C]/30 bg-[#C9A84C]/5 py-2 text-xs font-semibold text-[#C9A84C] transition hover:bg-[#C9A84C]/10"
+                    >
+                      🚗 Gerenciar veículos
+                    </a>
                     <button
                       onClick={() => reenviarTermosAtualizados(p.telefone, p.nome)}
                       className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-600 transition hover:border-[#C9A84C] hover:bg-[#C9A84C]/5 hover:text-[#C9A84C]"

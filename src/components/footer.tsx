@@ -111,7 +111,8 @@ export function Footer() {
             */}
             <strong className="text-gray-500">Pegue Fretes e Mudanças</strong><br />
             CNPJ: em processo de formalização<br />
-            Endereço: Osasco - SP (atendimento a domicílio na grande SP)
+            Sede: Presidente Altino, Osasco - SP<br />
+            Atendimento a domicílio em toda grande São Paulo
           </p>
         </div>
 

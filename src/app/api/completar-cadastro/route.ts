@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -8,6 +9,16 @@ export const maxDuration = 60;
 // Valida: token existe, nao expirou, e aplica o cadastro completando prestador
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit: max 5 tentativas/minuto por IP (pra prevenir brute force de tokens)
+    const ip = getClientIp(req);
+    const rl = await checkRateLimit({ chave: `completar_cadastro:${ip}`, max: 5 });
+    if (!rl.permitido) {
+      return NextResponse.json(
+        { error: "Muitas tentativas. Aguarde 1 minuto." },
+        { status: 429 }
+      );
+    }
+
     const formData = await req.formData();
     const token = formData.get("token")?.toString().trim();
 

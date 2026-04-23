@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { isValidAdminKey } from "@/lib/admin-auth";
+import { requireAdminAuth } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 // GET - busca todas configuracoes
 export async function GET(req: NextRequest) {
-  const key = req.nextUrl.searchParams.get("key");
-  if (!isValidAdminKey(key)) {
-    return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+  const auth = await requireAdminAuth(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   const { data } = await supabase
@@ -22,11 +22,13 @@ export async function GET(req: NextRequest) {
 // POST - altera uma configuracao
 export async function POST(req: NextRequest) {
   try {
-    const { key, chave, valor } = await req.json();
-
-    if (!isValidAdminKey(key)) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+    // Rate limit + key via auth helper (usa query ?key=X ou header Authorization)
+    const auth = await requireAdminAuth(req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
+
+    const { chave, valor } = await req.json();
 
     await supabase
       .from("configuracoes")

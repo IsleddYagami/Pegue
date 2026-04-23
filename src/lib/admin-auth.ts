@@ -39,3 +39,32 @@ export function isAdminPhone(phone: string | null | undefined): boolean {
   if (!phone) return false;
   return getAdminPhones().includes(phone);
 }
+
+// Helper completo de auth admin: rate limit por IP + validacao de key.
+// Retorna { ok: false, ...} pra responder direto ao cliente.
+// Rate limit: 10 tentativas/minuto por IP (pra /admin login).
+export async function requireAdminAuth(req: Request): Promise<
+  | { ok: true }
+  | { ok: false; status: number; error: string }
+> {
+  const { checkRateLimit, getClientIp } = await import("@/lib/rate-limit");
+
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit({ chave: `admin_auth:${ip}`, max: 10 });
+  if (!rl.permitido) {
+    return { ok: false, status: 429, error: "muitas tentativas, aguarde 1 minuto" };
+  }
+
+  // Extrai key da URL ou do header Authorization
+  const url = new URL(req.url);
+  const key =
+    url.searchParams.get("key") ||
+    req.headers.get("authorization")?.replace("Bearer ", "") ||
+    null;
+
+  if (!isValidAdminKey(key)) {
+    return { ok: false, status: 401, error: "acesso negado" };
+  }
+
+  return { ok: true };
+}

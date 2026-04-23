@@ -151,7 +151,10 @@ export default function AdminPage() {
             <p className="text-xs text-gray-500">Dashboard administrativo</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <a href="/admin/revisao-precos" className="flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-sm font-bold text-orange-400 hover:bg-orange-500/20 transition-all">
+            <AlertTriangle className="h-4 w-4" /> Revisao Precos
+          </a>
           <a href="/admin/operacao" className="flex items-center gap-2 rounded-lg bg-[#C9A84C] px-4 py-2 text-sm font-bold text-[#000] hover:scale-[1.02] transition-all">
             <DollarSign className="h-4 w-4" /> Operacao
           </a>

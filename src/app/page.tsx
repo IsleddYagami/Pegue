@@ -27,25 +27,25 @@ export default function HomePage() {
         }} />
 
         <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 pt-4 pb-16 text-center md:pt-6 md:pb-24">
-          <Image src="/logo-pegue-novo.png" alt="Pegue" width={1000} height={1000} className="-mb-24 md:-mb-40 h-[30rem] w-auto md:h-[40rem]" priority />
+          <Image src="/logo-pegue-novo.png" alt="Pegue - Fretes e Mudanças em Osasco" width={1000} height={1000} className="-mb-16 md:-mb-40 h-64 w-auto sm:h-[22rem] md:h-[40rem]" priority />
 
-          {/* FRASE PRINCIPAL - A PRIMEIRA QUE O CLIENTE LE */}
+          {/* FRASE PRINCIPAL - Emocional + SEO local */}
           <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
-            Carreto, Mudança, Frete e <span className="text-[#C9A84C]">Guincho</span>?
+            Carreto em <span className="text-[#C9A84C]">Osasco</span>, Mudança, Frete e Guincho?
           </h1>
 
           <p className="font-display mt-5 max-w-2xl text-lg font-medium leading-snug text-white md:text-2xl">
-            Não precisa procurar mais, vamos te ajudar <span className="text-[#C9A84C] font-semibold">rápido</span>, pode ter certeza!
+            Mudar já é estressante. O carreto <span className="text-[#C9A84C] font-semibold">não precisa ser</span>.
           </p>
 
-          <p className="font-display mt-2 text-2xl font-bold italic text-[#C9A84C] md:text-3xl">
-            Vamos lá! 🚚
+          <p className="font-display mt-2 text-lg text-gray-300 md:text-xl">
+            Manda sua foto e seu destino no WhatsApp. A gente resolve. 🚚
           </p>
 
           {/* BADGE DE PRECO */}
           <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-5 py-2 text-sm font-medium text-[#C9A84C] md:text-base">
             <Zap className="h-4 w-4" />
-            A partir de R$ 150 · Preço na hora pelo WhatsApp
+            A partir de R$ 150 · Orçamento sem compromisso
           </div>
 
           {/* BOTAO PRINCIPAL */}
@@ -56,26 +56,26 @@ export default function HomePage() {
             className="group mt-8 flex items-center gap-3 rounded-full bg-[#C9A84C] px-10 py-5 text-xl font-bold text-[#000] shadow-lg shadow-[#C9A84C]/20 transition-all hover:scale-105 hover:shadow-xl hover:shadow-[#C9A84C]/30"
           >
             <MessageCircle className="h-6 w-6" />
-            Quero meu preço agora
+            Pegar orçamento no WhatsApp
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </a>
 
-          {/* PROVA SOCIAL RAPIDA */}
+          {/* PROVA SOCIAL RAPIDA - mantém "Fretistas verificados" (real) e troca os exagerados */}
           <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm text-gray-400">
-            <span className="flex items-center gap-1"><Star className="h-4 w-4 text-[#C9A84C]" /> 4.9 avaliação</span>
-            <span className="flex items-center gap-1"><Shield className="h-4 w-4 text-[#C9A84C]" /> Fretistas verificados</span>
-            <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-[#C9A84C]" /> Resposta em 2 min</span>
+            <span className="flex items-center gap-1"><Shield className="h-4 w-4 text-[#C9A84C]" /> Fretistas cadastrados com CPF e CNH</span>
+            <span className="flex items-center gap-1"><MessageCircle className="h-4 w-4 text-[#C9A84C]" /> 100% pelo WhatsApp</span>
+            <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-[#C9A84C]" /> Orçamento em minutos</span>
           </div>
         </div>
       </section>
 
-      {/* ===== PROVA SOCIAL - NUMEROS ===== */}
+      {/* ===== PROVA SOCIAL - NUMEROS VERIFICAVEIS ===== */}
       <section className="border-y border-[#C9A84C]/10 bg-[#000]">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-8 px-4 py-5 md:gap-16">
           {[
-            { numero: "+850", label: "carretos e mudancas" },
-            { numero: "4.9", label: "nota dos clientes" },
-            { numero: "2 min", label: "preco na hora" },
+            { numero: "Osasco", label: "e grande SP" },
+            { numero: "3 tipos", label: "frete, mudança, guincho" },
+            { numero: "24h", label: "guincho disponível" },
           ].map((item) => (
             <div key={item.label} className="text-center">
               <p className="text-2xl font-extrabold text-[#C9A84C] md:text-3xl">{item.numero}</p>
@@ -330,26 +330,46 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ===== DEPOIMENTO / CONFIANCA ===== */}
+      {/* ===== GARANTIAS / CONFIANCA (substitui depoimentos ficticios) ===== */}
       <section className="bg-[#000] py-16 md:py-20">
-        <div className="mx-auto max-w-3xl px-4 text-center">
-          <h2 className="mb-10 text-2xl font-extrabold md:text-3xl">
-            Clientes que <span className="text-[#C9A84C]">confiam</span>
+        <div className="mx-auto max-w-4xl px-4">
+          <h2 className="mb-3 text-center text-2xl font-extrabold md:text-3xl">
+            Por que a Pegue é <span className="text-[#C9A84C]">diferente</span>
           </h2>
+          <p className="mb-10 text-center text-gray-400">
+            Transparência e segurança são pré-requisitos, não diferencial.
+          </p>
+
           <div className="grid gap-4 md:grid-cols-3">
-            {[
-              { nome: "Camila S.", texto: "Cotei em 2 minutos e o preço foi justo. Recomendo!" },
-              { nome: "Rafael M.", texto: "Mudança completa sem stress. A Pegue resolve mesmo!" },
-              { nome: "Ana P.", texto: "Precisei de guincho de madrugada e me atenderam rápido." },
-            ].map((d, i) => (
-              <div key={i} className="rounded-xl border border-[#C9A84C]/10 bg-[#0A0A0A] p-5">
-                <div className="mb-2 flex justify-center gap-1">
-                  {[1,2,3,4,5].map(s => <Star key={s} className="h-4 w-4 fill-[#C9A84C] text-[#C9A84C]" />)}
-                </div>
-                <p className="text-sm text-gray-300">"{d.texto}"</p>
-                <p className="mt-3 text-xs font-bold text-[#C9A84C]">{d.nome}</p>
+            <div className="rounded-xl border border-[#C9A84C]/10 bg-[#0A0A0A] p-5">
+              <div className="mb-2 flex justify-center">
+                <Shield className="h-8 w-8 text-[#C9A84C]" />
               </div>
-            ))}
+              <h3 className="text-center text-base font-bold text-white">Fretistas verificados</h3>
+              <p className="mt-2 text-center text-sm text-gray-400">
+                Cadastro com CPF, CNH, foto do veículo e aceite dos termos. Sem intermediário anônimo.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-[#C9A84C]/10 bg-[#0A0A0A] p-5">
+              <div className="mb-2 flex justify-center">
+                <DollarSign className="h-8 w-8 text-[#C9A84C]" />
+              </div>
+              <h3 className="text-center text-base font-bold text-white">Preço na hora</h3>
+              <p className="mt-2 text-center text-sm text-gray-400">
+                Você vê o valor antes de fechar. Nada de surpresa no dia da coleta.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-[#C9A84C]/10 bg-[#0A0A0A] p-5">
+              <div className="mb-2 flex justify-center">
+                <MessageCircle className="h-8 w-8 text-[#C9A84C]" />
+              </div>
+              <h3 className="text-center text-base font-bold text-white">Sem app, sem cadastro</h3>
+              <p className="mt-2 text-center text-sm text-gray-400">
+                Tudo pelo WhatsApp que você já tem. Sem complicação, sem baixar nada.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -407,6 +427,115 @@ export default function HomePage() {
           </p>
         </div>
       </section>
+
+      {/* ===== REGIOES ATENDIDAS ===== */}
+      <section className="bg-[#000] py-16 md:py-20">
+        <div className="mx-auto max-w-4xl px-4">
+          <h2 className="mb-3 text-center text-2xl font-extrabold md:text-3xl">
+            Atendemos <span className="text-[#C9A84C]">Osasco</span> e região
+          </h2>
+          <p className="mb-10 text-center text-gray-400">
+            Zona oeste da grande São Paulo e principais bairros da capital
+          </p>
+
+          <div className="grid gap-3 text-sm sm:grid-cols-2 md:grid-cols-3">
+            {[
+              ["Osasco", "Centro, Vila Yara, Km 18, Helena Maria, Presidente Altino, Jaguaribe, Piratininga, Pres. Altino"],
+              ["Carapicuíba", "Cidade Ariston, Centro, Vila Dirce, Cohab"],
+              ["Barueri", "Centro, Alphaville, Tamboré, Vila São Jorge"],
+              ["Cotia", "Centro, Granja Viana, Parque São George"],
+              ["Itapevi", "Centro, Cohab, Vila Nova Itapevi"],
+              ["Jandira", "Centro, Parque Santa Tereza"],
+              ["São Paulo — Zona Oeste", "Butantã, Lapa, Pinheiros, Vila Leopoldina, Barra Funda"],
+              ["São Paulo — Zona Sul", "Morumbi, Vila Sônia, Campo Limpo"],
+              ["ABC", "Santo André, São Caetano, São Bernardo"],
+            ].map(([cidade, bairros]) => (
+              <div key={cidade} className="rounded-xl border border-[#C9A84C]/10 bg-[#0A0A0A] p-4">
+                <p className="font-bold text-[#C9A84C]">{cidade}</p>
+                <p className="mt-1 text-xs text-gray-500">{bairros}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-8 text-center text-sm text-gray-500">
+            Não encontrou sua região? Fala com a gente pelo WhatsApp — temos fretista em várias cidades da grande SP.
+          </p>
+        </div>
+      </section>
+
+      {/* ===== FAQ INLINE ===== */}
+      <section className="bg-[#000] py-16 md:py-20 border-t border-[#C9A84C]/10">
+        <div className="mx-auto max-w-3xl px-4">
+          <h2 className="mb-10 text-center text-2xl font-extrabold md:text-3xl">
+            Perguntas <span className="text-[#C9A84C]">frequentes</span>
+          </h2>
+
+          <div className="space-y-3">
+            {[
+              {
+                q: "Como funciona a cotação?",
+                a: "Você manda uma mensagem no nosso WhatsApp com o endereço de origem, destino e foto do material. Em minutos recebe o valor com o fretista disponível."
+              },
+              {
+                q: "Quanto custa o frete?",
+                a: "A partir de R$ 150 para carreto pequeno. O valor final depende da distância, tipo de veículo e se precisa de ajudante. O orçamento é gratuito e sem compromisso."
+              },
+              {
+                q: "Quais formas de pagamento?",
+                a: "Pix (sem taxas) ou cartão de crédito/débito via Mercado Pago. Pagamento só depois que o fretista aceita o serviço."
+              },
+              {
+                q: "Os fretistas são verificados?",
+                a: "Sim. Todos passam por cadastro com CPF, CNH, selfie com documento, foto do veículo e aceite dos termos. Os cadastros ficam registrados no nosso sistema."
+              },
+              {
+                q: "Preciso desmontar os móveis?",
+                a: "Sim. Não fazemos desmontagem/montagem. Guarda-roupas, camas, beliches, estantes e armários grandes precisam estar desmontados antes da coleta. Geladeira precisa estar seca e descongelada 6h antes."
+              },
+              {
+                q: "Posso agendar para outro dia?",
+                a: "Sim. Você escolhe o dia e o horário no WhatsApp. Se for guincho, atendemos 24h todos os dias."
+              },
+              {
+                q: "E se algo der errado?",
+                a: "Nosso sistema guarda registro de tudo (fotos, horários, localização). Qualquer problema, é só falar conosco pelo WhatsApp e resolvemos."
+              },
+            ].map((item, i) => (
+              <details key={i} className="group rounded-xl border border-[#C9A84C]/10 bg-[#0A0A0A] p-4 open:border-[#C9A84C]/30">
+                <summary className="flex cursor-pointer items-center justify-between text-base font-semibold text-white">
+                  {item.q}
+                  <span className="ml-4 text-[#C9A84C] transition-transform group-open:rotate-45 text-2xl leading-none">+</span>
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed text-gray-400">{item.a}</p>
+              </details>
+            ))}
+          </div>
+
+          <div className="mt-8 text-center">
+            <Link href="/faq" className="text-sm font-semibold text-[#C9A84C] hover:underline">
+              Ver todas as perguntas →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Schema para Google mostrar no resultado */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [
+              { "@type": "Question", "name": "Como funciona a cotação?", "acceptedAnswer": { "@type": "Answer", "text": "Você manda uma mensagem no nosso WhatsApp com o endereço de origem, destino e foto do material. Em minutos recebe o valor com o fretista disponível." }},
+              { "@type": "Question", "name": "Quanto custa o frete?", "acceptedAnswer": { "@type": "Answer", "text": "A partir de R$ 150 para carreto pequeno. O valor final depende da distância, tipo de veículo e se precisa de ajudante." }},
+              { "@type": "Question", "name": "Os fretistas são verificados?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. Todos passam por cadastro com CPF, CNH, selfie com documento, foto do veículo e aceite dos termos." }},
+              { "@type": "Question", "name": "Preciso desmontar os móveis?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. Não fazemos desmontagem/montagem. Guarda-roupas, camas, beliches, estantes e armários grandes precisam estar desmontados antes da coleta." }},
+              { "@type": "Question", "name": "Atende quais regiões?", "acceptedAnswer": { "@type": "Answer", "text": "Atendemos Osasco, Carapicuíba, Barueri, Cotia, Itapevi, Jandira e principais bairros da grande São Paulo (Zona Oeste, Zona Sul, ABC)." }},
+            ]
+          })
+        }}
+      />
 
       {/* ===== INSTAGRAM ===== */}
       <section className="border-y border-[#C9A84C]/10 bg-[#000] py-8">

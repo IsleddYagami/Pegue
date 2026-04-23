@@ -6,7 +6,7 @@ export function Footer() {
   return (
     <footer className="bg-[#000000] text-gray-400">
       <div className="mx-auto max-w-6xl px-4 py-12">
-        <div className="grid gap-8 md:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-4">
           {/* Brand */}
           <div>
             <Image
@@ -17,27 +17,55 @@ export function Footer() {
               className="h-12 w-auto"
             />
             <p className="mt-3 text-sm leading-relaxed">
-              Frete e mudanca sem dor de cabeca.
+              Frete e mudança sem dor de cabeça.
             </p>
             <p className="mt-1 text-sm text-gray-600">
-              Grande SP &middot; Litoral &middot; Interior
+              Osasco &middot; Grande SP &middot; Interior
             </p>
+            <p className="mt-4 text-xs text-gray-600 leading-relaxed">
+              Pegue é uma plataforma intermediadora de fretes, mudanças e
+              guinchos que conecta clientes a fretistas autônomos verificados.
+            </p>
+          </div>
+
+          {/* Servicos */}
+          <div>
+            <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#C9A84C]">
+              Serviços
+            </p>
+            <div className="flex flex-col gap-2 text-sm">
+              <Link href="/carreto" className="transition-colors hover:text-[#C9A84C]">
+                Carreto em Osasco
+              </Link>
+              <Link href="/guincho" className="transition-colors hover:text-[#C9A84C]">
+                Guincho 24h
+              </Link>
+              <Link href="/simular" className="transition-colors hover:text-[#C9A84C]">
+                Simular Frete
+              </Link>
+              <Link href="/parceiro" className="transition-colors hover:text-[#C9A84C]">
+                Seja um parceiro
+              </Link>
+            </div>
           </div>
 
           {/* Links */}
           <div>
             <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#C9A84C]">
-              Links
+              Institucional
             </p>
             <div className="flex flex-col gap-2 text-sm">
-              <Link href="/simular" className="transition-colors hover:text-[#C9A84C]">
-                Simular Frete
+              <Link href="/faq" className="transition-colors hover:text-[#C9A84C]">
+                Perguntas Frequentes
               </Link>
               <Link href="/rastrear" className="transition-colors hover:text-[#C9A84C]">
                 Rastrear Pedido
               </Link>
-              <Link href="/faq" className="transition-colors hover:text-[#C9A84C]">
-                Perguntas Frequentes
+              <Link href="/politica-privacidade" className="transition-colors hover:text-[#C9A84C]">
+                Política de Privacidade
+              </Link>
+              <Link href="/termos-uso" className="transition-colors hover:text-[#C9A84C]">
+                Termos de Uso
               </Link>
             </div>
           </div>
@@ -54,7 +82,7 @@ export function Footer() {
                 rel="noopener noreferrer"
                 className="transition-colors hover:text-[#C9A84C]"
               >
-                WhatsApp
+                WhatsApp: (11) 97036-3713
               </a>
               <a
                 href={INSTAGRAM_LINK}
@@ -65,22 +93,35 @@ export function Footer() {
                 {INSTAGRAM_HANDLE}
               </a>
               <a
-                href="mailto:contato@pegue.com.br"
+                href="mailto:contato@chamepegue.com.br"
                 className="transition-colors hover:text-[#C9A84C]"
               >
-                contato@pegue.com.br
+                contato@chamepegue.com.br
               </a>
             </div>
           </div>
         </div>
 
+        {/* Dados empresariais - LGPD + CDC compliance */}
+        <div className="mt-8 border-t border-[#C9A84C]/10 pt-6">
+          <p className="text-xs text-gray-600 leading-relaxed">
+            {/*
+              IMPORTANTE: preencher com dados reais antes de escalar marketing/ads.
+              Exigido por CDC (art. 31) e LGPD (transparencia).
+            */}
+            <strong className="text-gray-500">Pegue Fretes e Mudanças</strong><br />
+            CNPJ: em processo de formalização<br />
+            Endereço: Osasco - SP (atendimento a domicílio na grande SP)
+          </p>
+        </div>
+
         {/* Trust micro-text */}
-        <div className="mt-8 border-t border-[#C9A84C]/10 pt-6 text-center">
+        <div className="mt-6 border-t border-[#C9A84C]/10 pt-6 text-center">
           <p className="text-[11px] text-gray-600">
-            Motoristas verificados &middot; Pagamento protegido &middot; Prova digital de entrega
+            Fretistas verificados &middot; Pagamento protegido via Mercado Pago &middot; Rastreamento em tempo real
           </p>
           <p className="mt-2 text-xs text-gray-700">
-            &copy; {new Date().getFullYear()} Pegue®. Todos os direitos reservados.
+            &copy; {new Date().getFullYear()} Pegue. Todos os direitos reservados.
           </p>
         </div>
       </div>

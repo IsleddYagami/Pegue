@@ -135,7 +135,7 @@ export default function TermosUso() {
               <h2 className="text-xl font-bold text-[#0A0A0A]">13. Contato</h2>
               <p>
                 WhatsApp: (11) 97036-3713<br />
-                E-mail: <a href="mailto:contato@chamepegue.com.br" className="text-[#C9A84C]">contato@chamepegue.com.br</a>
+                E-mail: <a href="mailto:fretesresgatespg@gmail.com" className="text-[#C9A84C]">fretesresgatespg@gmail.com</a>
               </p>
             </section>
           </div>

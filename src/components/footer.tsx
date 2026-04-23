@@ -93,10 +93,10 @@ export function Footer() {
                 {INSTAGRAM_HANDLE}
               </a>
               <a
-                href="mailto:contato@chamepegue.com.br"
+                href="mailto:fretesresgatespg@gmail.com"
                 className="transition-colors hover:text-[#C9A84C]"
               >
-                contato@chamepegue.com.br
+                fretesresgatespg@gmail.com
               </a>
             </div>
           </div>

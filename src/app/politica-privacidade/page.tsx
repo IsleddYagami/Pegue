@@ -75,7 +75,7 @@ export default function PoliticaPrivacidade() {
                 <li>Solicitar portabilidade dos dados.</li>
               </ul>
               <p className="mt-2">
-                Para exercer esses direitos, entre em contato pelo WhatsApp (11) 97036-3713 ou e-mail <a href="mailto:contato@chamepegue.com.br" className="text-[#C9A84C]">contato@chamepegue.com.br</a>.
+                Para exercer esses direitos, entre em contato pelo WhatsApp (11) 97036-3713 ou e-mail <a href="mailto:fretesresgatespg@gmail.com" className="text-[#C9A84C]">fretesresgatespg@gmail.com</a>.
               </p>
             </section>
 
@@ -118,7 +118,7 @@ export default function PoliticaPrivacidade() {
             <section>
               <h2 className="text-xl font-bold text-[#0A0A0A]">10. Contato do DPO</h2>
               <p>
-                Encarregado de Proteção de Dados: <a href="mailto:contato@chamepegue.com.br" className="text-[#C9A84C]">contato@chamepegue.com.br</a>
+                Encarregado de Proteção de Dados: <a href="mailto:fretesresgatespg@gmail.com" className="text-[#C9A84C]">fretesresgatespg@gmail.com</a>
               </p>
             </section>
 

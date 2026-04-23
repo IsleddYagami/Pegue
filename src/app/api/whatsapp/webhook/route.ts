@@ -41,6 +41,7 @@ import { gerarSimulacao, formatarMensagemSimulacao, nomeVeiculo as nomeVeiculoAv
 import { criteriosMediaDaSimulacao, invalidarCacheAjustes } from "@/lib/ajustes-precos";
 import { isAdminPhone } from "@/lib/admin-auth";
 import { notificarAdmins } from "@/lib/admin-notify";
+import { extrairContextoInicial, formatarConfirmacaoContexto, type ContextoExtraido } from "@/lib/extrair-contexto";
 
 export const dynamic = "force-dynamic";
 
@@ -644,6 +645,44 @@ Boa sorte! 🎯`,
     const primeiroNome = pushName ? pushName.split(" ")[0] : "";
     const nome = primeiroNome || "voce";
 
+    // NOVO: tenta extrair contexto da mensagem inicial via IA.
+    // Se cliente ja chega falando "quero sofa pra barra funda", pulamos etapas.
+    // Se IA nao detectou ou confianca baixa, cai no fluxo tradicional abaixo.
+    if (!isSaudacao(message) && message.trim().length >= 10) {
+      // Mostra "analisando" pra cliente nao achar que travou (IA leva 1-2s)
+      await sendToClient({
+        to: phone,
+        message: `Ola ${nome}! 😊 Recebi sua mensagem, ja estou analisando pra agilizar o atendimento...`,
+      });
+
+      const contexto = await extrairContextoInicial(message);
+
+      if (contexto && contexto.confianca !== "baixa") {
+        // Salva o que detectou na sessao (pra usar depois)
+        await updateSession(phone, {
+          step: "confirmar_contexto_inicial",
+          descricao_carga: contexto.itens.length > 0 ? contexto.itens.join(", ") : null,
+          veiculo_sugerido: contexto.veiculo_sugerido,
+        });
+
+        // Registra contexto completo em bot_logs (origem/destino textos vao ser usados depois)
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "contexto_extraido_inicial",
+            phone,
+            contexto,
+            mensagem_original: message.slice(0, 500),
+          },
+        });
+
+        await sendToClient({
+          to: phone,
+          message: formatarConfirmacaoContexto(contexto),
+        });
+        return;
+      }
+    }
+
     // Se digitou termo de servico direto (frete, guincho, carreto, mudanca)
     if (isInicioServico(message)) {
       const saudacaoRapida = `Ola ${nome}! 😊 Que bom ter voce aqui na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
@@ -761,6 +800,10 @@ Boa sorte! 🎯`,
 
     case "adicionar_item_descricao":
       await handleAdicionarItemDescricao(phone, message, false, null);
+      break;
+
+    case "confirmar_contexto_inicial":
+      await handleConfirmarContextoInicial(phone, message);
       break;
 
     case "aguardando_contraoferta_data":
@@ -2017,6 +2060,89 @@ async function handleAdicionarItemDescricao(phone: string, message: string, hasM
     phone,
     `Corrida: ${session.corrida_id}\nNovo item: ${descricaoNovaItem}\nLista atual: ${novaDescricao}`
   );
+}
+
+// Handler do step confirmar_contexto_inicial - cliente confirma o que IA entendeu
+// da primeira mensagem e pulamos etapas ja resolvidas.
+async function handleConfirmarContextoInicial(phone: string, message: string) {
+  const lower = message.toLowerCase().trim();
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const confirmou = lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "ok" || lower === "confirmar";
+  const recusou = lower === "2" || lower.startsWith("nao") || lower.startsWith("não") || lower === "n";
+
+  if (confirmou) {
+    // Busca contexto extraido no bot_logs mais recente
+    const { data: logCtx } = await supabase
+      .from("bot_logs")
+      .select("payload")
+      .filter("payload->>tipo", "eq", "contexto_extraido_inicial")
+      .filter("payload->>phone", "eq", phone)
+      .order("criado_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const contexto = (logCtx?.payload as any)?.contexto as ContextoExtraido | undefined;
+
+    // Decide proximo step baseado no que ja tem na sessao
+    if (contexto?.servico === "guincho") {
+      await updateSession(phone, { step: "guincho_categoria" });
+      await sendToClient({
+        to: phone,
+        message: `🚗 Certo! Guincho.\n\nPrecisa agora ou vai agendar?\n\n1️⃣ *Guincho Imediato* (preciso AGORA)\n2️⃣ *Guincho Agendado* (escolher dia e horario)`,
+      });
+      return;
+    }
+
+    // Frete ou mudanca: pode pular foto se ja detectou item
+    if (session.descricao_carga) {
+      // Item ja identificado, pula direto pra localizacao
+      await updateSession(phone, { step: "aguardando_localizacao" });
+      await sendToClient({
+        to: phone,
+        message: `Perfeito! Pulei a parte de identificar o material ✅\n\nAgora me manda a *localização de retirada* 📍\n\nClique no clipe 📎 > Localização 📍\nOu digite o *endereço completo com rua e bairro*`,
+      });
+      return;
+    }
+
+    // Nao tem item, vai pro fluxo normal de escolha de servico
+    await updateSession(phone, { step: "aguardando_servico" });
+    if (contexto?.servico === "mudanca") {
+      await handleEscolhaServico(phone, "2");
+      return;
+    }
+    if (contexto?.servico === "frete") {
+      await handleEscolhaServico(phone, "1");
+      return;
+    }
+
+    await sendToClient({
+      to: phone,
+      message: `Vamos la! 🚚\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
+    });
+    return;
+  }
+
+  if (recusou) {
+    // Cliente prefere preencher do zero - limpa o que foi detectado e manda menu
+    await updateSession(phone, {
+      step: "aguardando_servico",
+      descricao_carga: null,
+      veiculo_sugerido: null,
+    });
+    await sendToClient({
+      to: phone,
+      message: `Sem problema! 😊 Vamos do inicio.\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
+    });
+    return;
+  }
+
+  // Nao entendeu - repete opcoes
+  await sendToClient({
+    to: phone,
+    message: `Por favor responda:\n\n1️⃣ ✅ *SIM* - vamos continuar\n2️⃣ ❌ *NÃO* - prefiro preencher tudo do zero`,
+  });
 }
 
 // Handler do step confirmar_itens_foto - cliente confirma lista que IA identificou

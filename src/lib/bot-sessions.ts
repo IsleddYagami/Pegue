@@ -42,6 +42,7 @@ export type BotStep =
   | "aguardando_numero_destino"
   | "adicionar_pequeno_grande"
   | "adicionar_item_descricao"
+  | "confirmar_contexto_inicial"
   | "fretista_confirmar_alteracao_data"
   | "aguardando_contraoferta_data"
   | "avaliar_escolher_veiculos"

@@ -21,21 +21,35 @@ export async function POST(req: NextRequest) {
         {
           role: "system",
           content: `Voce e um assistente de uma empresa de fretes chamada Pegue.
-Analise a foto enviada pelo cliente e retorne APENAS um JSON com:
+Analise a foto enviada pelo cliente e IDENTIFIQUE TODOS os itens visiveis.
+Se houver 2, 3 ou mais itens (ex: rack com TV em cima = 2 itens, sofa + poltrona = 2 itens), LISTE TODOS.
+
+Para cada item, INFIRA o tamanho quando relevante e INCLUA no nome:
+- Guarda-roupa: "solteiro" (2 portas, ~1m largura), "casal" (3 portas, ~1.5m), "king" (4+ portas, ~1.8m+)
+- Cama: "solteiro", "casal", "queen", "king"
+- Mesa: "4 lugares", "6 lugares", "8+ lugares"
+- Sofa: "2 lugares", "3 lugares", "retratil"
+Ex: "Guarda-roupa casal", "Mesa 6 lugares", "Cama solteiro".
+Se NAO tiver certeza do tamanho, coloque "(?)": "Guarda-roupa (tamanho?)", "Mesa (tamanho?)".
+
+Retorne APENAS um JSON com:
 {
-  "item": "nome do item principal na foto (ex: Geladeira, Sofa, Caixas, Maquina de lavar)",
-  "quantidade": "quantidade estimada de itens (ex: 1, 3, varias caixas)",
-  "tamanho": "pequeno, medio ou grande",
+  "itens": ["Item 1 com tamanho", "Item 2 com tamanho", ...],
+  "quantidade_total": <numero de itens identificados>,
+  "tamanho_geral": "pequeno, medio ou grande",
   "veiculo_sugerido": "utilitario, hr ou caminhao_bau",
   "observacao": "uma frase curta sobre o que voce ve (max 15 palavras)"
 }
 
 REGRAS RIGIDAS para veiculo_sugerido (siga nesta ordem):
-1. Se for APENAS 1 item (mesmo grande como geladeira, maquina de lavar, fogao, sofa, cama) => "utilitario".
+1. Se for APENAS 1 item pequeno/medio (sofa 2 lugares, cama solteiro, guarda-roupa solteiro) => "utilitario".
 2. Se forem 2 itens pequenos/medios => "utilitario".
-3. Se forem 2-3 itens grandes juntos => "hr".
+3. Se tiver guarda-roupa casal/king, cama casal/queen/king, sofa 3 lugares, ou 2-3 itens grandes => "hr".
 4. Se for mudanca quase completa (4+ itens grandes) => "caminhao_bau".
-5. Na duvida entre utilitario e hr => SEMPRE "utilitario".
+5. Na duvida entre utilitario e hr => "hr" (seguranca).
+
+IMPORTANTE: se ver 2 ou mais itens na mesma foto (mesmo empilhados ou juntos), LISTE TODOS no array "itens".
+Exemplos: "rack com TV em cima" => ["Rack", "TV 50pol"]. "sofa + mesa" => ["Sofa 3 lugares", "Mesa 6 lugares"].
 
 Responda SOMENTE o JSON, nada mais.`,
         },
@@ -65,7 +79,7 @@ Responda SOMENTE o JSON, nada mais.`,
     const texto = response.choices[0]?.message?.content || "";
 
     // Extrair JSON da resposta
-    let analise;
+    let analise: any = null;
     try {
       const jsonMatch = texto.match(/\{[\s\S]*\}/);
       analise = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
@@ -73,28 +87,44 @@ Responda SOMENTE o JSON, nada mais.`,
       analise = null;
     }
 
+    // Valida e normaliza: garante que "itens" eh array. Se vier o formato antigo ("item" string),
+    // converte pra array. Fallback robusto pra JSON malformado.
     if (!analise) {
-      return NextResponse.json({
-        item: "Material identificado",
-        quantidade: "1",
-        tamanho: "medio",
-        veiculo_sugerido: "utilitario",
-        observacao: "Envie pelo WhatsApp para confirmacao do veiculo ideal.",
-      });
+      return NextResponse.json(fallbackAnalise());
     }
+
+    if (!Array.isArray(analise.itens)) {
+      // Compatibilidade com prompt antigo: se veio "item" singular, converte
+      if (typeof analise.item === "string") {
+        analise.itens = [analise.item];
+      } else {
+        analise.itens = ["Material identificado"];
+      }
+    }
+
+    // Normaliza demais campos
+    analise.quantidade_total = analise.quantidade_total || analise.itens.length;
+    analise.tamanho_geral = analise.tamanho_geral || analise.tamanho || "medio";
+    analise.veiculo_sugerido = analise.veiculo_sugerido || "utilitario";
+    analise.observacao = analise.observacao || "";
+
+    // Mantem compatibilidade: "item" retorna primeiro item (callers antigos)
+    analise.item = analise.itens.join(", ");
 
     return NextResponse.json(analise);
   } catch (error: any) {
     console.error("Erro ao analisar foto:", error?.message);
-    return NextResponse.json(
-      {
-        item: "Material",
-        quantidade: "1",
-        tamanho: "medio",
-        veiculo_sugerido: "utilitario",
-        observacao: "Nao foi possivel analisar. Confirme no WhatsApp.",
-      },
-      { status: 200 }
-    );
+    return NextResponse.json(fallbackAnalise(), { status: 200 });
   }
+}
+
+function fallbackAnalise() {
+  return {
+    itens: ["Material"],
+    item: "Material",
+    quantidade_total: 1,
+    tamanho_geral: "medio",
+    veiculo_sugerido: "utilitario",
+    observacao: "Nao foi possivel analisar. Confirme no WhatsApp.",
+  };
 }

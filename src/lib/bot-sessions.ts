@@ -34,8 +34,14 @@ export type BotStep =
   | "avaliacao_fretista"
   | "avaliacao_sugestao"
   | "aguardando_confirmacao"
+  | "editando_escolha"
+  | "confirmar_itens_foto"
+  | "confirmando_destino"
   | "aguardando_pagamento"
   | "aguardando_numero_coleta"
+  | "aguardando_numero_destino"
+  | "adicionar_pequeno_grande"
+  | "adicionar_item_descricao"
   | "fretista_confirmar_alteracao_data"
   | "aguardando_contraoferta_data"
   | "avaliar_escolher_veiculos"
@@ -104,9 +110,6 @@ export async function createSession(
   phone: string,
   instance?: 1 | 2
 ): Promise<BotSession> {
-  // Se instance nao for passado, preserva o da session existente (mesmo expirada)
-  // Isso permite que handlers chamem createSession(phone) sem saber a instancia
-  // e o bot continue respondendo na conversa correta do cliente.
   if (!instance) {
     const { data } = await supabase
       .from("bot_sessions")
@@ -138,11 +141,11 @@ export async function createSession(
     precisa_ajudante: false,
     corrida_id: null,
     instance_chatpro: instance,
+    alerta_admin_enviado_em: null,
     criado_em: new Date().toISOString(),
     atualizado_em: new Date().toISOString(),
   };
 
-  // Upsert - cria ou atualiza se ja existe
   await supabase.from("bot_sessions").upsert(session, { onConflict: "phone" });
 
   return session as unknown as BotSession;
@@ -162,77 +165,370 @@ export async function deleteSession(phone: string): Promise<void> {
   await supabase.from("bot_sessions").delete().eq("phone", phone);
 }
 
-// === DISPATCH (em memoria - OK pois janela e de 30s) ===
+// ============================================================
+// DISPATCH ATOMICO via Supabase (substitui Map em memoria)
+// ============================================================
+// Problema do modelo anterior (Map em memoria):
+//   - Em Vercel serverless, cada instancia tem seu proprio Map.
+//     Dois fretistas podem cair em instancias diferentes e ambos "ganhar" o frete.
+//   - Cold start apaga o Map -> dispatch orfao.
+//
+// Solucao: estado do dispatch mora em `corridas` (colunas dispatch_*).
+//   Aceite usa UPDATE com WHERE condicional -> garantia atomica pelo Postgres.
+//   Se UPDATE afeta 0 linhas, outro ja pegou.
+// ============================================================
 
-export interface DispatchEntry {
-  corridaId: string;
-  clientePhone: string;
+export interface DispatchRow {
+  corrida_id: string;
+  cliente_phone: string;
   prestadores: string[];
-  respostas: Map<string, { valor: number; timestamp: number }>;
-  iniciadoEm: number;
-  janelaMs: number;
-  finalizado: boolean;
-  vencedorPhone: string | null;
+  iniciado_em: string;
+  finalizado_em: string | null;
+  vencedor_phone: string | null;
+  rodada: number;
 }
 
-const dispatches = new Map<string, DispatchEntry>();
-
-export function createDispatch(
+export async function createDispatch(
   corridaId: string,
-  clientePhone: string,
-  prestadores: string[]
-): DispatchEntry {
-  const dispatch: DispatchEntry = {
-    corridaId,
-    clientePhone,
-    prestadores,
-    respostas: new Map(),
-    iniciadoEm: Date.now(),
-    janelaMs: 30 * 1000,
-    finalizado: false,
-    vencedorPhone: null,
+  prestadores: string[],
+  rodada: number = 0
+): Promise<void> {
+  // Estado do dispatch fica direto na corrida (UPDATE atomico depois)
+  await supabase
+    .from("corridas")
+    .update({
+      dispatch_ativo: true,
+      dispatch_prestadores: prestadores,
+      dispatch_iniciado_em: new Date().toISOString(),
+      dispatch_finalizado_em: null,
+      dispatch_rodada: rodada,
+    })
+    .eq("id", corridaId);
+}
+
+export async function getDispatchByCorridaId(
+  corridaId: string
+): Promise<DispatchRow | null> {
+  const { data } = await supabase
+    .from("corridas")
+    .select(
+      "id, cliente_id, dispatch_prestadores, dispatch_iniciado_em, dispatch_finalizado_em, dispatch_ativo, prestador_id, dispatch_rodada, clientes!inner(telefone), prestadores(telefone)"
+    )
+    .eq("id", corridaId)
+    .single();
+
+  if (!data || !data.dispatch_prestadores) return null;
+
+  const vencedorPhone =
+    data.prestador_id && (data.prestadores as any)?.telefone
+      ? (data.prestadores as any).telefone
+      : null;
+
+  return {
+    corrida_id: data.id,
+    cliente_phone: (data.clientes as any)?.telefone || "",
+    prestadores: data.dispatch_prestadores || [],
+    iniciado_em: data.dispatch_iniciado_em || "",
+    finalizado_em: data.dispatch_finalizado_em,
+    vencedor_phone: vencedorPhone,
+    rodada: data.dispatch_rodada || 0,
   };
-  dispatches.set(corridaId, dispatch);
-  return dispatch;
 }
 
-export function getDispatchByCorridaId(corridaId: string): DispatchEntry | null {
-  return dispatches.get(corridaId) || null;
+export async function getDispatchForPrestador(
+  prestadorPhone: string
+): Promise<DispatchRow | null> {
+  // Busca qualquer corrida com dispatch ativo onde este prestador foi incluido
+  const { data } = await supabase
+    .from("corridas")
+    .select(
+      "id, cliente_id, dispatch_prestadores, dispatch_iniciado_em, dispatch_finalizado_em, dispatch_rodada, clientes!inner(telefone)"
+    )
+    .eq("dispatch_ativo", true)
+    .contains("dispatch_prestadores", [prestadorPhone])
+    .order("dispatch_iniciado_em", { ascending: false })
+    .limit(1);
+
+  if (!data || data.length === 0) return null;
+  const row = data[0];
+  return {
+    corrida_id: row.id,
+    cliente_phone: (row.clientes as any)?.telefone || "",
+    prestadores: row.dispatch_prestadores || [],
+    iniciado_em: row.dispatch_iniciado_em || "",
+    finalizado_em: row.dispatch_finalizado_em,
+    vencedor_phone: null,
+    rodada: row.dispatch_rodada || 0,
+  };
 }
 
-export function getDispatchForPrestador(prestadorPhone: string): DispatchEntry | null {
-  for (const dispatch of dispatches.values()) {
-    if (!dispatch.finalizado && dispatch.prestadores.includes(prestadorPhone)) {
-      return dispatch;
+export interface AceitarDispatchResult {
+  sucesso: boolean;
+  outrosPrestadores: string[];
+  clientePhone: string;
+  jaFoiAceito: boolean;
+}
+
+/**
+ * Tenta aceitar o dispatch ATOMICAMENTE via UPDATE com WHERE condicional.
+ * Garante que apenas UM fretista vence, mesmo com requests concorrentes.
+ * Usa o proprio Postgres como lock (sem race condition).
+ */
+export async function tryAceitarDispatch(
+  corridaId: string,
+  prestadorId: string,
+  prestadorPhone: string
+): Promise<AceitarDispatchResult> {
+  const agora = new Date().toISOString();
+
+  // UPDATE atomico: so vence se dispatch_ativo=true E prestador_id IS NULL
+  // Se outro ja pegou, dispatch_ativo vira false -> condicao falha -> 0 linhas afetadas
+  const { data, error } = await supabase
+    .from("corridas")
+    .update({
+      prestador_id: prestadorId,
+      status: "aceita",
+      dispatch_ativo: false,
+      dispatch_finalizado_em: agora,
+    })
+    .eq("id", corridaId)
+    .eq("dispatch_ativo", true)
+    .is("prestador_id", null)
+    .select("dispatch_prestadores, clientes!inner(telefone)");
+
+  if (error) {
+    console.error("Erro no UPDATE atomico do dispatch:", error);
+    return { sucesso: false, outrosPrestadores: [], clientePhone: "", jaFoiAceito: false };
+  }
+
+  if (!data || data.length === 0) {
+    // Nao venceu. Pode ser porque outro ja pegou OU corrida nao estava em dispatch.
+    // Buscar estado real pra saber se ja foi aceito (pra dar mensagem apropriada)
+    const { data: atual } = await supabase
+      .from("corridas")
+      .select("prestador_id, dispatch_ativo, dispatch_finalizado_em")
+      .eq("id", corridaId)
+      .single();
+
+    const jaFoiAceito = !!(atual?.prestador_id && atual?.dispatch_finalizado_em);
+    return { sucesso: false, outrosPrestadores: [], clientePhone: "", jaFoiAceito };
+  }
+
+  const row = data[0];
+  const outros = (row.dispatch_prestadores || []).filter(
+    (p: string) => p !== prestadorPhone
+  );
+  return {
+    sucesso: true,
+    outrosPrestadores: outros,
+    clientePhone: (row.clientes as any)?.telefone || "",
+    jaFoiAceito: false,
+  };
+}
+
+/**
+ * Finaliza dispatch sem vencedor (timeout, cancelamento).
+ * Marca dispatch_ativo=false pra liberar o leilao.
+ */
+export async function finalizeDispatch(corridaId: string): Promise<void> {
+  await supabase
+    .from("corridas")
+    .update({
+      dispatch_ativo: false,
+      dispatch_finalizado_em: new Date().toISOString(),
+    })
+    .eq("id", corridaId)
+    .eq("dispatch_ativo", true);
+}
+
+// ============================================================
+// TAREFAS AGENDADAS (substitui setTimeout em serverless)
+// ============================================================
+
+export type TipoTarefa =
+  | "dispatch_timeout_inicial"
+  | "dispatch_timeout_estendido"
+  | "rastreio_lembrete_confirmacao"
+  | "rastreio_libera_fretista";
+
+export async function agendarTarefa(
+  tipo: TipoTarefa,
+  referencia: string,
+  atrasoMs: number,
+  payload: Record<string, any> = {}
+): Promise<void> {
+  const executarEm = new Date(Date.now() + atrasoMs).toISOString();
+  await supabase.from("tarefas_agendadas").insert({
+    tipo,
+    referencia,
+    payload,
+    executar_em: executarEm,
+  });
+}
+
+export async function cancelarTarefas(
+  tipo: TipoTarefa,
+  referencia: string
+): Promise<void> {
+  await supabase
+    .from("tarefas_agendadas")
+    .update({ executado_em: new Date().toISOString(), erro: "cancelada" })
+    .eq("tipo", tipo)
+    .eq("referencia", referencia)
+    .is("executado_em", null);
+}
+
+// ============================================================
+// RATE LIMIT / ANTI-LOOP
+// ============================================================
+// Evita que outro bot (ou numero automatico) fique trocando mensagens
+// em loop com o Pegue, spammando notificacoes e custos de API.
+//
+// Regras:
+//   - Mais de MAX_MSGS em JANELA_MS => silencia o phone por SILENCIO_MS
+//   - Phone na tabela phones_bloqueados => SEMPRE silenciado
+//   - Numeros proprios do Pegue => SEMPRE silenciados (evita auto-loop)
+
+const MAX_MSGS = 6;                  // max de mensagens
+const JANELA_MS = 60_000;            // na janela de 60s
+const SILENCIO_MS = 30 * 60_000;     // silencia por 30min se ultrapassar
+
+// Telefones da propria Pegue (instancias 1 e 2). Nunca responder a eles
+// pra evitar loop caso uma mensagem automatica chegue.
+const PEGUE_PHONES = new Set([
+  "5511970363713", // instancia 1
+  "5511954316547", // instancia 2
+]);
+
+export interface RateLimitResult {
+  permitido: boolean;
+  motivo?: string;
+  silenciar?: boolean;
+}
+
+export async function verificarRateLimit(phone: string): Promise<RateLimitResult> {
+  // 1) Phone do proprio Pegue?
+  if (PEGUE_PHONES.has(phone)) {
+    return { permitido: false, motivo: "phone_proprio_pegue" };
+  }
+
+  // 2) Phone na blocklist permanente?
+  const { data: bloqueado } = await supabase
+    .from("phones_bloqueados")
+    .select("phone, motivo")
+    .eq("phone", phone)
+    .maybeSingle();
+  if (bloqueado) {
+    return { permitido: false, motivo: `bloqueado: ${bloqueado.motivo || "sem motivo"}` };
+  }
+
+  // 3) Rate limit baseado em bot_sessions
+  const { data: sessao } = await supabase
+    .from("bot_sessions")
+    .select("silenciado_ate, msgs_contador, msgs_contador_inicio")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  const agora = Date.now();
+
+  if (sessao?.silenciado_ate) {
+    const silenciadoAte = new Date(sessao.silenciado_ate).getTime();
+    if (silenciadoAte > agora) {
+      return { permitido: false, motivo: "silenciado_temporariamente" };
     }
   }
-  return null;
+
+  // Calcula janela atual
+  const inicio = sessao?.msgs_contador_inicio
+    ? new Date(sessao.msgs_contador_inicio).getTime()
+    : 0;
+  const contadorAtual = sessao?.msgs_contador || 0;
+
+  let novoContador: number;
+  let novoInicio: string;
+
+  if (!sessao || agora - inicio > JANELA_MS) {
+    // Janela nova
+    novoContador = 1;
+    novoInicio = new Date(agora).toISOString();
+  } else {
+    novoContador = contadorAtual + 1;
+    novoInicio = sessao.msgs_contador_inicio || new Date(agora).toISOString();
+  }
+
+  // Ultrapassou o limite?
+  if (novoContador > MAX_MSGS) {
+    const silencioAte = new Date(agora + SILENCIO_MS).toISOString();
+    // Se sessao nao existe, cria minima pra marcar silenciado
+    if (!sessao) {
+      await supabase.from("bot_sessions").upsert(
+        {
+          phone,
+          step: "inicio",
+          silenciado_ate: silencioAte,
+          msgs_contador: novoContador,
+          msgs_contador_inicio: novoInicio,
+          bot_detectado: true,
+          criado_em: new Date().toISOString(),
+          atualizado_em: new Date().toISOString(),
+        },
+        { onConflict: "phone" }
+      );
+    } else {
+      await supabase
+        .from("bot_sessions")
+        .update({
+          silenciado_ate: silencioAte,
+          msgs_contador: novoContador,
+          msgs_contador_inicio: novoInicio,
+          bot_detectado: true,
+          atualizado_em: new Date().toISOString(),
+        })
+        .eq("phone", phone);
+    }
+    return {
+      permitido: false,
+      motivo: "rate_limit_excedido",
+      silenciar: true,
+    };
+  }
+
+  // Apenas atualiza contador (sem silenciar ainda)
+  if (sessao) {
+    await supabase
+      .from("bot_sessions")
+      .update({
+        msgs_contador: novoContador,
+        msgs_contador_inicio: novoInicio,
+      })
+      .eq("phone", phone);
+  }
+
+  return { permitido: true };
 }
 
-export function addDispatchResponse(
-  corridaId: string,
-  prestadorPhone: string,
-  valor: number
-): void {
-  const dispatch = dispatches.get(corridaId);
-  if (!dispatch || dispatch.finalizado) return;
-  dispatch.respostas.set(prestadorPhone, { valor, timestamp: Date.now() });
+// Heuristica simples: detecta se mensagem parece ser de bot empresarial.
+// Usado como sinal ADICIONAL pra silenciar. Nao age sozinho - combinado com
+// frequencia (verificarRateLimit ja pega a maioria dos casos).
+export function pareceMensagemDeBotExterno(texto: string): boolean {
+  const lower = texto.toLowerCase();
+  const padroes = [
+    "bem vindo ao atendimento",
+    "bem-vindo ao atendimento",
+    "digite uma das opcoes",
+    "digite uma das opções",
+    "escolha uma opcao",
+    "escolha uma opção",
+    "nao encontrei a opcao",
+    "não encontrei a opção",
+    "opcao invalida",
+    "opção inválida",
+    "nao entendi a opcao",
+    "não entendi a opção",
+    "menu principal",
+    "retornar ao menu",
+    "falar com atendente",
+  ];
+  return padroes.some((p) => lower.includes(p));
 }
 
-export function resolveDispatch(corridaId: string): string | null {
-  const dispatch = dispatches.get(corridaId);
-  if (!dispatch || dispatch.finalizado) return null;
-
-  if (dispatch.respostas.size === 0) return null;
-
-  // Primeiro a aceitar, leva! Sem esperar janela
-  const [phone] = dispatch.respostas.keys();
-  dispatch.vencedorPhone = phone;
-  dispatch.finalizado = true;
-  return phone;
-}
-
-export function finalizeDispatch(corridaId: string): void {
-  const dispatch = dispatches.get(corridaId);
-  if (dispatch) dispatch.finalizado = true;
-}

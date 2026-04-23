@@ -490,6 +490,81 @@ export function isAtendente(texto: string): boolean {
   return palavras.some((p) => lower.includes(p));
 }
 
+// Mensagens automaticas tipicas do WhatsApp Business e bots empresariais.
+// Usado logo no inicio do webhook - se detectado, NAO responder nem alertar.
+// Vale pra qualquer phone (cliente, prestador ou desconhecido).
+const RESPOSTAS_AUTOMATICAS_GLOBAIS = [
+  "obrigado por entrar em contato",
+  "agradecemos sua mensagem",
+  "retornaremos em breve",
+  "mensagem automatica",
+  "mensagem automática",
+  "no momento nao",
+  "no momento não",
+  "estamos indisponiveis",
+  "estamos indisponíveis",
+  "horario de atendimento",
+  "horário de atendimento",
+  "aguarde um momento",
+  "em breve retornaremos",
+  "servico de rastreamento",
+  "serviço de rastreamento",
+  "atendimento positron",
+  "atendimento pósitron",
+  "bem vindo ao atendimento",
+  "bem-vindo ao atendimento",
+  "digite uma das opcoes",
+  "digite uma das opções",
+  "escolha uma opcao",
+  "escolha uma opção",
+  "nao entendi a opcao",
+  "não entendi a opção",
+  "opcao invalida",
+  "opção inválida",
+  "nao encontrei a opcao",
+  "não encontrei a opção",
+];
+
+export function ehRespostaAutomatica(texto: string): boolean {
+  if (!texto) return false;
+  const lower = texto.toLowerCase();
+  return RESPOSTAS_AUTOMATICAS_GLOBAIS.some((r) => lower.includes(r));
+}
+
+// Itens que exigem desmontagem prévia (Pegue não monta nem desmonta).
+// Quando IA Vision identificar um desses, bot avisa no momento.
+const ITENS_PRECISAM_DESMONTAR = [
+  "guarda-roupa", "guarda roupa", "guarda-roupas",
+  "cama", "cama casal", "cama solteiro", "cama box", "beliche",
+  "estante", "estantes",
+  "armario", "armário",
+  "rack", "racks",
+  "escrivaninha",
+  "home theater",
+  "berço", "berco",
+  "aparador",
+  "mesa de jantar",
+  "mesa grande",
+];
+
+export function precisaDesmontar(descricaoItens: string | string[]): string[] {
+  if (!descricaoItens) return [];
+  const textos = Array.isArray(descricaoItens) ? descricaoItens : [descricaoItens];
+  const alertas: string[] = [];
+  for (const txt of textos) {
+    const lower = txt.toLowerCase();
+    for (const padrao of ITENS_PRECISAM_DESMONTAR) {
+      if (lower.includes(padrao)) {
+        // Extrai o nome mais "limpo" do item (sem classificacao entre parenteses etc)
+        const nome = txt.replace(/\([^)]*\)/g, "").trim();
+        if (!alertas.includes(nome)) alertas.push(nome);
+        break;
+      }
+    }
+  }
+  return alertas;
+}
+
 // Detecta resposta SIM com valor (para prestadores)
 export function extrairRespostaPrestador(
   texto: string

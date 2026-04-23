@@ -7,10 +7,13 @@ import {
   updateSession,
   getDispatchForPrestador,
   getDispatchByCorridaId,
-  addDispatchResponse,
-  resolveDispatch,
+  tryAceitarDispatch,
   createDispatch,
   finalizeDispatch,
+  agendarTarefa,
+  cancelarTarefas,
+  verificarRateLimit,
+  pareceMensagemDeBotExterno,
 } from "@/lib/bot-sessions";
 import { MSG } from "@/lib/bot-messages";
 import {
@@ -29,29 +32,57 @@ import {
   isHorarioAtendimentoHumano,
   formatarTelefoneExibicao,
   isInicioServico,
+  ehRespostaAutomatica,
+  precisaDesmontar,
 } from "@/lib/bot-utils";
 import { supabase } from "@/lib/supabase";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
 import { gerarSimulacao, formatarMensagemSimulacao, nomeVeiculo as nomeVeiculoAval, type SimulacaoAvaliacao } from "@/lib/simulacao-avaliacao";
 import { criteriosMediaDaSimulacao, invalidarCacheAjustes } from "@/lib/ajustes-precos";
+import { isAdminPhone } from "@/lib/admin-auth";
+import { notificarAdmins } from "@/lib/admin-notify";
 
 export const dynamic = "force-dynamic";
 
-const FABIO_PHONE = "5511970363713"; // WhatsApp Pegue
-const ADMIN_PHONE = "5511971429605"; // WhatsApp pessoal Fabio (recebe notificacoes)
-
 export async function POST(req: NextRequest) {
   try {
+    // 1) Valida secret do webhook (ChatPro configura ?secret=X na URL do webhook)
+    // Fail-OPEN se WEBHOOK_WHATSAPP_SECRET nao estiver configurado (compat transitoria),
+    // mas registra warning. Configurar env var = passa a ser fail-CLOSED automaticamente.
+    const expectedSecret = process.env.WEBHOOK_WHATSAPP_SECRET;
+    if (expectedSecret) {
+      const providedSecret =
+        req.nextUrl.searchParams.get("secret") ||
+        req.headers.get("authorization")?.replace("Bearer ", "") ||
+        "";
+      if (providedSecret !== expectedSecret) {
+        console.error("Webhook WhatsApp: secret invalido ou ausente");
+        return NextResponse.json({ error: "acesso negado" }, { status: 401 });
+      }
+    } else if (process.env.NODE_ENV === "production") {
+      console.warn("[SEGURANCA] WEBHOOK_WHATSAPP_SECRET nao configurado em producao");
+    }
+
     const rawBody = await req.json();
 
     // Detecta qual instancia recebeu a mensagem (via query param ?instance=2)
     const instanceParam = req.nextUrl.searchParams.get("instance");
     const instance: 1 | 2 = instanceParam === "2" ? 2 : 1;
 
-    // Log no Supabase
-    await supabase.from("bot_logs").insert({ payload: { ...rawBody, _instance: instance } });
-
     const eventType = rawBody.Type || rawBody.type || "";
+    const rawFrom = rawBody.Body?.Info?.RemoteJid || rawBody.Info?.RemoteJid || "";
+    const fromMasked = rawFrom.replace(/\d(?=\d{4})/g, "*");
+
+    // Log minimo no Supabase (sem rawBody completo por LGPD).
+    // Armazena so: instancia, tipo de evento, remetente mascarado, tamanho da msg.
+    await supabase.from("bot_logs").insert({
+      payload: {
+        _instance: instance,
+        event_type: eventType,
+        from_masked: fromMasked,
+        msg_length: (rawBody.Body?.Text || "").length,
+      },
+    });
 
     const allowedTypes = [
       "receveid_message", "received_message",
@@ -91,20 +122,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "ignored" });
     }
 
-    // Filtra respostas automaticas do WhatsApp Business
-    const msgLower = (message || "").toLowerCase();
-    const ehAutoReply = [
-      "obrigado por entrar em contato", "agradecemos sua mensagem",
-      "retornaremos em breve", "mensagem automatica", "estamos indisponiveis",
-      "horario de atendimento", "aguarde um momento", "em breve retornaremos",
-      "obrigado pelo contato", "mensagem de ausencia", "fora do horario",
-    ].some(r => msgLower.includes(r));
+    const phoneNumber = from.replace("@s.whatsapp.net", "");
 
-    if (ehAutoReply) {
+    // ========================================================
+    // ANTI-LOOP (proteção contra bot trocando mensagem com bot)
+    // ========================================================
+    // 1) Filtro de mensagens claramente automáticas (qualquer phone)
+    //    Ex: bot da Positron respondeu o menu do Pegue com próprio menu.
+    if (ehRespostaAutomatica(message) || pareceMensagemDeBotExterno(message)) {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "ignorado_bot_externo",
+          phone_masked: phoneNumber.replace(/\d(?=\d{4})/g, "*"),
+          amostra: (message || "").slice(0, 80),
+        },
+      });
       return NextResponse.json({ status: "ignored_auto_reply" });
     }
 
-    const phoneNumber = from.replace("@s.whatsapp.net", "");
+    // 2) Rate limit: mais de 6 msgs em 60s => silencia por 30min.
+    //    Cobre phones próprios da Pegue e blocklist permanente também.
+    const rl = await verificarRateLimit(phoneNumber);
+    if (!rl.permitido) {
+      if (rl.silenciar) {
+        // Silenciou agora. Notifica admins UMA UNICA VEZ pro caso de ser real.
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "phone_silenciado",
+            phone_masked: phoneNumber.replace(/\d(?=\d{4})/g, "*"),
+            motivo: rl.motivo,
+          },
+        });
+        await notificarAdmins(
+          `🔇 *PHONE SILENCIADO POR LOOP/FLOOD*`,
+          phoneNumber,
+          `Motivo: ${rl.motivo}\nSilenciado por 30 min.\nSe for cliente real, remover em /admin/phones-bloqueados ou chamar no WhatsApp e reativar sessao.`
+        );
+      }
+      return NextResponse.json({ status: "rate_limited", motivo: rl.motivo });
+    }
 
     // Pre-popula cache de instance pra este phone: garante que sendToClient responda
     // pela mesma instancia que recebeu a mensagem, mesmo antes da session existir no DB
@@ -208,38 +264,62 @@ export async function POST(req: NextRequest) {
         const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
         await sendToClient({
           to: phoneNumber,
-          message: `Ola ${primeiroNome}! 😊 Recebi sua foto, ja estou analisando!\n\nEnquanto isso, me manda a *localizacao de retirada*:\n\nClique no *clipe* 📎 > *Localizacao* 📍\nOu digite o *CEP* ou *endereco com rua e bairro*`,
+          message: `Olá ${primeiroNome}! 😊 Recebi sua foto, já estou analisando!`,
         });
 
-        // Analisa foto e salva
+        // Analisa foto e salva lista de itens
         const analise = await analisarFotoIA(imageUrl);
-        if (analise) {
-          const emoji = getItemEmoji(analise.item);
+        if (analise && Array.isArray(analise.itens) && analise.itens.length > 0) {
           let veiculoSugerido = analise.veiculo_sugerido;
           if (veiculoSugerido === "van") veiculoSugerido = "hr";
 
+          const listaFormatada = analise.itens.map((i: string) => `• ${i}`).join("\n");
+          const descricaoSalva = analise.itens.join(", ");
+
+          // Detecta itens que precisam de desmontagem + destaca itens com tamanho ambiguo
+          const itensDesmontar = precisaDesmontar(analise.itens);
+          const temAmbiguo = analise.itens.some((i: string) => i.includes("(?)") || i.toLowerCase().includes("tamanho?"));
+
+          let avisos = "";
+          if (itensDesmontar.length > 0) {
+            avisos += `\n\n⚠️ *${itensDesmontar.join(", ")}* precisa${itensDesmontar.length > 1 ? "m" : ""} estar *desmontado${itensDesmontar.length > 1 ? "s" : ""}* antes da coleta (não fazemos montagem).`;
+          }
+          if (temAmbiguo) {
+            avisos += `\n\n📏 Identifiquei algum item com *tamanho duvidoso* (marcado com ?). Se puder me dizer o tamanho correto em "CORRIGIR", ajuda muito na precificação.`;
+          }
+
           await updateSession(phoneNumber, {
-            step: "aguardando_localizacao",
-            descricao_carga: analise.item,
+            step: "confirmar_itens_foto",
+            descricao_carga: descricaoSalva,
             veiculo_sugerido: veiculoSugerido,
             foto_url: imageUrl,
           });
 
           await sendToClient({
             to: phoneNumber,
-            message: `Vi! *${analise.item}* ${emoji} Anotado! ✅\n\nAgora me manda onde buscar 📍`,
+            message: `📸 Identifiquei na foto:\n\n${listaFormatada}${avisos}\n\nEstá correto?\n\n1️⃣ *SIM*, seguir\n2️⃣ *ADICIONAR* mais itens (manda outra foto)\n3️⃣ *CORRIGIR* (digite o que realmente é)`,
           });
         } else {
+          // Falha na analise - pede descricao manual
           await updateSession(phoneNumber, {
-            step: "aguardando_localizacao",
-            descricao_carga: "Material (foto)",
+            step: "aguardando_foto",
             foto_url: imageUrl,
+          });
+          await sendToClient({
+            to: phoneNumber,
+            message: "Não consegui identificar direito os itens 😅\n\nPode me descrever por texto o que precisa transportar?\n\nEx: *geladeira, fogão, cama casal, 5 caixas*",
           });
         }
         return NextResponse.json({ status: "ok" });
       }
 
       // Foto do cliente - IA Vision (sessao ja ativa)
+      // Foto em step de adicionar item pequeno - delega pro handler
+      if (session && session.step === "adicionar_item_descricao") {
+        await handleAdicionarItemDescricao(phoneNumber, "", true, imageUrl);
+        return NextResponse.json({ status: "ok" });
+      }
+
       const stepsAceitamFoto = ["aguardando_foto", "aguardando_mais_fotos", "aguardando_destino"];
       if (session && stepsAceitamFoto.includes(session.step)) {
         const analise = await analisarFotoIA(imageUrl);
@@ -310,9 +390,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Prestador respondendo dispatch
-    const dispatch = getDispatchForPrestador(phoneNumber);
+    const dispatch = await getDispatchForPrestador(phoneNumber);
     if (dispatch) {
-      await handlePrestadorResponse(phoneNumber, message, dispatch.corridaId);
+      await handlePrestadorResponse(phoneNumber, message, dispatch.corrida_id);
       return NextResponse.json({ status: "ok" });
     }
 
@@ -534,6 +614,12 @@ Boa sorte! 🎯`,
     return;
   }
 
+  // Comando ADICIONAR itens a um frete ja contratado (cliente)
+  if (lower === "adicionar" || lower === "incluir" || lower === "adicionar item" || lower === "incluir item" || lower === "adicionar itens" || lower === "incluir itens") {
+    await handleAdicionarIniciar(phone);
+    return;
+  }
+
   // Comando INDICAR amigo (fretista)
   if (lower === "indicar" || lower === "transferir" || lower === "indicar amigo") {
     await handleIndicarFrete(phone);
@@ -642,6 +728,18 @@ Boa sorte! 🎯`,
       await handleConfirmacao(phone, message, instance);
       break;
 
+    case "editando_escolha":
+      await handleEditandoEscolha(phone, message, instance);
+      break;
+
+    case "confirmar_itens_foto":
+      await handleConfirmarItensFoto(phone, message);
+      break;
+
+    case "confirmando_destino":
+      await handleConfirmandoDestino(phone, message);
+      break;
+
     case "aguardando_fretista":
       await sendToClient({
         to: phone,
@@ -651,6 +749,18 @@ Boa sorte! 🎯`,
 
     case "aguardando_numero_coleta":
       await handleNumeroColeta(phone, message);
+      break;
+
+    case "aguardando_numero_destino":
+      await handleNumeroDestino(phone, message);
+      break;
+
+    case "adicionar_pequeno_grande":
+      await handleAdicionarPequenoGrande(phone, message);
+      break;
+
+    case "adicionar_item_descricao":
+      await handleAdicionarItemDescricao(phone, message, false, null);
       break;
 
     case "aguardando_contraoferta_data":
@@ -674,7 +784,7 @@ Boa sorte! 🎯`,
 
     case "admin_confirmar_ajuste":
       // Dupla protecao: handler tambem valida internamente, mas aqui ja filtramos
-      if (phone === ADMIN_PHONE) {
+      if (isAdminPhone(phone)) {
         await handleAdminConfirmarAjuste(phone, message);
       } else {
         await updateSession(phone, { step: "inicio" });
@@ -780,11 +890,29 @@ Boa sorte! 🎯`,
       await handleGuinchoDestino(phone, message);
       break;
 
-    default:
-      await createSession(phone, instance);
-      await updateSession(phone, { step: "aguardando_servico" });
-      await sendToClient({ to: phone, message: MSG.boasVindas });
+    default: {
+      // Step desconhecido: NAO reseta sessao silenciosamente (isso fazia cliente
+      // perder contexto em bugs/migrations). Registra ocorrencia e notifica admin
+      // pra investigar. Cliente recebe mensagem discreta pedindo pra aguardar.
+      console.error(`[BOT] Step desconhecido: "${session.step}" (phone=${phone})`);
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "step_desconhecido",
+          step: session.step,
+          phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+        },
+      });
+      await sendToClient({
+        to: phone,
+        message: "⏳ Um momento, estamos verificando seu atendimento com a equipe.",
+      });
+      await notificarAdmins(
+        `⚠️ *STEP DESCONHECIDO NO BOT*`,
+        phone,
+        `Step atual: ${session.step}\nA sessao NAO foi resetada - o cliente esta em um state que o codigo nao reconhece. Investigar.`
+      );
       break;
+    }
   }
 }
 
@@ -800,6 +928,11 @@ async function handleEscolhaServico(phone: string, message: string) {
 
   if (lower === "2" || lower.includes("mudanca") || lower.includes("mudança")) {
     await updateSession(phone, { step: "aguardando_localizacao" });
+    // Aviso de desmontagem vem ANTES da localizacao - cliente precisa saber desde ja
+    await sendToClient({
+      to: phone,
+      message: `📦 *Antes de começar — importante:*\n\n⚠️ Nossos fretistas *não fazem desmontagem/montagem* de móveis.\n\n*Guarda-roupas, camas, beliches, estantes e armários grandes precisam estar DESMONTADOS* antes da coleta.\n\nTambém, se tiver *geladeira*, deixe descongelada e seca 6h antes.\n\n✅ Preparou os móveis? Vamos seguir!`,
+    });
     await sendToClient({ to: phone, message: MSG.pedirLocalizacao });
     return;
   }
@@ -906,22 +1039,29 @@ async function handleLocalizacao(
     }
   }
 
-  if (pareceEndereco(message)) {
+  // Heuristica: precisa de pelo menos 3 palavras significativas (rua + bairro + cidade).
+  // Numero NAO eh obrigatorio aqui - cliente informa so apos pagamento (privacidade).
+  const palavras = message.split(/\s+/).filter((p) => p.length > 2);
+  const enderecoSuspeito = palavras.length < 3;
+
+  if (pareceEndereco(message) && !enderecoSuspeito) {
     const coords = await geocodeAddress(message);
-    await updateSession(phone, {
-      step: "aguardando_foto",
-      origem_endereco: message,
-      origem_lat: coords?.lat || null,
-      origem_lng: coords?.lng || null,
-    });
-    await sendToClient({ to: phone, message: MSG.enderecoRecebido(message) });
-    return;
+    if (coords?.lat && coords?.lng) {
+      await updateSession(phone, {
+        step: "aguardando_foto",
+        origem_endereco: message,
+        origem_lat: coords.lat,
+        origem_lng: coords.lng,
+      });
+      await sendToClient({ to: phone, message: MSG.enderecoRecebido(message) });
+      return;
+    }
   }
 
-  // Se tem mais de 5 caracteres, tenta geocodificar mesmo assim
-  if (message.length > 5) {
+  // Fallback: mais permissivo, mas ainda requer geocoder valido
+  if (message.length > 5 && !enderecoSuspeito) {
     const coords = await geocodeAddress(message);
-    if (coords) {
+    if (coords?.lat && coords?.lng) {
       await updateSession(phone, {
         step: "aguardando_foto",
         origem_endereco: message,
@@ -940,7 +1080,9 @@ async function handleLocalizacao(
 Tenta de uma dessas formas:
 📍 Manda sua *localizacao* pelo clipe 📎
 📮 Digita o *CEP* (ex: 06010-000)
-🏠 Digita *rua e bairro* (ex: Rua Augusta, Consolacao)
+🏠 Digita *rua, bairro e cidade* (ex: Rua Augusta, Consolacao, Sao Paulo)
+
+🔒 Nao precisa do numero da casa agora — so depois do pagamento confirmado 😊
 
 💡 Se a localizacao nao funcionar:
 - Verifique se o *GPS esta ligado*
@@ -1145,6 +1287,21 @@ async function handleDestino(phone: string, message: string) {
     destinoLng = coords?.lng || null;
   }
 
+  // VALIDACAO: rejeita endereco que nao foi geocodado (ex: cliente digitou "garrafa")
+  // Numero da casa NAO eh obrigatorio aqui - cliente informa so apos o pagamento
+  // (por seguranca, caso esteja so cotando e nao queira dar endereco exato).
+  // Heuristica: precisa de pelo menos 3 palavras (rua + bairro + cidade) + geocoder valido.
+  const palavras = message.split(/\s+/).filter((p) => p.length > 2);
+  const enderecoSuspeito = palavras.length < 3;
+
+  if (!destinoLat || !destinoLng || enderecoSuspeito) {
+    await sendToClient({
+      to: phone,
+      message: `🤔 Não consegui localizar esse endereço.\n\nMe manda:\n• Nome completo da *rua*\n• *Bairro* (obrigatório)\n• *Cidade*\n\nExemplo: *Rua Brasil, Centro, Osasco*\n\n🔒 Não precisa do número da casa agora — só depois do pagamento confirmado 😊`,
+    });
+    return; // nao avanca
+  }
+
   // Verifica se destino é area indisponivel (favela/area livre)
   const zonaDestino = detectarZona(destinoEndereco);
   if (zonaDestino === "indisponivel") {
@@ -1155,15 +1312,55 @@ async function handleDestino(phone: string, message: string) {
     return;
   }
 
+  // Pede confirmacao do endereco que o geocoder retornou (pode vir formatado)
+  // Salva os dados mas em step novo que espera confirmacao.
   await updateSession(phone, {
-    step: "aguardando_tipo_local",
+    step: "confirmando_destino",
     destino_endereco: destinoEndereco,
     destino_lat: destinoLat,
     destino_lng: destinoLng,
   });
 
-  const cidadeDestino = destinoEndereco.split(",").pop()?.trim() || destinoEndereco;
-  await sendToClient({ to: phone, message: MSG.destinoRecebido(cidadeDestino) });
+  await sendToClient({
+    to: phone,
+    message: `📍 Encontrei este endereço:\n\n*${destinoEndereco}*\n\n1️⃣ *CONFIRMAR* este endereço\n2️⃣ *CORRIGIR* (é outro)`,
+  });
+}
+
+// Handler do step confirmando_destino
+async function handleConfirmandoDestino(phone: string, message: string) {
+  const lower = message.toLowerCase().trim();
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const confirmou = lower === "1" || lower.startsWith("sim") || lower === "confirmar" || lower === "confirmo" || lower === "correto" || lower === "ok";
+  const corrigiu = lower === "2" || lower === "nao" || lower === "não" || lower === "corrigir" || lower.includes("outro");
+
+  if (confirmou) {
+    await updateSession(phone, { step: "aguardando_tipo_local" });
+    const cidadeDestino = (session.destino_endereco || "").split(",").pop()?.trim() || session.destino_endereco || "";
+    await sendToClient({ to: phone, message: MSG.destinoRecebido(cidadeDestino) });
+    return;
+  }
+
+  if (corrigiu) {
+    await updateSession(phone, {
+      step: "aguardando_destino",
+      destino_endereco: null,
+      destino_lat: null,
+      destino_lng: null,
+    });
+    await sendToClient({
+      to: phone,
+      message: "Sem problema! Me manda o endereço correto 🏠\n\n*Rua, número e bairro*\nOu o CEP",
+    });
+    return;
+  }
+
+  await sendToClient({
+    to: phone,
+    message: "Responde:\n\n1️⃣ *CONFIRMAR*\n2️⃣ *CORRIGIR*",
+  });
 }
 
 // STEP 4: Tipo do local (terreo/elevador/escada)
@@ -1193,7 +1390,7 @@ async function handleTipoLocal(phone: string, message: string) {
     });
     await sendToClient({
       to: phone,
-      message: MSG.precisaAjudante("Predio com elevador, anotado! ✅"),
+      message: MSG.precisaAjudante("Local com elevador, anotado! ✅"),
     });
     return;
   }
@@ -1206,7 +1403,7 @@ async function handleTipoLocal(phone: string, message: string) {
 
   await sendToClient({
     to: phone,
-    message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ Casa ou terreo\n2️⃣ Predio com elevador\n3️⃣ Predio sem elevador / escada",
+    message: "Escolhe uma opcao, por favor! 😊\n\n1️⃣ *Local Terreo*\n2️⃣ *Local com elevador*\n3️⃣ *Local com escada*",
   });
 }
 
@@ -1458,6 +1655,23 @@ async function handleData(phone: string, message: string) {
   if (session.precisa_ajudante) detalhes += "🙋 Com ajudante\n";
   if (session.tem_escada && session.andar && session.andar > 0) detalhes += `🪜 ${session.andar}o andar (escada)\n`;
 
+  // Se tem credito de corrida anterior pendente, mostra a conta pro cliente
+  const { data: logCreditoPend } = await supabase
+    .from("bot_logs")
+    .select("payload")
+    .filter("payload->>tipo", "eq", "credito_corrida_anterior")
+    .filter("payload->>phone", "eq", phone)
+    .order("criado_em", { ascending: false })
+    .limit(1);
+  if (logCreditoPend?.[0]) {
+    const creditoAnt = Number((logCreditoPend[0].payload as any)?.credito_anterior || 0);
+    if (creditoAnt > 0) {
+      const valorBruto = Number(session.valor_estimado || 0);
+      const diff = Math.max(0, valorBruto - creditoAnt);
+      detalhes += `\n💳 Valor da nova cotacao: R$ ${valorBruto.toFixed(2)}\n💰 Ja pago (frete anterior): -R$ ${creditoAnt.toFixed(2)}\n✨ Voce paga apenas: *R$ ${diff.toFixed(2)}*\n`;
+    }
+  }
+
   await sendToClient({
     to: phone,
     message: MSG.resumoFrete(
@@ -1494,11 +1708,12 @@ async function handleConfirmacao(phone: string, message: string, instance: 1 | 2
       await sendToClient({ to: phone, message: MSG.erroInterno });
     }
   } else if (lower === "2" || lower === "alterar" || lower.includes("corrigir") || lower.includes("mudar") || lower.startsWith("nao") || lower === "n" || lower === "não") {
-    await createSession(phone, instance);
-    await updateSession(phone, { step: "aguardando_servico" });
+    // NAO reseta sessao - mostra menu de edicao preservando dados ja informados.
+    // Cliente escolhe o que quer corrigir e volta pro step especifico.
+    await updateSession(phone, { step: "editando_escolha" });
     await sendToClient({
       to: phone,
-      message: "Sem problema! 😊 Vamos refazer pra ficar tudo certinho.\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho* (carro ou moto)\n4️⃣ *Duvidas frequentes*",
+      message: `✏️ *O que você quer corrigir?*\n\n1️⃣ *Origem* (onde buscar)\n2️⃣ *Destino* (onde entregar)\n3️⃣ *Itens / material*\n4️⃣ *Data / horário*\n5️⃣ *Cancelar tudo* e começar do zero`,
     });
   } else {
     await sendToClient({
@@ -1507,6 +1722,371 @@ async function handleConfirmacao(phone: string, message: string, instance: 1 | 2
     });
   }
 }
+
+// Handler do menu de edicao - volta pro step especifico SEM perder dados.
+// So a opcao 5 (cancelar tudo) realmente reseta a sessao.
+async function handleEditandoEscolha(phone: string, message: string, instance: 1 | 2 = 1) {
+  const lower = message.toLowerCase().trim();
+  const session = await getSession(phone);
+  if (!session) {
+    await sendToClient({ to: phone, message: "Sua sessão expirou. Manda *oi* pra começar um novo atendimento 😊" });
+    return;
+  }
+
+  // 1 - Origem
+  if (lower === "1" || lower.includes("origem") || lower.includes("buscar") || lower.includes("retirada")) {
+    await updateSession(phone, {
+      step: "aguardando_localizacao",
+      origem_endereco: null,
+      origem_lat: null,
+      origem_lng: null,
+      distancia_km: null,
+      valor_estimado: null, // preco vai recalcular
+    });
+    await sendToClient({
+      to: phone,
+      message: "Sem problema! Me manda a nova *localização de retirada* 📍\n\nClique no clipe 📎 > Localização 📍\nOu digite o *CEP* ou *endereço completo com rua e bairro*",
+    });
+    return;
+  }
+
+  // 2 - Destino
+  if (lower === "2" || lower.includes("destino") || lower.includes("entregar") || lower.includes("entrega")) {
+    await updateSession(phone, {
+      step: "aguardando_destino",
+      destino_endereco: null,
+      destino_lat: null,
+      destino_lng: null,
+      distancia_km: null,
+      valor_estimado: null,
+    });
+    await sendToClient({
+      to: phone,
+      message: "Tranquilo! Me manda o novo *endereço de destino* 🏠\n\n*Rua, número e bairro* (obrigatório)\nOu o CEP do local",
+    });
+    return;
+  }
+
+  // 3 - Itens/material
+  if (lower === "3" || lower.includes("itens") || lower.includes("item") || lower.includes("material") || lower.includes("carga")) {
+    await updateSession(phone, {
+      step: "aguardando_foto",
+      descricao_carga: null,
+      foto_url: null,
+      veiculo_sugerido: null,
+      valor_estimado: null,
+    });
+    await sendToClient({
+      to: phone,
+      message: "Sem problema! Como você prefere me passar os itens?\n\n1️⃣ *Foto* (manda foto do material)\n2️⃣ *Lista rápida* (números dos itens)\n3️⃣ *Texto* (descreve)",
+    });
+    return;
+  }
+
+  // 4 - Data/horario
+  if (lower === "4" || lower.includes("data") || lower.includes("hora") || lower.includes("horario") || lower.includes("horário")) {
+    await updateSession(phone, {
+      step: "aguardando_data",
+      data_agendada: null,
+      periodo: null,
+    });
+    await sendToClient({
+      to: phone,
+      message: "Sem problema! Quando você quer o frete?\n\nMe manda:\n• *AGORA* se for urgente\n• *25/04 15h* pra agendar em uma data/horário específico",
+    });
+    return;
+  }
+
+  // 5 - Cancelar tudo (UNICA opcao que reseta)
+  if (lower === "5" || lower.includes("cancelar") || lower.includes("zerar") || lower.includes("reiniciar") || lower.includes("comecar") || lower.includes("começar")) {
+    await createSession(phone, instance);
+    await updateSession(phone, { step: "aguardando_servico" });
+    await sendToClient({
+      to: phone,
+      message: "Tudo bem, vamos começar do zero 😊\n\nO que você precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudança completa*\n3️⃣ *Guincho* (carro ou moto)\n4️⃣ *Dúvidas frequentes*",
+    });
+    return;
+  }
+
+  // Nao entendeu - repete o menu
+  await sendToClient({
+    to: phone,
+    message: `Escolhe uma opção:\n\n1️⃣ *Origem*\n2️⃣ *Destino*\n3️⃣ *Itens*\n4️⃣ *Data/horário*\n5️⃣ *Cancelar tudo*`,
+  });
+}
+
+// ===================================================================
+// ADICIONAR ITENS a corrida ja contratada
+// - Pequeno: adiciona na descricao sem cobrar (fretista e avisado)
+// - Grande: cliente refaz cotacao. Sistema desconta valor ja pago.
+//   Dispatch da nova corrida prioriza o fretista da corrida anterior.
+// ===================================================================
+
+async function buscarCorridaAtivaDoCliente(phone: string) {
+  const { data } = await supabase
+    .from("corridas")
+    .select("id, codigo, status, prestador_id, descricao_carga, valor_estimado, valor_final, prestadores(telefone, nome)")
+    .eq("status", "aceita")
+    .order("criado_em", { ascending: false });
+
+  if (!data) return null;
+
+  // Filtra as corridas do cliente (join com clientes por telefone)
+  const { data: clienteRow } = await supabase
+    .from("clientes")
+    .select("id")
+    .eq("telefone", phone)
+    .maybeSingle();
+
+  if (!clienteRow) return null;
+
+  const { data: corridaDoCliente } = await supabase
+    .from("corridas")
+    .select("id, codigo, status, prestador_id, descricao_carga, valor_estimado, valor_final, prestadores(telefone, nome)")
+    .eq("cliente_id", clienteRow.id)
+    .in("status", ["aceita", "paga"])
+    .order("criado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return corridaDoCliente || null;
+}
+
+async function handleAdicionarIniciar(phone: string) {
+  const corrida = await buscarCorridaAtivaDoCliente(phone);
+  if (!corrida) {
+    await sendToClient({
+      to: phone,
+      message: "Não encontrei nenhum frete ativo no seu nome 🤔\n\nPra adicionar itens, você precisa ter um frete já contratado e em andamento.\n\nSe quiser fazer uma nova cotação, me manda *oi* 😊",
+    });
+    return;
+  }
+
+  await updateSession(phone, {
+    step: "adicionar_pequeno_grande",
+    corrida_id: corrida.id,
+  });
+
+  await sendToClient({
+    to: phone,
+    message: `📦 Encontrei seu frete em andamento (código *${corrida.codigo}*)\n\nO item que você quer adicionar é:\n\n1️⃣ *Pequeno* (cabe na mão, tipo caixa pequena, sacola, utensílio) — adiciono sem custo extra\n\n2️⃣ *Grande* (móvel, eletrodoméstico, caixa grande) — precisa refazer cotação, mas só cobramos a *diferença* do que você já pagou\n\n3️⃣ *Cancelar* — não quero mais adicionar`,
+  });
+}
+
+async function handleAdicionarPequenoGrande(phone: string, message: string) {
+  const lower = message.toLowerCase().trim();
+  const session = await getSession(phone);
+  if (!session) return;
+
+  // 1 - Pequeno
+  if (lower === "1" || lower.includes("pequeno") || lower.includes("pequena")) {
+    await updateSession(phone, { step: "adicionar_item_descricao" });
+    await sendToClient({
+      to: phone,
+      message: `Beleza! Me manda:\n\n📸 Foto do item\n*OU*\n✍️ Descrição em texto (ex: "1 caixa de sapatos, 1 mochila")\n\nLembrando: só itens *pequenos* que cabem junto com o que já está no frete 😊`,
+    });
+    return;
+  }
+
+  // 2 - Grande - refazer cotacao
+  if (lower === "2" || lower.includes("grande") || lower.includes("medio") || lower.includes("médio")) {
+    if (!session.corrida_id) {
+      await sendToClient({ to: phone, message: "Não consegui identificar seu frete atual. Manda *oi* pra recomeçar." });
+      return;
+    }
+
+    // Busca valor ja pago na corrida anterior
+    const { data: corridaAnt } = await supabase
+      .from("corridas")
+      .select("id, valor_final, valor_estimado")
+      .eq("id", session.corrida_id)
+      .single();
+
+    const valorJaPago = Number(corridaAnt?.valor_final || corridaAnt?.valor_estimado || 0);
+    const corridaAnteriorId = corridaAnt?.id;
+
+    // Reseta sessao mas guarda referencia da corrida anterior
+    await createSession(phone, session.instance_chatpro as 1 | 2 | undefined);
+    await updateSession(phone, {
+      step: "aguardando_servico",
+      // Usamos os campos da session pra propagar pra proxima corrida via salvarCorrida
+      // corrida_id fica null (nova cotacao). A referencia ao frete anterior vai em bot_logs
+      // pra ser aplicada quando a nova corrida for salva.
+    });
+
+    // Salva referencia em bot_logs pra aplicar quando salvar nova corrida
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "credito_corrida_anterior",
+        phone,
+        corrida_anterior_id: corridaAnteriorId,
+        credito_anterior: valorJaPago,
+        criado_em: new Date().toISOString(),
+      },
+    });
+
+    await sendToClient({
+      to: phone,
+      message: `Ok! Vamos refazer a cotação. 📝\n\nVocê já pagou *R$ ${valorJaPago.toFixed(2)}* na primeira cotação. Esse valor vai ser descontado do novo total.\n\nSe sobrar diferença, você paga só o que falta. Se ficar menor ou igual, não precisa pagar mais nada.\n\nE vamos priorizar o mesmo fretista que já está com seu frete. Combinado? 🚚\n\nMe manda a *localização de retirada* (ou digite o endereço):`,
+    });
+
+    await updateSession(phone, { step: "aguardando_localizacao" });
+    return;
+  }
+
+  // 3 - Cancelar
+  if (lower === "3" || lower.includes("cancelar")) {
+    await updateSession(phone, { step: "aguardando_pagamento" }); // volta pro state que estava
+    await sendToClient({
+      to: phone,
+      message: "Tudo bem, não vou adicionar nada. Seu frete continua como estava 😊",
+    });
+    return;
+  }
+
+  // Nao entendeu
+  await sendToClient({
+    to: phone,
+    message: "Responde uma opção:\n\n1️⃣ *Pequeno*\n2️⃣ *Grande* (refazer cotação)\n3️⃣ *Cancelar*",
+  });
+}
+
+async function handleAdicionarItemDescricao(phone: string, message: string, hasMedia: boolean = false, imageUrl: string | null = null) {
+  const session = await getSession(phone);
+  if (!session || !session.corrida_id) {
+    await sendToClient({ to: phone, message: "Não achei seu frete 😕 Manda *oi* pra recomeçar." });
+    return;
+  }
+
+  let descricaoNovaItem = "";
+
+  if (hasMedia && imageUrl) {
+    const analise = await analisarFotoIA(imageUrl);
+    if (analise && Array.isArray(analise.itens)) {
+      descricaoNovaItem = analise.itens.join(", ");
+    } else {
+      descricaoNovaItem = "Item adicional (foto enviada)";
+    }
+  } else if (message && message.trim().length > 2) {
+    descricaoNovaItem = message.trim();
+  } else {
+    await sendToClient({
+      to: phone,
+      message: "Me descreve o item ou manda uma foto 😊",
+    });
+    return;
+  }
+
+  // Busca descricao atual da corrida
+  const { data: corrida } = await supabase
+    .from("corridas")
+    .select("id, descricao_carga, prestadores(telefone, nome)")
+    .eq("id", session.corrida_id)
+    .single();
+
+  const descricaoAtual = corrida?.descricao_carga || "";
+  const novaDescricao = descricaoAtual
+    ? `${descricaoAtual} + (adicional: ${descricaoNovaItem})`
+    : `(adicional: ${descricaoNovaItem})`;
+
+  await supabase
+    .from("corridas")
+    .update({ descricao_carga: novaDescricao })
+    .eq("id", session.corrida_id);
+
+  // Notifica fretista
+  const prestador = (corrida?.prestadores as any);
+  if (prestador?.telefone) {
+    await sendToClient({
+      to: prestador.telefone,
+      message: `📦 *Atualização: cliente adicionou item ao frete ${(corrida as any)?.codigo || session.corrida_id}*\n\n➕ Novo item: ${descricaoNovaItem}\n\nLista atualizada: ${novaDescricao}\n\nSegue tudo normal — esse item vem junto com o resto.`,
+    });
+  }
+
+  // Volta sessao pro state anterior
+  await updateSession(phone, { step: "aguardando_pagamento" });
+
+  await sendToClient({
+    to: phone,
+    message: `✅ Item adicionado ao seu frete!\n\n📦 ${descricaoNovaItem}\n\nO fretista já foi avisado. Sem custo adicional 😊`,
+  });
+
+  // Alerta admin pra caso de duvida
+  await notificarAdmins(
+    `➕ *CLIENTE ADICIONOU ITEM*`,
+    phone,
+    `Corrida: ${session.corrida_id}\nNovo item: ${descricaoNovaItem}\nLista atual: ${novaDescricao}`
+  );
+}
+
+// Handler do step confirmar_itens_foto - cliente confirma lista que IA identificou
+async function handleConfirmarItensFoto(phone: string, message: string) {
+  const lower = message.toLowerCase().trim();
+  const session = await getSession(phone);
+  if (!session) return;
+
+  // 1 - SIM, seguir
+  if (lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "confirmar" || lower === "ok" || lower === "seguir" || lower === "correto") {
+    await updateSession(phone, { step: "aguardando_localizacao" });
+    await sendToClient({
+      to: phone,
+      message: `Anotado! ✅\n\nAgora me manda a *localização de retirada* 📍\n\nClique no clipe 📎 > Localização 📍\nOu digite o *CEP* ou *endereço completo com rua e bairro*`,
+    });
+    return;
+  }
+
+  // 2 - ADICIONAR mais itens (manda outra foto)
+  if (lower === "2" || lower.includes("adicionar") || lower.includes("mais")) {
+    await updateSession(phone, { step: "aguardando_mais_fotos" });
+    await sendToClient({
+      to: phone,
+      message: `Beleza! Manda a próxima foto 📸\n\n(Quando terminar, manda "pronto" pra seguir)`,
+    });
+    return;
+  }
+
+  // 3 - CORRIGIR (digita o que realmente é)
+  if (lower === "3" || lower.includes("corrigir") || lower.includes("errado") || lower.includes("errou")) {
+    await updateSession(phone, {
+      step: "aguardando_foto",
+      descricao_carga: null,
+      veiculo_sugerido: null,
+    });
+    await sendToClient({
+      to: phone,
+      message: `Sem problema! Me descreve por texto o que precisa transportar 😊\n\nEx: *rack com TV em cima, sofá 2 lugares*\n\nOu manda nova foto mostrando tudo de uma vez.`,
+    });
+    return;
+  }
+
+  // Detecta se cliente digitou descricao direta (em vez dos numeros do menu)
+  // Se mensagem tem mais de 10 chars e nao parece comando, trata como correção
+  if (message.length > 10) {
+    let veiculo = "utilitario";
+    const itensDigitados = message.split(/[,;]/).map((s) => s.trim()).filter((s) => s.length > 0);
+    if (itensDigitados.length >= 8) veiculo = "caminhao_bau";
+    else if (itensDigitados.length >= 3) veiculo = "hr";
+
+    await updateSession(phone, {
+      step: "aguardando_localizacao",
+      descricao_carga: message.trim(),
+      veiculo_sugerido: veiculo,
+    });
+    await sendToClient({
+      to: phone,
+      message: `Anotado! ✅ *${message.trim()}*\n\nAgora me manda a *localização de retirada* 📍`,
+    });
+    return;
+  }
+
+  // Nao entendeu
+  await sendToClient({
+    to: phone,
+    message: `Responde uma das opções:\n\n1️⃣ *SIM*\n2️⃣ *ADICIONAR* mais itens\n3️⃣ *CORRIGIR*`,
+  });
+}
+
+// Handler do step confirmando_destino
 
 // === NUMERO E COMPLEMENTO DA COLETA (apos pagamento) ===
 async function handleNumeroColeta(phone: string, message: string) {
@@ -1532,26 +2112,65 @@ async function handleNumeroColeta(phone: string, message: string) {
     ? `${origemAtual} - Nº ${detalhe}`
     : `Nº ${detalhe}`;
 
-  // Atualiza a corrida no banco pro fretista ver o endereco completo
   await supabase
     .from("corridas")
     .update({ origem_endereco: origemCompleta })
     .eq("id", session.corrida_id);
 
-  // Atualiza a session tambem
+  // Passa pro proximo step: pede numero do DESTINO (fretista precisa pra entrega)
   await updateSession(phone, {
     origem_endereco: origemCompleta,
-    step: "aguardando_pagamento", // volta pro step que indica servico em andamento
+    step: "aguardando_numero_destino",
   });
 
-  // Busca a corrida completa pra reenviar o endereco atualizado ao fretista
+  await sendToClient({
+    to: phone,
+    message: `✅ Retirada:\n*${origemCompleta}*\n\nAgora me manda o *número e complemento do endereço de entrega* 🏠\n\nExemplo:\n• *450, Apto 12B*\n• *230, Casa 2*\n• *1500, Bloco 3 Apto 45*\n\nSe for só número, manda só o número 👍`,
+  });
+}
+
+// Apos receber numero do destino, finaliza o fluxo: notifica fretista com dados
+// completos, manda orientacoes pro cliente e aciona pagamento (ou admin se OFF).
+async function handleNumeroDestino(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session || !session.corrida_id) {
+    await sendToClient({ to: phone, message: "Poxa, nao achei seu pedido ativo 😕 Manda *oi* pra recomecar." });
+    return;
+  }
+
+  const detalhe = message.trim();
+  if (detalhe.length < 1 || !/\d/.test(detalhe)) {
+    await sendToClient({
+      to: phone,
+      message: "Preciso do *número* do endereço de entrega pro fretista entregar certinho 😊\n\nExemplo:\n• *450*\n• *230, Casa 2*\n• *1500, Apto 12B*",
+    });
+    return;
+  }
+
+  const destinoAtual = session.destino_endereco || "";
+  const destinoCompleto = destinoAtual
+    ? `${destinoAtual} - Nº ${detalhe}`
+    : `Nº ${detalhe}`;
+
+  await supabase
+    .from("corridas")
+    .update({ destino_endereco: destinoCompleto })
+    .eq("id", session.corrida_id);
+
+  await updateSession(phone, {
+    destino_endereco: destinoCompleto,
+    step: "aguardando_pagamento",
+  });
+
+  // Busca a corrida completa pra avisar fretista com tudo atualizado
   const { data: corrida } = await supabase
     .from("corridas")
-    .select("id, destino_endereco, descricao_carga, periodo, data_agendada, qtd_ajudantes, valor_final, prestadores(telefone, nome), clientes(nome, telefone)")
+    .select("id, origem_endereco, destino_endereco, descricao_carga, periodo, data_agendada, qtd_ajudantes, valor_final, prestadores(telefone, nome), clientes(nome, telefone)")
     .eq("id", session.corrida_id)
     .single();
 
   const prestador = (corrida?.prestadores as any);
+  const origemCompleta = (corrida as any)?.origem_endereco || session.origem_endereco || "";
 
   // Verifica se pagamento estava habilitado: se estava, fretista ja recebeu detalhes
   // completos via pagamento/webhook (MP). Aqui so mandamos atualizacao de endereco.
@@ -1593,7 +2212,7 @@ async function handleNumeroColeta(phone: string, message: string) {
   // Confirma pro cliente e manda orientacoes finais
   await sendToClient({
     to: phone,
-    message: `✅ Anotado! Endereco completo:\n*${origemCompleta}*\n\nJa avisei o fretista pra ir direitinho no lugar certo! 🚚`,
+    message: `✅ Endereços confirmados:\n📍 Retirada: *${origemCompleta}*\n🏠 Entrega: *${destinoCompleto}*\n\nJá avisei o fretista pra ir direitinho nos endereços certos! 🚚`,
   });
 
   await sendToClient({
@@ -1744,8 +2363,10 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
     .eq("telefone", phone)
     .maybeSingle();
 
-  // Salva feedback (nome = "Admin Fabio" se for o admin)
-  const nomeFretista = phone === ADMIN_PHONE ? "👑 Admin Fabio" : (prestador?.nome || null);
+  // Salva feedback (prefixo "👑 Admin" se for admin)
+  const nomeFretista = isAdminPhone(phone)
+    ? `👑 Admin ${prestador?.nome || ""}`.trim()
+    : (prestador?.nome || null);
   await supabase.from("feedback_precos").insert({
     fretista_phone: phone,
     fretista_nome: nomeFretista,
@@ -1766,10 +2387,10 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
   const novoTotal = estado.total + 1;
   await sendToClient({ to: phone, message: MSG.avaliarRespostaSalva(sim.precoPegue, preco) });
 
-  // ADMIN ONLY: se for o Fabio e o gap for significativo (>= 5% ou <= -5%),
+  // ADMIN ONLY: se for admin e o gap for significativo (>= 5% ou <= -5%),
   // pergunta se quer JA aplicar como regra de ajuste.
-  // Essa funcionalidade SO funciona pro ADMIN_PHONE, qualquer outro numero ignora.
-  const adminSignificativo = phone === ADMIN_PHONE && Math.abs(gap) >= 5;
+  // Essa funcionalidade SO funciona pros admins (env ADMIN_PHONES), outros numeros ignoram.
+  const adminSignificativo = isAdminPhone(phone) && Math.abs(gap) >= 5;
   if (adminSignificativo) {
     const criterios = criteriosMediaDaSimulacao(sim);
     // Guarda criterios + ajuste a aplicar no estado pra handler confirmar depois
@@ -1828,11 +2449,11 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
   await sendToClient({ to: phone, message: formatarMensagemSimulacao(proxima, novoTotal + 1) });
 }
 
-// Handler do step admin_confirmar_ajuste (SOMENTE admin)
+// Handler do step admin_confirmar_ajuste (SOMENTE admins)
 async function handleAdminConfirmarAjuste(phone: string, message: string) {
-  // Proteção: se qualquer número que NÃO seja o ADMIN_PHONE chegar aqui, ignora
+  // Proteção: se qualquer número que NÃO seja admin chegar aqui, ignora
   // (isso não deveria acontecer, mas é uma defesa em profundidade)
-  if (phone !== ADMIN_PHONE) {
+  if (!isAdminPhone(phone)) {
     await updateSession(phone, { step: "inicio" });
     await sendToClient({ to: phone, message: "Comando nao reconhecido. Digite *oi* pra comecar." });
     return;
@@ -1995,26 +2616,24 @@ async function handleAtendente(phone: string) {
     await sendToClient({ to: phone, message: MSG.foraHorarioHumano });
   }
 
-  // Notifica admin no WhatsApp pessoal
-  await notificarAdmin(
-    `🔔 *ATENDIMENTO SOLICITADO*`,
-    phone,
-    `Horario: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}\nDentro do horario: ${isHorarioAtendimentoHumano() ? "Sim" : "Nao"}`
-  );
+  // IMPORTANTE: NAO mais notificar no WhatsApp - isso causou loop com bot externo
+  // e gerou 48 notificacoes em minutos. Agora so registra no dashboard via bot_logs.
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "atendimento_solicitado",
+      phone,
+      dentro_horario: isHorarioAtendimentoHumano(),
+      momento: new Date().toISOString(),
+    },
+  });
 }
 
 // === NOTIFICACAO ADMIN ===
+// Wrapper fino sobre notificarAdmins (plural). Admin(s) configurado(s) via
+// env var ADMIN_PHONES. Mantido como funcao local pra nao quebrar 10+ call sites.
 async function notificarAdmin(titulo: string, clientePhone: string, detalhes: string) {
-  try {
-    // Admin sempre pela instancia 1 (numero principal) pra convergir notificacoes
-    await sendMessage({
-      to: ADMIN_PHONE,
-      message: `${titulo}\n\n👤 Cliente: ${formatarTelefoneExibicao(clientePhone)}\n📱 wa.me/${clientePhone}\n${detalhes}\n\n⏰ ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
-      instance: 1,
-    });
-  } catch (e) {
-    console.error("Erro ao notificar admin:", e);
-  }
+  const detalhesFormatados = `👤 Cliente: ${formatarTelefoneExibicao(clientePhone)}\n📱 wa.me/${clientePhone}\n${detalhes}\n\n⏰ ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`;
+  await notificarAdmins(titulo, clientePhone, detalhesFormatados);
 }
 
 // === DISPATCH FRETISTAS ===
@@ -2084,10 +2703,31 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
       return;
     }
 
-    const telefones = prestadores.map((p) => p.telefone);
+    let telefones = prestadores.map((p) => p.telefone);
     const valorPrestador = Math.round((session.valor_estimado || 0) * 0.88);
 
-    createDispatch(corridaId, clientePhone, telefones);
+    // Se esta corrida tem corrida_anterior_id (fluxo refazer), prioriza o fretista
+    // que pegou a corrida anterior: ele vai em primeiro lugar na lista de dispatch.
+    // Os outros continuam tambem pra garantir que alguem pegue caso o anterior recuse.
+    const { data: corridaInfoPriori } = await supabase
+      .from("corridas")
+      .select("corrida_anterior_id, corridas:corrida_anterior_id(prestador_id, prestadores(telefone))")
+      .eq("id", corridaId)
+      .single();
+
+    const fretistaAnterior = ((corridaInfoPriori?.corridas as any)?.prestadores as any)?.telefone;
+    if (fretistaAnterior && telefones.includes(fretistaAnterior)) {
+      telefones = [fretistaAnterior, ...telefones.filter((t) => t !== fretistaAnterior)];
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "dispatch_priorizou_fretista_anterior",
+          corrida_id: corridaId,
+          fretista_prioritario: fretistaAnterior.replace(/\d(?=\d{4})/g, "*"),
+        },
+      });
+    }
+
+    await createDispatch(corridaId, telefones);
 
     let mensagem = "";
 
@@ -2127,56 +2767,16 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
     await new Promise(r => setTimeout(r, 1500));
     await sendToClients(telefones, mensagem);
 
-    // Apos 31s, se ninguem aceitou, notifica cliente
-    setTimeout(async () => {
-      const vencedor = resolveDispatch(corridaId);
-      if (vencedor) {
-        await notificarResultadoDispatch(corridaId, vencedor, clientePhone);
-        return;
-      }
-
-      // Ninguem aceitou a data original. Se houver contraoferta de fretista,
-      // envia proposta pro cliente decidir. Senao, espera mais 4.5min.
-      const { data: corridaCheck } = await supabase
-        .from("corridas")
-        .select("contraoferta_prestador_id, contraoferta_data, periodo, prestadores:contraoferta_prestador_id(nome, telefone)")
-        .eq("id", corridaId)
-        .single();
-
-      if (corridaCheck?.contraoferta_prestador_id && corridaCheck.contraoferta_data) {
-        // Envia contraoferta pro cliente
-        finalizeDispatch(corridaId);
-        const fretistaNome = (corridaCheck.prestadores as any)?.nome || "O fretista";
-        const dataOriginal = corridaCheck.periodo || "a data original";
-
-        await updateSession(clientePhone, {
-          step: "aguardando_contraoferta_data",
-          corrida_id: corridaId,
-        });
-        await sendToClient({
-          to: clientePhone,
-          message: `📅 *Sobre sua data de ${dataOriginal}:*\n\nNao conseguimos confirmar nenhum parceiro pra essa data. Mas o parceiro *${fretistaNome}* pode atender em *${corridaCheck.contraoferta_data}*.\n\nVoce aceita remarcar?\n\n1️⃣ *SIM* - Aceito ${corridaCheck.contraoferta_data} com ${fretistaNome}\n2️⃣ *NAO* - Prefiro manter ${dataOriginal} e esperar outro parceiro`,
-        });
-        return;
-      }
-
-      // Sem contraoferta: espera ate completar 10min total (31s ja passaram -> 569s adicionais)
-      setTimeout(async () => {
-        const dispatch = getDispatchByCorridaId(corridaId);
-        if (dispatch && !dispatch.finalizado) {
-          finalizeDispatch(corridaId);
-          await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
-
-          // Notifica admin com TODAS as informacoes da corrida pra dar continuidade
-          const detalhesCompletos = await montarResumoCompletoOcorrencia(corridaId);
-          await notificarAdmin(
-            isGuincho ? `⏳ *GUINCHO SEM RESPOSTA (10min)*` : `⏳ *FRETE SEM RESPOSTA (10min)*`,
-            clientePhone,
-            `Nenhum fretista respondeu em 10min. Cliente avisado que equipe vai resolver.\n\n${detalhesCompletos}`
-          );
-        }
-      }, 569000);
-    }, 31000);
+    // Timeouts agora sao tarefas agendadas no banco, executadas pelo cron
+    // /api/cron/tarefas-agendadas. Sobrevivem a cold start e multiplas instancias.
+    // - 31s: checa contraoferta. Se tiver, manda proposta pro cliente.
+    // - 10min: se nada aconteceu, libera cliente e notifica admin.
+    await agendarTarefa("dispatch_timeout_inicial", corridaId, 31_000, {
+      isGuincho,
+    });
+    await agendarTarefa("dispatch_timeout_estendido", corridaId, 600_000, {
+      isGuincho,
+    });
   } catch (error: any) {
     console.error("Erro dispatch:", error?.message);
     await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
@@ -3259,17 +3859,44 @@ async function handlePrestadorResponse(prestadorPhone: string, message: string, 
     return;
   }
 
-  addDispatchResponse(corridaId, prestadorPhone, 0);
-  const vencedor = resolveDispatch(corridaId);
+  // Busca prestador pra ter id e fazer UPDATE atomico
+  const { data: prestador } = await supabase
+    .from("prestadores")
+    .select("id")
+    .eq("telefone", prestadorPhone)
+    .single();
 
-  if (vencedor) {
-    const dispatch = getDispatchByCorridaId(corridaId);
-    const clientePhone = dispatch?.clientePhone || "";
-    await notificarResultadoDispatch(corridaId, vencedor, clientePhone);
-  } else {
+  if (!prestador) {
     await sendToClient({
       to: prestadorPhone,
-      message: "Resposta recebida! ✅ Aguardando outros prestadores... Resultado em instantes!",
+      message: "⚠️ Nao consegui identificar seu cadastro. Fale com a equipe Pegue.",
+    });
+    return;
+  }
+
+  // UPDATE ATOMICO no Supabase: so um fretista vence, garantido pelo Postgres.
+  // Se outro ja pegou, resultado.sucesso = false.
+  const resultado = await tryAceitarDispatch(corridaId, prestador.id, prestadorPhone);
+
+  if (resultado.sucesso) {
+    // Vitoria! Avisa todo mundo e segue fluxo
+    await notificarResultadoDispatch(
+      corridaId,
+      prestadorPhone,
+      resultado.clientePhone,
+      resultado.outrosPrestadores
+    );
+    // Cancela tarefas de timeout que nao sao mais necessarias
+    await cancelarTarefas("dispatch_timeout_inicial", corridaId);
+    await cancelarTarefas("dispatch_timeout_estendido", corridaId);
+  } else if (resultado.jaFoiAceito) {
+    // Outro fretista ja pegou antes dele
+    await sendToClient({ to: prestadorPhone, message: MSG.freteJaPego });
+  } else {
+    // Dispatch nao ativo (timeout expirou ou foi cancelado)
+    await sendToClient({
+      to: prestadorPhone,
+      message: "⚠️ Esse frete nao esta mais disponivel. Aguarde o proximo!",
     });
   }
 }
@@ -3351,21 +3978,24 @@ async function handleFretistaConfirmarAlteracao(prestadorPhone: string, message:
   });
 }
 
-async function notificarResultadoDispatch(corridaId: string, vencedorPhone: string, clientePhone: string) {
-  const dispatch = getDispatchByCorridaId(corridaId);
-  if (!dispatch) return;
-
+// Chamada apos tryAceitarDispatch com sucesso. A corrida JA foi atualizada
+// atomicamente com prestador_id e status='aceita' pelo tryAceitarDispatch.
+// Aqui a responsabilidade eh apenas notificar (vencedor, perdedores, cliente).
+async function notificarResultadoDispatch(
+  corridaId: string,
+  vencedorPhone: string,
+  clientePhone: string,
+  outrosPrestadores: string[]
+) {
   // Avisa fretista vencedor
   await sendToClient({ to: vencedorPhone, message: MSG.freteAceito });
 
-  // Avisa os outros
-  for (const phone of dispatch.prestadores) {
-    if (phone !== vencedorPhone) {
-      await sendToClient({ to: phone, message: MSG.freteJaPego });
-    }
+  // Avisa os outros que perderam
+  for (const phone of outrosPrestadores) {
+    await sendToClient({ to: phone, message: MSG.freteJaPego });
   }
 
-  // Busca dados do prestador vencedor
+  // Busca dados do prestador vencedor (nome) e da corrida (data) pra montar mensagem
   try {
     const { data: prestador } = await supabase
       .from("prestadores")
@@ -3373,69 +4003,55 @@ async function notificarResultadoDispatch(corridaId: string, vencedorPhone: stri
       .eq("telefone", vencedorPhone)
       .single();
 
-    if (prestador) {
-      // Atualiza corrida
-      await supabase
-        .from("corridas")
-        .update({ prestador_id: prestador.id, status: "aceita" })
-        .eq("id", corridaId);
+    if (!prestador) {
+      console.error("Prestador nao encontrado apos aceite:", vencedorPhone);
+      return;
+    }
 
-      // Busca data da corrida
-      const { data: corridaData } = await supabase
-        .from("corridas")
-        .select("periodo, data_agendada")
-        .eq("id", corridaId)
-        .single();
+    const { data: corridaData } = await supabase
+      .from("corridas")
+      .select("periodo, data_agendada")
+      .eq("id", corridaId)
+      .single();
 
-      const dataFrete = corridaData?.periodo || corridaData?.data_agendada || "a data combinada";
+    const dataFrete = corridaData?.periodo || corridaData?.data_agendada || "a data combinada";
 
-      // Verifica se pagamento automatico esta habilitado
-      const { data: configPagto } = await supabase
-        .from("configuracoes")
-        .select("valor")
-        .eq("chave", "pagamento_automatico_fretista")
-        .single();
+    const { data: configPagto } = await supabase
+      .from("configuracoes")
+      .select("valor")
+      .eq("chave", "pagamento_automatico_fretista")
+      .single();
 
-      const pagamentoHabilitado = configPagto?.valor === "habilitado";
+    const pagamentoHabilitado = configPagto?.valor === "habilitado";
 
-      if (pagamentoHabilitado) {
-        // Fluxo com pagamento: envia link, fica em aguardando_pagamento
-        // TODO: Gerar link Mercado Pago real via /api/pagamento/criar
-        const linkPagamento = "https://chamepegue.com.br/simular";
-
-        await sendToClient({
-          to: clientePhone,
-          message: MSG.freteConfirmadoEnviaPagamento(linkPagamento, dataFrete),
-        });
-
-        await updateSession(clientePhone, { step: "aguardando_pagamento" });
-      } else {
-        // Fluxo sem pagamento: confirma direto e ja pede numero/complemento da coleta
-        const telFormatado = formatarTelefoneExibicao(prestador.telefone);
-
-        await sendToClient({
-          to: clientePhone,
-          message: MSG.freteConfirmadoSemPagamento(prestador.nome, telFormatado, dataFrete),
-        });
-
-        // Pede numero e complemento (pula a etapa de pagamento)
-        await updateSession(clientePhone, { step: "aguardando_numero_coleta" });
-        await sendToClient({
-          to: clientePhone,
-          message: `📍 *Pra o fretista nao errar na coleta:*\n\nMe manda o *numero* e *complemento* do endereco de retirada 😊\n\nExemplo:\n• *450, Apto 12B*\n• *230, Casa 2*\n• *1500, Bloco 3 Apto 45*\n\nSe for so numero, manda so o numero 👍`,
-        });
-      }
+    if (pagamentoHabilitado) {
+      // TODO: Gerar link Mercado Pago real via /api/pagamento/criar
+      const linkPagamento = "https://chamepegue.com.br/simular";
+      await sendToClient({
+        to: clientePhone,
+        message: MSG.freteConfirmadoEnviaPagamento(linkPagamento, dataFrete),
+      });
+      await updateSession(clientePhone, { step: "aguardando_pagamento" });
+    } else {
+      const telFormatado = formatarTelefoneExibicao(prestador.telefone);
+      await sendToClient({
+        to: clientePhone,
+        message: MSG.freteConfirmadoSemPagamento(prestador.nome, telFormatado, dataFrete),
+      });
+      await updateSession(clientePhone, { step: "aguardando_numero_coleta" });
+      await sendToClient({
+        to: clientePhone,
+        message: `📍 *Pra o fretista nao errar na coleta:*\n\nMe manda o *numero* e *complemento* do endereco de retirada 😊\n\nExemplo:\n• *450, Apto 12B*\n• *230, Casa 2*\n• *1500, Bloco 3 Apto 45*\n\nSe for so numero, manda so o numero 👍`,
+      });
     }
   } catch (error: any) {
-    console.error("Erro atualizar corrida:", error?.message);
+    console.error("Erro na notificacao pos-aceite:", error?.message);
     await notificarAdmin(
       `🚨 *ERRO APOS ACEITE DO FRETE*`,
       clientePhone,
       `Erro: ${error?.message}\nCorrida: ${corridaId}\nFretista: ${vencedorPhone}`
     );
   }
-
-  finalizeDispatch(corridaId);
 }
 
 // === SALVAR CORRIDA ===
@@ -3477,6 +4093,30 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
 
     const codigo = `PG${Date.now().toString(36).toUpperCase()}`;
 
+    // Verifica se existe credito pendente de corrida anterior (fluxo adicionar itens grandes)
+    let creditoAnterior = 0;
+    let corridaAnteriorId: string | null = null;
+    const { data: logCredito } = await supabase
+      .from("bot_logs")
+      .select("id, payload")
+      .filter("payload->>tipo", "eq", "credito_corrida_anterior")
+      .filter("payload->>phone", "eq", session.phone)
+      .order("criado_em", { ascending: false })
+      .limit(1);
+    if (logCredito?.[0]) {
+      const p = logCredito[0].payload as any;
+      creditoAnterior = Number(p?.credito_anterior || 0);
+      corridaAnteriorId = p?.corrida_anterior_id || null;
+      // Marca o log como aplicado (muda tipo pra nao reutilizar)
+      await supabase
+        .from("bot_logs")
+        .update({ payload: { ...p, tipo: "credito_corrida_anterior_aplicado", aplicado_em: new Date().toISOString() } })
+        .eq("id", logCredito[0].id);
+    }
+
+    const valorBruto = Number(session.valor_estimado || 0);
+    const valorComDesconto = Math.max(0, valorBruto - creditoAnterior);
+
     const { data: corrida, error: errCorrida } = await supabase
       .from("corridas")
       .insert({
@@ -3499,10 +4139,12 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
           return qtdLog?.[0] ? (qtdLog[0].payload as any).qtd : 0;
         })(),
         plano: "padrao",
-        valor_estimado: session.valor_estimado,
-        valor_final: session.valor_estimado,
-        valor_prestador: Math.round((session.valor_estimado || 0) * 0.88),
-        valor_pegue: Math.round((session.valor_estimado || 0) * 0.12),
+        valor_estimado: valorBruto,
+        valor_final: valorComDesconto,
+        valor_prestador: Math.round(valorBruto * 0.88),
+        valor_pegue: Math.round(valorBruto * 0.12),
+        credito_anterior: creditoAnterior,
+        corrida_anterior_id: corridaAnteriorId,
         // data_agendada salva como texto no campo periodo (data_agendada e tipo date no banco)
         periodo: session.data_agendada,
         status: "pendente",
@@ -3568,8 +4210,14 @@ Responda SOMENTE o texto, sem explicacao.`,
 }
 
 async function analisarFotoIA(imageUrl: string): Promise<{
-  item: string; quantidade: string; tamanho: string;
-  veiculo_sugerido: string; observacao: string;
+  item: string;
+  itens: string[];
+  quantidade?: string;
+  quantidade_total?: number;
+  tamanho?: string;
+  tamanho_geral?: string;
+  veiculo_sugerido: string;
+  observacao: string;
 } | null> {
   try {
     const OpenAI = (await import("openai")).default;
@@ -3581,11 +4229,21 @@ async function analisarFotoIA(imageUrl: string): Promise<{
         {
           role: "system",
           content: `Voce e um assistente de uma empresa de fretes chamada Pegue.
-Analise a foto e retorne APENAS um JSON:
+Analise a foto e IDENTIFIQUE TODOS os itens visiveis (nao so o principal).
+Se houver 2+ itens na foto (ex: rack com TV em cima = 2 itens), LISTE TODOS.
+
+Para cada item, INFIRA o tamanho quando relevante e INCLUA no nome:
+- Guarda-roupa: "solteiro" (2 portas), "casal" (3 portas), "king" (4+ portas)
+- Cama: "solteiro", "casal", "queen", "king"
+- Mesa: "4 lugares", "6 lugares", "8+ lugares"
+- Sofa: "2 lugares", "3 lugares", "retratil"
+Se NAO tiver certeza, coloque "(?)": "Guarda-roupa (tamanho?)".
+
+Retorne APENAS um JSON:
 {
-  "item": "nome do item (ex: Geladeira, Sofa, Violao)",
-  "quantidade": "quantidade (ex: 1, 3, varias caixas)",
-  "tamanho": "pequeno, medio ou grande",
+  "itens": ["Item 1 com tamanho", "Item 2 com tamanho", ...],
+  "quantidade_total": <numero de itens>,
+  "tamanho_geral": "pequeno, medio ou grande",
   "veiculo_sugerido": "utilitario, hr ou caminhao_bau",
   "observacao": "frase curta (max 15 palavras)"
 }
@@ -3618,8 +4276,25 @@ Responda SOMENTE o JSON.`,
 
     const texto = response.choices[0]?.message?.content || "";
     const jsonMatch = texto.match(/\{[\s\S]*\}/);
-    if (jsonMatch) return JSON.parse(jsonMatch[0]);
-    return null;
+    if (!jsonMatch) return null;
+
+    const parsed: any = JSON.parse(jsonMatch[0]);
+
+    // Normaliza: garante que "itens" sempre existe como array
+    if (!Array.isArray(parsed.itens)) {
+      if (typeof parsed.item === "string") {
+        parsed.itens = [parsed.item];
+      } else {
+        parsed.itens = ["Material"];
+      }
+    }
+
+    // Compatibilidade com callers antigos: "item" recebe lista formatada
+    parsed.item = parsed.itens.join(", ");
+    parsed.veiculo_sugerido = parsed.veiculo_sugerido || "utilitario";
+    parsed.observacao = parsed.observacao || "";
+
+    return parsed;
   } catch (error: any) {
     console.error("Erro OpenAI Vision:", error?.message);
     return null;
@@ -4033,7 +4708,7 @@ async function reDispatchUrgente(corridaId: string, session: BotSession, cliente
       return;
     }
 
-    createDispatch(corridaId, clientePhone, telefones);
+    await createDispatch(corridaId, telefones, 2); // rodada=2 = urgente
 
     const valorPrestador = Math.round((session.valor_estimado || 0) * 0.88);
 
@@ -4046,20 +4721,10 @@ async function reDispatchUrgente(corridaId: string, session: BotSession, cliente
     await new Promise(r => setTimeout(r, 1000));
     await sendToClients(telefones, mensagem);
 
-    // Timeout: se ninguem aceitar em 5min, notifica admin
-    setTimeout(async () => {
-      const vencedor = resolveDispatch(corridaId);
-      if (vencedor) {
-        await notificarResultadoDispatch(corridaId, vencedor, clientePhone);
-      } else {
-        finalizeDispatch(corridaId);
-        await notificarAdmin(
-          `🚨 *URGENTE: NINGUEM ACEITOU RE-DISPATCH*`,
-          clientePhone,
-          `Corrida: ${corridaId}\nNenhum fretista aceitou o frete urgente.\nCliente aguardando. Intervencao necessaria.`
-        );
-      }
-    }, 300000); // 5 min
+    // Timeout via cron: se ninguem aceitar em 5min, admin recebe alerta
+    await agendarTarefa("dispatch_timeout_estendido", corridaId, 300_000, {
+      urgente: true,
+    });
   } catch (error: any) {
     console.error("Erro re-dispatch:", error?.message);
     await notificarAdmin(`🚨 *ERRO NO RE-DISPATCH*`, clientePhone, `Corrida: ${corridaId}\nErro: ${error?.message}`);

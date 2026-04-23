@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { sendMessage } from "@/lib/chatpro";
 import { formatarTelefoneExibicao } from "@/lib/bot-utils";
+import { notificarAdmins } from "@/lib/admin-notify";
 
 export const dynamic = "force-dynamic";
-
-const FABIO_PHONE = "5511970363713";
 
 export async function POST(req: NextRequest) {
   try {
@@ -75,15 +73,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Notifica Santos
+    // Notifica admins configurados em ADMIN_PHONES
+    // NOTA: pre-cadastros foram classificados como "dashboard apenas" (Fabio preferiu
+    // nao receber tudo no WhatsApp). Mantem o envio pra nao silenciar algo importante,
+    // mas com titulo curto. Se spammar, trocar por log so no dashboard.
     try {
-      await sendMessage({
-        to: FABIO_PHONE,
-        message: `🆕 *Novo pre-cadastro pelo SITE!*\n\n👤 ${nome}\n📱 ${formatarTelefoneExibicao(telCompleto)}\n📧 ${email}\n🚗 ${tipoVeiculo}\n🪪 Placa: ${placa}\n\n⚠️ Faltam fotos - aguarde envio pelo WhatsApp`,
-        instance: 1, // notificacao interna sempre pelo numero principal
-      });
-    } catch {
-      // nao bloqueia se notificacao falhar
+      await notificarAdmins(
+        `🆕 *Novo pre-cadastro pelo site*`,
+        telCompleto,
+        `👤 ${nome}\n📱 ${formatarTelefoneExibicao(telCompleto)}\n📧 ${email}\n🚗 ${tipoVeiculo}\n🪪 Placa: ${placa}\n\n⚠️ Faltam fotos - aguarde envio pelo WhatsApp`
+      );
+    } catch (e: any) {
+      console.error("Falha notificar admin sobre pre-cadastro:", e?.message);
     }
 
     return NextResponse.json({ status: "ok" });

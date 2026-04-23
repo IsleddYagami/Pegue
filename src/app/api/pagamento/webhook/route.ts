@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { buscarPagamento } from "@/lib/mercadopago";
+import { buscarPagamento, validarAssinaturaWebhookMP } from "@/lib/mercadopago";
 import { sendToClient } from "@/lib/chatpro";
 import { formatarTelefoneExibicao } from "@/lib/bot-utils";
 import { MSG } from "@/lib/bot-messages";
@@ -8,42 +8,91 @@ import { updateSession } from "@/lib/bot-sessions";
 
 export const dynamic = "force-dynamic";
 
-// Webhook do Mercado Pago - recebe notificacoes de pagamento
+// Webhook do Mercado Pago - recebe notificacoes de pagamento.
+// Retorna:
+//   200 - processado com sucesso ou evento irrelevante
+//   401 - assinatura invalida (atacante tentando forjar notificacao)
+//   500 - erro interno processando (MP reenvia ate 8x)
+// Atencao: antes estava retornando 200 em erros pra MP nao reenviar.
+// Isso silenciava bugs. Agora erros reais -> 500 -> MP reenvia -> maior chance de recuperar.
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
+  // 1) Valida assinatura ANTES de ler body/processar
+  const xSignature = req.headers.get("x-signature");
+  const xRequestId = req.headers.get("x-request-id");
+  const dataIdFromUrl = req.nextUrl.searchParams.get("data.id") || req.nextUrl.searchParams.get("id");
 
-    // Log no Supabase
+  let body: any = null;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "body invalido" }, { status: 400 });
+  }
+
+  const dataId = body?.data?.id?.toString() || dataIdFromUrl;
+
+  const assinaturaOk = validarAssinaturaWebhookMP({
+    xSignature,
+    xRequestId,
+    dataId,
+  });
+
+  if (!assinaturaOk) {
+    // Log pra auditoria (sem payload completo pra nao armazenar PII de atacante)
     await supabase.from("bot_logs").insert({
-      payload: { tipo: "webhook_mercadopago", body },
+      payload: {
+        tipo: "webhook_mercadopago_REJEITADO",
+        motivo: "assinatura_invalida",
+        headers_presentes: {
+          x_signature: !!xSignature,
+          x_request_id: !!xRequestId,
+        },
+        data_id_presente: !!dataId,
+      },
+    });
+    return NextResponse.json({ error: "assinatura invalida" }, { status: 401 });
+  }
+
+  // 2) Processa (ja com assinatura confirmada)
+  try {
+    // Log minimo, sem body completo - MP manda email do pagador, dados do cartao, etc.
+    // So o necessario: tipo, action, dataId, status
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "webhook_mercadopago",
+        action: body.action,
+        type: body.type,
+        data_id: dataId,
+      },
     });
 
-    // Mercado Pago envia diferentes tipos de notificacao
     if (body.type === "payment" || body.action === "payment.created" || body.action === "payment.updated") {
-      const paymentId = body.data?.id?.toString();
+      const paymentId = dataId;
 
       if (!paymentId) {
         return NextResponse.json({ status: "no_payment_id" });
       }
 
-      // Busca detalhes do pagamento
       const pgto = await buscarPagamento(paymentId);
 
       if (pgto.status === "approved" && pgto.referencia) {
         const corridaId = pgto.referencia;
 
-        // Verifica se corrida ja foi paga (evita duplicidade)
         const { data: corrida } = await supabase
           .from("corridas")
           .select("*, prestadores(nome, telefone), clientes(nome, telefone)")
           .eq("id", corridaId)
           .single();
 
-        if (!corrida || corrida.status === "paga" || corrida.status === "concluida") {
+        if (!corrida) {
+          // Referencia invalida. Isso eh suspeito mas nao eh erro do sistema.
+          console.error("Webhook MP: corrida nao encontrada:", corridaId);
+          return NextResponse.json({ status: "corrida_nao_encontrada" });
+        }
+
+        if (corrida.status === "paga" || corrida.status === "concluida") {
           return NextResponse.json({ status: "ja_processado" });
         }
 
-        // Atualiza corrida como paga (rastreio ativa depois, na coleta)
         await supabase
           .from("corridas")
           .update({
@@ -55,38 +104,32 @@ export async function POST(req: NextRequest) {
         const clienteTel = (corrida.clientes as any)?.telefone;
         const prestador = corrida.prestadores as any;
 
-        if (clienteTel) {
-          // Notifica cliente - pagamento confirmado
-          if (prestador) {
-            const telFormatado = formatarTelefoneExibicao(prestador.telefone);
-            await sendToClient({
-              to: clienteTel,
-              message: MSG.pagamentoConfirmado(prestador.nome, telFormatado),
-            });
+        if (clienteTel && prestador) {
+          const telFormatado = formatarTelefoneExibicao(prestador.telefone);
+          await sendToClient({
+            to: clienteTel,
+            message: MSG.pagamentoConfirmado(prestador.nome, telFormatado),
+          });
 
-            // Pede numero e complemento da coleta (pra precisao do endereco)
-            await updateSession(clienteTel, { step: "aguardando_numero_coleta" });
-            await sendToClient({
-              to: clienteTel,
-              message: `📍 *Pra o fretista nao errar na coleta:*\n\nMe manda o *numero* e *complemento* do endereco de retirada 😊\n\nExemplo:\n• *450, Apto 12B*\n• *230, Casa 2*\n• *1500, Bloco 3 Apto 45*\n\nSe for so numero, manda so o numero 👍`,
-            });
+          await updateSession(clienteTel, { step: "aguardando_numero_coleta" });
+          await sendToClient({
+            to: clienteTel,
+            message: `📍 *Pra o fretista nao errar na coleta:*\n\nMe manda o *numero* e *complemento* do endereco de retirada 😊\n\nExemplo:\n• *450, Apto 12B*\n• *230, Casa 2*\n• *1500, Bloco 3 Apto 45*\n\nSe for so numero, manda so o numero 👍`,
+          });
+
+          const clienteNome = (corrida.clientes as any)?.nome || formatarTelefoneExibicao(clienteTel);
+          const qtdAjudantes = corrida.qtd_ajudantes || 0;
+          let ajudanteInfo = "Sem ajudante";
+          if (qtdAjudantes > 0) {
+            ajudanteInfo = `Com ${qtdAjudantes} ajudante${qtdAjudantes > 1 ? "s" : ""}`;
           }
 
-          // Busca dados pra notificar fretista
-          if (prestador) {
-            const clienteNome = (corrida.clientes as any)?.nome || formatarTelefoneExibicao(clienteTel);
-            const qtdAjudantes = corrida.qtd_ajudantes || 0;
-            let ajudanteInfo = "Sem ajudante";
-            if (qtdAjudantes > 0) {
-              ajudanteInfo = `Com ${qtdAjudantes} ajudante${qtdAjudantes > 1 ? "s" : ""}`;
-            }
+          const isGuincho = (corrida.descricao_carga || "").toLowerCase().includes("guincho");
 
-            const isGuincho = (corrida.descricao_carga || "").toLowerCase().includes("guincho");
-
-            if (isGuincho) {
-              await sendToClient({
-                to: prestador.telefone,
-                message: `✅ *Pagamento confirmado! Servico de guincho liberado!*
+          if (isGuincho) {
+            await sendToClient({
+              to: prestador.telefone,
+              message: `✅ *Pagamento confirmado! Servico de guincho liberado!*
 
 👤 *Cliente:* ${clienteNome}
 📱 *Contato:* ${formatarTelefoneExibicao(clienteTel)}
@@ -114,11 +157,11 @@ Seu pagamento so sera processado apos a confirmacao do cliente.
 *Nao saia do local sem a confirmacao!*
 
 Bom trabalho! 🚗✨`,
-              });
-            } else {
-              await sendToClient({
-                to: prestador.telefone,
-                message: `✅ *Pagamento confirmado! Servico liberado!*
+            });
+          } else {
+            await sendToClient({
+              to: prestador.telefone,
+              message: `✅ *Pagamento confirmado! Servico liberado!*
 
 👤 *Cliente:* ${clienteNome}
 📱 *Contato:* ${formatarTelefoneExibicao(clienteTel)}
@@ -146,10 +189,7 @@ Seu pagamento so sera processado apos a confirmacao do cliente.
 *Nao saia do local sem a confirmacao!*
 
 Bom trabalho! 🚚✨`,
-              });
-            }
-
-            // Rastreio sera ativado na coleta (quando fretista digitar PRONTO)
+            });
           }
         }
       }
@@ -157,12 +197,17 @@ Bom trabalho! 🚚✨`,
 
     return NextResponse.json({ status: "ok" });
   } catch (error: any) {
-    console.error("Erro webhook MP:", error?.message);
-    return NextResponse.json({ status: "ok" }); // Sempre 200 pro MP nao reenviar
+    console.error("Erro webhook MP:", error?.message, error?.stack);
+    // Importante: NAO retornar 200 aqui. MP precisa saber pra reenviar.
+    // Senao, se o processamento falhar (ex: conexao Supabase), pagamento fica orfao.
+    return NextResponse.json(
+      { error: "erro_interno", details: error?.message },
+      { status: 500 }
+    );
   }
 }
 
-// GET pra verificacao do webhook
+// GET pra verificacao/healthcheck do webhook
 export async function GET() {
   return NextResponse.json({ status: "Webhook Mercado Pago ativo" });
 }

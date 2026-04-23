@@ -162,11 +162,11 @@ E pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠`,
 
 Como e o local de *entrega*?
 
-1️⃣ *Casa / Terreo*
-2️⃣ *Predio com elevador*
-3️⃣ *Predio sem elevador / escada*`,
+1️⃣ *Local Terreo*
+2️⃣ *Local com elevador*
+3️⃣ *Local com escada*`,
 
-  qualAndar: `Entendi, predio sem elevador! 🏢
+  qualAndar: `Entendi, local com escada! 🪜
 Qual andar? Me manda o numero`,
 
   precisaAjudante: (infoLocal: string) =>
@@ -230,6 +230,14 @@ Pode enviar tudo junto ou um de cada vez:
 📅 *Data:* ${data}
 ${detalhes}
 ✅ *Total: R$ ${valor}*
+
+━━━━━━━━━━━━━━━━
+
+📝 *Ao confirmar, você concorda que:*
+• Itens que precisam de desmontagem (guarda-roupa, cama, estante) *estão desmontados* antes da coleta
+• Endereços de retirada e entrega estão corretos
+• A data/horário do serviço é o informado acima
+• Geladeira, se houver, está seca e descongelada há 6h+
 
 ━━━━━━━━━━━━━━━━
 

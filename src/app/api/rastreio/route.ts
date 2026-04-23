@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { distanciaRetaKm } from "@/lib/bot-utils";
-import { sendMessage, sendToClient } from "@/lib/chatpro";
+import { sendToClient } from "@/lib/chatpro";
 import { MSG } from "@/lib/bot-messages";
-import { updateSession } from "@/lib/bot-sessions";
+import { updateSession, agendarTarefa } from "@/lib/bot-sessions";
 
 export const dynamic = "force-dynamic";
 
@@ -87,38 +87,18 @@ export async function POST(req: NextRequest) {
             message: MSG.fretistaChegouDestino,
           });
 
-          // Lembrete apos 10 min
-          setTimeout(async () => {
-            try {
-              const { data: sessao } = await supabase
-                .from("bot_sessions")
-                .select("step")
-                .eq("phone", clienteTel)
-                .single();
-              if (sessao?.step === "aguardando_confirmacao_entrega") {
-                await sendToClient({ to: clienteTel, message: MSG.lembreteConfirmacao });
-              }
-            } catch {}
-          }, 10 * 60 * 1000);
-
-          // Apos 20 min: libera fretista
-          setTimeout(async () => {
-            try {
-              const { data: sessao } = await supabase
-                .from("bot_sessions")
-                .select("step")
-                .eq("phone", clienteTel)
-                .single();
-              if (sessao?.step === "aguardando_confirmacao_entrega") {
-                // Notifica Santos
-                await sendMessage({
-                  to: "5511970363713",
-                  message: `⚠️ *Cliente nao confirmou entrega ha 20 min!*\n\nCliente: ${clienteTel}\nCorrida: ${corrida.id}\n\nVerifique e resolva!`,
-                  instance: 1, // notificacao admin sempre pelo numero principal
-                });
-              }
-            } catch {}
-          }, 20 * 60 * 1000);
+          // Timeouts agora sao tarefas agendadas (cron /api/cron/tarefas-agendadas)
+          // setTimeout em route handler serverless nao sobrevive ao fim da request.
+          await agendarTarefa(
+            "rastreio_lembrete_confirmacao",
+            corrida.id,
+            10 * 60 * 1000
+          );
+          await agendarTarefa(
+            "rastreio_libera_fretista",
+            corrida.id,
+            20 * 60 * 1000
+          );
         }
       }
     }

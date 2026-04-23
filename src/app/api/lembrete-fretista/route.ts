@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendMessage, sendToClient } from "@/lib/chatpro";
+import { sendToClient } from "@/lib/chatpro";
 import { supabase } from "@/lib/supabase";
-import { isValidAdminKey } from "@/lib/admin-auth";
+import { isValidAdminKey, isValidCronKey } from "@/lib/admin-auth";
+import { notificarAdmins } from "@/lib/admin-notify";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_PHONE = "5511971429605";
 
 // GET - Chamado por cron a cada 10 minutos
 // Verifica fretes que estao proximos do horario e envia lembretes progressivos
 export async function GET(req: NextRequest) {
-  const key = req.nextUrl.searchParams.get("key");
-  if (!isValidAdminKey(key)) {
+  const key = req.nextUrl.searchParams.get("key") || req.headers.get("authorization")?.replace("Bearer ", "");
+  // Aceita CRON_SECRET (vercel cron) ou ADMIN_KEY (trigger manual)
+  if (!isValidCronKey(key) && !isValidAdminKey(key)) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
   }
 
@@ -115,12 +115,12 @@ export async function GET(req: NextRequest) {
           });
         }
 
-        // Notifica admin
-        await sendMessage({
-          to: ADMIN_PHONE,
-          message: `🚨 *ABANDONO DE FRETE*\n\n👤 Fretista: ${(corrida.prestadores as any)?.nome} (${fretistaTel})\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${periodoStr}\nStatus: ${corrida.status === "paga" ? "PAGAMENTO JA FEITO - conta desativada" : "Re-dispatch em andamento"}\n\n⏰ ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
-          instance: 1, // notificacao admin sempre pelo numero principal
-        });
+        // Notifica admin(s) configurados em ADMIN_PHONES
+        await notificarAdmins(
+          `🚨 *ABANDONO DE FRETE*`,
+          clienteTel || "",
+          `👤 Fretista: ${(corrida.prestadores as any)?.nome} (${fretistaTel})\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${periodoStr}\nStatus: ${corrida.status === "paga" ? "PAGAMENTO JA FEITO - conta desativada" : "Re-dispatch em andamento"}\n\n⏰ ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
+        );
 
         lembreteEnviados++;
       }

@@ -1,3 +1,1 @@
-{
-  "$comment": "Crons estao em cron-job.org (externo), nao em Vercel Cron. Motivo: plano Hobby limita a 2 crons/dia."
-}
+{}

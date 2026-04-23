@@ -27,7 +27,7 @@ export default function HomePage() {
         }} />
 
         <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 py-16 text-center md:py-24">
-          <Image src="/logo-pegue-novo.png" alt="Pegue" width={200} height={200} className="mb-6 h-24 w-auto md:h-32" priority />
+          <Image src="/logo-pegue-novo.png" alt="Pegue" width={1000} height={1000} className="mb-6 h-[30rem] w-auto md:h-[40rem]" priority />
 
           {/* FRASE PRINCIPAL - A PRIMEIRA QUE O CLIENTE LE */}
           <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">

@@ -249,7 +249,7 @@ ${detalhes}
 □ Quer *adicionar mais algum item* que tenha esquecido?
 □ *Endereços* de retirada e entrega estão corretos?
 □ *Data e horário* estão certos?
-□ *Fretista NÃO faz montagem nem desmontagem* — seus móveis (guarda-roupa, cama, estante, beliche) já estão desmontados?
+□ *Fretista NÃO faz montagem e desmontagem* — confira se não há essa necessidade
 □ Se escolheu *elevador*, todos os itens *cabem nele*? (caso não caiba, taxa adicional no dia)
 
 ━━━━━━━━━━━━━━━━

@@ -387,7 +387,9 @@ Relaxa. A gente leva. 🚚✨`,
 🌐 *chamepegue.com.br*
 📍 Presidente Altino, Osasco-SP
 
-É exatamente o mesmo modelo do Mercado Livre, iFood, Uber e Lalamove. O dinheiro nunca vai direto pro prestador até você confirmar que tá tudo certo 😊`,
+É o *mesmo modelo do Mercado Livre* — você já conhece e confia nele. 😊
+
+A Pegue garante a segurança do valor pago até a confirmação da entrega. Seu dinheiro não vai direto pro fretista, passa pelo Mercado Pago.`,
 
   aguardarLinkPagamentoAvulso: `💳 *Pagamento:*
 

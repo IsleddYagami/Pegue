@@ -1071,13 +1071,27 @@ async function handleLocalizacao(
     const endereco = await buscaCep(cep);
     if (endereco) {
       const coords = await geocodeAddress(endereco);
-      await updateSession(phone, {
-        step: "aguardando_foto",
-        origem_endereco: endereco,
-        origem_lat: coords?.lat || null,
-        origem_lng: coords?.lng || null,
+      if (coords?.lat && coords?.lng) {
+        await updateSession(phone, {
+          step: "aguardando_foto",
+          origem_endereco: endereco,
+          origem_lat: coords.lat,
+          origem_lng: coords.lng,
+        });
+        await sendToClient({ to: phone, message: MSG.enderecoRecebido(endereco) });
+        return;
+      }
+      // CEP achou endereco mas geocoder falhou - avisa admin e segue com endereco sem coords
+      console.warn(`[cep] ViaCEP OK mas geocoder falhou pra: ${endereco}`);
+    } else {
+      // CEP invalido / nao encontrado - mensagem especifica
+      await supabase.from("bot_logs").insert({
+        payload: { tipo: "cep_nao_encontrado", phone, cep, origem_tentativa: message.slice(0, 100) },
       });
-      await sendToClient({ to: phone, message: MSG.enderecoRecebido(endereco) });
+      await sendToClient({
+        to: phone,
+        message: `🤔 Não achei esse CEP (*${cep}*) no ViaCEP.\n\nConfere se digitou certo ou tenta mandar:\n• *Rua, bairro e cidade* (ex: Rua Augusta, Consolacao, Sao Paulo)\n• *Localização* pelo clipe 📎`,
+      });
       return;
     }
   }
@@ -1323,6 +1337,16 @@ async function handleDestino(phone: string, message: string) {
       const coords = await geocodeAddress(endereco);
       destinoLat = coords?.lat || null;
       destinoLng = coords?.lng || null;
+    } else {
+      // CEP invalido - mensagem especifica pro destino
+      await supabase.from("bot_logs").insert({
+        payload: { tipo: "cep_destino_nao_encontrado", phone, cep, destino_tentativa: message.slice(0, 100) },
+      });
+      await sendToClient({
+        to: phone,
+        message: `🤔 Não achei esse CEP (*${cep}*) de destino.\n\nConfere se digitou certo ou manda:\n• *Rua, bairro e cidade* do destino\n\nExemplo: *Rua Augusta, Consolação, São Paulo*`,
+      });
+      return;
     }
   } else {
     const coords = await geocodeAddress(message);

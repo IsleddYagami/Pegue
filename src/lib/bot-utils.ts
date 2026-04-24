@@ -383,8 +383,12 @@ export function calcularPrecosCompleto(
 
 // Extrai CEP de uma mensagem
 export function extrairCep(texto: string): string | null {
-  const match = texto.match(/\d{5}-?\d{3}/);
-  return match ? match[0] : null;
+  // Aceita: 06010000, 06010-000, 06010.000, 06010 000, 06.010-000, "cep 06010-000"
+  // Remove pontos e espacos antes de bater o regex
+  const limpo = (texto || "").replace(/\./g, "").replace(/\s+/g, " ");
+  const match = limpo.match(/\b(\d{5})[-\s]?(\d{3})\b/);
+  if (!match) return null;
+  return `${match[1]}${match[2]}`;
 }
 
 // Detecta se mensagem parece ser um endereco

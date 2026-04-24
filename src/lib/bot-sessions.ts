@@ -43,6 +43,9 @@ export type BotStep =
   | "adicionar_pequeno_grande"
   | "adicionar_item_descricao"
   | "confirmar_contexto_inicial"
+  | "fretista_divergencia_tipo"
+  | "fretista_divergencia_foto"
+  | "fretista_divergencia_descricao"
   | "fretista_confirmar_alteracao_data"
   | "aguardando_contraoferta_data"
   | "avaliar_escolher_veiculos"
@@ -350,7 +353,8 @@ export type TipoTarefa =
   | "dispatch_timeout_inicial"
   | "dispatch_timeout_estendido"
   | "rastreio_lembrete_confirmacao"
-  | "rastreio_libera_fretista";
+  | "rastreio_libera_fretista"
+  | "ocorrencia_timeout_admin";
 
 export async function agendarTarefa(
   tipo: TipoTarefa,

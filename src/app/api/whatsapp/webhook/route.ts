@@ -321,6 +321,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: "ok" });
       }
 
+      // Foto de divergencia do fretista (evidencia de problema no local)
+      if (session && session.step === "fretista_divergencia_foto") {
+        await handleFretistaDivergenciaFoto(phoneNumber, "", true, imageUrl);
+        return NextResponse.json({ status: "ok" });
+      }
+
       const stepsAceitamFoto = ["aguardando_foto", "aguardando_mais_fotos", "aguardando_destino"];
       if (session && stepsAceitamFoto.includes(session.step)) {
         const analise = await analisarFotoIA(imageUrl);
@@ -615,6 +621,15 @@ Boa sorte! 🎯`,
     return;
   }
 
+  // Comando PROBLEMA / DIVERGENCIA (fretista reporta no local)
+  if (lower === "problema" || lower === "divergencia" || lower === "divergência"
+      || lower === "cliente ausente" || lower === "divergencia horario"
+      || lower === "divergência horário" || lower === "divergencia com horario"
+      || lower === "problema no local" || lower === "ocorrencia" || lower === "ocorrência") {
+    await handleFretistaProblemaIniciar(phone);
+    return;
+  }
+
   // Comando SEGURO / COMO FUNCIONA - explicacao do pagamento retido (cliente desconfiado)
   if (lower === "seguro" || lower === "pagamento seguro" || lower === "e seguro" || lower === "é seguro"
       || lower === "eh seguro" || lower === "como funciona" || lower === "como funciona o pagamento"
@@ -814,6 +829,18 @@ Boa sorte! 🎯`,
 
     case "confirmar_contexto_inicial":
       await handleConfirmarContextoInicial(phone, message);
+      break;
+
+    case "fretista_divergencia_tipo":
+      await handleFretistaDivergenciaTipo(phone, message);
+      break;
+
+    case "fretista_divergencia_foto":
+      await handleFretistaDivergenciaFoto(phone, message, false, null);
+      break;
+
+    case "fretista_divergencia_descricao":
+      await handleFretistaDivergenciaDescricao(phone, message);
       break;
 
     case "aguardando_contraoferta_data":
@@ -2115,6 +2142,226 @@ async function buscarCorridaAtivaDoCliente(phone: string) {
     .maybeSingle();
 
   return corridaDoCliente || null;
+}
+
+// ============================================================
+// FRETISTA reporta PROBLEMA no local (divergencia do combinado)
+// Fluxo: tipo -> foto -> descricao -> notifica admin + timer 15min
+// ============================================================
+
+const TIPOS_DIVERGENCIA: Record<string, { label: string; emoji: string }> = {
+  "1": { label: "cliente_ausente", emoji: "🚪" },
+  "2": { label: "divergencia_horario", emoji: "⏰" },
+  "3": { label: "itens_extras", emoji: "📦" },
+  "4": { label: "local_diferente", emoji: "📍" },
+  "5": { label: "objeto_diferente", emoji: "⚠️" },
+  "6": { label: "outro", emoji: "❓" },
+};
+
+async function handleFretistaProblemaIniciar(phone: string) {
+  // Verifica se fretista tem corrida ativa (aceita ou paga) pra reportar problema em cima dela
+  const { data: prestador } = await supabase
+    .from("prestadores")
+    .select("id, nome")
+    .eq("telefone", phone)
+    .maybeSingle();
+
+  if (!prestador) {
+    await sendToClient({
+      to: phone,
+      message: "Esse comando é só pra fretistas cadastrados. Se você é cliente, digite *oi* pra iniciar uma cotação.",
+    });
+    return;
+  }
+
+  const { data: corrida } = await supabase
+    .from("corridas")
+    .select("id, codigo, status")
+    .eq("prestador_id", prestador.id)
+    .in("status", ["aceita", "paga"])
+    .order("criado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!corrida) {
+    await sendToClient({
+      to: phone,
+      message: "Você não tem nenhum frete ativo no momento. Se for outro tipo de problema, fala com a Pegue: contato@chamepegue.com.br",
+    });
+    return;
+  }
+
+  await updateSession(phone, {
+    step: "fretista_divergencia_tipo",
+    corrida_id: corrida.id,
+  });
+
+  await sendToClient({
+    to: phone,
+    message: `🚨 *Registrar ocorrência — Frete ${corrida.codigo}*\n\nO que está acontecendo?\n\n1️⃣ 🚪 *Cliente ausente* (não atende / não responde)\n2️⃣ ⏰ *Divergência de horário* (cliente pediu pra adiar)\n3️⃣ 📦 *Itens a mais* do que foi cotado\n4️⃣ 📍 *Local diferente* (elevador quebrado, item não cabe, endereço errado)\n5️⃣ ⚠️ *Objeto em estado diferente* (já quebrado, sujo, etc)\n6️⃣ ❓ *Outro*\n\n⚠️ *Não saia do local antes de registrar.* Vamos resolver juntos.`,
+  });
+}
+
+async function handleFretistaDivergenciaTipo(phone: string, message: string) {
+  const lower = message.toLowerCase().trim();
+  const session = await getSession(phone);
+  if (!session || !session.corrida_id) return;
+
+  const tipoConfig = TIPOS_DIVERGENCIA[lower];
+  if (!tipoConfig) {
+    await sendToClient({
+      to: phone,
+      message: "Responde com *1*, *2*, *3*, *4*, *5* ou *6* (tipo da ocorrência).",
+    });
+    return;
+  }
+
+  // Cria ocorrencia com tipo (sem foto nem descricao ainda)
+  const { data: prestador } = await supabase.from("prestadores").select("id").eq("telefone", phone).single();
+  const { data: corrida } = await supabase.from("corridas").select("cliente_id").eq("id", session.corrida_id).single();
+
+  const { data: ocorrencia } = await supabase
+    .from("ocorrencias")
+    .insert({
+      corrida_id: session.corrida_id,
+      prestador_id: prestador?.id || null,
+      cliente_id: corrida?.cliente_id || null,
+      tipo: tipoConfig.label,
+      status: "aberta",
+    })
+    .select("id")
+    .single();
+
+  await updateSession(phone, {
+    step: "fretista_divergencia_foto",
+    descricao_carga: ocorrencia?.id || null, // reaproveita campo pra passar ID da ocorrencia
+  });
+
+  await sendToClient({
+    to: phone,
+    message: `${tipoConfig.emoji} Registrado: *${tipoConfig.label.replace(/_/g, " ")}*\n\n📸 Agora manda uma *foto* que mostre a situação.\n\nExemplos:\n• Fachada do imóvel (com horário visível no celular)\n• Print de tentativa de contato\n• Foto do item/local divergente\n\nFoto é *obrigatória* pra registrar a ocorrência.`,
+  });
+}
+
+async function handleFretistaDivergenciaFoto(phone: string, message: string, hasMedia: boolean, imageUrl: string | null) {
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const ocorrenciaId = session.descricao_carga; // reusamos o campo pra passar o ID
+
+  if (!hasMedia || !imageUrl) {
+    await sendToClient({
+      to: phone,
+      message: "Preciso de uma *foto* da situação. Manda pelo clipe 📎 → Câmera.\n\nSem foto, não consigo registrar a ocorrência.",
+    });
+    return;
+  }
+
+  // Salva foto_url na ocorrencia
+  if (ocorrenciaId) {
+    await supabase
+      .from("ocorrencias")
+      .update({ foto_url: imageUrl })
+      .eq("id", ocorrenciaId);
+  }
+
+  await updateSession(phone, { step: "fretista_divergencia_descricao" });
+
+  await sendToClient({
+    to: phone,
+    message: "✅ Foto recebida!\n\nAgora me conta *por texto* o que aconteceu — seja detalhista, isso vai ser usado pra resolver a situação.\n\nEx: _\"Toquei interfone 5x, ninguém atendeu. Carro estacionado desde 14h30.\"_",
+  });
+}
+
+async function handleFretistaDivergenciaDescricao(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const ocorrenciaId = session.descricao_carga;
+  const descricao = message.trim().slice(0, 1000);
+
+  if (descricao.length < 10) {
+    await sendToClient({
+      to: phone,
+      message: "Me conta com mais detalhes, por favor (pelo menos 10 caracteres).",
+    });
+    return;
+  }
+
+  // Atualiza ocorrencia com descricao
+  if (ocorrenciaId) {
+    await supabase
+      .from("ocorrencias")
+      .update({ descricao })
+      .eq("id", ocorrenciaId);
+  }
+
+  // Busca dados completos pra notificar admin
+  const { data: ocorrencia } = await supabase
+    .from("ocorrencias")
+    .select("id, tipo, foto_url, descricao, corrida:corrida_id(id, codigo, valor_final, valor_estimado, origem_endereco, destino_endereco, descricao_carga, clientes(nome, telefone), prestadores(nome, telefone))")
+    .eq("id", ocorrenciaId || "")
+    .maybeSingle();
+
+  const corrida = (ocorrencia?.corrida as any);
+  const cliente = (corrida?.clientes as any) || {};
+  const prestador = (corrida?.prestadores as any) || {};
+  const valor = corrida?.valor_final || corrida?.valor_estimado || 0;
+
+  const tipoLabel = (ocorrencia?.tipo || "").replace(/_/g, " ").toUpperCase();
+
+  const detalhesAdmin = [
+    `🏷️ *Código:* ${corrida?.codigo || "-"}`,
+    `🆔 Ocorrência: ${ocorrencia?.id || "-"}`,
+    `📋 *Tipo:* ${tipoLabel}`,
+    ``,
+    `👤 *CLIENTE*`,
+    `Nome: ${cliente.nome || "-"}`,
+    `Tel: ${cliente.telefone ? formatarTelefoneExibicao(cliente.telefone) : "-"}`,
+    `📱 wa.me/${cliente.telefone || ""}`,
+    ``,
+    `🚚 *FRETISTA (reportou)*`,
+    `Nome: ${prestador.nome || "-"}`,
+    `Tel: ${prestador.telefone ? formatarTelefoneExibicao(prestador.telefone) : "-"}`,
+    `📱 wa.me/${prestador.telefone || ""}`,
+    ``,
+    `💰 *Valor do frete:* R$ ${valor}`,
+    `📍 *Origem:* ${corrida?.origem_endereco || "-"}`,
+    `🏠 *Destino:* ${corrida?.destino_endereco || "-"}`,
+    ``,
+    `📝 *Relato do fretista:*`,
+    descricao,
+    ``,
+    `📸 Foto: ${ocorrencia?.foto_url || "sem foto"}`,
+    ``,
+    `⏰ Fretista aguardando no local. Se em 15min não houver resolução, ele será liberado e taxa de 50% será processada.`,
+    ``,
+    `👉 Ligar pro cliente AGORA no número acima.`,
+  ].join("\n");
+
+  await notificarAdmins(
+    `🚨 *OCORRÊNCIA NO FRETE — ${tipoLabel}*`,
+    cliente.telefone || phone,
+    detalhesAdmin
+  );
+
+  // Agenda timer: se em 15 min admin nao resolver, notifica pra liberar fretista
+  await agendarTarefa("ocorrencia_timeout_admin", ocorrenciaId || "", 15 * 60 * 1000, {
+    fretista_phone: phone,
+    corrida_id: session.corrida_id,
+  });
+
+  // Reseta step do fretista (volta pro fluxo normal)
+  await updateSession(phone, {
+    step: "inicio",
+    corrida_id: session.corrida_id,
+    descricao_carga: null,
+  });
+
+  await sendToClient({
+    to: phone,
+    message: `✅ *Ocorrência registrada!*\n\nA Pegue vai entrar em contato com o cliente agora pra resolver.\n\n⏰ *Aguarde no local por até 15 minutos.*\n\nSe não houver solução nesse tempo, você será liberado e a taxa de *50%* do valor do frete (R$ ${valor ? Math.round(Number(valor) * 0.5) : "-"}) será processada pra você.\n\nQualquer dúvida, a equipe vai te chamar aqui.`,
+  });
 }
 
 async function handleAdicionarIniciar(phone: string) {

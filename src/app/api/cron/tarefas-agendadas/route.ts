@@ -98,6 +98,10 @@ async function executarTarefa(tarefa: any) {
       await handleRastreioLiberaFretista(referencia, payload);
       break;
 
+    case "ocorrencia_timeout_admin":
+      await handleOcorrenciaTimeoutAdmin(referencia, payload);
+      break;
+
     default:
       throw new Error(`Tipo de tarefa desconhecido: ${tipo}`);
   }
@@ -230,6 +234,72 @@ async function handleRastreioLiberaFretista(corridaId: string, _payload: any) {
       clientePhone,
       `Corrida: ${corridaId}\nCliente: ${clientePhone}\n\nVerifique e resolva.`
     );
+  }
+}
+
+// 15min apos ocorrencia aberta: se admin nao resolveu, libera fretista e processa reembolso 50%
+async function handleOcorrenciaTimeoutAdmin(ocorrenciaId: string, payload: any) {
+  if (!ocorrenciaId) return;
+
+  const { data: ocorrencia } = await supabase
+    .from("ocorrencias")
+    .select("id, tipo, status, corrida_id, corrida:corrida_id(id, codigo, valor_final, valor_estimado, clientes(nome, telefone), prestadores(nome, telefone))")
+    .eq("id", ocorrenciaId)
+    .maybeSingle();
+
+  if (!ocorrencia) return;
+
+  // Admin ja resolveu? nao faz nada
+  if (ocorrencia.status !== "aberta" && ocorrencia.status !== "em_atendimento") return;
+
+  const corrida = (ocorrencia.corrida as any);
+  const cliente = (corrida?.clientes as any) || {};
+  const prestador = (corrida?.prestadores as any) || {};
+  const valor = Number(corrida?.valor_final || corrida?.valor_estimado || 0);
+  const valorReembolso = Math.round(valor * 0.5);
+
+  const fretistaPhone = payload?.fretista_phone || prestador.telefone;
+
+  // Atualiza status da ocorrencia
+  await supabase
+    .from("ocorrencias")
+    .update({
+      status: "resolvida_liberado_fretista",
+      valor_reembolso: valorReembolso,
+      resolvida_em: new Date().toISOString(),
+      resolvida_por: "sistema_timeout_15min",
+    })
+    .eq("id", ocorrenciaId);
+
+  const tipoLabel = (ocorrencia.tipo || "").replace(/_/g, " ").toUpperCase();
+
+  // Notifica admins
+  await notificarAdmins(
+    `⏰ *TIMEOUT OCORRÊNCIA — LIBERAR FRETISTA*`,
+    fretistaPhone || "",
+    [
+      `🆔 Ocorrência: ${ocorrenciaId}`,
+      `📋 Tipo: ${tipoLabel}`,
+      `🏷️ Código: ${corrida?.codigo || "-"}`,
+      ``,
+      `⚠️ *15min se passaram sem resolução.*`,
+      ``,
+      `👤 Cliente: ${cliente.nome || "-"} (${cliente.telefone || "-"})`,
+      `🚚 Fretista: ${prestador.nome || "-"} (${prestador.telefone || "-"})`,
+      ``,
+      `💰 Valor do frete: R$ ${valor}`,
+      `💵 *Reembolso (50%) ao fretista: R$ ${valorReembolso}*`,
+      ``,
+      `Sistema liberou o fretista do local. Processar pagamento manualmente no MP.`,
+    ].join("\n")
+  );
+
+  // Libera fretista
+  if (fretistaPhone) {
+    await sendToClient({
+      to: fretistaPhone,
+      message: `✅ *Você está liberado do local.*\n\nJá se passaram 15 minutos sem resolução da ocorrência. Pode seguir com sua rotina normal.\n\n💵 *Reembolso de R$ ${valorReembolso} (50% do frete)* será processado pela equipe Pegue em até 1 dia útil.\n\nObrigado pelo profissionalismo! 🙏`,
+    });
   }
 }
 

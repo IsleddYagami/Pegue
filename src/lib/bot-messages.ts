@@ -319,7 +319,7 @@ Em alguns minutos nossa equipe te envia o *link de pagamento seguro* aqui no Wha
 🔒 *Pagamento igual Mercado Livre:*
 Valor fica *retido no Mercado Pago* até você confirmar a entrega. Qualquer problema = *reembolso 100%*.
 
-💰 Pix (sem taxa) ou cartão de crédito até 12x
+💰 Pix ou cartão de crédito
 
 ━━━━━━━━━━━━━━━━
 
@@ -367,9 +367,7 @@ Relaxa. A gente leva. 🚚✨`,
 
 ━━━━━━━━━━━━━━━━
 
-💰 *Formas de pagamento:*
-• *Pix* — rápido e sem taxa ✅
-• *Cartão de crédito* — até 12x parcelado (taxa varia conforme parcelas, você vê o valor final antes de confirmar)
+💰 *Pix* ou *cartão de crédito*
 
 ━━━━━━━━━━━━━━━━
 

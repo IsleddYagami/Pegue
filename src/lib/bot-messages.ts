@@ -272,13 +272,17 @@ Para confirmar, conclua o pagamento:
 
 ⏳ A reserva se mantem disponivel por *20 minutos*. Apos esse tempo, sera necessaria uma nova cotacao para verificar e garantir nova agenda.`,
 
-  freteConfirmadoSemPagamento: (nomePrestador: string, telPrestador: string, data: string) =>
-    `🎉 *Frete confirmado pra ${data}!*
+  // IMPORTANTE: Quando o pagamento automatico esta OFF, NAO liberamos dados do fretista
+  // pro cliente ate que o pagamento seja feito (senao ele negocia direto e burla a plataforma).
+  // Essa mensagem eh neutra: so confirma reserva e avisa que o link vai ser enviado.
+  freteConfirmadoSemPagamento: (data: string) =>
+    `🎉 *Frete reservado pra ${data}!*
 
-Seu parceiro e o *${nomePrestador}*.
-📱 ${telPrestador}
+⏳ Estamos finalizando seu pedido. Nossa equipe vai te enviar o *link de pagamento* em alguns minutos aqui no WhatsApp.
 
-Em instantes nossa equipe Pegue entra em contato pra combinar os detalhes. Qualquer coisa, fala comigo! 🚚✨`,
+🔒 Os dados do fretista serão liberados logo após o pagamento confirmado.
+
+Qualquer coisa, fala comigo! 🚚✨`,
 
   nenhumFretista: `Nosso especialista logo enviara a confirmacao do seu frete! 😊
 Fique tranquilo, ja estamos cuidando disso!`,

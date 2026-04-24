@@ -2505,11 +2505,55 @@ async function handleNumeroDestino(phone: string, message: string) {
       message: MSG.aguardarLinkPagamentoAvulso,
     });
 
-    // Notifica admin que precisa enviar link de pagamento manual
+    // Busca dados completos pra notificacao admin rica (evita campos "-" vazios)
+    const { data: corridaCompleta } = await supabase
+      .from("corridas")
+      .select("codigo, valor_estimado, valor_final, valor_prestador, descricao_carga, periodo, data_agendada, qtd_ajudantes, prestadores(nome, telefone), clientes(nome, telefone)")
+      .eq("id", session.corrida_id!)
+      .single();
+
+    const cliente = (corridaCompleta?.clientes as any) || {};
+    const prestadorInfo = (corridaCompleta?.prestadores as any) || {};
+    const valorCliente = corridaCompleta?.valor_final || corridaCompleta?.valor_estimado || 0;
+    const valorFretista = corridaCompleta?.valor_prestador || Math.round(Number(valorCliente) * 0.88);
+    const dataFrete = corridaCompleta?.periodo || corridaCompleta?.data_agendada || "A combinar";
+    const ajudanteInfo = (corridaCompleta?.qtd_ajudantes || 0) > 0
+      ? `Sim (${corridaCompleta?.qtd_ajudantes})`
+      : "Nao";
+
+    const detalhesRicos = [
+      `🏷️ *Codigo:* ${corridaCompleta?.codigo || "-"}`,
+      `🆔 ${session.corrida_id}`,
+      ``,
+      `👤 *CLIENTE*`,
+      `Nome: ${cliente.nome || "-"}`,
+      `Tel: ${formatarTelefoneExibicao(cliente.telefone || phone)}`,
+      `📱 wa.me/${cliente.telefone || phone}`,
+      ``,
+      `🚚 *FRETISTA que aceitou*`,
+      `Nome: ${prestadorInfo.nome || "-"}`,
+      `Tel: ${prestadorInfo.telefone ? formatarTelefoneExibicao(prestadorInfo.telefone) : "-"}`,
+      `📱 ${prestadorInfo.telefone ? `wa.me/${prestadorInfo.telefone}` : "-"}`,
+      ``,
+      `💰 *VALORES*`,
+      `Cliente paga: *R$ ${valorCliente}*`,
+      `Fretista recebe: R$ ${valorFretista}`,
+      `Pegue recebe: R$ ${Number(valorCliente) - Number(valorFretista)}`,
+      ``,
+      `📦 *SERVICO*`,
+      `Carga: ${corridaCompleta?.descricao_carga || "-"}`,
+      `Ajudante: ${ajudanteInfo}`,
+      `Data: ${dataFrete}`,
+      `Origem: ${origemCompleta}`,
+      `Destino: ${destinoCompleto}`,
+      ``,
+      `👉 Gera o link de pagamento no MP (R$ ${valorCliente}) e envia pro cliente via WhatsApp.`,
+    ].join("\n");
+
     await notificarAdmin(
       `💳 *ENVIAR LINK DE PAGAMENTO*`,
       phone,
-      `Corrida: ${session.corrida_id}\nValor: R$ ${(corrida as any)?.valor_final || "-"}\nFretista: ${prestador?.nome || "-"}\nAguardando voce enviar o link de pagamento avulso.`
+      detalhesRicos
     );
   }
 }
@@ -4310,15 +4354,15 @@ async function notificarResultadoDispatch(
       });
       await updateSession(clientePhone, { step: "aguardando_pagamento" });
     } else {
-      const telFormatado = formatarTelefoneExibicao(prestador.telefone);
+      // Pagamento automatico OFF: NAO libera contato do fretista ate pagamento feito
       await sendToClient({
         to: clientePhone,
-        message: MSG.freteConfirmadoSemPagamento(prestador.nome, telFormatado, dataFrete),
+        message: MSG.freteConfirmadoSemPagamento(dataFrete),
       });
       await updateSession(clientePhone, { step: "aguardando_numero_coleta" });
       await sendToClient({
         to: clientePhone,
-        message: `📍 *Pra o fretista nao errar na coleta:*\n\nMe manda o *numero* e *complemento* do endereco de retirada 😊\n\nExemplo:\n• *450, Apto 12B*\n• *230, Casa 2*\n• *1500, Bloco 3 Apto 45*\n\nSe for so numero, manda so o numero 👍`,
+        message: `📍 *Pra agilizar a coleta:*\n\nMe manda o *numero* e *complemento* do endereco de retirada 😊\n\nExemplo:\n• *450, Apto 12B*\n• *230, Casa 2*\n• *1500, Bloco 3 Apto 45*\n\nSe for so numero, manda so o numero 👍`,
       });
     }
   } catch (error: any) {

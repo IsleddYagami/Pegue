@@ -258,8 +258,6 @@ ${detalhes}
 ⚠️ *Importante:*
 Por segurança, o fretista *não pode transportar itens fora da lista*. Se quiser incluir algo, será necessária *nova cotação* e pagamento separado.
 
-Quer adicionar mais alguma coisa? Aperta *2 - ALTERAR* agora.
-
 ━━━━━━━━━━━━━━━━
 
 1️⃣ ✅ *SIM* - Conferi tudo, confirmar!

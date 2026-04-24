@@ -291,8 +291,8 @@ Qualquer problema = *reembolso 100%* 🔄
 ━━━━━━━━━━━━━━━━
 
 💰 *Formas de pagamento:*
-• *Pix* — sem taxa ✅
-• *Cartão de crédito* — taxa 4,98% adicionada
+• *Pix* — rápido e sem taxa ✅
+• *Cartão de crédito* — até 12x (taxa conforme parcelas, você vê o valor final antes de confirmar)
 
 ━━━━━━━━━━━━━━━━
 
@@ -319,7 +319,7 @@ Em alguns minutos nossa equipe te envia o *link de pagamento seguro* aqui no Wha
 🔒 *Pagamento igual Mercado Livre:*
 Valor fica *retido no Mercado Pago* até você confirmar a entrega. Qualquer problema = *reembolso 100%*.
 
-💰 Pix (sem taxa) ou cartão (taxa 4,98%)
+💰 Pix (sem taxa) ou cartão de crédito até 12x
 
 ━━━━━━━━━━━━━━━━
 
@@ -368,8 +368,8 @@ Relaxa. A gente leva. 🚚✨`,
 ━━━━━━━━━━━━━━━━
 
 💰 *Formas de pagamento:*
-• *Pix* — sem taxa ✅
-• *Cartão de crédito* — taxa 4,98% (repassada no valor final)
+• *Pix* — rápido e sem taxa ✅
+• *Cartão de crédito* — até 12x parcelado (taxa varia conforme parcelas, você vê o valor final antes de confirmar)
 
 ━━━━━━━━━━━━━━━━
 

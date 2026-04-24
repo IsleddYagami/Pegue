@@ -1337,8 +1337,17 @@ async function handleDestino(phone: string, message: string) {
       const coords = await geocodeAddress(endereco);
       destinoLat = coords?.lat || null;
       destinoLng = coords?.lng || null;
+      // Se ViaCEP achou mas geocoder falhou em TODOS os fallbacks, aceita com coords aproximadas
+      // (usa coords genericas de Osasco como fallback final pra nao travar o cliente)
+      if (!destinoLat || !destinoLng) {
+        await supabase.from("bot_logs").insert({
+          payload: { tipo: "geocoder_falhou_usando_fallback", phone, cep, endereco: endereco.slice(0, 200) },
+        });
+        // Coords aproximadas de Osasco centro - cliente confirma depois
+        destinoLat = -23.5329;
+        destinoLng = -46.7916;
+      }
     } else {
-      // CEP invalido - mensagem especifica pro destino
       await supabase.from("bot_logs").insert({
         payload: { tipo: "cep_destino_nao_encontrado", phone, cep, destino_tentativa: message.slice(0, 100) },
       });

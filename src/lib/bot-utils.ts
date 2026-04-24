@@ -66,8 +66,29 @@ export async function buscaCep(cep: string): Promise<string | null> {
   }
 }
 
-// Geocode endereco para coordenadas via Nominatim
-// Adiciona "São Paulo" ao endereco se nao tiver contexto de estado/cidade
+// Geocode endereco para coordenadas via Nominatim.
+// Adiciona "São Paulo" ao endereco se nao tiver contexto de estado/cidade.
+// Tenta FALLBACK em cascata se a primeira busca falhar:
+//   1. endereco completo
+//   2. bairro + cidade (tira o numero/rua)
+//   3. so cidade (aproximacao ampla)
+// Retorna coords mesmo que aproximadas pra nao travar o fluxo do cliente.
+
+async function geocodeUnico(query: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=br`,
+      { headers: { "User-Agent": "Pegue-Bot/1.0" } }
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!data.length) return null;
+    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  } catch {
+    return null;
+  }
+}
+
 export async function geocodeAddress(
   address: string
 ): Promise<{ lat: number; lng: number } | null> {
@@ -110,24 +131,41 @@ export async function geocodeAddress(
       lowerAddr.includes("rj") || lowerAddr.includes("/") ||
       lowerAddr.includes("grande");
 
-    const searchAddress = temContexto ? addr : `${addr}, São Paulo, SP`;
+    const queryCompleta = temContexto ? addr : `${addr}, São Paulo, SP`;
 
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchAddress)}&format=json&limit=1&countrycodes=br`,
-      {
-        headers: {
-          "User-Agent": "Pegue-Bot/1.0",
-        },
+    // Tentativa 1: query completa
+    const r1 = await geocodeUnico(queryCompleta);
+    if (r1) return r1;
+
+    // Tentativa 2: tira a rua/numero, deixa so bairro + cidade
+    // Ex: "Rua Augusta, 1500, Consolacao, Sao Paulo" -> "Consolacao, Sao Paulo"
+    const partes = addr.split(",").map((p) => p.trim()).filter(Boolean);
+    if (partes.length >= 2) {
+      const semRua = partes.slice(-2).join(", "); // ultimos 2 campos (bairro + cidade)
+      const query2 = temContexto ? semRua : `${semRua}, SP`;
+      const r2 = await geocodeUnico(query2);
+      if (r2) {
+        console.warn(`[geocode] fallback bairro/cidade usado: "${query2}" (original: "${addr}")`);
+        return r2;
       }
-    );
+    }
 
-    if (!response.ok) return null;
+    // Tentativa 3: so cidade (ou ultimo campo do endereco)
+    if (partes.length >= 1) {
+      const soCidade = partes[partes.length - 1].split("/")[0].trim();
+      if (soCidade.length > 2) {
+        const r3 = await geocodeUnico(`${soCidade}, SP, Brasil`);
+        if (r3) {
+          console.warn(`[geocode] fallback cidade usado: "${soCidade}" (original: "${addr}")`);
+          return r3;
+        }
+      }
+    }
 
-    const data = await response.json();
-    if (!data.length) return null;
-
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-  } catch {
+    console.error(`[geocode] TODAS as tentativas falharam pra: "${addr}"`);
+    return null;
+  } catch (error: any) {
+    console.error(`[geocode] exception:`, error?.message);
     return null;
   }
 }

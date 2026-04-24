@@ -299,7 +299,11 @@ Qualquer problema = *reembolso 100%* 🔄
 
 ━━━━━━━━━━━━━━━━
 
-⚠️ *Lembrete:* o fretista só leva o que está na sua cotação. Itens adicionais não serão aceitos no dia — precisa de nova cotação.
+📋 *Antes de pagar, saiba:*
+
+• O fretista só leva o que está na sua cotação. Itens adicionais precisam de nova cotação.
+
+• *Pontualidade é essencial.* O fretista reserva o horário pra você e tem outros compromissos. Cancelamento ou atraso no dia por parte do cliente gera *reembolso de 50%* do valor (taxa de locomoção do fretista).
 
 ━━━━━━━━━━━━━━━━
 
@@ -327,6 +331,13 @@ Em alguns minutos nossa equipe te envia o *link de pagamento seguro* aqui no Wha
 Valor fica *retido no Mercado Pago* até você confirmar a entrega. Qualquer problema = *reembolso 100%*.
 
 💰 Pix ou cartão de crédito
+
+━━━━━━━━━━━━━━━━
+
+📋 *Antes de pagar, saiba:*
+
+• O fretista só leva o que está na sua cotação.
+• *Pontualidade é essencial.* Cancelamento ou atraso pelo cliente no dia = reembolso de *50%* (taxa de locomoção do fretista).
 
 ━━━━━━━━━━━━━━━━
 
@@ -366,11 +377,14 @@ Relaxa. A gente leva. 🚚✨`,
 
 ━━━━━━━━━━━━━━━━
 
-🔄 *Qualquer problema = reembolso 100%:*
-• Fretista não apareceu → reembolso
-• Cliente cancelou antes da coleta → reembolso
-• Objeto danificado → disputa mediada pela Pegue
+🔄 *Reembolsos:*
+• Fretista não apareceu → *100% reembolso*
+• Cliente cancelou ANTES da coleta (mesmo dia ainda sem fretista a caminho) → *100% reembolso*
+• Objeto danificado no transporte → disputa mediada pela Pegue
 • Serviço não conforme → disputa mediada
+
+⏰ *Política de atraso/cancelamento pelo cliente:*
+Se o fretista já saiu ou chegou no local e cliente cancela/atrasa, será reembolsado *50%* do valor (os outros 50% cobrem a locomoção e tempo reservado do fretista).
 
 ━━━━━━━━━━━━━━━━
 

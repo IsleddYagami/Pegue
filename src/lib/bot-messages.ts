@@ -251,6 +251,7 @@ ${detalhes}
 □ *Endereços* de retirada e entrega estão corretos?
 □ *Data e horário* estão certos?
 □ Itens que precisam de desmontagem já *estão desmontados*?
+□ Se escolheu *elevador*, todos os itens *cabem nele*? (caso não caiba, taxa adicional no dia)
 □ Geladeira, se houver, está *seca e descongelada 6h antes*?
 
 ━━━━━━━━━━━━━━━━

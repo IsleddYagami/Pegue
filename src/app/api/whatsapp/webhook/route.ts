@@ -1647,9 +1647,15 @@ async function handleTipoLocal(phone: string, message: string) {
       tem_escada: false,
       andar: 0,
     });
+    // Aviso critico: cliente precisa verificar se itens cabem no elevador.
+    // Se no dia da coleta nao couber, vira escada = custo adicional na hora.
     await sendToClient({
       to: phone,
-      message: MSG.precisaAjudante("Local com elevador, anotado! ✅"),
+      message: `🛗 Local com elevador, anotado! ✅\n\n⚠️ *Importante:* confirme se *TODOS os itens cabem no elevador*.\n\nSe algum item não couber e precisar descer/subir pela escada, será cobrada *taxa adicional no dia* (ajudante extra e tempo).\n\nSe tiver dúvida (móveis grandes como sofá retrátil, armário, cama king), melhor escolher *3 - escada* pra evitar surpresa.`,
+    });
+    await sendToClient({
+      to: phone,
+      message: MSG.precisaAjudante("Vamos seguir?"),
     });
     return;
   }

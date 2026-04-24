@@ -262,27 +262,48 @@ ${detalhes}
 Logo ja sera confirmado!`,
 
   freteConfirmadoEnviaPagamento: (linkPagamento: string, data: string) =>
-    `🎉 *Parabens! Voce garantiu a agenda para ${data}!*
+    `🎉 *Agenda confirmada pra ${data}!*
 
-Para confirmar, conclua o pagamento:
-💳 ${linkPagamento}
+💳 *Pagamento seguro via Mercado Pago*
+Pix (sem taxas) ou cartão de crédito:
+${linkPagamento}
 
-💰 *Pix* sem taxas
-💳 *Cartao de credito* taxas adicionais
+━━━━━━━━━━━━━━━━
 
-⏳ A reserva se mantem disponivel por *20 minutos*. Apos esse tempo, sera necessaria uma nova cotacao para verificar e garantir nova agenda.`,
+🔒 *Como funciona o seu pagamento:*
+• O valor fica *retido no Mercado Pago*
+• Só é liberado ao fretista *depois que você confirmar a entrega*
+• Qualquer problema = *reembolso 100%*
+• Fretistas verificados (CPF + CNH)
+
+━━━━━━━━━━━━━━━━
+
+📸 Instagram: @chamepegue
+🌐 chamepegue.com.br
+📍 Sede: Presidente Altino, Osasco-SP
+
+⏳ A reserva fica disponível por *20 minutos*.
+Dúvidas? Digite *SEGURO* que eu te explico 😊`,
 
   // IMPORTANTE: Quando o pagamento automatico esta OFF, NAO liberamos dados do fretista
   // pro cliente ate que o pagamento seja feito (senao ele negocia direto e burla a plataforma).
-  // Essa mensagem eh neutra: so confirma reserva e avisa que o link vai ser enviado.
   freteConfirmadoSemPagamento: (data: string) =>
     `🎉 *Frete reservado pra ${data}!*
 
-⏳ Estamos finalizando seu pedido. Nossa equipe vai te enviar o *link de pagamento* em alguns minutos aqui no WhatsApp.
+Estamos finalizando seu pedido. Em alguns minutos nossa equipe te envia o *link de pagamento seguro* aqui no WhatsApp.
 
-🔒 Os dados do fretista serão liberados logo após o pagamento confirmado.
+━━━━━━━━━━━━━━━━
 
-Qualquer coisa, fala comigo! 🚚✨`,
+🔒 *Fique tranquilo:*
+• Pagamento processado pelo *Mercado Pago*
+• Valor fica *retido* até você confirmar a entrega
+• Fretista só recebe depois do serviço concluído
+• Qualquer imprevisto = *reembolso 100%*
+
+━━━━━━━━━━━━━━━━
+
+📸 @chamepegue | 🌐 chamepegue.com.br
+Dúvidas? Digite *SEGURO* 😊`,
 
   nenhumFretista: `Nosso especialista logo enviara a confirmacao do seu frete! 😊
 Fique tranquilo, ja estamos cuidando disso!`,
@@ -302,6 +323,35 @@ O ${nomePrestador} vai entrar em contato pra alinhar os detalhes com voce.
 
 Qualquer coisa, estamos aqui!
 Relaxa. A gente leva. 🚚✨`,
+
+  explicaSeguranca: `🔒 *Sobre o pagamento — pode ficar tranquilo*
+
+━━━━━━━━━━━━━━━━
+
+💳 *Mercado Pago* processa tudo (mesmo do Magalu, Mercado Livre)
+
+🏦 *Valor fica RETIDO* — o fretista NÃO recebe no ato do pagamento
+
+✅ *Só liberado* depois que você confirmar que o serviço foi feito direitinho
+
+🔄 *Qualquer problema:*
+• Fretista não aparece → reembolso 100%
+• Frete cancelado → reembolso 100%
+• Objeto danificado → abre disputa, nossa equipe medeia
+
+🛡️ *Fretistas verificados:*
+• CPF + CNH validados
+• Foto do veículo + placa registradas
+• Aceite dos termos de responsabilidade
+• Score por cada frete
+
+━━━━━━━━━━━━━━━━
+
+📸 Instagram: @chamepegue
+🌐 chamepegue.com.br
+📍 Presidente Altino, Osasco-SP
+
+É esse modelo que Uber, 99, Lalamove e iFood usam — pagamento retido e só liberado após o serviço. É o modelo mais seguro pra você como cliente 😊`,
 
   aguardarLinkPagamentoAvulso: `💳 *Pagamento:*
 

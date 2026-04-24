@@ -615,6 +615,16 @@ Boa sorte! 🎯`,
     return;
   }
 
+  // Comando SEGURO / COMO FUNCIONA - explicacao do pagamento retido (cliente desconfiado)
+  if (lower === "seguro" || lower === "pagamento seguro" || lower === "e seguro" || lower === "é seguro"
+      || lower === "eh seguro" || lower === "como funciona" || lower === "como funciona o pagamento"
+      || lower === "e confiavel" || lower === "é confiável" || lower === "confiavel"
+      || lower === "golpe" || lower === "e golpe" || lower === "é golpe"
+      || lower === "seguranca" || lower === "segurança") {
+    await sendToClient({ to: phone, message: MSG.explicaSeguranca });
+    return;
+  }
+
   // Comando ADICIONAR itens a um frete ja contratado (cliente)
   if (lower === "adicionar" || lower === "incluir" || lower === "adicionar item" || lower === "incluir item" || lower === "adicionar itens" || lower === "incluir itens") {
     await handleAdicionarIniciar(phone);
@@ -970,7 +980,12 @@ async function handleEscolhaServico(phone: string, message: string) {
   }
 
   if (lower === "2" || lower.includes("mudanca") || lower.includes("mudança")) {
-    await updateSession(phone, { step: "aguardando_localizacao" });
+    // Default de MUDANCA eh HR (nao utilitario). Se depois cliente mandar lista pequena, pode
+    // ajustar pra baixo (mas determinarMelhorVeiculo so SOBE - entao HR vira caminhao_bau se precisar).
+    await updateSession(phone, {
+      step: "aguardando_localizacao",
+      veiculo_sugerido: "hr",
+    });
     // Aviso de desmontagem vem ANTES da localizacao - cliente precisa saber desde ja
     await sendToClient({
       to: phone,
@@ -1215,10 +1230,13 @@ async function handleFoto(
     if (itensEncontrados.length > 0) {
       const descricao = itensEncontrados.join(", ");
 
-      // Sugere veiculo baseado na quantidade
-      let veiculo = "utilitario";
-      if (itensEncontrados.length >= 8) veiculo = "caminhao_bau";
-      else if (itensEncontrados.length >= 3) veiculo = "hr";
+      // Sugere veiculo baseado na quantidade - MAS nunca regride
+      // (ex: se cliente escolheu MUDANCA e ja esta com HR default, nao cai pra utilitario)
+      const sessao = await getSession(phone);
+      let veiculoSugerido = "utilitario";
+      if (itensEncontrados.length >= 8) veiculoSugerido = "caminhao_bau";
+      else if (itensEncontrados.length >= 3) veiculoSugerido = "hr";
+      const veiculo = determinarMelhorVeiculo(sessao?.veiculo_sugerido || null, veiculoSugerido);
 
       await updateSession(phone, {
         step: "aguardando_destino",
@@ -1242,12 +1260,25 @@ async function handleFoto(
 
   // Texto livre descrevendo itens
   if (message.length > 2) {
-    // Inferencia basica de veiculo pelo numero de itens mencionados (separados por virgula/ponto/e)
+    // IMPORTANTE: bloqueia se texto parece endereco ou CEP.
+    // Cliente as vezes se perde e manda o endereco do destino aqui em vez dos itens.
+    // Se aceitar, salva "Rua X, Osasco" como descricao_carga (bug relatado).
+    if (extrairCep(message) || pareceEndereco(message)) {
+      await sendToClient({
+        to: phone,
+        message: `🤔 Parece que você mandou um *endereço*, mas agora preciso saber o *que* você vai transportar (não pra onde).\n\nMe manda:\n📸 Uma *foto* dos itens\nOU digite: *geladeira, sofá, cama casal* (separados por vírgula)\n\nDepois pergunto o endereço de destino 😊`,
+      });
+      return;
+    }
+
+    // Inferencia basica de veiculo pelo numero de itens mencionados - mas nao regride.
     const partes = message.split(/[,;.]|\s+e\s+/i).map((p) => p.trim()).filter((p) => p.length > 2);
     const qtdItens = partes.length || 1;
-    let veiculo = "utilitario";
-    if (qtdItens >= 8) veiculo = "caminhao_bau";
-    else if (qtdItens >= 3) veiculo = "hr";
+    let veiculoSugerido = "utilitario";
+    if (qtdItens >= 8) veiculoSugerido = "caminhao_bau";
+    else if (qtdItens >= 3) veiculoSugerido = "hr";
+    const sessaoAtual = await getSession(phone);
+    const veiculo = determinarMelhorVeiculo(sessaoAtual?.veiculo_sugerido || null, veiculoSugerido);
 
     await updateSession(phone, {
       step: "aguardando_destino",

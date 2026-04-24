@@ -131,12 +131,23 @@ Exemplo: *1 2 4 7 9 13 15 18x8*
 
 Se tiver algo diferente, escreva no final!`,
 
-  fotoItemAdicionado: (item: string, emoji: string, listaItens: string) =>
-    `Vi! *${item}* ${emoji} Anotado! ✅
+  fotoItemAdicionado: (item: string, emoji: string, listaItens: string) => {
+    const numerada = listaItens
+      .split(", ")
+      .filter((i) => i.trim().length > 0)
+      .map((it, idx) => `${idx + 1}. ${it}`)
+      .join("\n");
+    return `Vi! *${item}* ${emoji} Anotado! ✅
 
-Ate agora temos: ${listaItens}
+📦 *Sua lista:*
+${numerada}
 
-Tem mais algum item? Manda outra foto ou digite *PRONTO* pra seguir 😊`,
+Tem mais algum item?
+• Manda outra *foto* ou *descrição* = adicionar
+• *remover 2* = tira o item 2
+• *PRONTO* = seguir
+• *APAGAR* = limpar tudo`;
+  },
 
   todosItensProntos: (listaItens: string, veiculo: string) =>
     `Beleza! Seus itens:

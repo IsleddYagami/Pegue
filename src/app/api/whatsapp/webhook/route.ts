@@ -1248,6 +1248,16 @@ async function handleFoto(
   });
 }
 
+// Helper: monta lista numerada dos itens (pra cliente ver e editar)
+function formatarListaNumerada(descricao: string | null): string {
+  if (!descricao) return "";
+  return descricao
+    .split(", ")
+    .filter((i) => i.trim().length > 0)
+    .map((item, idx) => `${idx + 1}. ${item}`)
+    .join("\n");
+}
+
 // STEP 2b: Mais fotos ou PRONTO
 async function handleMaisFotos(phone: string, message: string) {
   const session = await getSession(phone);
@@ -1266,6 +1276,98 @@ async function handleMaisFotos(phone: string, message: string) {
     await sendToClient({
       to: phone,
       message: "🧹 Lista limpa! Vamos começar de novo.\n\nComo você quer me passar os itens?\n\n1️⃣ *Mandar foto* 📸\n2️⃣ *Lista rápida de mudança*\n3️⃣ *Descrever por texto*",
+    });
+    return;
+  }
+
+  // Comando REMOVER/TIRAR/RETIRAR <numero> - remove item especifico da lista
+  const matchRemover = lower.match(/^(remover|tirar|retirar|excluir|apagar)\s+(\d+)$/);
+  if (matchRemover) {
+    const idx = parseInt(matchRemover[2], 10) - 1; // 1-indexed pro humano, 0-indexed pro array
+    const itens = (session.descricao_carga || "").split(", ").filter((i) => i.trim().length > 0);
+    if (idx < 0 || idx >= itens.length) {
+      await sendToClient({
+        to: phone,
+        message: `Número inválido. Sua lista tem ${itens.length} item${itens.length === 1 ? "" : "s"}.\n\n${formatarListaNumerada(session.descricao_carga)}\n\nDigite *remover 1*, *remover 2*, etc.`,
+      });
+      return;
+    }
+    const itemRemovido = itens[idx];
+    itens.splice(idx, 1);
+    const novaLista = itens.join(", ");
+
+    await updateSession(phone, { descricao_carga: novaLista || null });
+
+    if (itens.length === 0) {
+      // Lista ficou vazia, volta pra pedir item
+      await updateSession(phone, {
+        step: "aguardando_foto",
+        descricao_carga: null,
+        veiculo_sugerido: null,
+        foto_url: null,
+      });
+      await sendToClient({
+        to: phone,
+        message: `✅ Removi *${itemRemovido}*. Sua lista ficou vazia.\n\nComo você quer me passar os itens?\n\n1️⃣ *Mandar foto* 📸\n2️⃣ *Lista rápida de mudança*\n3️⃣ *Descrever por texto*`,
+      });
+      return;
+    }
+
+    await sendToClient({
+      to: phone,
+      message: `✅ Removi *${itemRemovido}*.\n\nLista atual:\n${formatarListaNumerada(novaLista)}\n\nTem mais algum item? 📦\n• Manda outra *foto* ou *descrição*\n• Digite *PRONTO* pra seguir\n• Ou *remover N* pra tirar outro item`,
+    });
+    return;
+  }
+
+  // Comando TROCAR <n> POR <descricao> - substitui item N
+  const matchTrocar = message.match(/^(trocar|substituir|mudar|alterar|corrigir)\s+(\d+)\s+(por|para)\s+(.+)/i);
+  if (matchTrocar) {
+    const idx = parseInt(matchTrocar[2], 10) - 1;
+    const novaDesc = matchTrocar[4].trim();
+    const itens = (session.descricao_carga || "").split(", ").filter((i) => i.trim().length > 0);
+
+    if (idx < 0 || idx >= itens.length) {
+      await sendToClient({
+        to: phone,
+        message: `Número inválido. Sua lista tem ${itens.length} item${itens.length === 1 ? "" : "s"}.\n\n${formatarListaNumerada(session.descricao_carga)}\n\nDigite *trocar 1 por <novo item>*, etc.`,
+      });
+      return;
+    }
+
+    if (novaDesc.length < 2) {
+      await sendToClient({
+        to: phone,
+        message: "Me fala o que você quer colocar no lugar.\n\nEx: *trocar 2 por geladeira*",
+      });
+      return;
+    }
+
+    const itemAntigo = itens[idx];
+    itens[idx] = novaDesc;
+    const novaLista = itens.join(", ");
+    await updateSession(phone, { descricao_carga: novaLista });
+
+    await sendToClient({
+      to: phone,
+      message: `✅ Troquei *${itemAntigo}* por *${novaDesc}*.\n\n📦 *Lista atualizada:*\n${formatarListaNumerada(novaLista)}\n\n• *PRONTO* = seguir\n• *remover N* ou *trocar N por X* = editar mais\n• *APAGAR* = limpar tudo`,
+    });
+    return;
+  }
+
+  // Comando LISTA / VER - mostra lista atual numerada
+  if (lower === "lista" || lower === "ver" || lower === "ver lista" || lower === "minha lista" || lower === "itens") {
+    const listaNum = formatarListaNumerada(session.descricao_carga);
+    if (!listaNum) {
+      await sendToClient({
+        to: phone,
+        message: "Lista está vazia. Manda uma foto ou descreve os itens 📦",
+      });
+      return;
+    }
+    await sendToClient({
+      to: phone,
+      message: `📦 *Sua lista atual:*\n\n${listaNum}\n\nOpções:\n• Manda outra *foto* ou *descrição* = adicionar\n• *remover 2* = tira o item 2\n• *APAGAR* = limpa tudo\n• *PRONTO* = seguir pra destino`,
     });
     return;
   }
@@ -1303,16 +1405,17 @@ async function handleMaisFotos(phone: string, message: string) {
 
     await updateSession(phone, { descricao_carga: listaItens });
 
+    const listaNumerada = formatarListaNumerada(listaItens);
     await sendToClient({
       to: phone,
-      message: `Anotado! ✅\n\nAté agora temos: ${listaItens}\n\nTem mais algum item? 📦\n• Manda outra *foto* ou *descrição*\n• Digite *PRONTO* pra seguir\n• Ou *APAGAR* pra limpar e começar do zero`,
+      message: `Anotado! ✅\n\n📦 *Sua lista:*\n${listaNumerada}\n\nTem mais algum item?\n• Manda outra *foto* ou *descrição* = adicionar\n• *remover 2* = tira o item 2\n• *PRONTO* = seguir\n• *APAGAR* = limpar tudo`,
     });
     return;
   }
 
   await sendToClient({
     to: phone,
-    message: "📦 Manda outra foto, outra descrição, ou digite:\n• *PRONTO* pra seguir\n• *APAGAR* pra limpar e começar do zero",
+    message: "📦 Manda outra foto, outra descrição, ou digite:\n• *PRONTO* pra seguir\n• *remover N* pra tirar um item\n• *APAGAR* pra limpar tudo\n• *LISTA* pra ver os itens atuais",
   });
 }
 

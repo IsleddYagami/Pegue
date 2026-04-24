@@ -246,8 +246,7 @@ ${detalhes}
 
 🛑 *ANTES DE CONFIRMAR — CONFIRA:*
 
-□ *Todos os itens* que quer transportar estão na lista acima?
-□ *Não esqueceu de nenhum*? (o fretista só leva o que está listado)
+□ Quer *adicionar mais algum item* que tenha esquecido?
 □ *Endereços* de retirada e entrega estão corretos?
 □ *Data e horário* estão certos?
 □ Itens que precisam de desmontagem já *estão desmontados*?

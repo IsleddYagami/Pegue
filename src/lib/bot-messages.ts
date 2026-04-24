@@ -244,27 +244,26 @@ ${detalhes}
 
 ━━━━━━━━━━━━━━━━
 
-⚠️ *CONFIRA SE TODOS OS ITENS ESTÃO NA LISTA*
+🛑 *ANTES DE CONFIRMAR — CONFIRA:*
 
-Por segurança, o fretista *só pode transportar* o que está na lista acima. Itens não listados *não serão aceitos* no dia da coleta.
-
-Se precisar adicionar algo, é necessária *nova cotação* e pagamento do adicional.
-
-━━━━━━━━━━━━━━━━
-
-📝 *Ao confirmar, você concorda que:*
-• Todos os itens estão listados acima
-• Itens que precisam de desmontagem (guarda-roupa, cama, estante) *estão desmontados* antes da coleta
-• Endereços de retirada e entrega estão corretos
-• Data/horário do serviço conforme informado
-• Geladeira, se houver, está seca e descongelada há 6h+
+□ *Todos os itens* que quer transportar estão na lista acima?
+□ *Não esqueceu de nenhum*? (o fretista só leva o que está listado)
+□ *Endereços* de retirada e entrega estão corretos?
+□ *Data e horário* estão certos?
+□ Itens que precisam de desmontagem já *estão desmontados*?
+□ Geladeira, se houver, está *seca e descongelada 6h antes*?
 
 ━━━━━━━━━━━━━━━━
 
-⚠️ *Confirma que todas as informacoes estao corretas?*
+⚠️ *Importante:*
+Por segurança, o fretista *não pode transportar itens fora da lista*. Se quiser incluir algo, será necessária *nova cotação* e pagamento separado.
 
-1️⃣ ✅ *SIM* - Tudo certo, confirmar!
-2️⃣ ✏️ *ALTERAR* - Quero corrigir algo`,
+Quer adicionar mais alguma coisa? Aperta *2 - ALTERAR* agora.
+
+━━━━━━━━━━━━━━━━
+
+1️⃣ ✅ *SIM* - Conferi tudo, confirmar!
+2️⃣ ✏️ *ALTERAR* - Quero corrigir ou adicionar algo`,
 
   freteRecebido: `Ok! Um momento, estamos preparando sua reserva 😊
 

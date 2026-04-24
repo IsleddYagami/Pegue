@@ -244,10 +244,19 @@ ${detalhes}
 
 ━━━━━━━━━━━━━━━━
 
+⚠️ *CONFIRA SE TODOS OS ITENS ESTÃO NA LISTA*
+
+Por segurança, o fretista *só pode transportar* o que está na lista acima. Itens não listados *não serão aceitos* no dia da coleta.
+
+Se precisar adicionar algo, é necessária *nova cotação* e pagamento do adicional.
+
+━━━━━━━━━━━━━━━━
+
 📝 *Ao confirmar, você concorda que:*
+• Todos os itens estão listados acima
 • Itens que precisam de desmontagem (guarda-roupa, cama, estante) *estão desmontados* antes da coleta
 • Endereços de retirada e entrega estão corretos
-• A data/horário do serviço é o informado acima
+• Data/horário do serviço conforme informado
 • Geladeira, se houver, está seca e descongelada há 6h+
 
 ━━━━━━━━━━━━━━━━
@@ -290,9 +299,11 @@ Qualquer problema = *reembolso 100%* 🔄
 
 ━━━━━━━━━━━━━━━━
 
-💰 *Formas de pagamento:*
-• *Pix* — rápido e sem taxa ✅
-• *Cartão de crédito* — até 12x (taxa conforme parcelas, você vê o valor final antes de confirmar)
+💰 *Pix* ou *cartão de crédito*
+
+━━━━━━━━━━━━━━━━
+
+⚠️ *Lembrete:* o fretista só leva o que está na sua cotação. Itens adicionais não serão aceitos no dia — precisa de nova cotação.
 
 ━━━━━━━━━━━━━━━━
 

@@ -74,12 +74,15 @@ export async function buscaCep(cep: string): Promise<string | null> {
 //   3. so cidade (aproximacao ampla)
 // Retorna coords mesmo que aproximadas pra nao travar o fluxo do cliente.
 
-async function geocodeUnico(query: string): Promise<{ lat: number; lng: number } | null> {
+async function geocodeUnico(query: string, timeoutMs = 3000): Promise<{ lat: number; lng: number } | null> {
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=br`,
-      { headers: { "User-Agent": "Pegue-Bot/1.0" } }
+      { headers: { "User-Agent": "Pegue-Bot/1.0" }, signal: controller.signal }
     );
+    clearTimeout(timer);
     if (!response.ok) return null;
     const data = await response.json();
     if (!data.length) return null;
@@ -132,38 +135,46 @@ export async function geocodeAddress(
       lowerAddr.includes("grande");
 
     const queryCompleta = temContexto ? addr : `${addr}, São Paulo, SP`;
-
-    // Tentativa 1: query completa
-    const r1 = await geocodeUnico(queryCompleta);
-    if (r1) return r1;
-
-    // Tentativa 2: tira a rua/numero, deixa so bairro + cidade
-    // Ex: "Rua Augusta, 1500, Consolacao, Sao Paulo" -> "Consolacao, Sao Paulo"
     const partes = addr.split(",").map((p) => p.trim()).filter(Boolean);
-    if (partes.length >= 2) {
-      const semRua = partes.slice(-2).join(", "); // ultimos 2 campos (bairro + cidade)
-      const query2 = temContexto ? semRua : `${semRua}, SP`;
-      const r2 = await geocodeUnico(query2);
-      if (r2) {
-        console.warn(`[geocode] fallback bairro/cidade usado: "${query2}" (original: "${addr}")`);
-        return r2;
-      }
-    }
 
-    // Tentativa 3: so cidade (ou ultimo campo do endereco)
+    // Prepara as 3 queries (completa, bairro+cidade, so cidade) e dispara TODAS em paralelo.
+    // Primeira que responder coords validas vence. Reduz tempo de ~3s (cascata) pra ~1s (paralelo).
+    const queries: { query: string; label: string }[] = [
+      { query: queryCompleta, label: "completa" },
+    ];
+
+    if (partes.length >= 2) {
+      const semRua = partes.slice(-2).join(", ");
+      queries.push({
+        query: temContexto ? semRua : `${semRua}, SP`,
+        label: "bairro_cidade",
+      });
+    }
     if (partes.length >= 1) {
       const soCidade = partes[partes.length - 1].split("/")[0].trim();
       if (soCidade.length > 2) {
-        const r3 = await geocodeUnico(`${soCidade}, SP, Brasil`);
-        if (r3) {
-          console.warn(`[geocode] fallback cidade usado: "${soCidade}" (original: "${addr}")`);
-          return r3;
-        }
+        queries.push({ query: `${soCidade}, SP, Brasil`, label: "so_cidade" });
       }
     }
 
-    console.error(`[geocode] TODAS as tentativas falharam pra: "${addr}"`);
-    return null;
+    try {
+      // Promise.any: primeira que resolver com resultado valido ganha. Rejeita null explicitamente
+      // pra que Promise.any continue esperando outras candidatas.
+      const resultado = await Promise.any(
+        queries.map(async ({ query, label }) => {
+          const r = await geocodeUnico(query);
+          if (!r) throw new Error(`${label} falhou`);
+          if (label !== "completa") {
+            console.warn(`[geocode] fallback "${label}" venceu pra: "${addr}"`);
+          }
+          return r;
+        })
+      );
+      return resultado;
+    } catch {
+      console.error(`[geocode] TODAS as tentativas falharam pra: "${addr}"`);
+      return null;
+    }
   } catch (error: any) {
     console.error(`[geocode] exception:`, error?.message);
     return null;

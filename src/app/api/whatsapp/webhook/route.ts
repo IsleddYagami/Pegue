@@ -1066,6 +1066,11 @@ async function handleLocalizacao(
     return;
   }
 
+  // Feedback imediato pro cliente nao achar que bot travou (geocoder pode demorar 1-3s)
+  if (message && message.trim().length >= 5) {
+    await sendToClient({ to: phone, message: "📍 Anotei, tô localizando..." });
+  }
+
   const cep = extrairCep(message);
   if (cep) {
     const endereco = await buscaCep(cep);
@@ -1453,6 +1458,11 @@ function determinarMelhorVeiculo(
 async function handleDestino(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session) return;
+
+  // Feedback imediato pro cliente nao achar que bot travou
+  if (message && message.trim().length >= 5) {
+    await sendToClient({ to: phone, message: "📍 Anotei, tô localizando o destino..." });
+  }
 
   let destinoEndereco = message;
   let destinoLat: number | null = null;

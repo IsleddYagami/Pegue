@@ -4410,19 +4410,22 @@ async function notificarResultadoDispatch(
 
     const pagamentoHabilitado = configPagto?.valor === "habilitado";
 
+    // Primeiro nome do fretista (sem sobrenome - mais acolhedor)
+    const primeiroNomeFretista = (prestador.nome || "").split(" ")[0] || "seu fretista";
+
     if (pagamentoHabilitado) {
       // TODO: Gerar link Mercado Pago real via /api/pagamento/criar
       const linkPagamento = "https://chamepegue.com.br/simular";
       await sendToClient({
         to: clientePhone,
-        message: MSG.freteConfirmadoEnviaPagamento(linkPagamento, dataFrete),
+        message: MSG.freteConfirmadoEnviaPagamento(linkPagamento, dataFrete, primeiroNomeFretista),
       });
       await updateSession(clientePhone, { step: "aguardando_pagamento" });
     } else {
-      // Pagamento automatico OFF: NAO libera contato do fretista ate pagamento feito
+      // Pagamento automatico OFF: libera NOME (acolhedor) mas NAO telefone (evita negociacao direta)
       await sendToClient({
         to: clientePhone,
-        message: MSG.freteConfirmadoSemPagamento(dataFrete),
+        message: MSG.freteConfirmadoSemPagamento(dataFrete, primeiroNomeFretista),
       });
       await updateSession(clientePhone, { step: "aguardando_numero_coleta" });
       await sendToClient({

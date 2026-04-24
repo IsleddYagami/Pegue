@@ -261,44 +261,65 @@ ${detalhes}
 
 Logo ja sera confirmado!`,
 
-  freteConfirmadoEnviaPagamento: (linkPagamento: string, data: string) =>
+  // Mensagem de pagamento com confianca maxima:
+  // - Comparacao com Mercado Livre (conceito que todo brasileiro entende)
+  // - Nome do fretista revelado (sem telefone) pra dar cara humana
+  // - Taxa de cartao clara pra nao ter surpresa
+  // - Trust signals (CPF, CNH, redes sociais, endereco)
+  freteConfirmadoEnviaPagamento: (linkPagamento: string, data: string, nomeFretista: string) =>
     `🎉 *Agenda confirmada pra ${data}!*
 
-💳 *Pagamento seguro via Mercado Pago*
-Pix (sem taxas) ou cartão de crédito:
+💳 *PAGAMENTO SEGURO*
 ${linkPagamento}
 
 ━━━━━━━━━━━━━━━━
 
-🔒 *Como funciona o seu pagamento:*
-• O valor fica *retido no Mercado Pago*
-• Só é liberado ao fretista *depois que você confirmar a entrega*
-• Qualquer problema = *reembolso 100%*
-• Fretistas verificados (CPF + CNH)
+🔒 *Exatamente como Mercado Livre:*
+
+Após a confirmação do pagamento, o valor fica *retido no Mercado Pago*. Só é liberado ao fretista *depois que você confirmar* que o serviço foi concluído.
+
+Qualquer problema = *reembolso 100%* 🔄
 
 ━━━━━━━━━━━━━━━━
 
-📸 Instagram: @chamepegue
-🌐 chamepegue.com.br
+🚚 *Fretista confirmado: ${nomeFretista}*
+✅ CPF validado
+✅ CNH validada
+✅ Veículo + placa registrados
+✅ Aceite dos termos de responsabilidade
+
+━━━━━━━━━━━━━━━━
+
+💰 *Formas de pagamento:*
+• *Pix* — sem taxa ✅
+• *Cartão de crédito* — taxa 4,98% adicionada
+
+━━━━━━━━━━━━━━━━
+
+📸 Instagram: *@chamepegue*
+🌐 *chamepegue.com.br*
 📍 Sede: Presidente Altino, Osasco-SP
 
-⏳ A reserva fica disponível por *20 minutos*.
-Dúvidas? Digite *SEGURO* que eu te explico 😊`,
+⏳ A reserva vale por *20 minutos*.
+Dúvidas? Digite *SEGURO* 😊`,
 
-  // IMPORTANTE: Quando o pagamento automatico esta OFF, NAO liberamos dados do fretista
-  // pro cliente ate que o pagamento seja feito (senao ele negocia direto e burla a plataforma).
-  freteConfirmadoSemPagamento: (data: string) =>
+  // Mensagem quando pagamento automatico esta OFF (equipe envia link manual depois).
+  // Revela NOME do fretista (dá confianca) mas NAO telefone (evita negociacao direta).
+  freteConfirmadoSemPagamento: (data: string, nomeFretista: string) =>
     `🎉 *Frete reservado pra ${data}!*
 
-Estamos finalizando seu pedido. Em alguns minutos nossa equipe te envia o *link de pagamento seguro* aqui no WhatsApp.
+🚚 *Fretista confirmado: ${nomeFretista}*
+✅ CPF + CNH validados
+✅ Veículo registrado
+
+Em alguns minutos nossa equipe te envia o *link de pagamento seguro* aqui no WhatsApp.
 
 ━━━━━━━━━━━━━━━━
 
-🔒 *Fique tranquilo:*
-• Pagamento processado pelo *Mercado Pago*
-• Valor fica *retido* até você confirmar a entrega
-• Fretista só recebe depois do serviço concluído
-• Qualquer imprevisto = *reembolso 100%*
+🔒 *Pagamento igual Mercado Livre:*
+Valor fica *retido no Mercado Pago* até você confirmar a entrega. Qualquer problema = *reembolso 100%*.
+
+💰 Pix (sem taxa) ou cartão (taxa 4,98%)
 
 ━━━━━━━━━━━━━━━━
 
@@ -324,34 +345,49 @@ O ${nomePrestador} vai entrar em contato pra alinhar os detalhes com voce.
 Qualquer coisa, estamos aqui!
 Relaxa. A gente leva. 🚚✨`,
 
-  explicaSeguranca: `🔒 *Sobre o pagamento — pode ficar tranquilo*
+  explicaSeguranca: `🔒 *Pagamento Seguro — exatamente como Mercado Livre*
 
 ━━━━━━━━━━━━━━━━
 
-💳 *Mercado Pago* processa tudo (mesmo do Magalu, Mercado Livre)
+🏦 *Como funciona o escrow:*
 
-🏦 *Valor fica RETIDO* — o fretista NÃO recebe no ato do pagamento
-
-✅ *Só liberado* depois que você confirmar que o serviço foi feito direitinho
-
-🔄 *Qualquer problema:*
-• Fretista não aparece → reembolso 100%
-• Frete cancelado → reembolso 100%
-• Objeto danificado → abre disputa, nossa equipe medeia
-
-🛡️ *Fretistas verificados:*
-• CPF + CNH validados
-• Foto do veículo + placa registradas
-• Aceite dos termos de responsabilidade
-• Score por cada frete
+1️⃣ Você paga no link (Pix ou cartão)
+2️⃣ O valor fica *RETIDO no Mercado Pago*
+3️⃣ Fretista faz o serviço
+4️⃣ Você confirma que recebeu tudo certinho
+5️⃣ *Só então* o pagamento é liberado ao fretista
 
 ━━━━━━━━━━━━━━━━
 
-📸 Instagram: @chamepegue
-🌐 chamepegue.com.br
+🔄 *Qualquer problema = reembolso 100%:*
+• Fretista não apareceu → reembolso
+• Cliente cancelou antes da coleta → reembolso
+• Objeto danificado → disputa mediada pela Pegue
+• Serviço não conforme → disputa mediada
+
+━━━━━━━━━━━━━━━━
+
+💰 *Formas de pagamento:*
+• *Pix* — sem taxa ✅
+• *Cartão de crédito* — taxa 4,98% (repassada no valor final)
+
+━━━━━━━━━━━━━━━━
+
+🛡️ *Fretistas 100% verificados:*
+✅ CPF validado
+✅ CNH validada
+✅ Foto do veículo + placa
+✅ Selfie com documento no cadastro
+✅ Termos de responsabilidade assinados
+✅ Score em cada frete
+
+━━━━━━━━━━━━━━━━
+
+📸 Instagram: *@chamepegue*
+🌐 *chamepegue.com.br*
 📍 Presidente Altino, Osasco-SP
 
-É esse modelo que Uber, 99, Lalamove e iFood usam — pagamento retido e só liberado após o serviço. É o modelo mais seguro pra você como cliente 😊`,
+É exatamente o mesmo modelo do Mercado Livre, iFood, Uber e Lalamove. O dinheiro nunca vai direto pro prestador até você confirmar que tá tudo certo 😊`,
 
   aguardarLinkPagamentoAvulso: `💳 *Pagamento:*
 

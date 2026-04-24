@@ -1255,6 +1255,21 @@ async function handleMaisFotos(phone: string, message: string) {
 
   const lower = message.toLowerCase().trim();
 
+  // Comando APAGAR/LIMPAR/ZERAR - limpa lista e volta a pedir itens do zero
+  if (lower === "limpar" || lower === "apagar" || lower === "apagar tudo" || lower === "zerar" || lower === "zerar itens" || lower === "comecar de novo" || lower === "começar de novo" || lower === "recomecar" || lower === "recomeçar") {
+    await updateSession(phone, {
+      step: "aguardando_foto",
+      descricao_carga: null,
+      veiculo_sugerido: null,
+      foto_url: null,
+    });
+    await sendToClient({
+      to: phone,
+      message: "🧹 Lista limpa! Vamos começar de novo.\n\nComo você quer me passar os itens?\n\n1️⃣ *Mandar foto* 📸\n2️⃣ *Lista rápida de mudança*\n3️⃣ *Descrever por texto*",
+    });
+    return;
+  }
+
   if (lower === "pronto" || lower === "so isso" || lower === "só isso" || lower === "nao" || lower === "não" || lower === "n") {
     const veiculoNome: Record<string, string> = {
       carro_comum: "Carro Comum",
@@ -1290,14 +1305,14 @@ async function handleMaisFotos(phone: string, message: string) {
 
     await sendToClient({
       to: phone,
-      message: `Anotado! ✅\n\nAte agora temos: ${listaItens}\n\nTem mais algum item? Manda outra foto ou digite *PRONTO* pra seguir 😊`,
+      message: `Anotado! ✅\n\nAté agora temos: ${listaItens}\n\nTem mais algum item? 📦\n• Manda outra *foto* ou *descrição*\n• Digite *PRONTO* pra seguir\n• Ou *APAGAR* pra limpar e começar do zero`,
     });
     return;
   }
 
   await sendToClient({
     to: phone,
-    message: "Manda outra foto ou digite *PRONTO* pra seguir 😊",
+    message: "📦 Manda outra foto, outra descrição, ou digite:\n• *PRONTO* pra seguir\n• *APAGAR* pra limpar e começar do zero",
   });
 }
 

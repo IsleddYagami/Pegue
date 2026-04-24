@@ -250,7 +250,7 @@ ${detalhes}
 □ *Endereços* de retirada e entrega estão corretos?
 □ *Data e horário* estão certos?
 □ *Fretista NÃO faz montagem e desmontagem* — confira se não há essa necessidade
-□ Se escolheu *elevador*, todos os itens *cabem nele*? (caso não caiba, taxa adicional no dia)
+□ Se escolheu *elevador*, certifique-se que *todos os itens caibam* — divergência no dia pode gerar *custos adicionais*
 
 ━━━━━━━━━━━━━━━━
 

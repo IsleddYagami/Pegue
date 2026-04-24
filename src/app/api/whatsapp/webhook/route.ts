@@ -1096,12 +1096,12 @@ async function handleLocalizacao(
     }
   }
 
-  // Heuristica: precisa de pelo menos 3 palavras significativas (rua + bairro + cidade).
-  // Numero NAO eh obrigatorio aqui - cliente informa so apos pagamento (privacidade).
+  // Heuristica mais permissiva: so rejeita texto MUITO vago (< 2 palavras).
+  // Geocoder eh a prova real; se achou coords, confiamos no texto.
   const palavras = message.split(/\s+/).filter((p) => p.length > 2);
-  const enderecoSuspeito = palavras.length < 3;
+  const muitoSuspeito = palavras.length < 2;
 
-  if (pareceEndereco(message) && !enderecoSuspeito) {
+  if (!muitoSuspeito) {
     const coords = await geocodeAddress(message);
     if (coords?.lat && coords?.lng) {
       await updateSession(phone, {
@@ -1113,17 +1113,20 @@ async function handleLocalizacao(
       await sendToClient({ to: phone, message: MSG.enderecoRecebido(message) });
       return;
     }
-  }
-
-  // Fallback: mais permissivo, mas ainda requer geocoder valido
-  if (message.length > 5 && !enderecoSuspeito) {
-    const coords = await geocodeAddress(message);
-    if (coords?.lat && coords?.lng) {
+    // Geocoder falhou mas texto parece razoavel - aceita com coords fallback de Osasco
+    if (pareceEndereco(message) && message.length > 5) {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "origem_aceita_sem_geocoder",
+          phone,
+          texto: message.slice(0, 200),
+        },
+      });
       await updateSession(phone, {
         step: "aguardando_foto",
         origem_endereco: message,
-        origem_lat: coords.lat,
-        origem_lng: coords.lng,
+        origem_lat: -23.5329,
+        origem_lng: -46.7916,
       });
       await sendToClient({ to: phone, message: MSG.enderecoRecebido(message) });
       return;
@@ -1234,9 +1237,17 @@ async function handleFoto(
 
   // Texto livre descrevendo itens
   if (message.length > 2) {
+    // Inferencia basica de veiculo pelo numero de itens mencionados (separados por virgula/ponto/e)
+    const partes = message.split(/[,;.]|\s+e\s+/i).map((p) => p.trim()).filter((p) => p.length > 2);
+    const qtdItens = partes.length || 1;
+    let veiculo = "utilitario";
+    if (qtdItens >= 8) veiculo = "caminhao_bau";
+    else if (qtdItens >= 3) veiculo = "hr";
+
     await updateSession(phone, {
       step: "aguardando_destino",
       descricao_carga: message,
+      veiculo_sugerido: veiculo,
     });
     await sendToClient({ to: phone, message: MSG.fotoRecebida(message) });
     return;
@@ -1481,19 +1492,32 @@ async function handleDestino(phone: string, message: string) {
     destinoLng = coords?.lng || null;
   }
 
-  // VALIDACAO: rejeita endereco que nao foi geocodado (ex: cliente digitou "garrafa")
-  // Numero da casa NAO eh obrigatorio aqui - cliente informa so apos o pagamento
-  // (por seguranca, caso esteja so cotando e nao queira dar endereco exato).
-  // Heuristica: precisa de pelo menos 3 palavras (rua + bairro + cidade) + geocoder valido.
+  // VALIDACAO: geocoder eh a prova real. Se achou coords, confiamos.
+  // Heuristica de palavras so rejeita se MUITO suspeito (ex: 1 palavra tipo "garrafa").
+  // Numero da casa nao eh obrigatorio aqui (cliente informa apos pagamento).
   const palavras = message.split(/\s+/).filter((p) => p.length > 2);
-  const enderecoSuspeito = palavras.length < 3;
+  const muitoSuspeito = palavras.length < 2; // so rejeita se tem menos de 2 palavras significativas
 
-  if (!destinoLat || !destinoLng || enderecoSuspeito) {
-    await sendToClient({
-      to: phone,
-      message: `🤔 Não consegui localizar esse endereço.\n\nMe manda:\n• Nome completo da *rua*\n• *Bairro* (obrigatório)\n• *Cidade*\n\nExemplo: *Rua Brasil, Centro, Osasco*\n\n🔒 Não precisa do número da casa agora — só depois do pagamento confirmado 😊`,
+  // Rejeita quando: geocoder falhou E texto eh muito curto/suspeito
+  if (!destinoLat || !destinoLng) {
+    if (muitoSuspeito) {
+      await sendToClient({
+        to: phone,
+        message: `🤔 Não consegui localizar esse endereço.\n\nMe manda:\n• Nome completo da *rua*\n• *Bairro* (obrigatório)\n• *Cidade*\n\nExemplo: *Rua Brasil, Centro, Osasco*\n\n🔒 Não precisa do número da casa agora — só depois do pagamento confirmado 😊`,
+      });
+      return;
+    }
+    // Texto parece endereco mas geocoder falhou - aceita mesmo assim usando fallback
+    // de Osasco (mesma logica usada no CEP que nao geocoda). Log pra auditar depois.
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "destino_aceito_sem_geocoder",
+        phone,
+        texto: message.slice(0, 200),
+      },
     });
-    return; // nao avanca
+    destinoLat = -23.5329;
+    destinoLng = -46.7916;
   }
 
   // Verifica se destino é area indisponivel (favela/area livre)
@@ -4451,7 +4475,10 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
         destino_lng: session.destino_lng,
         distancia_km: session.distancia_km,
         tipo_servico: "frete",
-        tipo_veiculo: session.veiculo_sugerido,
+        // Fallback defensivo: se veiculo_sugerido estiver null por algum caminho (bug conhecido
+        // em opcao de texto livre antes do fix), usa "utilitario" como default seguro.
+        // Sem isso, tipo_veiculo fica NULL e quebra dispatch por tipo.
+        tipo_veiculo: session.veiculo_sugerido || "utilitario",
         descricao_carga: session.descricao_carga,
         escada_origem: session.tem_escada,
         andares_origem: session.andar,

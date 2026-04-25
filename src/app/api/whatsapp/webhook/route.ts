@@ -167,6 +167,34 @@ export async function POST(req: NextRequest) {
     // pela mesma instancia que recebeu a mensagem, mesmo antes da session existir no DB
     setInstanceCache(phoneNumber, instance);
 
+    // ========================================================
+    // MODO MANUTENCAO (toggle /admin/controle)
+    // Bloqueia atendimento novo quando ATIVO. Admins continuam
+    // passando (Fabio/Jack precisam testar correcoes sem reabrir
+    // publicamente). Resposta amigavel pro cliente.
+    // ========================================================
+    {
+      const { data: cfgManutencao } = await supabase
+        .from("configuracoes")
+        .select("valor")
+        .eq("chave", "modo_manutencao")
+        .single();
+
+      if (cfgManutencao?.valor === "habilitado" && !isAdminPhone(phoneNumber)) {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "bloqueado_modo_manutencao",
+            phone_masked: phoneNumber.replace(/\d(?=\d{4})/g, "*"),
+          },
+        });
+        await sendToClient({
+          to: phoneNumber,
+          message: "🛠️ *Estamos em manutencao!*\n\nVoltamos em alguns minutos com tudo melhor pra te atender. Por favor, tenta de novo daqui a pouco. Obrigado pela paciencia! 💛",
+        });
+        return NextResponse.json({ status: "modo_manutencao" });
+      }
+    }
+
     // Foto - processa de acordo com o step
     if (hasMedia && imageUrl) {
       const session = await getSession(phoneNumber);

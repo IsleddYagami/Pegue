@@ -59,7 +59,10 @@ export async function sendMessage({ to, message, instance }: SendMessageOptions)
 export async function sendImage({ to, url, caption, instance }: SendImageOptions) {
   const { endpoint, token } = getConfig(instance);
 
-  const response = await fetch(`${endpoint}/api/v1/send_image`, {
+  // Endpoint correto descoberto em 25/Abr: ChatPro usa send_message_file_from_url
+  // pra qualquer media (imagem, video, doc). Antes estavamos usando /api/v1/send_image
+  // que retorna 404. Doc: https://chatpro.readme.io/reference/send_message_file_from_url
+  const response = await fetch(`${endpoint}/api/v1/send_message_file_from_url`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

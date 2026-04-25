@@ -15,15 +15,13 @@ O que voce precisa?
 
   pedirLocalizacao: `Otimo! 🚚
 
-📍 *Envia sua localizacao atual* — segue o passo a passo na imagem 👆`,
-
-  pedirLocalizacaoTextoSimples: `Otimo! 🚚
-
 *Envia sua localizacao atual:*
 
-📎 Clica no *clipe* abaixo > *Localizacao* 📍`,
+📎 Clica no *clipe* abaixo
+📍 Toca em *Localizacao*
+✅ Toca em *Enviar localizacao atual*`,
 
-  // URL publica da imagem tutorial (servida da pasta public/ via Vercel)
+  // Mantemos URL pra uso futuro (versao quadrada/GIF que nao corte preview)
   TUTORIAL_LOCALIZACAO_URL: "https://www.chamepegue.com.br/tutorial-localizacao.png",
 
   guinchoMenu: `🚗 *SERVICO DE GUINCHO*

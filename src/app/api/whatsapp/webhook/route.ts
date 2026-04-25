@@ -4886,6 +4886,26 @@ async function analisarFotoIA(imageUrl: string): Promise<{
   observacao: string;
 } | null> {
   try {
+    // PASSO 1: Baixar imagem do ChatPro pro NOSSO servidor.
+    // Motivo: URLs do ChatPro tem token/expiram. Se passar URL direta pra OpenAI,
+    // ela tenta baixar e recebe 403/404. Confirmado em producao 25/Abr (12+ fotos
+    // viraram "Material (foto)" porque OpenAI nao conseguiu baixar).
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "vision_download_falhou",
+          status: imageResponse.status,
+          url_dominio: (() => { try { return new URL(imageUrl).hostname; } catch { return "url_invalida"; } })(),
+        },
+      });
+      return null;
+    }
+    const imageBuffer = await imageResponse.arrayBuffer();
+    const imageBase64 = Buffer.from(imageBuffer).toString("base64");
+    const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
+    const dataUrl = `data:${contentType};base64,${imageBase64}`;
+
     const OpenAI = (await import("openai")).default;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
 
@@ -4931,7 +4951,7 @@ Responda SOMENTE o JSON.`,
         {
           role: "user",
           content: [
-            { type: "image_url", image_url: { url: imageUrl, detail: "low" } },
+            { type: "image_url", image_url: { url: dataUrl, detail: "low" } },
             { type: "text", text: "O que e esse material? Qual veiculo ideal?" },
           ],
         },

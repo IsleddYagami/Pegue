@@ -15,9 +15,9 @@ O que voce precisa?
 
   pedirLocalizacao: `Otimo! 🚚
 
-Pra começar, *envia sua localizacao* — clica no clipe 📎 abaixo > *Localizacao* 📍
+*Envia sua localizacao atual:*
 
-_(se preferir, pode digitar o CEP ou endereço também)_`,
+📎 Clica no *clipe* abaixo > *Localizacao* 📍`,
 
   guinchoMenu: `🚗 *SERVICO DE GUINCHO*
 
@@ -36,9 +36,9 @@ Mas fique tranquilo! Nosso especialista ja foi notificado e entrara em contato e
   guinchoPedirLocalizacao: (categoria: string) =>
     `Entendi! *${categoria}* 🚗
 
-Pra continuar, *envia sua localizacao* — clica no clipe 📎 abaixo > *Localizacao* 📍
+*Envia sua localizacao atual:*
 
-_(se preferir, pode digitar o CEP ou endereço também)_`,
+📎 Clica no *clipe* abaixo > *Localizacao* 📍`,
 
   guinchoPedirDestino: `Para onde vai o veiculo?
 

@@ -210,11 +210,11 @@ async function handleRastreioLembrete(corridaId: string, _payload: any) {
   }
 }
 
-// 20min apos chegada: notifica admin que cliente nao confirmou
+// 20min apos chegada: libera fretista do local + notifica admin + lembra cliente
 async function handleRastreioLiberaFretista(corridaId: string, _payload: any) {
   const { data: corrida } = await supabase
     .from("corridas")
-    .select("id, clientes!inner(telefone)")
+    .select("id, clientes!inner(telefone), prestadores(telefone)")
     .eq("id", corridaId)
     .single();
 
@@ -228,13 +228,29 @@ async function handleRastreioLiberaFretista(corridaId: string, _payload: any) {
     .eq("phone", clientePhone)
     .single();
 
-  if (sessao?.step === "aguardando_confirmacao_entrega") {
-    await notificarAdmins(
-      `⚠️ *Cliente nao confirmou entrega ha 20 min*`,
-      clientePhone,
-      `Corrida: ${corridaId}\nCliente: ${clientePhone}\n\nVerifique e resolva.`
-    );
+  if (sessao?.step !== "aguardando_confirmacao_entrega") return;
+
+  // Libera fretista do local (mensagem pra ele poder se retirar)
+  const fretistaPhone = (corrida.prestadores as any)?.telefone;
+  if (fretistaPhone) {
+    await sendToClient({
+      to: fretistaPhone,
+      message: `⏳ *20 minutos sem confirmacao do cliente.*\n\nVoce pode se retirar do local. Aguarde o andamento das tratativas.\n\nSeu pagamento sera processado assim que o cliente confirmar.`,
+    });
   }
+
+  // Notifica admin
+  await notificarAdmins(
+    `⏳ *CLIENTE NAO CONFIRMOU ENTREGA (20min)*`,
+    clientePhone,
+    `Corrida: ${corridaId}\nCliente: ${clientePhone}\n${fretistaPhone ? `Fretista liberado do local: ${fretistaPhone}` : "Fretista nao identificado"}\nPagamento pendente.`
+  );
+
+  // Ultimo lembrete pro cliente
+  await sendToClient({
+    to: clientePhone,
+    message: `⚠️ *O fretista aguardou 20 minutos e precisou se retirar.*\n\nPor favor, confirme se a entrega esta correta:\n\n1️⃣ *SIM* - Tudo certo, servicos concluidos com sucesso! ✅\n2️⃣ *NAO* - Tenho observacoes`,
+  });
 }
 
 // 15min apos ocorrencia aberta: se admin nao resolveu, libera fretista e processa reembolso 50%

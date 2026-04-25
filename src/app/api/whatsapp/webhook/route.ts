@@ -4370,38 +4370,22 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
               : MSG.clienteConfirmarEntrega(corrida.descricao_carga || "seus materiais"),
           });
 
-          // Lembrete apos 10 min se cliente nao responder
-          setTimeout(async () => {
-            const sessaoCliente = await getSession(clienteTel);
-            if (sessaoCliente?.step === "aguardando_confirmacao_entrega") {
-              await sendToClient({ to: clienteTel, message: MSG.lembreteConfirmacao });
-            }
-          }, 10 * 60 * 1000);
-
-          // Apos 20 min: libera fretista + notifica admin
-          setTimeout(async () => {
-            const sessaoCliente = await getSession(clienteTel);
-            if (sessaoCliente?.step === "aguardando_confirmacao_entrega") {
-              // Libera fretista
-              await sendToClient({
-                to: phone,
-                message: `⏳ *20 minutos sem confirmacao do cliente.*\n\nVoce pode se retirar do local. Aguarde o andamento das tratativas.\n\nSeu pagamento sera processado assim que o cliente confirmar.`,
-              });
-
-              // Notifica admin
-              await notificarAdmin(
-                `⏳ *CLIENTE NAO CONFIRMOU ENTREGA (20min)*`,
-                clienteTel,
-                `Fretista: ${formatarTelefoneExibicao(phone)}\nFretista liberado do local.\nPagamento pendente.`
-              );
-
-              // Ultimo lembrete pro cliente
-              await sendToClient({
-                to: clienteTel,
-                message: `⚠️ *O fretista aguardou 20 minutos e precisou se retirar.*\n\nPor favor, confirme se a entrega esta correta:\n\n1️⃣ *SIM* - Tudo certo, servicos concluidos com sucesso! ✅\n2️⃣ *NAO* - Tenho observacoes`,
-              });
-            }
-          }, 20 * 60 * 1000);
+          // Tarefas agendadas (substituem setTimeouts que nao funcionam em serverless).
+          // Cron /api/cron/tarefas-agendadas dispara nos prazos:
+          // - 10 min: lembra cliente de confirmar entrega
+          // - 20 min: libera fretista do local, notifica admin, manda ultima mensagem pro cliente
+          if (session?.corrida_id) {
+            await agendarTarefa(
+              "rastreio_lembrete_confirmacao",
+              session.corrida_id,
+              10 * 60 * 1000
+            );
+            await agendarTarefa(
+              "rastreio_libera_fretista",
+              session.corrida_id,
+              20 * 60 * 1000
+            );
+          }
         }
       }
     }

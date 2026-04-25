@@ -77,6 +77,27 @@ export async function POST(req: NextRequest) {
       if (pgto.status === "approved" && pgto.referencia) {
         const corridaId = pgto.referencia;
 
+        // IDEMPOTENCIA: tenta marcar payment_id como processado ANTES de qualquer
+        // efeito colateral. Se ja foi processado (codigo 23505 = UNIQUE violation),
+        // retorna 200 silencioso. Protege contra MP reenviando o mesmo webhook ou
+        // contra 2 webhooks chegando simultaneos (race condition).
+        const { error: errIdempotencia } = await supabase
+          .from("webhooks_mp_processados")
+          .insert({
+            payment_id: paymentId,
+            status_pagamento: pgto.status,
+            corrida_id: corridaId,
+            resultado: "iniciando",
+          });
+
+        if (errIdempotencia) {
+          if (errIdempotencia.code === "23505") {
+            return NextResponse.json({ status: "ja_processado_idempotencia" });
+          }
+          // Outro erro real (ex: tabela inexistente, conexao). Propaga pra MP reenviar.
+          throw errIdempotencia;
+        }
+
         const { data: corrida } = await supabase
           .from("corridas")
           .select("*, prestadores(nome, telefone), clientes(nome, telefone)")
@@ -86,10 +107,18 @@ export async function POST(req: NextRequest) {
         if (!corrida) {
           // Referencia invalida. Isso eh suspeito mas nao eh erro do sistema.
           console.error("Webhook MP: corrida nao encontrada:", corridaId);
+          await supabase
+            .from("webhooks_mp_processados")
+            .update({ resultado: "corrida_nao_encontrada" })
+            .eq("payment_id", paymentId);
           return NextResponse.json({ status: "corrida_nao_encontrada" });
         }
 
         if (corrida.status === "paga" || corrida.status === "concluida") {
+          await supabase
+            .from("webhooks_mp_processados")
+            .update({ resultado: "ja_processado_por_status" })
+            .eq("payment_id", paymentId);
           return NextResponse.json({ status: "ja_processado" });
         }
 
@@ -192,6 +221,12 @@ Bom trabalho! 🚚✨`,
             });
           }
         }
+
+        // Marca processamento concluido com sucesso na tabela de idempotencia.
+        await supabase
+          .from("webhooks_mp_processados")
+          .update({ resultado: "ok" })
+          .eq("payment_id", paymentId);
       }
     }
 

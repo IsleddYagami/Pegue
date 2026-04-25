@@ -1046,11 +1046,16 @@ async function handleEscolhaServico(phone: string, message: string) {
 
   if (lower === "1" || lower.includes("pequeno") || lower.includes("frete")) {
     await updateSession(phone, { step: "aguardando_localizacao" });
-    await sendImageToClient({
-      to: phone,
-      url: MSG.TUTORIAL_LOCALIZACAO_URL,
-      caption: MSG.pedirLocalizacao,
-    });
+    // Tenta imagem tutorial; se ChatPro falhar, fallback pra texto puro
+    try {
+      await sendImageToClient({
+        to: phone,
+        url: MSG.TUTORIAL_LOCALIZACAO_URL,
+        caption: MSG.pedirLocalizacao,
+      });
+    } catch {
+      await sendToClient({ to: phone, message: MSG.pedirLocalizacaoTextoSimples });
+    }
     return;
   }
 
@@ -1066,11 +1071,15 @@ async function handleEscolhaServico(phone: string, message: string) {
       to: phone,
       message: `📦 *Antes de começar — importante:*\n\n⚠️ Nossos fretistas *não fazem desmontagem/montagem* de móveis.\n\n*Guarda-roupas, camas, beliches, estantes e armários grandes precisam estar DESMONTADOS* antes da coleta.\n\nTambém, se tiver *geladeira*, deixe descongelada e seca 6h antes.\n\n✅ Preparou os móveis? Vamos seguir!`,
     });
-    await sendImageToClient({
-      to: phone,
-      url: MSG.TUTORIAL_LOCALIZACAO_URL,
-      caption: MSG.pedirLocalizacao,
-    });
+    try {
+      await sendImageToClient({
+        to: phone,
+        url: MSG.TUTORIAL_LOCALIZACAO_URL,
+        caption: MSG.pedirLocalizacao,
+      });
+    } catch {
+      await sendToClient({ to: phone, message: MSG.pedirLocalizacaoTextoSimples });
+    }
     return;
   }
 
@@ -1180,9 +1189,10 @@ async function handleLocalizacao(
 
   // GUARD: rejeita palavras reservadas como endereço (ver feedback_jamais_cotar_sem_certeza)
   if (isPalavraReservadaEndereco(message)) {
-    await sendToClient({
+    await sendImageToClient({
       to: phone,
-      message: `Ops! Preciso do *endereço de retirada* 📍\n\nManda sua *localizacao* pelo clipe 📎 ou digita rua + bairro + cidade.\n\n_Ex: Rua Augusta, Consolacao, Sao Paulo_`,
+      url: MSG.TUTORIAL_LOCALIZACAO_URL,
+      caption: `Hum, parece que voce mandou um numero ou palavra ao inves do endereco 📍\n\nMe envia sua *localizacao atual* — segue o passo a passo na imagem 👆\n\n_(se preferir, pode digitar rua + bairro + cidade)_`,
     });
     return;
   }
@@ -1594,9 +1604,10 @@ async function handleDestino(phone: string, message: string) {
   // GUARD: rejeita palavras reservadas como endereço (ver feedback_jamais_cotar_sem_certeza)
   // Bug 25/Abr: cliente digitou "PRONTO" pra fechar fotos, sistema geocodificou como destino.
   if (isPalavraReservadaEndereco(message)) {
-    await sendToClient({
+    await sendImageToClient({
       to: phone,
-      message: `Ops! Preciso do *endereço de entrega* 🏠\n\nDigita rua + bairro + cidade do destino.\n\n_Ex: Av Paulista, Bela Vista, Sao Paulo_\n\nOu manda a *localizacao* pelo clipe 📎`,
+      url: MSG.TUTORIAL_LOCALIZACAO_URL,
+      caption: `Hum, parece que voce mandou um numero ou palavra ao inves do endereco de entrega 🏠\n\nMe envia a *localizacao do destino* pelo clipe (segue o tutorial na imagem 👆) ou digita rua + bairro + cidade.`,
     });
     return;
   }
@@ -5739,11 +5750,18 @@ async function handleGuinchoMarcaModelo(phone: string, message: string) {
     veiculo_sugerido: categoria.tipo === "moto" ? "moto_guincho" : "guincho",
   });
 
-  await sendImageToClient({
-    to: phone,
-    url: MSG.TUTORIAL_LOCALIZACAO_URL,
-    caption: `*${texto}* - Anotado! ✅\n\n${MSG.guinchoPedirLocalizacao(texto)}`,
-  });
+  try {
+    await sendImageToClient({
+      to: phone,
+      url: MSG.TUTORIAL_LOCALIZACAO_URL,
+      caption: `*${texto}* - Anotado! ✅\n\n${MSG.guinchoPedirLocalizacao(texto)}`,
+    });
+  } catch {
+    await sendToClient({
+      to: phone,
+      message: `*${texto}* - Anotado! ✅\n\n${MSG.pedirLocalizacaoTextoSimples}`,
+    });
+  }
 }
 
 async function handleGuinchoLocalizacao(

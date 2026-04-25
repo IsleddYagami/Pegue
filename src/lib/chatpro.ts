@@ -74,7 +74,20 @@ export async function sendImage({ to, url, caption, instance }: SendImageOptions
 
   if (!response.ok) {
     const error = await response.text();
-    console.error("Erro ao enviar imagem ChatPro:", error);
+    console.error("Erro ao enviar imagem ChatPro:", response.status, error);
+    // Log estruturado em bot_logs (serverless console nao persiste)
+    try {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "chatpro_send_image_falhou",
+          status: response.status,
+          erro_amostra: error?.slice(0, 300) || "sem corpo",
+          url_imagem: url?.slice(0, 200),
+          instance,
+          to_masked: to.replace(/\d(?=\d{4})/g, "*"),
+        },
+      });
+    } catch {}
     throw new Error(`ChatPro image error: ${response.status}`);
   }
 

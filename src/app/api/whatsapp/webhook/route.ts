@@ -34,6 +34,7 @@ import {
   isInicioServico,
   ehRespostaAutomatica,
   precisaDesmontar,
+  isPalavraReservadaEndereco,
 } from "@/lib/bot-utils";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
@@ -1145,6 +1146,15 @@ async function handleLocalizacao(
     return;
   }
 
+  // GUARD: rejeita palavras reservadas como endereço (ver feedback_jamais_cotar_sem_certeza)
+  if (isPalavraReservadaEndereco(message)) {
+    await sendToClient({
+      to: phone,
+      message: `Ops! Preciso do *endereço de retirada* 📍\n\nManda sua *localizacao* pelo clipe 📎 ou digita rua + bairro + cidade.\n\n_Ex: Rua Augusta, Consolacao, Sao Paulo_`,
+    });
+    return;
+  }
+
   // Feedback imediato pro cliente nao achar que bot travou (geocoder pode demorar 1-3s)
   if (message && message.trim().length >= 5) {
     await sendToClient({ to: phone, message: "📍 Anotei, tô localizando..." });
@@ -1553,6 +1563,16 @@ function determinarMelhorVeiculo(
 async function handleDestino(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session) return;
+
+  // GUARD: rejeita palavras reservadas como endereço (ver feedback_jamais_cotar_sem_certeza)
+  // Bug 25/Abr: cliente digitou "PRONTO" pra fechar fotos, sistema geocodificou como destino.
+  if (isPalavraReservadaEndereco(message)) {
+    await sendToClient({
+      to: phone,
+      message: `Ops! Preciso do *endereço de entrega* 🏠\n\nDigita rua + bairro + cidade do destino.\n\n_Ex: Av Paulista, Bela Vista, Sao Paulo_\n\nOu manda a *localizacao* pelo clipe 📎`,
+    });
+    return;
+  }
 
   // Feedback imediato pro cliente nao achar que bot travou
   if (message && message.trim().length >= 5) {

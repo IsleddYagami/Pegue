@@ -13,11 +13,11 @@ O que voce precisa?
 3️⃣ *Guincho*
 4️⃣ *Duvidas frequentes*`,
 
-  pedirLocalizacao: `Otimo! Vou te ajudar com seu frete! 🚚
+  pedirLocalizacao: `Otimo! 🚚
 
-O local de retirada voce informa clicando no *clipe* 📎 ao lado de onde voce digita, ai clica em *Localizacao* 📍
+Pra começar, *envia sua localizacao* — clica no clipe 📎 abaixo > *Localizacao* 📍
 
-Ou se preferir, digite o *CEP* ou *endereco com rua e bairro*`,
+_(se preferir, pode digitar o CEP ou endereço também)_`,
 
   guinchoMenu: `🚗 *SERVICO DE GUINCHO*
 
@@ -36,11 +36,9 @@ Mas fique tranquilo! Nosso especialista ja foi notificado e entrara em contato e
   guinchoPedirLocalizacao: (categoria: string) =>
     `Entendi! *${categoria}* 🚗
 
-Agora preciso saber *onde voce esta*!
+Pra continuar, *envia sua localizacao* — clica no clipe 📎 abaixo > *Localizacao* 📍
 
-Clique no *clipe* 📎 > *Localizacao* 📍
-
-Ou digite o *CEP* ou *endereco com rua e bairro*`,
+_(se preferir, pode digitar o CEP ou endereço também)_`,
 
   guinchoPedirDestino: `Para onde vai o veiculo?
 

@@ -1,5 +1,33 @@
 // Utilitarios do bot
 
+// Palavras reservadas que NUNCA devem ser aceitas como endereço.
+// Bug detectado em 25/Abr/2026: cliente digitou PRONTO pra fechar fotos e o
+// sistema geocodificou "Pronto" como endereço de destino. Cotacao R$780 saiu
+// com destino="Pronto". Inaceitavel — viola feedback_jamais_cotar_sem_certeza.
+const PALAVRAS_RESERVADAS_ENDERECO = new Set([
+  // Comandos de fluxo
+  "pronto", "sim", "nao", "não", "ok", "agora", "ajudante", "ajudantes",
+  "confirma", "confirmar", "confirmado", "corrigir", "alterar", "cancelar",
+  "repetir", "avaliar", "parar", "proximo", "próximo", "pular", "jogar",
+  // Comandos de prestador/cliente
+  "meus", "minha", "esqueci", "indicar", "despesa", "gastos", "ferias", "férias",
+  "voltei", "pegar", "atendimento", "data", "menu", "frete", "frete?",
+  "carreto", "guincho", "mudanca", "mudança", "parcerias", "fretes",
+  // Confirmacoes/saudacoes curtas
+  "oi", "ola", "olá", "bom", "boa", "obrigado", "obrigada", "valeu", "tchau",
+  // Numeros isolados (1-22 cobre menus + lista mudanca)
+  ...Array.from({ length: 22 }, (_, i) => String(i + 1)),
+]);
+
+export function isPalavraReservadaEndereco(texto: string): boolean {
+  if (!texto) return true;
+  const limpo = texto.trim().toLowerCase().replace(/[!.?]+$/, "");
+  if (limpo.length === 0) return true;
+  // Se for UMA unica palavra/numero E essa palavra esta na lista de reservadas
+  if (!/\s/.test(limpo) && PALAVRAS_RESERVADAS_ENDERECO.has(limpo)) return true;
+  return false;
+}
+
 // Verifica se esta no horario de atendimento humano (seg-sex 10h-15h)
 export function isHorarioAtendimentoHumano(): boolean {
   const agora = new Date();

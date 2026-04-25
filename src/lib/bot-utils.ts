@@ -41,6 +41,48 @@ export function isHorarioAtendimentoHumano(): boolean {
   return diaSemana >= 1 && diaSemana <= 5 && spHour >= 10 && spHour < 15;
 }
 
+// Detecta se o texto digitado pelo cliente menciona rua/avenida/etc.
+// Quando NAO menciona (ex: cliente digitou so "Agua Branca"), nao podemos
+// inventar uma rua no formato — bug detectado em 25/Abr.
+export function inputContemRua(texto: string): boolean {
+  if (!texto) return false;
+  const lower = texto.toLowerCase();
+  const palavrasRua = [
+    "rua ", "r. ", "r ", "av ", "avenida ", "av. ",
+    "alameda ", "al ", "al. ",
+    "estrada ", "estr ", "estr. ", "rodovia ", "rod ", "rod. ",
+    "travessa ", "tv ", "tv. ",
+    "praca ", "praça ", "pç ", "pca ",
+    "viela ", "viaduto ", "largo ", "ladeira ",
+  ];
+  return palavrasRua.some((p) => lower.startsWith(p) || lower.includes(", " + p) || lower.includes(" " + p));
+}
+
+// Retorna so bairro + cidade (omite rua/numero). Usado quando o cliente
+// digitou so o bairro — mostrar uma rua que ele nao mencionou da impressao
+// que o sistema inventou (ver Bug 25/Abr/2026 com "Agua Branca").
+export async function reverseGeocodeBairroCidade(
+  lat: number,
+  lng: number
+): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
+      { headers: { "User-Agent": "Pegue-Bot/1.0" } }
+    );
+    if (!response.ok) return "Localizacao recebida";
+    const data = await response.json();
+    const addr = data.address || {};
+    const parts = [
+      addr.suburb || addr.neighbourhood,
+      addr.city || addr.town || addr.village,
+    ].filter(Boolean);
+    return parts.join(", ") || data.display_name || "Localizacao recebida";
+  } catch {
+    return "Localizacao recebida";
+  }
+}
+
 // Busca endereco por coordenadas via Nominatim
 export async function reverseGeocode(
   lat: number,

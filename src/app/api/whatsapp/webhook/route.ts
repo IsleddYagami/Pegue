@@ -18,6 +18,8 @@ import {
 import { MSG } from "@/lib/bot-messages";
 import {
   reverseGeocode,
+  reverseGeocodeBairroCidade,
+  inputContemRua,
   buscaCep,
   geocodeAddress,
   calcularDistanciaKm,
@@ -1220,8 +1222,12 @@ async function handleLocalizacao(
   if (palavras.length >= 2) {
     const coords = await geocodeAddress(message);
     if (coords?.lat && coords?.lng) {
-      // Re-formata via reverseGeocode (Nominatim retorna rua+bairro+cidade)
-      const enderecoFormatado = await reverseGeocode(coords.lat, coords.lng);
+      // Bug 25/Abr: cliente digitou so "Agua Branca" (bairro), reverseGeocode
+      // retornou "Rua X, Agua Branca" — cliente pensou que sistema inventou rua.
+      // Solucao: se input nao mencionou rua/avenida/etc, mostrar so bairro+cidade.
+      const enderecoFormatado = inputContemRua(message)
+        ? await reverseGeocode(coords.lat, coords.lng)
+        : await reverseGeocodeBairroCidade(coords.lat, coords.lng);
       await apresentarOrigemPraConfirmacao(
         phone,
         enderecoFormatado || message,
@@ -1640,7 +1646,10 @@ async function handleDestino(phone: string, message: string) {
 
   // Re-formata via Nominatim pra ter rua + bairro + cidade reais (nao so eco do texto).
   // Bug 25/Abr: 'Encontrei este endereço: Pronto' — sistema apenas ecoava o input.
-  const enderecoFormatado = await reverseGeocode(destinoLat, destinoLng);
+  // Se cliente nao digitou rua (so bairro), nao acrescentamos uma rua inventada.
+  const enderecoFormatado = (cep || inputContemRua(message))
+    ? await reverseGeocode(destinoLat, destinoLng)
+    : await reverseGeocodeBairroCidade(destinoLat, destinoLng);
   if (enderecoFormatado && enderecoFormatado !== "Localizacao recebida") {
     destinoEndereco = enderecoFormatado;
   }

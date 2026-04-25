@@ -1046,7 +1046,11 @@ async function handleEscolhaServico(phone: string, message: string) {
 
   if (lower === "1" || lower.includes("pequeno") || lower.includes("frete")) {
     await updateSession(phone, { step: "aguardando_localizacao" });
-    await sendToClient({ to: phone, message: MSG.pedirLocalizacao });
+    await sendImageToClient({
+      to: phone,
+      url: MSG.TUTORIAL_LOCALIZACAO_URL,
+      caption: MSG.pedirLocalizacao,
+    });
     return;
   }
 
@@ -1062,7 +1066,11 @@ async function handleEscolhaServico(phone: string, message: string) {
       to: phone,
       message: `📦 *Antes de começar — importante:*\n\n⚠️ Nossos fretistas *não fazem desmontagem/montagem* de móveis.\n\n*Guarda-roupas, camas, beliches, estantes e armários grandes precisam estar DESMONTADOS* antes da coleta.\n\nTambém, se tiver *geladeira*, deixe descongelada e seca 6h antes.\n\n✅ Preparou os móveis? Vamos seguir!`,
     });
-    await sendToClient({ to: phone, message: MSG.pedirLocalizacao });
+    await sendImageToClient({
+      to: phone,
+      url: MSG.TUTORIAL_LOCALIZACAO_URL,
+      caption: MSG.pedirLocalizacao,
+    });
     return;
   }
 
@@ -5731,9 +5739,10 @@ async function handleGuinchoMarcaModelo(phone: string, message: string) {
     veiculo_sugerido: categoria.tipo === "moto" ? "moto_guincho" : "guincho",
   });
 
-  await sendToClient({
+  await sendImageToClient({
     to: phone,
-    message: `*${texto}* - Anotado! ✅\n\n${MSG.guinchoPedirLocalizacao(texto)}`,
+    url: MSG.TUTORIAL_LOCALIZACAO_URL,
+    caption: `*${texto}* - Anotado! ✅\n\n${MSG.guinchoPedirLocalizacao(texto)}`,
   });
 }
 

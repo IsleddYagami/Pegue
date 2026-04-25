@@ -15,9 +15,16 @@ O que voce precisa?
 
   pedirLocalizacao: `Otimo! 🚚
 
+📍 *Envia sua localizacao atual* — segue o passo a passo na imagem 👆`,
+
+  pedirLocalizacaoTextoSimples: `Otimo! 🚚
+
 *Envia sua localizacao atual:*
 
 📎 Clica no *clipe* abaixo > *Localizacao* 📍`,
+
+  // URL publica da imagem tutorial (servida da pasta public/ via Vercel)
+  TUTORIAL_LOCALIZACAO_URL: "https://www.chamepegue.com.br/tutorial-localizacao.png",
 
   guinchoMenu: `🚗 *SERVICO DE GUINCHO*
 
@@ -36,9 +43,7 @@ Mas fique tranquilo! Nosso especialista ja foi notificado e entrara em contato e
   guinchoPedirLocalizacao: (categoria: string) =>
     `Entendi! *${categoria}* 🚗
 
-*Envia sua localizacao atual:*
-
-📎 Clica no *clipe* abaixo > *Localizacao* 📍`,
+📍 *Envia sua localizacao atual* — segue o passo a passo na imagem 👆`,
 
   guinchoPedirDestino: `Para onde vai o veiculo?
 

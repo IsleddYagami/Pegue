@@ -838,6 +838,10 @@ Boa sorte! 🎯`,
       await handleConfirmarItensFoto(phone, message);
       break;
 
+    case "confirmando_origem":
+      await handleConfirmandoOrigem(phone, message);
+      break;
+
     case "confirmando_destino":
       await handleConfirmandoDestino(phone, message);
       break;
@@ -1130,19 +1134,37 @@ Ou escolha um servico:
   });
 }
 
+// Helper: salva origem identificada e pede confirmacao do cliente.
+// Defesa em camadas (feedback_jamais_cotar_sem_certeza camada 3): cliente
+// SEMPRE confirma o endereco antes de avancar. Bug 25/Abr: sistema dizia
+// 'Coleta em: Rua X' apenas ecoando o que o cliente digitou, sem provar
+// identificacao real.
+async function apresentarOrigemPraConfirmacao(
+  phone: string,
+  enderecoFormatado: string,
+  lat: number,
+  lng: number
+) {
+  await updateSession(phone, {
+    step: "confirmando_origem",
+    origem_endereco: enderecoFormatado,
+    origem_lat: lat,
+    origem_lng: lng,
+  });
+  await sendToClient({
+    to: phone,
+    message: `📍 *Encontrei este endereço de retirada:*\n\n${enderecoFormatado}\n\n1️⃣ *CONFIRMAR* (é esse mesmo)\n2️⃣ *CORRIGIR* (é outro)`,
+  });
+}
+
 // STEP 1: Localizacao
 async function handleLocalizacao(
   phone: string, message: string, lat: number | null, lng: number | null
 ) {
+  // Caminho A: cliente mandou GPS pelo clipe (mais confiavel)
   if (lat && lng) {
     const endereco = await reverseGeocode(lat, lng);
-    await updateSession(phone, {
-      step: "aguardando_foto",
-      origem_endereco: endereco,
-      origem_lat: lat,
-      origem_lng: lng,
-    });
-    await sendToClient({ to: phone, message: MSG.localizacaoRecebida(endereco) });
+    await apresentarOrigemPraConfirmacao(phone, endereco, lat, lng);
     return;
   }
 
@@ -1160,25 +1182,27 @@ async function handleLocalizacao(
     await sendToClient({ to: phone, message: "📍 Anotei, tô localizando..." });
   }
 
+  // Caminho B: CEP
   const cep = extrairCep(message);
   if (cep) {
-    const endereco = await buscaCep(cep);
-    if (endereco) {
-      const coords = await geocodeAddress(endereco);
+    const enderecoViaCep = await buscaCep(cep);
+    if (enderecoViaCep) {
+      const coords = await geocodeAddress(enderecoViaCep);
       if (coords?.lat && coords?.lng) {
-        await updateSession(phone, {
-          step: "aguardando_foto",
-          origem_endereco: endereco,
-          origem_lat: coords.lat,
-          origem_lng: coords.lng,
-        });
-        await sendToClient({ to: phone, message: MSG.enderecoRecebido(endereco) });
+        // Re-formata via reverseGeocode pra padronizar (rua, bairro, cidade)
+        const enderecoFormatado = await reverseGeocode(coords.lat, coords.lng);
+        await apresentarOrigemPraConfirmacao(
+          phone,
+          enderecoFormatado || enderecoViaCep,
+          coords.lat,
+          coords.lng
+        );
         return;
       }
-      // CEP achou endereco mas geocoder falhou - avisa admin e segue com endereco sem coords
-      console.warn(`[cep] ViaCEP OK mas geocoder falhou pra: ${endereco}`);
+      // CEP achou endereco mas geocoder nao deu coords - cai no fluxo de erro abaixo
+      console.warn(`[cep] ViaCEP OK mas geocoder falhou pra: ${enderecoViaCep}`);
     } else {
-      // CEP invalido / nao encontrado - mensagem especifica
+      // CEP invalido / nao encontrado
       await supabase.from("bot_logs").insert({
         payload: { tipo: "cep_nao_encontrado", phone, cep, origem_tentativa: message.slice(0, 100) },
       });
@@ -1190,57 +1214,46 @@ async function handleLocalizacao(
     }
   }
 
-  // Heuristica mais permissiva: so rejeita texto MUITO vago (< 2 palavras).
-  // Geocoder eh a prova real; se achou coords, confiamos no texto.
+  // Caminho C: texto livre (nao palavra reservada, nao CEP)
+  // Exige minimo 2 palavras de 3+ chars pra evitar geocodar lixo.
   const palavras = message.split(/\s+/).filter((p) => p.length > 2);
-  const muitoSuspeito = palavras.length < 2;
-
-  if (!muitoSuspeito) {
+  if (palavras.length >= 2) {
     const coords = await geocodeAddress(message);
     if (coords?.lat && coords?.lng) {
-      await updateSession(phone, {
-        step: "aguardando_foto",
-        origem_endereco: message,
-        origem_lat: coords.lat,
-        origem_lng: coords.lng,
-      });
-      await sendToClient({ to: phone, message: MSG.enderecoRecebido(message) });
-      return;
-    }
-    // Geocoder falhou mas texto parece razoavel - aceita com coords fallback de Osasco
-    if (pareceEndereco(message) && message.length > 5) {
-      await supabase.from("bot_logs").insert({
-        payload: {
-          tipo: "origem_aceita_sem_geocoder",
-          phone,
-          texto: message.slice(0, 200),
-        },
-      });
-      await updateSession(phone, {
-        step: "aguardando_foto",
-        origem_endereco: message,
-        origem_lat: -23.5329,
-        origem_lng: -46.7916,
-      });
-      await sendToClient({ to: phone, message: MSG.enderecoRecebido(message) });
+      // Re-formata via reverseGeocode (Nominatim retorna rua+bairro+cidade)
+      const enderecoFormatado = await reverseGeocode(coords.lat, coords.lng);
+      await apresentarOrigemPraConfirmacao(
+        phone,
+        enderecoFormatado || message,
+        coords.lat,
+        coords.lng
+      );
       return;
     }
   }
 
+  // Geocoder falhou OU texto muito vago.
+  // ANTES: aceitavamos com fallback Osasco hardcoded (-23.5329, -46.7916).
+  // Isso violava feedback_jamais_cotar_sem_certeza (lat/lng falsos = fretista
+  // vai pro endereco errado). Agora pedimos endereco melhor.
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "origem_nao_identificada",
+      phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+      texto_amostra: message.slice(0, 200),
+    },
+  });
   await sendToClient({
     to: phone,
-    message: `Nao consegui identificar o endereco 😅
+    message: `Não consegui identificar esse endereço 😅
 
-Tenta de uma dessas formas:
-📍 Manda sua *localizacao* pelo clipe 📎
+Tenta de uma dessas formas pra eu garantir que o fretista vai pro lugar certo:
+
+📍 Manda sua *localizacao* pelo clipe 📎 (mais preciso)
 📮 Digita o *CEP* (ex: 06010-000)
-🏠 Digita *rua, bairro e cidade* (ex: Rua Augusta, Consolacao, Sao Paulo)
+🏠 Digita *rua + bairro + cidade* (ex: Rua Augusta, Consolacao, Sao Paulo)
 
-🔒 Nao precisa do numero da casa agora — so depois do pagamento confirmado 😊
-
-💡 Se a localizacao nao funcionar:
-- Verifique se o *GPS esta ligado*
-- Configuracoes do celular > Apps > WhatsApp > Permissoes > *Localizacao* > Permitir`,
+🔒 Não precisa do número da casa agora — só depois do pagamento.`,
   });
 }
 
@@ -1591,16 +1604,6 @@ async function handleDestino(phone: string, message: string) {
       const coords = await geocodeAddress(endereco);
       destinoLat = coords?.lat || null;
       destinoLng = coords?.lng || null;
-      // Se ViaCEP achou mas geocoder falhou em TODOS os fallbacks, aceita com coords aproximadas
-      // (usa coords genericas de Osasco como fallback final pra nao travar o cliente)
-      if (!destinoLat || !destinoLng) {
-        await supabase.from("bot_logs").insert({
-          payload: { tipo: "geocoder_falhou_usando_fallback", phone, cep, endereco: endereco.slice(0, 200) },
-        });
-        // Coords aproximadas de Osasco centro - cliente confirma depois
-        destinoLat = -23.5329;
-        destinoLng = -46.7916;
-      }
     } else {
       await supabase.from("bot_logs").insert({
         payload: { tipo: "cep_destino_nao_encontrado", phone, cep, destino_tentativa: message.slice(0, 100) },
@@ -1617,32 +1620,29 @@ async function handleDestino(phone: string, message: string) {
     destinoLng = coords?.lng || null;
   }
 
-  // VALIDACAO: geocoder eh a prova real. Se achou coords, confiamos.
-  // Heuristica de palavras so rejeita se MUITO suspeito (ex: 1 palavra tipo "garrafa").
-  // Numero da casa nao eh obrigatorio aqui (cliente informa apos pagamento).
-  const palavras = message.split(/\s+/).filter((p) => p.length > 2);
-  const muitoSuspeito = palavras.length < 2; // so rejeita se tem menos de 2 palavras significativas
-
-  // Rejeita quando: geocoder falhou E texto eh muito curto/suspeito
+  // SEM coords reais = NAO ACEITAMOS. ANTES usavamos fallback Osasco hardcoded
+  // (-23.5329, -46.7916), o que viola feedback_jamais_cotar_sem_certeza:
+  // fretista ia pro endereco errado, cliente cobrado por destino que nao existia.
   if (!destinoLat || !destinoLng) {
-    if (muitoSuspeito) {
-      await sendToClient({
-        to: phone,
-        message: `🤔 Não consegui localizar esse endereço.\n\nMe manda:\n• Nome completo da *rua*\n• *Bairro* (obrigatório)\n• *Cidade*\n\nExemplo: *Rua Brasil, Centro, Osasco*\n\n🔒 Não precisa do número da casa agora — só depois do pagamento confirmado 😊`,
-      });
-      return;
-    }
-    // Texto parece endereco mas geocoder falhou - aceita mesmo assim usando fallback
-    // de Osasco (mesma logica usada no CEP que nao geocoda). Log pra auditar depois.
     await supabase.from("bot_logs").insert({
       payload: {
-        tipo: "destino_aceito_sem_geocoder",
-        phone,
-        texto: message.slice(0, 200),
+        tipo: "destino_nao_identificado",
+        phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+        texto_amostra: message.slice(0, 200),
       },
     });
-    destinoLat = -23.5329;
-    destinoLng = -46.7916;
+    await sendToClient({
+      to: phone,
+      message: `🤔 Não consegui localizar esse endereço de entrega.\n\nMe manda assim, pra eu garantir que o fretista entrega no lugar certo:\n• Nome completo da *rua*\n• *Bairro*\n• *Cidade*\n\nExemplo: *Rua Brasil, Centro, Osasco*\n\nOu manda a *localização* do destino pelo clipe 📎\n\n🔒 Número da casa só depois do pagamento.`,
+    });
+    return;
+  }
+
+  // Re-formata via Nominatim pra ter rua + bairro + cidade reais (nao so eco do texto).
+  // Bug 25/Abr: 'Encontrei este endereço: Pronto' — sistema apenas ecoava o input.
+  const enderecoFormatado = await reverseGeocode(destinoLat, destinoLng);
+  if (enderecoFormatado && enderecoFormatado !== "Localizacao recebida") {
+    destinoEndereco = enderecoFormatado;
   }
 
   // Verifica se destino é area indisponivel (favela/area livre)
@@ -1655,8 +1655,6 @@ async function handleDestino(phone: string, message: string) {
     return;
   }
 
-  // Pede confirmacao do endereco que o geocoder retornou (pode vir formatado)
-  // Salva os dados mas em step novo que espera confirmacao.
   await updateSession(phone, {
     step: "confirmando_destino",
     destino_endereco: destinoEndereco,
@@ -1666,7 +1664,45 @@ async function handleDestino(phone: string, message: string) {
 
   await sendToClient({
     to: phone,
-    message: `📍 Encontrei este endereço:\n\n*${destinoEndereco}*\n\n1️⃣ *CONFIRMAR* este endereço\n2️⃣ *CORRIGIR* (é outro)`,
+    message: `📍 *Encontrei este endereço de entrega:*\n\n${destinoEndereco}\n\n1️⃣ *CONFIRMAR* (é esse mesmo)\n2️⃣ *CORRIGIR* (é outro)`,
+  });
+}
+
+// Handler do step confirmando_origem
+async function handleConfirmandoOrigem(phone: string, message: string) {
+  const lower = message.toLowerCase().trim();
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const confirmou = lower === "1" || lower.startsWith("sim") || lower === "confirmar" || lower === "confirmo" || lower === "correto" || lower === "ok";
+  const corrigiu = lower === "2" || lower === "nao" || lower === "não" || lower === "corrigir" || lower.includes("outro");
+
+  if (confirmou) {
+    await updateSession(phone, { step: "aguardando_foto" });
+    await sendToClient({
+      to: phone,
+      message: `Anotado! ✅\n\nComo prefere informar os materiais?\n\n1️⃣ *Mandar foto* 📸\n2️⃣ *Lista rapida de mudanca* (so escolher os itens)\n3️⃣ *Descrever por texto*`,
+    });
+    return;
+  }
+
+  if (corrigiu) {
+    await updateSession(phone, {
+      step: "aguardando_localizacao",
+      origem_endereco: null,
+      origem_lat: null,
+      origem_lng: null,
+    });
+    await sendToClient({
+      to: phone,
+      message: "Sem problema! Me manda o *endereço de retirada correto* 📍\n\nClica no clipe 📎 > *Localizacao* (mais preciso)\n\nOu digita rua + bairro + cidade.",
+    });
+    return;
+  }
+
+  await sendToClient({
+    to: phone,
+    message: "Responde:\n\n1️⃣ *CONFIRMAR*\n2️⃣ *CORRIGIR*",
   });
 }
 

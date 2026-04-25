@@ -36,6 +36,7 @@ export type BotStep =
   | "aguardando_confirmacao"
   | "editando_escolha"
   | "confirmar_itens_foto"
+  | "confirmando_origem"
   | "confirmando_destino"
   | "aguardando_pagamento"
   | "aguardando_numero_coleta"

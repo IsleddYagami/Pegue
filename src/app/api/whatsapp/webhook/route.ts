@@ -4950,6 +4950,17 @@ async function analisarFotoIA(imageUrl: string): Promise<{
   veiculo_sugerido: string;
   observacao: string;
 } | null> {
+  // Log inicial: confirma que funcao foi chamada
+  const tStart = Date.now();
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "vision_inicio",
+      url_dominio: (() => { try { return new URL(imageUrl).hostname; } catch { return "url_invalida"; } })(),
+      api_key_setada: !!process.env.OPENAI_API_KEY,
+      api_key_tamanho: (process.env.OPENAI_API_KEY || "").length,
+    },
+  });
+
   try {
     // PASSO 1: Baixar imagem do ChatPro pro NOSSO servidor.
     // Motivo: URLs do ChatPro tem token/expiram. Se passar URL direta pra OpenAI,
@@ -4970,6 +4981,16 @@ async function analisarFotoIA(imageUrl: string): Promise<{
     const imageBase64 = Buffer.from(imageBuffer).toString("base64");
     const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
     const dataUrl = `data:${contentType};base64,${imageBase64}`;
+
+    // Log: download OK
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "vision_download_ok",
+        bytes: imageBuffer.byteLength,
+        content_type: contentType,
+        ms: Date.now() - tStart,
+      },
+    });
 
     const OpenAI = (await import("openai")).default;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
@@ -5026,10 +5047,35 @@ Responda SOMENTE o JSON.`,
     });
 
     const texto = response.choices[0]?.message?.content || "";
-    const jsonMatch = texto.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
 
-    const parsed: any = JSON.parse(jsonMatch[0]);
+    // Log: OpenAI respondeu. Se texto vazio ou nao parseavel, ja vou saber.
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "vision_openai_resposta",
+        texto_amostra: texto.slice(0, 300),
+        finish_reason: response.choices[0]?.finish_reason || null,
+        usage: response.usage || null,
+        ms_total: Date.now() - tStart,
+      },
+    });
+
+    const jsonMatch = texto.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      await supabase.from("bot_logs").insert({
+        payload: { tipo: "vision_sem_json", texto_completo: texto.slice(0, 500) },
+      });
+      return null;
+    }
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (e: any) {
+      await supabase.from("bot_logs").insert({
+        payload: { tipo: "vision_json_invalido", erro: e?.message, texto: jsonMatch[0].slice(0, 500) },
+      });
+      return null;
+    }
 
     // Normaliza: garante que "itens" sempre existe como array
     if (!Array.isArray(parsed.itens)) {
@@ -5044,6 +5090,16 @@ Responda SOMENTE o JSON.`,
     parsed.item = parsed.itens.join(", ");
     parsed.veiculo_sugerido = parsed.veiculo_sugerido || "utilitario";
     parsed.observacao = parsed.observacao || "";
+
+    // Log de sucesso final
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "vision_sucesso",
+        itens: parsed.itens,
+        veiculo: parsed.veiculo_sugerido,
+        ms_total: Date.now() - tStart,
+      },
+    });
 
     return parsed;
   } catch (error: any) {

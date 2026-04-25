@@ -3,8 +3,18 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Search, Star, CheckCircle, XCircle, Plus, UserPlus, Send, Mail, BarChart3, MessageSquare } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import type { Prestador } from "@/lib/types";
+
+function getAdminKey(): string | null {
+  if (typeof window === "undefined") return null;
+  let senha = sessionStorage.getItem("admin_key") || "";
+  if (!senha) {
+    senha = prompt("Digite a senha de admin:") || "";
+    if (!senha) return null;
+    sessionStorage.setItem("admin_key", senha);
+  }
+  return senha;
+}
 
 // Gera 300 cotacoes simuladas e envia por email pro Fabio
 async function gerarSimulacao() {
@@ -108,18 +118,58 @@ export default function PrestadoresPage() {
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from("prestadores")
-        .select("*, prestador_veiculos(tipo, placa)")
-        .order("criado_em", { ascending: false });
-      if (data) setPrestadores(data as unknown as Prestador[]);
+      const senha = getAdminKey();
+      if (!senha) {
+        setErro("Senha de admin obrigatoria");
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/admin-prestadores?key=${encodeURIComponent(senha)}`);
+        if (res.status === 401) {
+          sessionStorage.removeItem("admin_key");
+          setErro("Senha incorreta. Recarregue a pagina.");
+          setLoading(false);
+          return;
+        }
+        if (!res.ok) {
+          setErro("Erro ao carregar dados");
+          setLoading(false);
+          return;
+        }
+        const data = await res.json();
+        setPrestadores(data as Prestador[]);
+      } catch {
+        setErro("Erro de conexao");
+      }
       setLoading(false);
     }
     load();
   }, []);
+
+  async function alterarStatus(id: string, acao: "aprovar" | "bloquear") {
+    const senha = sessionStorage.getItem("admin_key") || "";
+    if (!senha) return;
+    try {
+      const res = await fetch(`/api/admin-prestadores?key=${encodeURIComponent(senha)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, acao }),
+      });
+      if (!res.ok) {
+        alert("Erro ao alterar status");
+        return;
+      }
+      const novoStatus = acao === "aprovar" ? "aprovado" : "bloqueado";
+      setPrestadores((prev) => prev.map((x) => x.id === id ? { ...x, status: novoStatus } : x));
+    } catch {
+      alert("Erro de conexao");
+    }
+  }
 
   const filtrados = prestadores.filter(
     (p) =>
@@ -132,6 +182,14 @@ export default function PrestadoresPage() {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C9A84C] border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (erro) {
+    return (
+      <div className="mt-8 rounded-2xl bg-red-50 p-8 text-center">
+        <p className="font-semibold text-red-600">{erro}</p>
       </div>
     );
   }
@@ -251,19 +309,13 @@ export default function PrestadoresPage() {
                 {p.status === "pendente" && (
                   <div className="mt-4 flex gap-2">
                     <button
-                      onClick={async () => {
-                        await supabase.from("prestadores").update({ status: "aprovado" }).eq("id", p.id);
-                        setPrestadores((prev) => prev.map((x) => x.id === p.id ? { ...x, status: "aprovado" } : x));
-                      }}
+                      onClick={() => alterarStatus(p.id, "aprovar")}
                       className="flex-1 rounded-lg bg-[#C9A84C] py-2 text-xs font-bold text-white"
                     >
                       Aprovar
                     </button>
                     <button
-                      onClick={async () => {
-                        await supabase.from("prestadores").update({ status: "bloqueado" }).eq("id", p.id);
-                        setPrestadores((prev) => prev.map((x) => x.id === p.id ? { ...x, status: "bloqueado" } : x));
-                      }}
+                      onClick={() => alterarStatus(p.id, "bloquear")}
                       className="flex-1 rounded-lg bg-red-100 py-2 text-xs font-bold text-red-600"
                     >
                       Bloquear

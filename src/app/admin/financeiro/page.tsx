@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DollarSign, CheckCircle, Clock } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { DollarSign } from "lucide-react";
 
 type PagamentoComCorrida = {
   id: string;
@@ -21,21 +20,52 @@ type PagamentoComCorrida = {
   } | null;
 };
 
+function getAdminKey(): string | null {
+  if (typeof window === "undefined") return null;
+  let senha = sessionStorage.getItem("admin_key") || "";
+  if (!senha) {
+    senha = prompt("Digite a senha de admin:") || "";
+    if (!senha) return null;
+    sessionStorage.setItem("admin_key", senha);
+  }
+  return senha;
+}
+
 export default function FinanceiroPage() {
   const [pagamentos, setPagamentos] = useState<PagamentoComCorrida[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function carregar() {
+    const senha = getAdminKey();
+    if (!senha) {
+      setErro("Senha de admin obrigatoria");
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin-financeiro?key=${encodeURIComponent(senha)}`);
+      if (res.status === 401) {
+        sessionStorage.removeItem("admin_key");
+        setErro("Senha incorreta. Recarregue a pagina.");
+        setLoading(false);
+        return;
+      }
+      if (!res.ok) {
+        setErro("Erro ao carregar dados");
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      setPagamentos(data as PagamentoComCorrida[]);
+    } catch {
+      setErro("Erro de conexao");
+    }
+    setLoading(false);
+  }
 
   useEffect(() => {
-    async function load() {
-      const { data } = await supabase
-        .from("pagamentos")
-        .select("*, corrida:corridas(codigo, valor_pegue, valor_prestador, prestador:prestadores(nome))")
-        .order("criado_em", { ascending: false })
-        .limit(20);
-      if (data) setPagamentos(data as unknown as PagamentoComCorrida[]);
-      setLoading(false);
-    }
-    load();
+    carregar();
   }, []);
 
   const totalFaturamento = pagamentos
@@ -49,19 +79,38 @@ export default function FinanceiroPage() {
   );
 
   async function aprovarRepasse(id: string) {
-    await supabase
-      .from("pagamentos")
-      .update({ repasse_status: "pago", repasse_pago_em: new Date().toISOString() })
-      .eq("id", id);
-    setPagamentos((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, repasse_status: "pago" } : p))
-    );
+    const senha = sessionStorage.getItem("admin_key") || "";
+    if (!senha) return;
+    try {
+      const res = await fetch(`/api/admin-financeiro?key=${encodeURIComponent(senha)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, acao: "aprovar_repasse" }),
+      });
+      if (!res.ok) {
+        alert("Erro ao aprovar repasse");
+        return;
+      }
+      setPagamentos((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, repasse_status: "pago" } : p))
+      );
+    } catch {
+      alert("Erro de conexao");
+    }
   }
 
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C9A84C] border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (erro) {
+    return (
+      <div className="mt-8 rounded-2xl bg-red-50 p-8 text-center">
+        <p className="font-semibold text-red-600">{erro}</p>
       </div>
     );
   }

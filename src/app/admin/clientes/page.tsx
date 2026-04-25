@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Search, Users } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import type { Cliente } from "@/lib/types";
 
 const nivelColorMap: Record<string, string> = {
@@ -11,18 +10,49 @@ const nivelColorMap: Record<string, string> = {
   ouro: "bg-yellow-100 text-yellow-700",
 };
 
+function getAdminKey(): string | null {
+  if (typeof window === "undefined") return null;
+  let senha = sessionStorage.getItem("admin_key") || "";
+  if (!senha) {
+    senha = prompt("Digite a senha de admin:") || "";
+    if (!senha) return null;
+    sessionStorage.setItem("admin_key", senha);
+  }
+  return senha;
+}
+
 export default function ClientesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from("clientes")
-        .select("*")
-        .order("criado_em", { ascending: false });
-      if (data) setClientes(data as Cliente[]);
+      const senha = getAdminKey();
+      if (!senha) {
+        setErro("Senha de admin obrigatoria");
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/admin-clientes?key=${encodeURIComponent(senha)}`);
+        if (res.status === 401) {
+          sessionStorage.removeItem("admin_key");
+          setErro("Senha incorreta. Recarregue a pagina.");
+          setLoading(false);
+          return;
+        }
+        if (!res.ok) {
+          setErro("Erro ao carregar dados");
+          setLoading(false);
+          return;
+        }
+        const data = await res.json();
+        setClientes(data as Cliente[]);
+      } catch {
+        setErro("Erro de conexao");
+      }
       setLoading(false);
     }
     load();
@@ -39,6 +69,14 @@ export default function ClientesPage() {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C9A84C] border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (erro) {
+    return (
+      <div className="mt-8 rounded-2xl bg-red-50 p-8 text-center">
+        <p className="font-semibold text-red-600">{erro}</p>
       </div>
     );
   }

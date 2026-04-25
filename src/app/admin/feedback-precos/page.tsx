@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trash2, Power } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 type Feedback = {
   id: string;
@@ -39,33 +38,86 @@ type Regra = {
   criado_em: string;
 };
 
+function getAdminKey(): string | null {
+  if (typeof window === "undefined") return null;
+  let senha = sessionStorage.getItem("admin_key") || "";
+  if (!senha) {
+    senha = prompt("Digite a senha de admin:") || "";
+    if (!senha) return null;
+    sessionStorage.setItem("admin_key", senha);
+  }
+  return senha;
+}
+
 export default function FeedbackPrecosPage() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [regras, setRegras] = useState<Regra[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
   const [aba, setAba] = useState<"feedbacks" | "regras">("feedbacks");
 
   async function loadData() {
-    const [{ data: fb }, { data: rg }] = await Promise.all([
-      supabase.from("feedback_precos").select("*").order("criado_em", { ascending: false }).limit(500),
-      supabase.from("ajustes_precos").select("*").order("criado_em", { ascending: false }),
-    ]);
-    setFeedbacks((fb as Feedback[]) || []);
-    setRegras((rg as Regra[]) || []);
+    const senha = getAdminKey();
+    if (!senha) {
+      setErro("Senha de admin obrigatoria");
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin-feedback-precos?key=${encodeURIComponent(senha)}`);
+      if (res.status === 401) {
+        sessionStorage.removeItem("admin_key");
+        setErro("Senha incorreta. Recarregue a pagina.");
+        setLoading(false);
+        return;
+      }
+      if (!res.ok) {
+        setErro("Erro ao carregar dados");
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      setFeedbacks((data.feedbacks as Feedback[]) || []);
+      setRegras((data.regras as Regra[]) || []);
+    } catch {
+      setErro("Erro de conexao");
+    }
     setLoading(false);
   }
 
   useEffect(() => { loadData(); }, []);
 
   async function toggleRegra(id: string, ativo: boolean) {
-    await supabase.from("ajustes_precos").update({ ativo: !ativo, atualizado_em: new Date().toISOString() }).eq("id", id);
-    loadData();
+    const senha = sessionStorage.getItem("admin_key") || "";
+    if (!senha) return;
+    try {
+      const res = await fetch(`/api/admin-feedback-precos?key=${encodeURIComponent(senha)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "toggle", id, ativo }),
+      });
+      if (res.ok) loadData();
+      else alert("Erro ao alterar regra");
+    } catch {
+      alert("Erro de conexao");
+    }
   }
 
   async function deletarRegra(id: string) {
     if (!confirm("Deletar essa regra de ajuste? Essa acao nao pode ser desfeita.")) return;
-    await supabase.from("ajustes_precos").delete().eq("id", id);
-    loadData();
+    const senha = sessionStorage.getItem("admin_key") || "";
+    if (!senha) return;
+    try {
+      const res = await fetch(`/api/admin-feedback-precos?key=${encodeURIComponent(senha)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "deletar", id }),
+      });
+      if (res.ok) loadData();
+      else alert("Erro ao deletar regra");
+    } catch {
+      alert("Erro de conexao");
+    }
   }
 
   // Stats
@@ -82,6 +134,14 @@ export default function FeedbackPrecosPage() {
   const zonaLabel: Record<string, string> = {
     normal: "Normal", dificil: "Difícil", fundao: "Fundão",
   };
+
+  if (erro) {
+    return (
+      <div className="mt-8 rounded-2xl bg-red-50 p-8 text-center">
+        <p className="font-semibold text-red-600">{erro}</p>
+      </div>
+    );
+  }
 
   return (
     <div>

@@ -2,24 +2,52 @@
 
 import { useEffect, useState } from "react";
 import { Save, DollarSign, Truck, Users, Clock, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import type { TabelaPrecos } from "@/lib/types";
+
+function getAdminKey(): string | null {
+  if (typeof window === "undefined") return null;
+  let senha = sessionStorage.getItem("admin_key") || "";
+  if (!senha) {
+    senha = prompt("Digite a senha de admin:") || "";
+    if (!senha) return null;
+    sessionStorage.setItem("admin_key", senha);
+  }
+  return senha;
+}
 
 export default function ConfigPage() {
   const [precos, setPrecos] = useState<TabelaPrecos | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from("tabela_precos")
-        .select("*")
-        .eq("ativo", true)
-        .limit(1)
-        .single();
-      if (data) setPrecos(data as TabelaPrecos);
+      const senha = getAdminKey();
+      if (!senha) {
+        setErro("Senha de admin obrigatoria");
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/admin-tabela-precos?key=${encodeURIComponent(senha)}`);
+        if (res.status === 401) {
+          sessionStorage.removeItem("admin_key");
+          setErro("Senha incorreta. Recarregue a pagina.");
+          setLoading(false);
+          return;
+        }
+        if (!res.ok) {
+          setErro("Erro ao carregar dados");
+          setLoading(false);
+          return;
+        }
+        const data = await res.json();
+        setPrecos(data as TabelaPrecos);
+      } catch {
+        setErro("Erro de conexao");
+      }
       setLoading(false);
     }
     load();
@@ -27,29 +55,42 @@ export default function ConfigPage() {
 
   async function handleSave() {
     if (!precos) return;
+    const senha = sessionStorage.getItem("admin_key") || "";
+    if (!senha) return;
     setSalvando(true);
-    await supabase
-      .from("tabela_precos")
-      .update({
-        preco_base_km: precos.preco_base_km,
-        km_minimo: precos.km_minimo,
-        valor_minimo: precos.valor_minimo,
-        mult_utilitario: precos.mult_utilitario,
-        mult_van: precos.mult_van,
-        mult_caminhao_bau: precos.mult_caminhao_bau,
-        mult_caminhao_grande: precos.mult_caminhao_grande,
-        adicional_ajudante: precos.adicional_ajudante,
-        adicional_andar_escada: precos.adicional_andar_escada,
-        mult_urgente: precos.mult_urgente,
-        mult_economica: precos.mult_economica,
-        mult_padrao: precos.mult_padrao,
-        mult_premium: precos.mult_premium,
-        comissao_percentual: precos.comissao_percentual,
-      })
-      .eq("id", precos.id);
+    try {
+      const res = await fetch(`/api/admin-tabela-precos?key=${encodeURIComponent(senha)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: precos.id,
+          preco_base_km: precos.preco_base_km,
+          km_minimo: precos.km_minimo,
+          valor_minimo: precos.valor_minimo,
+          mult_utilitario: precos.mult_utilitario,
+          mult_van: precos.mult_van,
+          mult_caminhao_bau: precos.mult_caminhao_bau,
+          mult_caminhao_grande: precos.mult_caminhao_grande,
+          adicional_ajudante: precos.adicional_ajudante,
+          adicional_andar_escada: precos.adicional_andar_escada,
+          mult_urgente: precos.mult_urgente,
+          mult_economica: precos.mult_economica,
+          mult_padrao: precos.mult_padrao,
+          mult_premium: precos.mult_premium,
+          comissao_percentual: precos.comissao_percentual,
+        }),
+      });
+      if (!res.ok) {
+        alert("Erro ao salvar");
+        setSalvando(false);
+        return;
+      }
+      setSalvo(true);
+      setTimeout(() => setSalvo(false), 3000);
+    } catch {
+      alert("Erro de conexao");
+    }
     setSalvando(false);
-    setSalvo(true);
-    setTimeout(() => setSalvo(false), 3000);
   }
 
   function updateField(field: keyof TabelaPrecos, value: number) {
@@ -80,6 +121,14 @@ export default function ConfigPage() {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C9A84C] border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (erro) {
+    return (
+      <div className="mt-8 rounded-2xl bg-red-50 p-8 text-center">
+        <p className="font-semibold text-red-600">{erro}</p>
       </div>
     );
   }

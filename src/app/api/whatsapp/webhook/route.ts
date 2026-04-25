@@ -403,7 +403,16 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ status: "ok" });
         }
 
-        // IA falhou mas recebeu foto
+        // IA falhou mas recebeu foto - LOG pra rastrear quando isso acontece em producao
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "vision_fallback_material_foto",
+            phone_masked: phoneNumber.replace(/\d(?=\d{4})/g, "*"),
+            step_atual: session.step,
+            url_dominio: (() => { try { return new URL(imageUrl).hostname; } catch { return "url_invalida"; } })(),
+          },
+        });
+
         const sessaoAtual = await getSession(phoneNumber);
         const itensAtuais = sessaoAtual?.descricao_carga || "";
         const listaItens = itensAtuais
@@ -4953,7 +4962,22 @@ Responda SOMENTE o JSON.`,
 
     return parsed;
   } catch (error: any) {
-    console.error("Erro OpenAI Vision:", error?.message);
+    // Log detalhado em bot_logs pra diagnosticar (console.error nao sobrevive em serverless)
+    const detalhe = {
+      tipo: "vision_falhou",
+      erro_msg: error?.message?.slice(0, 500) || "sem mensagem",
+      erro_status: error?.status || error?.response?.status || null,
+      erro_code: error?.code || error?.response?.data?.error?.code || null,
+      erro_type: error?.response?.data?.error?.type || error?.constructor?.name || null,
+      url_amostra: imageUrl?.slice(0, 120) || "sem url",
+      url_dominio: (() => { try { return new URL(imageUrl).hostname; } catch { return "url_invalida"; } })(),
+      api_key_setada: !!process.env.OPENAI_API_KEY,
+      api_key_tamanho: (process.env.OPENAI_API_KEY || "").length,
+    };
+    console.error("Erro OpenAI Vision:", detalhe);
+    try {
+      await supabase.from("bot_logs").insert({ payload: detalhe });
+    } catch {}
     return null;
   }
 }

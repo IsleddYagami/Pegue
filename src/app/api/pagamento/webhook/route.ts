@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { buscarPagamento, validarAssinaturaWebhookMP } from "@/lib/mercadopago";
 import { sendToClient } from "@/lib/chatpro";
 import { formatarTelefoneExibicao } from "@/lib/bot-utils";

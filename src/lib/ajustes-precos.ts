@@ -1,7 +1,7 @@
 // Aplica ajustes manuais (regras de excecao) ao preco calculado pela formula base.
 // Admin cria regras via WhatsApp ou painel. Sistema consulta e aplica quando bate nos criterios.
 
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 type AjusteRegra = {
   id: string;

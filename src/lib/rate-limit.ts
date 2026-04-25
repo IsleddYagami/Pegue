@@ -10,7 +10,7 @@
 // Esta abordagem tem custo de 1 round-trip ao Supabase por request protegida.
 // Pra endpoints mais quentes, considerar Upstash Redis no futuro.
 
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 function janelaAtual(): string {
   // YYYY-MM-DDTHH:MM (minuto atual em UTC)

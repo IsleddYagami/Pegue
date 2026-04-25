@@ -3,7 +3,7 @@ import { sendToClient } from "@/lib/chatpro";
 import { getSession, updateSession } from "@/lib/bot-sessions";
 import { MSG } from "@/lib/bot-messages";
 import { formatarTelefoneExibicao } from "@/lib/bot-utils";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 

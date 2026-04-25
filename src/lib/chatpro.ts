@@ -1,6 +1,6 @@
 // Lib para enviar mensagens via ChatPro WhatsApp API
 // Suporta 2 instancias (2 numeros)
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 const CHATPRO_ENDPOINT = process.env.CHATPRO_ENDPOINT || "";
 const CHATPRO_TOKEN = process.env.CHATPRO_TOKEN || "";

@@ -35,7 +35,7 @@ import {
   ehRespostaAutomatica,
   precisaDesmontar,
 } from "@/lib/bot-utils";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
 import { gerarSimulacao, formatarMensagemSimulacao, nomeVeiculo as nomeVeiculoAval, type SimulacaoAvaliacao } from "@/lib/simulacao-avaliacao";
 import { criteriosMediaDaSimulacao, invalidarCacheAjustes } from "@/lib/ajustes-precos";

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendToClient } from "@/lib/chatpro";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { isValidAdminKey, isValidCronKey } from "@/lib/admin-auth";
 import { notificarAdmins } from "@/lib/admin-notify";
 

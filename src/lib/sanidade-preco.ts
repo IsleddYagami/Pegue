@@ -6,7 +6,7 @@
 // Se preco for anomalo: cotacao fica em "revisao_admin", bot avisa cliente
 // que equipe vai responder em instantes, e notifica admin pra aprovar.
 
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 // === CAMADA 1: Limites absolutos por veiculo (cliente final paga) ===
 // Esses sao os tetos. Acima disso = quase certo que tem erro em algum lugar.

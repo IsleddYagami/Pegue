@@ -3,7 +3,7 @@
 // duradoura e conseguir mostrar a foto depois, baixamos e guardamos no nosso proprio
 // bucket.
 
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 const BUCKET = "prestadores-docs";
 

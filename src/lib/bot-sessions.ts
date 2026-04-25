@@ -1,5 +1,5 @@
 // Gerenciamento de sessoes do bot WhatsApp via Supabase
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 export type BotStep =
   | "inicio"

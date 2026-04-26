@@ -395,7 +395,11 @@ export async function cancelarTarefas(
 //   - Phone na tabela phones_bloqueados => SEMPRE silenciado
 //   - Numeros proprios do Pegue => SEMPRE silenciados (evita auto-loop)
 
-const MAX_MSGS = 6;                  // max de mensagens
+// Bug 25/Abr: cliente leigo mandou 13 fotos seguidas pra cotar mudanca,
+// 8 foram silenciadas pelo rate limit. Fluxo natural sendo penalizado.
+// 30 msgs/60s ainda detecta loop de bot (loops fazem 100+/min facilmente)
+// mas permite cliente humano normal mandar varias fotos sequenciais.
+const MAX_MSGS = 30;                 // max de mensagens
 const JANELA_MS = 60_000;            // na janela de 60s
 const SILENCIO_MS = 30 * 60_000;     // silencia por 30min se ultrapassar
 

@@ -133,21 +133,13 @@ Exemplo: *1 2 4 7 9 13 15 18x8*
 Se tiver algo diferente, escreva no final!`,
 
   fotoItemAdicionado: (item: string, emoji: string, listaItens: string) => {
-    const numerada = listaItens
-      .split(", ")
-      .filter((i) => i.trim().length > 0)
-      .map((it, idx) => `${idx + 1}. ${it}`)
-      .join("\n");
-    return `Vi! *${item}* ${emoji} Anotado! ✅
-
-📦 *Sua lista:*
-${numerada}
-
-Tem mais algum item?
-• Manda outra *foto* ou *descrição* = adicionar
-• *remover 2* = tira o item 2
-• *PRONTO* = seguir
-• *APAGAR* = limpar tudo`;
+    // Mensagem ENXUTA por foto: cliente que manda 13 fotos nao quer ver
+    // a lista completa repetida 13 vezes. So mostra item identificado +
+    // total. Lista completa aparece quando cliente digita PRONTO
+    // (MSG.todosItensProntos ja mostra resumo formatado).
+    const total = listaItens.split(", ").filter((i) => i.trim().length > 0).length;
+    const itemTotal = total === 1 ? "1 item" : `${total} itens`;
+    return `${emoji} *${item}* — anotado! (${itemTotal} no total)\n\n_Manda mais fotos ou digita *PRONTO* pra seguir._`;
   },
 
   todosItensProntos: (listaItens: string, veiculo: string) =>

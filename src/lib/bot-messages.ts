@@ -15,8 +15,10 @@ O que voce precisa?
 
   pedirLocalizacao: `📍 *Manda sua localizacao atual.*`,
 
-  // Mantemos URL pra uso futuro (versao quadrada/GIF que nao corte preview)
-  TUTORIAL_LOCALIZACAO_URL: "https://www.chamepegue.com.br/tutorial-localizacao.png",
+  // GIF tutorial (gravado por Fabio em 25/Abr — print real do WhatsApp dele com
+  // seta amarela animada apontando pro icone de anexo). 588KB, 6s, auto-play
+  // no WhatsApp do cliente.
+  TUTORIAL_LOCALIZACAO_URL: "https://www.chamepegue.com.br/tutorial-localizacao.gif",
 
   guinchoMenu: `🚗 *SERVICO DE GUINCHO*
 

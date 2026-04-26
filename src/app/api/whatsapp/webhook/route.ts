@@ -1048,7 +1048,16 @@ async function handleEscolhaServico(phone: string, message: string) {
 
   if (lower === "1" || lower.includes("pequeno") || lower.includes("frete")) {
     await updateSession(phone, { step: "aguardando_localizacao" });
-    await sendToClient({ to: phone, message: MSG.pedirLocalizacao });
+    // Tenta GIF tutorial (mostra visualmente onde clicar). Fallback: texto puro.
+    try {
+      await sendImageToClient({
+        to: phone,
+        url: MSG.TUTORIAL_LOCALIZACAO_URL,
+        caption: MSG.pedirLocalizacao,
+      });
+    } catch {
+      await sendToClient({ to: phone, message: MSG.pedirLocalizacao });
+    }
     return;
   }
 
@@ -1064,7 +1073,15 @@ async function handleEscolhaServico(phone: string, message: string) {
       to: phone,
       message: `📦 *Antes de começar — importante:*\n\n⚠️ Nossos fretistas *não fazem desmontagem/montagem* de móveis.\n\n*Guarda-roupas, camas, beliches, estantes e armários grandes precisam estar DESMONTADOS* antes da coleta.\n\nTambém, se tiver *geladeira*, deixe descongelada e seca 6h antes.\n\n✅ Preparou os móveis? Vamos seguir!`,
     });
-    await sendToClient({ to: phone, message: MSG.pedirLocalizacao });
+    try {
+      await sendImageToClient({
+        to: phone,
+        url: MSG.TUTORIAL_LOCALIZACAO_URL,
+        caption: MSG.pedirLocalizacao,
+      });
+    } catch {
+      await sendToClient({ to: phone, message: MSG.pedirLocalizacao });
+    }
     return;
   }
 

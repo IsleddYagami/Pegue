@@ -264,10 +264,9 @@ ${detalhes}
 
 🔸 *Itens fora da lista*: por segurança, fretista *não pode transportar*. Pra incluir mais, será necessária *nova cotação*.
 
-🔸 *Atrasos do cliente*: tolerância de até *15 minutos* na coleta. Após isso, pode haver:
-  • *Cobrança adicional* por hora de espera
-  • *Cancelamento* sem reembolso (fretista perde a próxima entrega)
-  • *Reagendamento* sujeito a nova cotação
+🔸 *Evite atrasos*: o fretista tem horário apertado por causa de outros trabalhos agendados.
+  • Tolerância de até *1 hora* sem custo adicional
+  • Após *1 hora* de atraso, será cobrado *valor adicional pela espera*
 
 ━━━━━━━━━━━━━━━━
 

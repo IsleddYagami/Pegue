@@ -15,10 +15,10 @@ O que voce precisa?
 
   pedirLocalizacao: `📍 *Manda sua localizacao atual.*`,
 
-  // GIF tutorial (gravado por Fabio em 25/Abr — print real do WhatsApp dele com
-  // seta amarela animada apontando pro icone de anexo). 588KB, 6s, auto-play
-  // no WhatsApp do cliente.
-  TUTORIAL_LOCALIZACAO_URL: "https://www.chamepegue.com.br/tutorial-localizacao.gif",
+  // VIDEO tutorial (gravado por Fabio em 25/Abr — print real do WhatsApp dele
+  // com setas amarelas mostrando os 3 passos: anexo -> Localizacao -> Enviar).
+  // 590KB, 3.6s, 30fps, 710x850px. ChatPro envia via send_message_file_from_url.
+  TUTORIAL_LOCALIZACAO_URL: "https://www.chamepegue.com.br/tutorial-localizacao.mp4",
 
   guinchoMenu: `🚗 *SERVICO DE GUINCHO*
 

@@ -876,13 +876,19 @@ export function formatarListaNumerada(descricao: string | null): string {
 }
 
 // Conta quantidade total de itens em texto livre.
-// Ex: "2 camas, 3 cadeiras, 1 sofa" => 6 (nao 3).
-// Ex: "geladeira, fogao" => 2 (sem qtd, conta 1 por separador).
-// Ex: "5x caixas" => 5 (forma alternativa com 'x').
-// Separadores aceitos: virgula, ponto, ponto-e-virgula, ' e '.
+// Aceita QUALQUER formato: virgula, ponto, ponto-e-virgula, quebra de
+// linha, ' e ', ' / ', traco, ou multiplos espacos/tabs.
+// Ex: "2 camas, 3 cadeiras, 1 sofa" => 6
+// Ex: "geladeira\nfogao\ncama" => 3 (lista em linhas)
+// Ex: "5x caixas" => 5 (forma alternativa com 'x')
 export function contarItensTexto(texto: string): number {
   if (!texto) return 0;
-  const partes = texto.split(/[,;.]|\s+e\s+/i).map((p) => p.trim()).filter((p) => p.length > 2);
+  // Splitter robusto: virgula, ponto-virgula, ponto, quebra linha,
+  // ' e ', ' / ', barra, traco com espacos.
+  const partes = texto
+    .split(/[,;.\n\r]|\s+e\s+|\s+\/\s+|\s+-\s+/i)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 1);
   let total = 0;
   for (const parte of partes) {
     const matchQtd = parte.match(/^(\d+)\s*x?\s*\w/i);

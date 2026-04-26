@@ -1448,13 +1448,16 @@ async function handleFoto(
 
   // Texto livre descrevendo itens
   if (message.length > 2) {
-    // IMPORTANTE: bloqueia se texto parece endereco ou CEP.
-    // Cliente as vezes se perde e manda o endereco do destino aqui em vez dos itens.
-    // Se aceitar, salva "Rua X, Osasco" como descricao_carga (bug relatado).
-    if (extrairCep(message) || pareceEndereco(message)) {
+    // GUARD CONSERVADOR: so bloqueia se VIRTUALMENTE CERTO que eh endereco
+    // (CEP completo, OU texto comeca com 'rua/av/avenida/alameda/estrada').
+    // pareceEndereco() era agressivo demais (matchava 'osasco' isolado),
+    // bloqueando descricoes de itens validas. Bug Jack 26/Abr.
+    const lowerMsg = message.trim().toLowerCase();
+    const comecaComVia = /^(rua|av|avenida|alameda|estrada|rodovia|travessa|praca|praça)\s+/i.test(lowerMsg);
+    if (extrairCep(message) || comecaComVia) {
       await sendToClient({
         to: phone,
-        message: `🤔 Parece que você mandou um *endereço*, mas agora preciso saber o *que* você vai transportar (não pra onde).\n\nMe manda:\n📸 Uma *foto* dos itens\nOU digite: *geladeira, sofá, cama casal* (separados por vírgula)\n\nDepois pergunto o endereço de destino 😊`,
+        message: `🤔 Parece que você mandou um *endereço*, mas agora preciso saber o *que* você vai transportar (não pra onde).\n\nMe manda:\n📸 Uma *foto* dos itens\nOU digite: *geladeira, sofá, cama casal*\n\nDepois pergunto o endereço de destino 😊`,
       });
       return;
     }
@@ -1980,7 +1983,7 @@ async function handleConfirmandoOrigem(phone: string, message: string) {
     await updateSession(phone, { step: "aguardando_foto" });
     await sendToClient({
       to: phone,
-      message: `Anotado! ✅\n\n📸 Agora manda *Foto do Objeto*\n✏️ Ou *digita* (ex: geladeira, sofa, 3 caixas)\n📋 Ou digite *3* para selecionar os itens que quer enviar`,
+      message: `Anotado! ✅ Como prefere passar os itens?\n\n📸 *FOTO* — manda foto dos itens (recomendado, identifica automatico)\n\n✏️ *TEXTO* — digita os itens em qualquer formato:\n   • _geladeira, sofa, cama_\n   • _2 caixas e 1 mesa_\n   • _Ou um abaixo do outro:_\n     _geladeira_\n     _sofa_\n     _cama_\n\n📋 *LISTA* — digite *3* pra ver lista de itens comuns de mudanca`,
     });
     return;
   }

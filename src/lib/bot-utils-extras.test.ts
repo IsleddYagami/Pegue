@@ -343,6 +343,26 @@ describe("contarItensTexto", () => {
     });
   });
 
+  describe("aceita lista em LINHAS (quebra de linha)", () => {
+    it.each([
+      ["geladeira\nfogao\ncama", 3],
+      ["geladeira\r\nfogao\r\ncama", 3],
+      ["1 geladeira\n2 sofa\n1 mesa", 4], // 1+2+1
+      ["sofa\nmesa\ncadeira\nbicicleta", 4],
+    ])("'%s' = %s", (input, expected) => {
+      expect(contarItensTexto(input)).toBe(expected);
+    });
+  });
+
+  describe("aceita separadores variados (barra, traco)", () => {
+    it.each([
+      ["geladeira / fogao / cama", 3],
+      ["geladeira - fogao - cama", 3],
+    ])("'%s' = %s", (input, expected) => {
+      expect(contarItensTexto(input)).toBe(expected);
+    });
+  });
+
   describe("captura quantidade no inicio", () => {
     it.each([
       ["2 camas", 2],

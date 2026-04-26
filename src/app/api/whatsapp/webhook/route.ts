@@ -1212,7 +1212,7 @@ async function handleLocalizacao(
       });
       await sendToClient({
         to: phone,
-        message: `🤔 Não achei esse CEP (*${cep}*) no ViaCEP.\n\nConfere se digitou certo ou tenta mandar:\n• *Rua, bairro e cidade* (ex: Rua Augusta, Consolacao, Sao Paulo)\n• *Localização* pelo clipe 📎`,
+        message: `🤔 Não achei esse CEP (*${cep}*) no ViaCEP.\n\nConfere se digitou certo ou tenta mandar:\n• *Rua, bairro e cidade* (ex: Rua Augusta, Consolacao, Sao Paulo)\n• *Localização* pelo *icone de anexo* (canto inferior direito do WhatsApp)`,
       });
       return;
     }
@@ -1257,7 +1257,7 @@ async function handleLocalizacao(
 
 Tenta de uma dessas formas pra eu garantir que o fretista vai pro lugar certo:
 
-📍 Manda sua *localizacao* pelo clipe 📎 (mais preciso)
+📍 Manda sua *localizacao* pelo *icone de anexo* (canto inferior direito do WhatsApp) (mais preciso)
 📮 Digita o *CEP* (ex: 06010-000)
 🏠 Digita *rua + bairro + cidade* (ex: Rua Augusta, Consolacao, Sao Paulo)
 
@@ -1590,7 +1590,7 @@ async function handleDestino(phone: string, message: string) {
   if (isPalavraReservadaEndereco(message)) {
     await sendToClient({
       to: phone,
-      message: `Ops! Preciso do *endereço de entrega* 🏠\n\nDigita rua + bairro + cidade do destino.\n\n_Ex: Av Paulista, Bela Vista, Sao Paulo_\n\nOu manda a *localizacao* pelo clipe 📎`,
+      message: `Ops! Preciso do *endereço de entrega* 🏠\n\nDigita rua + bairro + cidade do destino.\n\n_Ex: Av Paulista, Bela Vista, Sao Paulo_\n\nOu manda a *localizacao* pelo *icone de anexo* (canto inferior direito do WhatsApp)`,
     });
     return;
   }
@@ -1641,7 +1641,7 @@ async function handleDestino(phone: string, message: string) {
     });
     await sendToClient({
       to: phone,
-      message: `🤔 Não consegui localizar esse endereço de entrega.\n\nMe manda assim, pra eu garantir que o fretista entrega no lugar certo:\n• Nome completo da *rua*\n• *Bairro*\n• *Cidade*\n\nExemplo: *Rua Brasil, Centro, Osasco*\n\nOu manda a *localização* do destino pelo clipe 📎\n\n🔒 Número da casa só depois do pagamento.`,
+      message: `🤔 Não consegui localizar esse endereço de entrega.\n\nMe manda assim, pra eu garantir que o fretista entrega no lugar certo:\n• Nome completo da *rua*\n• *Bairro*\n• *Cidade*\n\nExemplo: *Rua Brasil, Centro, Osasco*\n\nOu manda a *localização* do destino pelo *icone de anexo* (canto inferior direito do WhatsApp)\n\n🔒 Número da casa só depois do pagamento.`,
     });
     return;
   }
@@ -1706,7 +1706,7 @@ async function handleConfirmandoOrigem(phone: string, message: string) {
     });
     await sendToClient({
       to: phone,
-      message: "Sem problema! Me manda o *endereço de retirada correto* 📍\n\nClica no clipe 📎 > *Localizacao* (mais preciso)\n\nOu digita rua + bairro + cidade.",
+      message: "Sem problema! Me manda o *endereço de retirada correto* 📍\n\nToca no *icone de anexo* (canto inferior direito) > *Localizacao* (mais preciso)\n\nOu digita rua + bairro + cidade.",
     });
     return;
   }
@@ -2141,7 +2141,7 @@ async function handleEditandoEscolha(phone: string, message: string, instance: 1
     });
     await sendToClient({
       to: phone,
-      message: "Sem problema! Me manda a nova *localização de retirada* 📍\n\nClique no clipe 📎 > Localização 📍\nOu digite o *CEP* ou *endereço completo com rua e bairro*",
+      message: "Sem problema! Me manda a nova *localização de retirada* 📍\n\nToca no *icone de anexo* (canto inferior direito) > Localização\nOu digite o *CEP* ou *endereço completo com rua e bairro*",
     });
     return;
   }
@@ -2356,7 +2356,7 @@ async function handleFretistaDivergenciaFoto(phone: string, message: string, has
   if (!hasMedia || !imageUrl) {
     await sendToClient({
       to: phone,
-      message: "Preciso de uma *foto* da situação. Manda pelo clipe 📎 → Câmera.\n\nSem foto, não consigo registrar a ocorrência.",
+      message: "Preciso de uma *foto* da situação. Manda pelo *icone de anexo* (canto inferior direito do WhatsApp) → Câmera.\n\nSem foto, não consigo registrar a ocorrência.",
     });
     return;
   }
@@ -2674,7 +2674,7 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
       await updateSession(phone, { step: "aguardando_localizacao" });
       await sendToClient({
         to: phone,
-        message: `Perfeito! Pulei a parte de identificar o material ✅\n\nAgora me manda a *localização de retirada* 📍\n\nClique no clipe 📎 > Localização 📍\nOu digite o *endereço completo com rua e bairro*`,
+        message: `Perfeito! Pulei a parte de identificar o material ✅\n\nAgora me manda a *localização de retirada* 📍\n\nToca no *icone de anexo* (canto inferior direito) > Localização\nOu digite o *endereço completo com rua e bairro*`,
       });
       return;
     }
@@ -2729,7 +2729,7 @@ async function handleConfirmarItensFoto(phone: string, message: string) {
     await updateSession(phone, { step: "aguardando_localizacao" });
     await sendToClient({
       to: phone,
-      message: `Anotado! ✅\n\nAgora me manda a *localização de retirada* 📍\n\nClique no clipe 📎 > Localização 📍\nOu digite o *CEP* ou *endereço completo com rua e bairro*`,
+      message: `Anotado! ✅\n\nAgora me manda a *localização de retirada* 📍\n\nToca no *icone de anexo* (canto inferior direito) > Localização\nOu digite o *CEP* ou *endereço completo com rua e bairro*`,
     });
     return;
   }
@@ -5633,7 +5633,7 @@ async function handleGuinchoCategoria(phone: string, message: string) {
     });
     await sendToClient({
       to: phone,
-      message: `Onde esta o veiculo? 📍\n\nClique no *clipe* 📎 > *Localizacao*\nOu digite o *endereco com rua, bairro e numero*`,
+      message: `Onde esta o veiculo? 📍\n\nToca no *icone de anexo* (canto inferior direito) > *Localizacao*\nOu digite o *endereco com rua, bairro e numero*`,
     });
   } else {
     // Fluxo normal - pede marca/modelo
@@ -5776,7 +5776,7 @@ async function handleGuinchoLocalizacao(
   if (!endereco) {
     await sendToClient({
       to: phone,
-      message: "Nao consegui achar esse endereco 😅\n\nManda sua *localizacao pelo clipe* 📎 ou digite o *CEP* ou *endereco completo* (rua + bairro)",
+      message: "Nao consegui achar esse endereco 😅\n\nManda sua *localizacao pelo icone de anexo* (canto inferior direito do WhatsApp) ou digite o *CEP* ou *endereco completo* (rua + bairro)",
     });
     return;
   }

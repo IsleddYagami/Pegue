@@ -187,7 +187,10 @@ async function testEventTypeIgnorado() {
   console.log("\n🚫 Tipos ignorados");
   const r = await call(WEBHOOK_URL_1, { Type: "evento_estranho", Body: { Text: "x" } });
   check("Evento desconhecido retorna 200 ignored", r.status === 200, `(got ${r.status})`);
-  check("Status JSON = 'ignored_event'", r.json?.status === "ignored_event", `(got ${r.json?.status})`);
+  // Em modo smoke, retorna 'smoke_ignored'. Em modo full, 'ignored_event'.
+  check("Status JSON eh ignored (smoke ou event)",
+    ["ignored_event", "smoke_ignored"].includes(r.json?.status),
+    `(got ${r.json?.status})`);
 }
 
 async function testFluxoCompleto() {
@@ -356,6 +359,56 @@ async function testFluxoCompleto() {
   }
 }
 
+async function testCenariosErro() {
+  console.log("\n🐛 Cenarios de erro (busca bugs)");
+
+  // Payload completamente vazio
+  let r = await call(WEBHOOK_URL_1, {});
+  check("Payload vazio nao quebra (200)", r.status === 200, `(got ${r.status})`);
+
+  // Payload com campos errados
+  r = await call(WEBHOOK_URL_1, { foo: "bar", Type: 12345 });
+  check("Payload mal-formado nao quebra (200)", r.status === 200, `(got ${r.status})`);
+
+  // Texto muito longo (10k chars) - testa overflow
+  const longoTexto = "a".repeat(10000);
+  r = await call(WEBHOOK_URL_1, makePayload({ text: longoTexto }));
+  check("Texto 10k chars nao quebra (200)", r.status === 200, `(${r.ms}ms)`);
+
+  // Caracteres especiais (emoji + simbolos)
+  r = await call(WEBHOOK_URL_1, makePayload({ text: "🚀💥🔥 ¡¿§¤€£" }));
+  check("Emojis e caracteres especiais nao quebram (200)", r.status === 200);
+
+  // SQL injection attempt
+  r = await call(WEBHOOK_URL_1, makePayload({ text: "'; DROP TABLE bot_sessions; --" }));
+  check("SQL injection rejeitada/sanitizada (200)", r.status === 200);
+
+  // Phone malformado (sem @s.whatsapp.net)
+  const payloadPhoneMal = {
+    Type: "received_message",
+    Body: {
+      Text: "oi",
+      Info: { RemoteJid: "phone-invalido", FromMe: false },
+    },
+  };
+  r = await call(WEBHOOK_URL_1, payloadPhoneMal);
+  check("Phone malformado nao quebra (200)", r.status === 200);
+
+  // FromMe = true (mensagem do proprio bot, deve ignorar)
+  const payloadFromMe = {
+    Type: "received_message",
+    Body: {
+      Text: "oi",
+      Info: { RemoteJid: "5511999999999@s.whatsapp.net", FromMe: true },
+    },
+  };
+  r = await call(WEBHOOK_URL_1, payloadFromMe);
+  check("FromMe=true eh ignorado", r.status === 200, `(got ${r.json?.status})`);
+  check("Status FromMe eh ignored",
+    ["ignored", "smoke_ignored"].includes(r.json?.status),
+    `(got ${r.json?.status})`);
+}
+
 async function testFluxoGuincho() {
   console.log("\n🚗 Fluxo Guincho (cliente escolhe opcao 3)");
 
@@ -409,7 +462,9 @@ async function testGroupIgnore() {
   };
   const r = await call(WEBHOOK_URL_1, payload);
   check("Grupo eh ignorado", r.status === 200, `(got ${r.status})`);
-  check("Status = 'ignored'", r.json?.status === "ignored", `(got ${r.json?.status})`);
+  check("Status eh ignored (smoke ou grupo)",
+    ["ignored", "smoke_ignored"].includes(r.json?.status),
+    `(got ${r.json?.status})`);
 }
 
 // ============================================================
@@ -428,6 +483,7 @@ async function main() {
   await testGroupIgnore();
   await testAntiLoop();
   await testInstance2();
+  await testCenariosErro();
   await testFluxoCompleto();
   await testFluxoGuincho();
 

@@ -78,7 +78,18 @@ export async function POST(req: NextRequest) {
     // SMOKE MODE: smoke test passa header 'X-Smoke-Mode: true' pra simular
     // chamadas sem disparar respostas reais pro WhatsApp do admin.
     // Webhook responde 200 sem processar nada.
-    if (req.headers.get("x-smoke-mode") === "true") {
+    const isSmoke = req.headers.get("x-smoke-mode") === "true";
+    if (isSmoke) {
+      // Loga pra rastreio (vai marcar com _smoke pra Fabio diferenciar de cliente real)
+      try {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "smoke_request",
+            _smoke: true,
+            criado_em: new Date().toISOString(),
+          },
+        });
+      } catch {}
       return NextResponse.json({ status: "smoke_ignored" });
     }
 

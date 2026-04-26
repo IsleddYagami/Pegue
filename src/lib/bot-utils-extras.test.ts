@@ -303,35 +303,46 @@ describe("calcularVolumeM3", () => {
   });
 });
 
-describe("sugerirVeiculoPorVolumePeso", () => {
-  describe("utilitario (volume <= 0.7m³ E peso <= 600kg)", () => {
+describe("sugerirVeiculoPorVolumePeso (calibrado pra frota Pegue real)", () => {
+  describe("utilitario (vol <= 1.0m³ E peso <= 650kg)", () => {
     it.each([
       [0.1, 50],
       [0.5, 300],
-      [0.7, 600],
+      [1.0, 650],
     ])("vol=%sm³ peso=%skg -> utilitario", (vol, peso) => {
       expect(sugerirVeiculoPorVolumePeso(vol, peso)).toBe("utilitario");
     });
   });
 
-  describe("hr (volume entre 0.7 e 6m³ OU peso entre 600 e 1200kg)", () => {
+  describe("hr (vol 1-8m³ OU peso 650-1000kg)", () => {
     it.each([
-      [1, 100],
-      [3, 500],
-      [6, 1200],
-      [0.5, 800], // pouco volume mas pesado
+      [2, 100],
+      [5, 500],
+      [8, 1000],
+      [0.5, 800], // pouco volume mas peso medio
     ])("vol=%sm³ peso=%skg -> hr", (vol, peso) => {
       expect(sugerirVeiculoPorVolumePeso(vol, peso)).toBe("hr");
     });
   });
 
-  describe("caminhao_bau (volume > 6m³ OU peso > 1200kg)", () => {
+  describe("caminhao_bau Iveco Daily (vol 8-12m³ OU peso 1000-2500kg)", () => {
     it.each([
-      [7, 1000],
-      [10, 500],
-      [3, 1500], // pouco volume mas muito pesado
+      [9, 500],
+      [12, 1500],
+      [3, 2000], // pouco volume mas muito pesado
+      [10, 2500],
     ])("vol=%sm³ peso=%skg -> caminhao_bau", (vol, peso) => {
       expect(sugerirVeiculoPorVolumePeso(vol, peso)).toBe("caminhao_bau");
+    });
+  });
+
+  describe("carga_excedida (acima do que Pegue tem)", () => {
+    it.each([
+      [13, 500], // volume excede
+      [10, 3000], // peso excede
+      [20, 5000], // ambos
+    ])("vol=%sm³ peso=%skg -> carga_excedida", (vol, peso) => {
+      expect(sugerirVeiculoPorVolumePeso(vol, peso)).toBe("carga_excedida");
     });
   });
 });

@@ -846,20 +846,26 @@ export function extrairData(texto: string): string | null {
 }
 
 // Sugere veiculo baseado em volume (m3) e peso (kg) total da carga.
-// Limites baseados em capacidade real dos veiculos comuns:
-// - Strada/Saveiro: cacamba 1.2 x 1.5 x 0.5m = 0.9m3 + 750kg
-// - HR: bau 3.0 x 1.7 x 1.7m = 8.7m3 + 1500kg
-// - Caminhao bau pequeno: 4.5 x 2.2 x 2.2m = 21m3 + 4000kg
-// Margem de seguranca aplicada.
+// Limites calibrados 26/Abr/2026 com base em FROTA REAL Pegue + ajustes
+// conservadores Fabio (HR 1000kg, caminhao 2500kg pra evitar saturacao
+// e considerar trafego urbano).
+//
+// - Strada/Saveiro/Courier (utilitario): 650kg + 1.0m³
+// - HR Bongo: 1.000kg + 8m³ (Fabio: conservador, capacidade real eh 1.800kg
+//   mas em pratica fretistas evitam cheio por trafego/seguranca)
+// - Iveco Daily (caminhao_bau): 2.500kg + 12m³
+// - Acima: carga_excedida → escala humano
 export function sugerirVeiculoPorVolumePeso(
   volumeM3: number,
   pesoKg: number
-): "utilitario" | "hr" | "caminhao_bau" {
-  // Caminhao baú: volume grande OU peso muito pesado
-  if (volumeM3 > 6 || pesoKg > 1200) return "caminhao_bau";
-  // HR: medio porte
-  if (volumeM3 > 0.7 || pesoKg > 600) return "hr";
-  // Utilitario: cabe em Strada/Saveiro
+): "utilitario" | "hr" | "caminhao_bau" | "carga_excedida" {
+  // Excede o maior veiculo da frota Pegue
+  if (volumeM3 > 12 || pesoKg > 2500) return "carga_excedida";
+  // Caminhao bau Iveco Daily
+  if (volumeM3 > 8 || pesoKg > 1000) return "caminhao_bau";
+  // HR Bongo
+  if (volumeM3 > 1.0 || pesoKg > 650) return "hr";
+  // Utilitario: cabe em Strada/Saveiro/Courier
   return "utilitario";
 }
 

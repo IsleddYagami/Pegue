@@ -1877,13 +1877,31 @@ async function handleOutrosPeso(phone: string, message: string) {
   const veiculoNome: Record<string, string> = {
     utilitario: "Utilitario (Strada/Saveiro)",
     hr: "HR",
-    caminhao_bau: "Caminhao Bau",
+    caminhao_bau: "Caminhao Bau (Iveco Daily)",
   };
 
   // Resumo final em descricao_carga
   const descFinal = pesoKg
     ? `${descAtual} - ${pesoKg}kg total`
     : `${descAtual} - peso nao informado (estimado ${pesoEstimado.toFixed(0)}kg)`;
+
+  // Carga acima do que Pegue tem (>12m³ ou >2500kg) → escala humano
+  if (veiculo === "carga_excedida") {
+    await updateSession(phone, {
+      step: "atendimento_humano",
+      descricao_carga: descFinal,
+    });
+    await notificarAdmins(
+      `📦 *CARGA GRANDE - ESPECIALISTA*`,
+      phone,
+      `Cliente tem carga acima do nosso maior veiculo (Iveco Daily 2500kg/12m³).\n\nDescricao: ${descFinal}\nVolume total: ${volumeM3.toFixed(2)}m³\nPeso estimado: ${pesoEstimado.toFixed(0)}kg\n\nPrecisa cotar manual ou indicar parceiro com caminhao maior.`
+    );
+    await sendToClient({
+      to: phone,
+      message: `Sua carga eh GRANDE! 📦\n\n📐 Volume: ${volumeM3.toFixed(2)}m³\n⚖️ Peso: ${pesoEstimado.toFixed(0)}kg\n\nEsse porte passa do nosso maior caminhao. Um *especialista* ja foi notificado e vai te chamar pra cotar manualmente. Aguarda 1 momento 🙏`,
+    });
+    return;
+  }
 
   await updateSession(phone, {
     step: "aguardando_destino",

@@ -845,6 +845,42 @@ export function extrairData(texto: string): string | null {
   return null;
 }
 
+// Sugere veiculo baseado em volume (m3) e peso (kg) total da carga.
+// Limites baseados em capacidade real dos veiculos comuns:
+// - Strada/Saveiro: cacamba 1.2 x 1.5 x 0.5m = 0.9m3 + 750kg
+// - HR: bau 3.0 x 1.7 x 1.7m = 8.7m3 + 1500kg
+// - Caminhao bau pequeno: 4.5 x 2.2 x 2.2m = 21m3 + 4000kg
+// Margem de seguranca aplicada.
+export function sugerirVeiculoPorVolumePeso(
+  volumeM3: number,
+  pesoKg: number
+): "utilitario" | "hr" | "caminhao_bau" {
+  // Caminhao baú: volume grande OU peso muito pesado
+  if (volumeM3 > 6 || pesoKg > 1200) return "caminhao_bau";
+  // HR: medio porte
+  if (volumeM3 > 0.7 || pesoKg > 600) return "hr";
+  // Utilitario: cabe em Strada/Saveiro
+  return "utilitario";
+}
+
+// Parse "100 50 200" ou "100x50x200" ou "100 x 50 x 200" pra [largura, altura, comprimento] em cm.
+// Retorna null se nao conseguir parsear 3 numeros.
+export function parseDimensoes(texto: string): { largura: number; altura: number; comprimento: number } | null {
+  if (!texto) return null;
+  // Captura todos numeros (inclusive decimais)
+  const numeros = texto.match(/\d+(?:[.,]\d+)?/g);
+  if (!numeros || numeros.length < 3) return null;
+  const [a, b, c] = numeros.slice(0, 3).map((n) => parseFloat(n.replace(",", ".")));
+  if (isNaN(a) || isNaN(b) || isNaN(c)) return null;
+  if (a <= 0 || b <= 0 || c <= 0) return null;
+  return { largura: a, altura: b, comprimento: c };
+}
+
+// Calcula volume em m3 dadas dimensoes em CM. (LxAxC)/1.000.000
+export function calcularVolumeM3(larguraCm: number, alturaCm: number, comprimentoCm: number): number {
+  return (larguraCm * alturaCm * comprimentoCm) / 1_000_000;
+}
+
 export function formatarTelefoneExibicao(phone: string): string {
   // 5511970363713 -> (11) 97036-3713
   const digits = phone.replace(/\D/g, "");

@@ -39,6 +39,9 @@ import {
   isPalavraReservadaEndereco,
   extrairData,
   extrairHorario,
+  sugerirVeiculoPorVolumePeso,
+  parseDimensoes,
+  calcularVolumeM3,
 } from "@/lib/bot-utils";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
@@ -850,6 +853,22 @@ Boa sorte! 🎯`,
       await handleConfirmandoDestino(phone, message);
       break;
 
+    case "aguardando_outros_descricao":
+      await handleOutrosDescricao(phone, message);
+      break;
+
+    case "aguardando_outros_quantidade":
+      await handleOutrosQuantidade(phone, message);
+      break;
+
+    case "aguardando_outros_dimensoes":
+      await handleOutrosDimensoes(phone, message);
+      break;
+
+    case "aguardando_outros_peso":
+      await handleOutrosPeso(phone, message);
+      break;
+
     case "aguardando_fretista":
       await sendToClient({
         to: phone,
@@ -1285,12 +1304,23 @@ Tenta de uma dessas formas pra eu garantir que o fretista vai pro lugar certo:
 // STEP 2: Foto
 // Itens da lista rapida de mudanca
 const ITENS_MUDANCA: Record<string, string> = {
+  // COZINHA
   "1": "Geladeira", "2": "Fogao", "3": "Micro-ondas", "4": "Maquina de lavar",
-  "5": "Armario de cozinha", "6": "Mesa com cadeiras", "7": "Cama casal",
-  "8": "Cama solteiro", "9": "Guarda-roupa", "10": "Comoda", "11": "Colchao",
-  "12": "Escrivaninha", "13": "Sofa", "14": "Rack/Estante", "15": "TV",
-  "16": "Mesa de centro", "17": "Poltrona", "18": "Caixas", "19": "Bicicleta",
-  "20": "Maquina de costura", "21": "Tanquinho", "22": "Ventilador/Ar condicionado",
+  "5": "Armario de cozinha", "6": "Mesa com cadeiras", "7": "Freezer",
+  // QUARTO
+  "8": "Cama casal", "9": "Cama solteiro", "10": "Beliche", "11": "Berco",
+  "12": "Guarda-roupa", "13": "Comoda", "14": "Colchao",
+  // SALA
+  "15": "Sofa", "16": "Rack/Estante", "17": "TV", "18": "Mesa de centro",
+  "19": "Poltrona", "20": "Estante de livros", "21": "Espelho grande",
+  // ESCRITORIO
+  "22": "Escrivaninha", "23": "Cadeira de escritorio",
+  // OUTROS
+  "24": "Caixas", "25": "Bicicleta", "26": "Maquina de costura",
+  "27": "Tanquinho", "28": "Ventilador/Ar condicionado",
+  "29": "Ar condicionado split",
+  // ESPECIAL — item 30 abre fluxo de dimensoes+peso (handleOutrosDescricao)
+  "30": "Outros (especificar)",
 };
 
 async function handleFoto(
@@ -1321,6 +1351,16 @@ async function handleFoto(
   // Opcao 3 ou texto livre
   if (lower === "3" || lower === "texto" || lower === "descrever") {
     await sendToClient({ to: phone, message: "Descreve os materiais que precisa transportar 😊\n\nEx: *geladeira, fogao, cama casal, 5 caixas*" });
+    return;
+  }
+
+  // Item 30 = "Outros" — vai pro fluxo de dimensoes+peso (handleOutros*)
+  if (lower === "30" || lower === "outros" || lower === "outro") {
+    await updateSession(phone, { step: "aguardando_outros_descricao" });
+    await sendToClient({
+      to: phone,
+      message: `🔧 *Item especial!*\n\nQue item voce quer transportar?\n\n_Ex: drywall, barras de aco, MDF, piano, vidro grande_`,
+    });
     return;
   }
 
@@ -1728,6 +1768,132 @@ async function handleDestino(phone: string, message: string) {
   await sendToClient({
     to: phone,
     message: `📍 *Encontrei este endereço de entrega:*\n\n${destinoEndereco}\n\n1️⃣ *CONFIRMAR* (é esse mesmo)\n2️⃣ *CORRIGIR* (é outro)`,
+  });
+}
+
+// === FLUXO "OUTROS" (item 30 da lista) ===
+// 4 perguntas em sequencia: descricao -> quantidade -> dimensoes -> peso.
+// Sugere veiculo baseado em volume*qtd + peso total.
+
+async function handleOutrosDescricao(phone: string, message: string) {
+  const desc = message.trim();
+  if (desc.length < 2) {
+    await sendToClient({
+      to: phone,
+      message: "Me fala que item eh? _Ex: drywall, barras de aco, MDF, piano_",
+    });
+    return;
+  }
+  // Salva em descricao_carga temporariamente (vai virar formato final no peso)
+  await updateSession(phone, {
+    step: "aguardando_outros_quantidade",
+    descricao_carga: desc,
+  });
+  await sendToClient({
+    to: phone,
+    message: `Anotado: *${desc}* ✅\n\n*Quantos itens?* (so o numero)`,
+  });
+}
+
+async function handleOutrosQuantidade(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+  const num = parseInt(message.replace(/\D/g, ""), 10);
+  if (isNaN(num) || num < 1 || num > 9999) {
+    await sendToClient({
+      to: phone,
+      message: "Hum, nao entendi a quantidade. Manda *so o numero*. _Ex: 10_",
+    });
+    return;
+  }
+  // Append qtd ao descricao_carga
+  const desc = session.descricao_carga || "Item";
+  await updateSession(phone, {
+    step: "aguardando_outros_dimensoes",
+    descricao_carga: `${num}x ${desc}`,
+  });
+  await sendToClient({
+    to: phone,
+    message: `${num}x *${desc}* ✅\n\n*Dimensoes de UMA unidade* (em cm):\n\n_Manda nesse formato:_\n*Largura x Altura x Comprimento*\n_Ex: 30x10x300_ (3 metros)`,
+  });
+}
+
+async function handleOutrosDimensoes(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+  const dims = parseDimensoes(message);
+  if (!dims) {
+    await sendToClient({
+      to: phone,
+      message: "Hum, nao consegui ler as dimensoes. Manda nesse formato:\n*Largura x Altura x Comprimento* (em cm)\n_Ex: 30x10x300_",
+    });
+    return;
+  }
+  const volumeUnitarioM3 = calcularVolumeM3(dims.largura, dims.altura, dims.comprimento);
+  // Salva dimensoes serializadas em descricao_carga (vai compor formato final no peso)
+  const descAtual = session.descricao_carga || "Item";
+  const descCom = `${descAtual} (${dims.largura}x${dims.altura}x${dims.comprimento}cm)`;
+  await updateSession(phone, {
+    step: "aguardando_outros_peso",
+    descricao_carga: descCom,
+  });
+  await sendToClient({
+    to: phone,
+    message: `Dimensoes: ${dims.largura}x${dims.altura}x${dims.comprimento}cm ✅\n_Volume por unidade: ${volumeUnitarioM3.toFixed(3)}m³_\n\n*Peso TOTAL aproximado* da carga (kg):\n_Ex: 50_\n_Se nao souber, manda 'nao sei'_`,
+  });
+}
+
+async function handleOutrosPeso(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+  const lower = message.toLowerCase().trim();
+  let pesoKg: number | null = null;
+  if (lower !== "nao sei" && lower !== "não sei" && lower !== "ns") {
+    const num = parseFloat(message.replace(/[^\d.,]/g, "").replace(",", "."));
+    if (isNaN(num) || num < 0.1 || num > 10000) {
+      await sendToClient({
+        to: phone,
+        message: "Hum, nao entendi o peso. Manda *so o numero em kg*. _Ex: 50_\n_Se nao souber, manda 'nao sei'_",
+      });
+      return;
+    }
+    pesoKg = num;
+  }
+
+  // Extrai qtd e dimensoes do descricao_carga (formato: "10x drywall (30x10x300cm)")
+  const descAtual = session.descricao_carga || "";
+  const matchQtd = descAtual.match(/^(\d+)x /);
+  const matchDims = descAtual.match(/\((\d+)x(\d+)x(\d+)cm\)$/);
+  const qtd = matchQtd ? parseInt(matchQtd[1], 10) : 1;
+  const volumeM3 = matchDims
+    ? calcularVolumeM3(parseInt(matchDims[1]), parseInt(matchDims[2]), parseInt(matchDims[3])) * qtd
+    : 0;
+
+  // Se cliente nao soube peso, estima via volume (densidade media 200kg/m3 — chute conservador
+  // pra nao sub-estimar veiculo. Materiais densos (aco) precisam peso real ou vai pra HR/caminhao).
+  const pesoEstimado = pesoKg ?? Math.max(volumeM3 * 200, 10);
+  const veiculo = sugerirVeiculoPorVolumePeso(volumeM3, pesoEstimado);
+
+  const veiculoNome: Record<string, string> = {
+    utilitario: "Utilitario (Strada/Saveiro)",
+    hr: "HR",
+    caminhao_bau: "Caminhao Bau",
+  };
+
+  // Resumo final em descricao_carga
+  const descFinal = pesoKg
+    ? `${descAtual} - ${pesoKg}kg total`
+    : `${descAtual} - peso nao informado (estimado ${pesoEstimado.toFixed(0)}kg)`;
+
+  await updateSession(phone, {
+    step: "aguardando_destino",
+    descricao_carga: descFinal,
+    veiculo_sugerido: veiculo,
+  });
+
+  await sendToClient({
+    to: phone,
+    message: `Beleza! Resumo:\n\n📦 ${descFinal}\n📐 Volume total: ${volumeM3.toFixed(2)}m³\n🚚 Veiculo sugerido: *${veiculoNome[veiculo]}*\n\nE pra onde a gente leva? Me manda o endereco ou CEP do destino 🏠`,
   });
 }
 

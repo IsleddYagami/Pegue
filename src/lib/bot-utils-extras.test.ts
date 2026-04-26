@@ -11,6 +11,9 @@ import {
   formatarTelefoneExibicao,
   detectarZona,
   extrairRespostaPrestador,
+  sugerirVeiculoPorVolumePeso,
+  parseDimensoes,
+  calcularVolumeM3,
 } from "./bot-utils";
 
 describe("extrairCep", () => {
@@ -261,5 +264,74 @@ describe("extrairRespostaPrestador", () => {
   it("rejeita 'não'", () => {
     const r = extrairRespostaPrestador("não");
     expect(r.aceite).toBe(false);
+  });
+});
+
+describe("parseDimensoes", () => {
+  it.each([
+    ["30x10x300", { largura: 30, altura: 10, comprimento: 300 }],
+    ["30 x 10 x 300", { largura: 30, altura: 10, comprimento: 300 }],
+    ["30 10 300", { largura: 30, altura: 10, comprimento: 300 }],
+    ["30,5 x 10 x 300", { largura: 30.5, altura: 10, comprimento: 300 }],
+    ["100x50x200cm", { largura: 100, altura: 50, comprimento: 200 }],
+  ])("parse '%s'", (input, expected) => {
+    expect(parseDimensoes(input)).toEqual(expected);
+  });
+
+  it.each([
+    [""],
+    ["sem numeros"],
+    ["30 x 10"], // so 2 numeros
+    ["abc"],
+  ])("retorna null pra '%s'", (input) => {
+    expect(parseDimensoes(input)).toBeNull();
+  });
+});
+
+describe("calcularVolumeM3", () => {
+  it("calcula 30x10x300cm = 0.09 m3", () => {
+    // 30*10*300 = 90.000 cm3 = 0.09 m3
+    expect(calcularVolumeM3(30, 10, 300)).toBeCloseTo(0.09, 3);
+  });
+
+  it("calcula 100x100x100cm = 1 m3", () => {
+    expect(calcularVolumeM3(100, 100, 100)).toBeCloseTo(1, 3);
+  });
+
+  it("calcula 50x50x50cm = 0.125 m3", () => {
+    expect(calcularVolumeM3(50, 50, 50)).toBeCloseTo(0.125, 3);
+  });
+});
+
+describe("sugerirVeiculoPorVolumePeso", () => {
+  describe("utilitario (volume <= 0.7m³ E peso <= 600kg)", () => {
+    it.each([
+      [0.1, 50],
+      [0.5, 300],
+      [0.7, 600],
+    ])("vol=%sm³ peso=%skg -> utilitario", (vol, peso) => {
+      expect(sugerirVeiculoPorVolumePeso(vol, peso)).toBe("utilitario");
+    });
+  });
+
+  describe("hr (volume entre 0.7 e 6m³ OU peso entre 600 e 1200kg)", () => {
+    it.each([
+      [1, 100],
+      [3, 500],
+      [6, 1200],
+      [0.5, 800], // pouco volume mas pesado
+    ])("vol=%sm³ peso=%skg -> hr", (vol, peso) => {
+      expect(sugerirVeiculoPorVolumePeso(vol, peso)).toBe("hr");
+    });
+  });
+
+  describe("caminhao_bau (volume > 6m³ OU peso > 1200kg)", () => {
+    it.each([
+      [7, 1000],
+      [10, 500],
+      [3, 1500], // pouco volume mas muito pesado
+    ])("vol=%sm³ peso=%skg -> caminhao_bau", (vol, peso) => {
+      expect(sugerirVeiculoPorVolumePeso(vol, peso)).toBe("caminhao_bau");
+    });
   });
 });

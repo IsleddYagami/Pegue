@@ -98,35 +98,47 @@ Mande os *numeros* dos itens separados por virgula:
 4 - Maquina de lavar
 5 - Armario de cozinha
 6 - Mesa com cadeiras
+7 - Freezer
 
 *QUARTO:*
-7 - Cama casal
-8 - Cama solteiro
-9 - Guarda-roupa
-10 - Comoda
-11 - Colchao
-12 - Escrivaninha
+8 - Cama casal
+9 - Cama solteiro
+10 - Beliche
+11 - Berco
+12 - Guarda-roupa
+13 - Comoda
+14 - Colchao
 
 *SALA:*
-13 - Sofa
-14 - Rack / Estante
-15 - TV
-16 - Mesa de centro
-17 - Poltrona
+15 - Sofa
+16 - Rack / Estante
+17 - TV
+18 - Mesa de centro
+19 - Poltrona
+20 - Estante de livros
+21 - Espelho grande
+
+*ESCRITORIO:*
+22 - Escrivaninha
+23 - Cadeira de escritorio
 
 *OUTROS:*
-18 - Caixas (quantas? ex: 18x5)
-19 - Bicicleta
-20 - Maquina de costura
-21 - Tanquinho
-22 - Ventilador/Ar condicionado
+24 - Caixas (quantas? ex: 24x5)
+25 - Bicicleta
+26 - Maquina de costura
+27 - Tanquinho
+28 - Ventilador/Ar condicionado
+29 - Ar condicionado split
+
+*ESPECIAL:*
+30 - 🔧 *Outros* (drywall, barras de aco, MDF, piano, etc — pede dimensoes e peso)
 
 Mande os numeros separados por *espaco*:
-Exemplo: *1 2 4 7 9 13 15 18x8*
+Exemplo: *1 2 4 8 12 15 17 24x8*
 
-(18x8 = 8 caixas)
+(24x8 = 8 caixas)
 
-Se tiver algo diferente, escreva no final!`,
+Se tiver algo diferente, manda *30* que pergunto dimensoes e peso!`,
 
   fotoItemAdicionado: (item: string, emoji: string, listaItens: string) => {
     // Mensagem ENXUTA por foto: cliente que manda 13 fotos nao quer ver

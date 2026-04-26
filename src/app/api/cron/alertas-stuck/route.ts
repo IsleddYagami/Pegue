@@ -12,26 +12,31 @@ export const maxDuration = 30;
 
 // Configuracao de steps monitorados. Threshold 0 = alerta imediato (primeira passagem).
 // Outros valores = minutos parado antes de alertar.
-const STEPS_MONITORADOS: Record<string, { thresholdMin: number; titulo: string }> = {
+const STEPS_MONITORADOS: Record<string, { thresholdMin: number; titulo: string; comoAgir: string }> = {
   aguardando_revisao_admin: {
     thresholdMin: 0, // imediato - preco foi bloqueado pelo anti-erro, precisa aprovar
-    titulo: "🔍 *COTACAO EM REVISAO (sistema anti-erro)*",
+    titulo: "🔍 *COTACAO EM REVISAO — APROVAR/REJEITAR*",
+    comoAgir: "Sistema anti-erro bloqueou o preço. Veja em /admin/revisao-precos e: APROVAR (envia cotação ao cliente), AJUSTAR (preço novo) ou REJEITAR (com motivo).",
   },
   aguardando_pagamento: {
     thresholdMin: 15,
-    titulo: "💰 *CLIENTE TRAVADO EM PAGAMENTO*",
+    titulo: "💰 *CLIENTE NAO PAGOU EM 15 MIN — RECUPERAR*",
+    comoAgir: "Cliente recebeu cotação mas não fechou pagamento. Chama no WhatsApp pra perguntar se ficou alguma dúvida ou se quer outro horário.",
   },
   aguardando_numero_coleta: {
     thresholdMin: 15,
-    titulo: "📍 *CLIENTE TRAVADO EM ENDERECO DE COLETA*",
+    titulo: "📍 *CLIENTE TRAVADO NO NUMERO DA CASA — AJUDAR*",
+    comoAgir: "Cliente pagou mas não informou o número/complemento da rua de retirada. Chama e pergunta o número da casa.",
   },
   aguardando_confirmacao: {
     thresholdMin: 15,
-    titulo: "📋 *CLIENTE TRAVADO EM CONFIRMACAO*",
+    titulo: "📋 *CLIENTE NAO CONFIRMOU COTACAO — RECUPERAR*",
+    comoAgir: "Cliente viu o orçamento mas não digitou SIM nem ALTERAR. Chama no WhatsApp pra ajudar a decidir.",
   },
   aguardando_contraoferta_data: {
     thresholdMin: 20,
-    titulo: "📅 *CLIENTE NAO DECIDIU CONTRAOFERTA*",
+    titulo: "📅 *CLIENTE NAO RESPONDEU CONTRAOFERTA DE DATA*",
+    comoAgir: "Fretista propôs outra data e cliente não disse SIM nem NAO. Chama pra confirmar se aceita ou prefere outra data.",
   },
 };
 
@@ -82,7 +87,14 @@ export async function GET(req: NextRequest) {
     }
 
     // Monta detalhes da corrida pra facilitar atuacao manual
-    let detalhes = `Step: ${sessao.step}\nParado ha: ${idadeMin} min`;
+    const phoneClicavel = sessao.phone.replace(/\D/g, "");
+    let detalhes = [
+      `📞 *Cliente:* +${phoneClicavel}`,
+      `   wa.me/${phoneClicavel}`,
+      ``,
+      `⏱️ *Parado ha:* ${idadeMin} min (step: ${sessao.step})`,
+    ].join("\n");
+
     if (sessao.corrida_id) {
       try {
         const { data: c } = await supabase
@@ -93,21 +105,29 @@ export async function GET(req: NextRequest) {
         if (c) {
           detalhes += [
             ``,
-            `🔖 Codigo: ${c.codigo || "-"}`,
+            `━━━━━━━━━━━━━━━━`,
+            `🔖 *Codigo:* ${c.codigo || "-"}`,
             `🚚 Veiculo: ${c.tipo_veiculo || "-"}`,
-            `📍 ${c.origem_endereco || "-"}`,
-            `🏠 ${c.destino_endereco || "-"}`,
-            `📦 ${c.descricao_carga || "-"}`,
-            `📅 ${c.periodo || c.data_agendada || "A combinar"}`,
-            `💰 R$ ${c.valor_estimado || "-"}`,
-            ``,
-            `🔗 Admin: https://chamepegue.com.br/admin/corridas`,
+            `📍 Coleta: ${c.origem_endereco || "-"}`,
+            `🏠 Destino: ${c.destino_endereco || "-"}`,
+            `📦 Carga: ${c.descricao_carga || "-"}`,
+            `📅 Quando: ${c.periodo || c.data_agendada || "A combinar"}`,
+            `💰 Valor: R$ ${c.valor_estimado || "-"}`,
           ].join("\n");
         }
       } catch (e: any) {
         console.error("alertas-stuck: erro fetch corrida:", e?.message);
       }
     }
+
+    detalhes += [
+      ``,
+      `━━━━━━━━━━━━━━━━`,
+      `🎯 *Como agir:*`,
+      config.comoAgir,
+      ``,
+      `🔗 https://chamepegue.com.br/admin/corridas`,
+    ].join("\n");
 
     const enviados = await notificarAdmins(config.titulo, sessao.phone, detalhes);
 

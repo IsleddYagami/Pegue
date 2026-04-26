@@ -1368,8 +1368,10 @@ async function handleFoto(
     return;
   }
 
-  // Opcao 2 - Lista rapida
-  if (lower === "2" || lower === "lista" || lower.includes("lista rapida")) {
+  // Lista rapida — aceita "2", "3" e palavra "lista".
+  // A mensagem mostrada pro cliente pede pra digitar "3" pra ver lista.
+  // "2" continua aceito por compat (versao antiga do menu).
+  if (lower === "2" || lower === "3" || lower === "lista" || lower.includes("lista rapida")) {
     await sendToClient({ to: phone, message: MSG.listaMudanca });
     return;
   }
@@ -1377,12 +1379,6 @@ async function handleFoto(
   // Opcao 1 - Foto (so texto, foto real e processada no topo do POST)
   if (lower === "1" || lower === "foto") {
     await sendToClient({ to: phone, message: "Manda a foto do material 📸" });
-    return;
-  }
-
-  // Opcao 3 ou texto livre
-  if (lower === "3" || lower === "texto" || lower === "descrever") {
-    await sendToClient({ to: phone, message: "Descreve os materiais que precisa transportar 😊\n\nEx: *geladeira, fogao, cama casal, 5 caixas*" });
     return;
   }
 

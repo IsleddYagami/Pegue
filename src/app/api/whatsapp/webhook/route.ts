@@ -284,13 +284,30 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: "ok" });
       }
 
-      // Fotos coleta/entrega do fretista
+      // Fotos coleta/entrega do fretista — agora salva no Storage como prova digital
       if (session && (session.step === "fretista_coleta_fotos" || session.step === "fretista_entrega_fotos")) {
+        const tipo = session.step === "fretista_coleta_fotos" ? "coleta" : "entrega";
         // Conta fotos (usa descricao_carga como contador temporario)
         const contadorAtual = parseInt(session.descricao_carga || "0") || 0;
         const novoContador = contadorAtual + 1;
         await updateSession(phoneNumber, { descricao_carga: novoContador.toString() });
-        // TODO: salvar foto no storage vinculada a corrida
+
+        // Salva no Storage + registra em provas_digitais (FK na corrida)
+        if (session.corrida_id) {
+          const { salvarProvaDigital } = await import("@/lib/storage-provas");
+          const r = await salvarProvaDigital(imageUrl, session.corrida_id, tipo, novoContador);
+          if (!r.url) {
+            await supabase.from("bot_logs").insert({
+              payload: {
+                tipo: "prova_digital_falha_upload",
+                corrida_id: session.corrida_id,
+                tipo_prova: tipo,
+                ordem: novoContador,
+              },
+            });
+          }
+        }
+
         await sendToClient({ to: phoneNumber, message: MSG.fretistaFotoRecebida(novoContador) });
         return NextResponse.json({ status: "ok" });
       }

@@ -103,16 +103,23 @@ export async function POST(req: NextRequest) {
     const rawFrom = rawBody.Body?.Info?.RemoteJid || rawBody.Info?.RemoteJid || "";
     const fromMasked = rawFrom.replace(/\d(?=\d{4})/g, "*");
 
-    // Log minimo no Supabase (sem rawBody completo por LGPD).
-    // Armazena so: instancia, tipo de evento, remetente mascarado, tamanho da msg.
-    await supabase.from("bot_logs").insert({
-      payload: {
-        _instance: instance,
-        event_type: eventType,
-        from_masked: fromMasked,
-        msg_length: (rawBody.Body?.Text || "").length,
-      },
-    });
+    // Eventos do ChatPro que NAO precisam ser logados (so consomem DB):
+    // - charge_status: status de bateria/dispositivo
+    // - reaction: cliente reagiu a mensagem com emoji (ja ignoramos)
+    // - group_event: alguem adicionou bot em grupo (raro, ignorado)
+    // Bug detectado em auditoria 26/Abr: 287 charge_status em 24h = 105k/ano so disso.
+    const eventosIgnoradosLog = new Set(["charge_status", "reaction", "group_event"]);
+    if (!eventosIgnoradosLog.has(eventType)) {
+      // Log minimo no Supabase (sem rawBody completo por LGPD).
+      await supabase.from("bot_logs").insert({
+        payload: {
+          _instance: instance,
+          event_type: eventType,
+          from_masked: fromMasked,
+          msg_length: (rawBody.Body?.Text || "").length,
+        },
+      });
+    }
 
     const allowedTypes = [
       "receveid_message", "received_message",

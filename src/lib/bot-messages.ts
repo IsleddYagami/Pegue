@@ -58,16 +58,17 @@ Digite *nome da rua, bairro e numero* 📍`,
 ${taxaExtra ? `🌙 *Taxa ${taxaExtra} aplicada*\n` : ""}
 ✅ *Total: R$ ${valor}*
 
-📅 *Informe o dia e horario* 😊
+━━━━━━━━━━━━━━━━
 
-Essas informacoes sao essenciais pra garantir o melhor atendimento!
+🤝 *Quer fechar o serviço?*
 
-Pode enviar tudo junto ou um de cada vez:
+Me informa *dia e horário* pra eu chamar o guincheiro 👇
+
 • *25/04 as 15h*
 • *amanha 14:30*
 • *segunda 9h*
 
-Ou digite *AGORA* se for urgente`,
+Ou digite *AGORA* se for urgente.`,
 
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅
@@ -206,14 +207,17 @@ Vai precisar de ajudante pra carregar? 😊
 
 ✅ *Total: R$ ${total}*
 
-📅 *Informe o dia e horario* 😊
+━━━━━━━━━━━━━━━━
 
-Pode enviar tudo junto ou um de cada vez:
+🤝 *Quer fechar o serviço?*
+
+Me informa *dia e horário* pra eu chamar o fretista 👇
+
 • *25/04 as 15h*
 • *amanha 14:30*
 • *segunda 9h*
 
-Ou digite *AGORA* se for urgente`,
+Ou digite *AGORA* se for urgente.`,
 
   planoEscolhido: `Otima escolha! ✨
 

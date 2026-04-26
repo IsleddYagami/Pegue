@@ -13,13 +13,7 @@ O que voce precisa?
 3️⃣ *Guincho*
 4️⃣ *Duvidas frequentes*`,
 
-  pedirLocalizacao: `Otimo! 🚚
-
-*Envia sua localizacao atual:*
-
-1. Toca no *icone de anexo* (canto inferior direito, do lado do microfone)
-2. Escolhe *Localizacao*
-3. Toca em *Enviar localizacao atual*`,
+  pedirLocalizacao: `📍 *Manda sua localizacao atual.*`,
 
   // Mantemos URL pra uso futuro (versao quadrada/GIF que nao corte preview)
   TUTORIAL_LOCALIZACAO_URL: "https://www.chamepegue.com.br/tutorial-localizacao.png",

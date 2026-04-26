@@ -845,6 +845,36 @@ export function extrairData(texto: string): string | null {
   return null;
 }
 
+// Determina o melhor veiculo entre o atual e um novo sugerido. NUNCA regride
+// (se atual=hr e novo sugere utilitario, mantem hr). Garante que adicionar
+// itens menores nao baixa o veiculo escolhido pra um item maior anterior.
+export function determinarMelhorVeiculo(
+  veiculoAtual: string | null,
+  veiculoNovo: string
+): string {
+  const hierarquia: Record<string, number> = {
+    carro_comum: 0,
+    utilitario: 1,
+    hr: 2,
+    caminhao_bau: 3,
+  };
+  const nivelAtual = hierarquia[veiculoAtual || "utilitario"] ?? 1;
+  const nivelNovo = hierarquia[veiculoNovo] ?? 1;
+  if (nivelNovo > nivelAtual) return veiculoNovo;
+  return veiculoAtual || "utilitario";
+}
+
+// Formata lista de itens (separados por ", ") em formato numerado pra exibir
+// pro cliente. Ex: "Geladeira, Sofa, TV" -> "1. Geladeira\n2. Sofa\n3. TV"
+export function formatarListaNumerada(descricao: string | null): string {
+  if (!descricao) return "";
+  return descricao
+    .split(", ")
+    .filter((i) => i.trim().length > 0)
+    .map((item, idx) => `${idx + 1}. ${item}`)
+    .join("\n");
+}
+
 // Conta quantidade total de itens em texto livre.
 // Ex: "2 camas, 3 cadeiras, 1 sofa" => 6 (nao 3).
 // Ex: "geladeira, fogao" => 2 (sem qtd, conta 1 por separador).

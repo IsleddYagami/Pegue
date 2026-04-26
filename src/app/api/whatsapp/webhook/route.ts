@@ -43,6 +43,8 @@ import {
   parseDimensoes,
   calcularVolumeM3,
   contarItensTexto,
+  determinarMelhorVeiculo,
+  formatarListaNumerada,
 } from "@/lib/bot-utils";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
@@ -1471,15 +1473,7 @@ async function handleFoto(
   });
 }
 
-// Helper: monta lista numerada dos itens (pra cliente ver e editar)
-function formatarListaNumerada(descricao: string | null): string {
-  if (!descricao) return "";
-  return descricao
-    .split(", ")
-    .filter((i) => i.trim().length > 0)
-    .map((item, idx) => `${idx + 1}. ${item}`)
-    .join("\n");
-}
+// formatarListaNumerada movida pra @/lib/bot-utils (importada no topo).
 
 // STEP 2b: Mais fotos ou PRONTO
 async function handleMaisFotos(phone: string, message: string) {
@@ -1714,23 +1708,7 @@ async function handleMaisFotos(phone: string, message: string) {
 }
 
 // Determina melhor veiculo baseado nos itens (sempre o maior necessario)
-function determinarMelhorVeiculo(
-  veiculoAtual: string | null,
-  veiculoNovo: string
-): string {
-  const hierarquia: Record<string, number> = {
-    utilitario: 1,
-    hr: 2,
-    caminhao_bau: 3,
-  };
-
-  const nivelAtual = hierarquia[veiculoAtual || "utilitario"] || 1;
-  const nivelNovo = hierarquia[veiculoNovo] || 1;
-
-  // Sempre sobe, nunca desce
-  if (nivelNovo > nivelAtual) return veiculoNovo;
-  return veiculoAtual || "utilitario";
-}
+// determinarMelhorVeiculo movida pra @/lib/bot-utils (importada no topo).
 
 // STEP 3: Destino
 async function handleDestino(phone: string, message: string) {

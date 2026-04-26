@@ -345,6 +345,33 @@ async function testFluxoCompleto() {
   }
 }
 
+async function testFluxoGuincho() {
+  console.log("\n🚗 Fluxo Guincho (cliente escolhe opcao 3)");
+
+  // Estado limpo
+  await deleteSession();
+
+  // 1. Saudacao
+  let r = await call(WEBHOOK_URL_1, makePayload({ text: "oi" }));
+  check("'oi' (guincho fluxo) retorna 200", r.status === 200);
+  await sleep(500);
+
+  // 2. Escolhe Guincho
+  r = await call(WEBHOOK_URL_1, makePayload({ text: "3" }));
+  check("'3' (Guincho) retorna 200", r.status === 200);
+  await sleep(500);
+  if (supabase) {
+    const s = await getSession();
+    check("Step apos '3' = 'guincho_categoria' OU 'aguardando_localizacao' (depende do toggle)",
+      s?.step === "guincho_categoria" || s?.step === "aguardando_localizacao",
+      `(step = ${s?.step})`
+    );
+  }
+
+  // 3. Cleanup
+  await deleteSession();
+}
+
 async function testInstance2() {
   console.log("\n📞 Instancia 2");
   const r = await call(WEBHOOK_URL_2, makePayload({ text: "ping inst2" }));
@@ -391,6 +418,7 @@ async function main() {
   await testAntiLoop();
   await testInstance2();
   await testFluxoCompleto();
+  await testFluxoGuincho();
 
   // Cleanup: apaga sessao de teste
   if (supabase) {

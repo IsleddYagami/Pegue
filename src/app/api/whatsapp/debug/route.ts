@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
     logs.push(entry);
     // Mantem apenas os ultimos 20
     if (logs.length > 20) logs.shift();
-    console.log("DEBUG webhook:", body);
     return NextResponse.json({ status: "ok" });
   } catch (error: any) {
     return NextResponse.json({ status: "ok" });

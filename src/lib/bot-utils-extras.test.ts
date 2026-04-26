@@ -15,6 +15,8 @@ import {
   parseDimensoes,
   calcularVolumeM3,
   contarItensTexto,
+  determinarMelhorVeiculo,
+  formatarListaNumerada,
 } from "./bot-utils";
 
 describe("extrairCep", () => {
@@ -265,6 +267,64 @@ describe("extrairRespostaPrestador", () => {
   it("rejeita 'não'", () => {
     const r = extrairRespostaPrestador("não");
     expect(r.aceite).toBe(false);
+  });
+});
+
+describe("determinarMelhorVeiculo", () => {
+  describe("nunca regride pra menor", () => {
+    it.each([
+      ["hr", "utilitario", "hr"], // ja era HR, sugere utilitario -> mantem HR
+      ["caminhao_bau", "utilitario", "caminhao_bau"],
+      ["caminhao_bau", "hr", "caminhao_bau"],
+      ["hr", "carro_comum", "hr"],
+    ])("atual=%s novo=%s -> %s", (atual, novo, esperado) => {
+      expect(determinarMelhorVeiculo(atual, novo)).toBe(esperado);
+    });
+  });
+
+  describe("sobe quando novo eh maior", () => {
+    it.each([
+      ["utilitario", "hr", "hr"],
+      ["utilitario", "caminhao_bau", "caminhao_bau"],
+      ["hr", "caminhao_bau", "caminhao_bau"],
+      ["carro_comum", "utilitario", "utilitario"],
+    ])("atual=%s novo=%s -> %s", (atual, novo, esperado) => {
+      expect(determinarMelhorVeiculo(atual, novo)).toBe(esperado);
+    });
+  });
+
+  describe("aceita atual=null (default utilitario)", () => {
+    it("null + hr -> hr", () => {
+      expect(determinarMelhorVeiculo(null, "hr")).toBe("hr");
+    });
+    it("null + utilitario -> utilitario", () => {
+      expect(determinarMelhorVeiculo(null, "utilitario")).toBe("utilitario");
+    });
+    it("null + caminhao_bau -> caminhao_bau", () => {
+      expect(determinarMelhorVeiculo(null, "caminhao_bau")).toBe("caminhao_bau");
+    });
+  });
+
+  describe("tipo desconhecido", () => {
+    it("desconhecido vira utilitario", () => {
+      expect(determinarMelhorVeiculo("xpto", "abc")).toBe("xpto");
+    });
+  });
+});
+
+describe("formatarListaNumerada", () => {
+  it.each([
+    [null, ""],
+    ["", ""],
+    ["Geladeira", "1. Geladeira"],
+    ["Geladeira, Sofa", "1. Geladeira\n2. Sofa"],
+    ["Geladeira, Sofa, TV", "1. Geladeira\n2. Sofa\n3. TV"],
+  ])("'%s' formata pra '%s'", (input, expected) => {
+    expect(formatarListaNumerada(input)).toBe(expected);
+  });
+
+  it("ignora itens vazios entre virgulas", () => {
+    expect(formatarListaNumerada("Geladeira, , Sofa")).toBe("1. Geladeira\n2. Sofa");
   });
 });
 

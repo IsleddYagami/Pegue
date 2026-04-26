@@ -707,6 +707,144 @@ export function extrairRespostaPrestador(
 }
 
 // Formata telefone para exibicao
+// Extrai horario da mensagem do cliente. Cobre: 14:30, 14h, 14h30,
+// 14hs, 14 horas, "as 14", "manha", "tarde", numero solto sem data.
+export function extrairHorario(texto: string): string | null {
+  // PRIMEIRO tenta formatos especificos (14:30, 14h, "as 14"). Se cliente
+  // disse "amanha as 14:30", queremos retornar "14:30", nao "Manha"
+  // (bug 25/Abr: substring 'manha' dentro de 'amanha' era detectada antes).
+
+  // Formato: 14:30, 14h30, 14hs30
+  const matchHM1 = texto.match(/(\d{1,2})\s*[h:]\s*(\d{1,2})/);
+  if (matchHM1) {
+    const h = parseInt(matchHM1[1]);
+    const m = parseInt(matchHM1[2]);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+  }
+
+  // Formato: 15h, 15hs, 15 horas, 15 hs, 15hora
+  const matchH = texto.match(/(\d{1,2})\s*(?:h|hs|hrs|horas|hora)/);
+  if (matchH) {
+    const h = parseInt(matchH[1]);
+    if (h >= 0 && h <= 23) {
+      return `${String(h).padStart(2, "0")}:00`;
+    }
+  }
+
+  // Formato: "as 15", "às 15"
+  const matchAs = texto.match(/[aà]s?\s+(\d{1,2})(?!\s*[\/\-])/);
+  if (matchAs) {
+    const h = parseInt(matchAs[1]);
+    if (h >= 0 && h <= 23) {
+      return `${String(h).padStart(2, "0")}:00`;
+    }
+  }
+
+  // So numero solto (15, 9) - apenas se NAO tem data na mensagem
+  const temData = /\d{1,2}[\/\-]\d{1,2}|amanh|segunda|terca|terça|quarta|quinta|sexta|sabado|sábado|domingo|hoje/i.test(texto);
+  if (!temData) {
+    const matchNum = texto.match(/^(\d{1,2})$/);
+    if (matchNum) {
+      const h = parseInt(matchNum[1]);
+      if (h >= 6 && h <= 23) {
+        return `${String(h).padStart(2, "0")}:00`;
+      }
+    }
+  }
+
+  // FALLBACK: palavras manha/tarde — so se nao achou formato especifico antes.
+  // Negative lookbehind `(?<!a)` evita falso positivo com "amanha" (contem
+  // "manha"). Lookbehind funciona melhor que \b com caracteres acentuados.
+  if (/(?<!a)manh[ãa]/.test(texto)) return "Manha (08:00 - 12:00)";
+  if (/tarde/.test(texto)) return "Tarde (13:00 - 17:00)";
+
+  return null;
+}
+
+// Extrai data da mensagem. Cobre: 25/04, 25-4, 02.05, "02 de maio",
+// "dia 25", "02 05", "hoje", "amanha", dias da semana.
+// Retorna formato DD/MM (mes atual se ambíguo).
+export function extrairData(texto: string): string | null {
+  const hoje = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+
+  // Meses por nome
+  const meses: Record<string, number> = {
+    janeiro: 1, fevereiro: 2, marco: 3, março: 3, abril: 4,
+    maio: 5, junho: 6, julho: 7, agosto: 8, setembro: 9,
+    outubro: 10, novembro: 11, dezembro: 12,
+    jan: 1, fev: 2, mar: 3, abr: 4, mai: 5, jun: 6,
+    jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12,
+  };
+
+  // Formato: 25/04, 25/4, 25-04, 02.05
+  const matchBarra = texto.match(/(\d{1,2})[\/\-\.](\d{1,2})/);
+  if (matchBarra) {
+    const dia = String(parseInt(matchBarra[1])).padStart(2, "0");
+    const mes = String(parseInt(matchBarra[2])).padStart(2, "0");
+    return `${dia}/${mes}`;
+  }
+
+  // Formato: "02 de maio", "2 de maio", "dia 02 de maio"
+  for (const [nomeMes, numMes] of Object.entries(meses)) {
+    const regexDeMes = new RegExp(`(\\d{1,2})\\s*(?:de\\s*)?${nomeMes}`);
+    const matchMes = texto.match(regexDeMes);
+    if (matchMes) {
+      const dia = String(parseInt(matchMes[1])).padStart(2, "0");
+      const mes = String(numMes).padStart(2, "0");
+      return `${dia}/${mes}`;
+    }
+  }
+
+  // Formato: "dia 25", "dia 02" (assume mes atual)
+  const matchDia = texto.match(/dia\s+(\d{1,2})/);
+  if (matchDia) {
+    const dia = String(parseInt(matchDia[1])).padStart(2, "0");
+    const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+    return `${dia}/${mes}`;
+  }
+
+  // Formato: "02 05" (dois numeros separados por espaco, sem horario no meio)
+  // So pega se nao tem h/hora/hs junto do segundo numero
+  const matchEspaco = texto.match(/(\d{1,2})\s+(\d{1,2})(?!\s*[h:]|\s*hora|\s*hs)/);
+  if (matchEspaco) {
+    const n1 = parseInt(matchEspaco[1]);
+    const n2 = parseInt(matchEspaco[2]);
+    // Se n1 <= 31 e n2 <= 12, assume dia/mes
+    if (n1 >= 1 && n1 <= 31 && n2 >= 1 && n2 <= 12) {
+      return `${String(n1).padStart(2, "0")}/${String(n2).padStart(2, "0")}`;
+    }
+  }
+
+  // Palavras: hoje, amanha
+  if (texto.includes("hoje")) {
+    return `${String(hoje.getDate()).padStart(2, "0")}/${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+  }
+  if (texto.includes("amanh")) {
+    const amanha = new Date(hoje);
+    amanha.setDate(amanha.getDate() + 1);
+    return `${String(amanha.getDate()).padStart(2, "0")}/${String(amanha.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  // Dias da semana
+  const diasSemana: Record<string, number> = {
+    domingo: 0, segunda: 1, terca: 2, terça: 2, quarta: 3,
+    quinta: 4, sexta: 5, sabado: 6, sábado: 6,
+  };
+
+  for (const [nome, numDia] of Object.entries(diasSemana)) {
+    if (texto.includes(nome)) {
+      const diff = (numDia - hoje.getDay() + 7) % 7 || 7;
+      const data = new Date(hoje);
+      data.setDate(data.getDate() + diff);
+      return `${String(data.getDate()).padStart(2, "0")}/${String(data.getMonth() + 1).padStart(2, "0")}`;
+    }
+  }
+
+  return null;
+}
+
 export function formatarTelefoneExibicao(phone: string): string {
   // 5511970363713 -> (11) 97036-3713
   const digits = phone.replace(/\D/g, "");

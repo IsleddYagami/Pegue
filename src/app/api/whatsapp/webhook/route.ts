@@ -1384,8 +1384,15 @@ async function handleFoto(
     }
 
     // Inferencia basica de veiculo pelo numero de itens mencionados - mas nao regride.
+    // Conta quantidade real: "2 camas, 3 cadeiras" = 5 itens (nao 2).
     const partes = message.split(/[,;.]|\s+e\s+/i).map((p) => p.trim()).filter((p) => p.length > 2);
-    const qtdItens = partes.length || 1;
+    let qtdItens = 0;
+    for (const parte of partes) {
+      // Captura quantidade no inicio da parte: "2 camas", "3 cadeiras", "5x caixas"
+      const matchQtd = parte.match(/^(\d+)\s*x?\s*\w/i);
+      qtdItens += matchQtd ? parseInt(matchQtd[1]) : 1;
+    }
+    if (qtdItens === 0) qtdItens = 1;
     let veiculoSugerido = "utilitario";
     if (qtdItens >= 8) veiculoSugerido = "caminhao_bau";
     else if (qtdItens >= 3) veiculoSugerido = "hr";

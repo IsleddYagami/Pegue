@@ -1298,6 +1298,14 @@ async function handleFoto(
 ) {
   const lower = message.toLowerCase().trim();
 
+  // GUARD: ignora silenciosamente eventos vazios (ChatPro as vezes manda
+  // evento extra quando cliente envia carrosel de varias fotos — text vazio
+  // sem media). Bug 26/Abr: cliente mandou 3 fotos juntas, bot mandou 'Nao
+  // entendi' antes de processar as imagens.
+  if (!hasMedia && lower.length === 0) {
+    return;
+  }
+
   // Opcao 2 - Lista rapida
   if (lower === "2" || lower === "lista" || lower.includes("lista rapida")) {
     await sendToClient({ to: phone, message: MSG.listaMudanca });

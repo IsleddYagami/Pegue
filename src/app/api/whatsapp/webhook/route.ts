@@ -366,6 +366,17 @@ export async function POST(req: NextRequest) {
 
       const stepsAceitamFoto = ["aguardando_foto", "aguardando_mais_fotos", "aguardando_destino"];
       if (session && stepsAceitamFoto.includes(session.step)) {
+        // Feedback IMEDIATO pro cliente nao achar que travou.
+        // IA Vision demora 4-6s (download + OpenAI). Sem isso, cliente que
+        // manda 3 fotos juntas espera 30s sem retorno e aperta '2 Editar'
+        // achando que travou (bug 26/Abr).
+        const itensExistentes = (session.descricao_carga || "").split(", ").filter((i) => i.trim().length > 0).length;
+        const numeroFoto = itensExistentes + 1;
+        await sendToClient({
+          to: phoneNumber,
+          message: `📸 Foto ${numeroFoto} recebida! Analisando... ⏳`,
+        });
+
         const analise = await analisarFotoIA(imageUrl);
 
         if (analise) {

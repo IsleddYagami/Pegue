@@ -92,12 +92,23 @@ function makePayload({ text = "", lat = null, lng = null, isImage = false, image
   };
 }
 
+// SMOKE_FULL=1 desabilita o header X-Smoke-Mode → smoke processa de verdade
+// (criando sessao no DB E enviando mensagens reais pro WhatsApp do admin).
+// Default: header LIGADO = smoke valida so HTTP (sem mensagens fantasma).
+const SMOKE_FULL = process.env.SMOKE_FULL === "1";
+
 async function call(url, payload) {
   const t0 = Date.now();
+  const headers = { "Content-Type": "application/json" };
+  if (!SMOKE_FULL) {
+    // Webhook detecta esse header e responde 200 sem processar/enviar
+    // mensagem real pro WhatsApp do admin.
+    headers["X-Smoke-Mode"] = "true";
+  }
   try {
     const r = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(payload),
     });
     const ms = Date.now() - t0;
@@ -184,7 +195,7 @@ async function testFluxoCompleto() {
 
   // Estado inicial limpo
   await deleteSession();
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     const sessionInicial = await getSession();
     check("Sessao inicial vazia (DELETE confirmou)", sessionInicial === null);
   }
@@ -193,7 +204,7 @@ async function testFluxoCompleto() {
   let r = await call(WEBHOOK_URL_1, makePayload({ text: "oi" }));
   check("'oi' retorna 200", r.status === 200, `(${r.ms}ms)`);
   await sleep(500);
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     const s = await getSession();
     check("Sessao criada apos 'oi'", s !== null);
     check("Step apos 'oi' = 'aguardando_servico' ou 'inicio'",
@@ -206,7 +217,7 @@ async function testFluxoCompleto() {
   r = await call(WEBHOOK_URL_1, makePayload({ text: "1" }));
   check("'1' retorna 200", r.status === 200, `(${r.ms}ms)`);
   await sleep(500);
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     const s = await getSession();
     check("Step apos '1' = 'aguardando_localizacao'",
       s?.step === "aguardando_localizacao",
@@ -218,7 +229,7 @@ async function testFluxoCompleto() {
   r = await call(WEBHOOK_URL_1, makePayload({ text: "PRONTO" }));
   check("'PRONTO' retorna 200 (rejeitado amigavelmente)", r.status === 200, `(${r.ms}ms)`);
   await sleep(500);
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     const s = await getSession();
     check("Step continua 'aguardando_localizacao' apos PRONTO (nao avancou)",
       s?.step === "aguardando_localizacao",
@@ -235,7 +246,7 @@ async function testFluxoCompleto() {
   check("Endereco real retorna 200", r.status === 200, `(${r.ms}ms)`);
   check("Latencia endereco < 8s", r.ms < 8000, `(${r.ms}ms — pode ser cold start)`);
   await sleep(1500); // geocoder pode demorar
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     const s = await getSession();
     check("Step apos endereco = 'confirmando_origem'",
       s?.step === "confirmando_origem",
@@ -254,7 +265,7 @@ async function testFluxoCompleto() {
   r = await call(WEBHOOK_URL_1, makePayload({ text: "1" }));
   check("Confirmar origem retorna 200", r.status === 200, `(${r.ms}ms)`);
   await sleep(500);
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     const s = await getSession();
     check("Step apos confirmar origem = 'aguardando_foto'",
       s?.step === "aguardando_foto",
@@ -271,7 +282,7 @@ async function testFluxoCompleto() {
   r = await call(WEBHOOK_URL_1, makePayload({ text: "1 8 15" }));
   check("Lista '1 8 15' retorna 200", r.status === 200, `(${r.ms}ms)`);
   await sleep(500);
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     const s = await getSession();
     check("Step apos itens = 'aguardando_destino'",
       s?.step === "aguardando_destino",
@@ -294,7 +305,7 @@ async function testFluxoCompleto() {
   check("Destino retorna 200", r.status === 200, `(${r.ms}ms)`);
   check("Latencia destino < 8s", r.ms < 8000, `(${r.ms}ms — geocoder)`);
   await sleep(1500);
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     const s = await getSession();
     check("Step apos destino = 'confirmando_destino'",
       s?.step === "confirmando_destino",
@@ -308,7 +319,7 @@ async function testFluxoCompleto() {
   r = await call(WEBHOOK_URL_1, makePayload({ text: "1" }));
   check("Confirmar destino retorna 200", r.status === 200, `(${r.ms}ms)`);
   await sleep(500);
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     const s = await getSession();
     check("Step apos confirmar destino avancou (aguardando_tipo_local ou similar)",
       s?.step !== "confirmando_destino",
@@ -330,7 +341,7 @@ async function testFluxoCompleto() {
   r = await call(WEBHOOK_URL_1, makePayload({ text: "2" }));
   check("Ajudante 'sem' retorna 200", r.status === 200, `(${r.ms}ms)`);
   await sleep(1500); // calcula precos
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     const s = await getSession();
     check("distancia_km calculada apos ajudante",
       typeof s?.distancia_km === "number" && s.distancia_km > 5 && s.distancia_km < 60,
@@ -339,7 +350,7 @@ async function testFluxoCompleto() {
   }
 
   // 13. Conta erros recentes (não deve ter)
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     const erros = await countErrosRecentes(180);
     check("Sem erros criticos nos ultimos 180s do fluxo end-to-end", erros === 0, `(erros = ${erros})`);
   }
@@ -360,7 +371,7 @@ async function testFluxoGuincho() {
   r = await call(WEBHOOK_URL_1, makePayload({ text: "3" }));
   check("'3' (Guincho) retorna 200", r.status === 200);
   await sleep(500);
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     const s = await getSession();
     check("Step apos '3' = 'guincho_categoria' OU 'aguardando_localizacao' (depende do toggle)",
       s?.step === "guincho_categoria" || s?.step === "aguardando_localizacao",
@@ -421,7 +432,7 @@ async function main() {
   await testFluxoGuincho();
 
   // Cleanup: apaga sessao de teste
-  if (supabase) {
+  if (supabase && SMOKE_FULL) {
     await deleteSession();
     console.log("\n🧹 Cleanup: sessao de teste apagada");
   }

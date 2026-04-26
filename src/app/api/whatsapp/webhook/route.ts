@@ -75,6 +75,13 @@ export async function POST(req: NextRequest) {
       console.warn("[SEGURANCA] WEBHOOK_WHATSAPP_SECRET nao configurado em producao");
     }
 
+    // SMOKE MODE: smoke test passa header 'X-Smoke-Mode: true' pra simular
+    // chamadas sem disparar respostas reais pro WhatsApp do admin.
+    // Webhook responde 200 sem processar nada.
+    if (req.headers.get("x-smoke-mode") === "true") {
+      return NextResponse.json({ status: "smoke_ignored" });
+    }
+
     const rawBody = await req.json();
 
     // Detecta qual instancia recebeu a mensagem (via query param ?instance=2)

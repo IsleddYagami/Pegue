@@ -1983,7 +1983,7 @@ async function handleConfirmandoOrigem(phone: string, message: string) {
     await updateSession(phone, { step: "aguardando_foto" });
     await sendToClient({
       to: phone,
-      message: `✅ Anotado! *Envie a foto* do que quer pegar 📸\n\nOu *digite tudo que quer transportar* de uma só vez e dê enter ✏️\n\nOu *3* pra ver lista de mudança 📋`,
+      message: `✅ Anotado! Como prefere enviar?\n\n📸 *Foto* — manda 1 ou várias\n\n✏️ *Digita tudo de uma vez:*\n_Ex: geladeira, fogão, sofá, 3 caixas, cama_\n\n📋 *3* — lista de móveis comuns`,
     });
     return;
   }

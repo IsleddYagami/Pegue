@@ -40,6 +40,31 @@ export function isAdminPhone(phone: string | null | undefined): boolean {
   return getAdminPhones().includes(phone);
 }
 
+// Lista de telefones marcados como TESTE — clientes/admin que NAO devem
+// disparar dispatch real pra fretistas reais (Mauricio, Jackeline etc).
+// Configurada via env var TEST_PHONES (lista separada por virgula).
+// Por padrao, inclui ADMIN_PHONES (admin testando = teste).
+//
+// Ex: TEST_PHONES="5511971429605,5511986774273,5511977744416,5511978782418"
+//     (Fabio + Mateus + Rodolfo + Jonas)
+export function getTestPhones(): string[] {
+  const list = process.env.TEST_PHONES;
+  const test = list
+    ? list.split(",").map((p) => p.trim()).filter((p) => p.length > 0)
+    : [];
+  // Sempre inclui admin como teste (admin testando = teste)
+  const admins = getAdminPhones();
+  for (const a of admins) {
+    if (!test.includes(a)) test.push(a);
+  }
+  return test;
+}
+
+export function isPhoneTeste(phone: string | null | undefined): boolean {
+  if (!phone) return false;
+  return getTestPhones().includes(phone);
+}
+
 // Helper completo de auth admin: rate limit por IP + validacao de key.
 // Retorna { ok: false, ...} pra responder direto ao cliente.
 // Rate limit: 10 tentativas/minuto por IP (pra /admin login).

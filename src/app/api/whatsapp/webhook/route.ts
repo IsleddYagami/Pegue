@@ -50,7 +50,7 @@ import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
 import { gerarSimulacao, formatarMensagemSimulacao, nomeVeiculo as nomeVeiculoAval, type SimulacaoAvaliacao } from "@/lib/simulacao-avaliacao";
 import { criteriosMediaDaSimulacao, invalidarCacheAjustes } from "@/lib/ajustes-precos";
-import { isAdminPhone } from "@/lib/admin-auth";
+import { isAdminPhone, isPhoneTeste } from "@/lib/admin-auth";
 import { notificarAdmins } from "@/lib/admin-notify";
 import { extrairContextoInicial, formatarConfirmacaoContexto, type ContextoExtraido } from "@/lib/extrair-contexto";
 
@@ -3738,6 +3738,24 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
       return;
     }
 
+    // PROTECAO TESTE: se cliente eh phone de teste (Fabio, Mateus, etc),
+    // NAO dispara pra fretistas reais. Notifica admin com [TESTE] mostrando
+    // o que SERIA enviado. Evita Mauricio/Jackeline receberem dispatch fake.
+    if (isPhoneTeste(clientePhone)) {
+      const nomesFretistas = prestadores.map((p) => `${p.nome} (${p.telefone})`).join("\n");
+      await notificarAdmins(
+        `🧪 *[TESTE] DISPATCH SIMULADO* (cliente teste, NAO chamou fretistas reais)`,
+        clientePhone,
+        `Corrida: ${corridaId}\nTipo: ${isGuincho ? "GUINCHO" : "FRETE"}\n📅 ${session.data_agendada || "A combinar"}\n📍 ${session.origem_endereco}\n🏠 ${session.destino_endereco}\n💰 R$ ${session.valor_estimado}\n\n*Fretistas que SERIAM chamados (${prestadores.length}):*\n${nomesFretistas}\n\n_Nenhum fretista real foi notificado._`
+      );
+      // Atualiza a sessao do cliente teste informando que dispatch foi simulado
+      await sendToClient({
+        to: clientePhone,
+        message: `🧪 *MODO TESTE detectado*\n\nDispatch foi SIMULADO — nenhum fretista real foi notificado (${prestadores.length} fretistas seriam chamados).\n\nResumo enviado pro admin pra acompanhar.`,
+      });
+      return;
+    }
+
     let telefones = prestadores.map((p) => p.telefone);
     const valorPrestador = Math.round((session.valor_estimado || 0) * 0.88);
 
@@ -5821,6 +5839,16 @@ async function reDispatchUrgente(corridaId: string, session: BotSession, cliente
     if (telefones.length === 0) {
       await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
       await notificarAdmin(`🚨 *SEM FRETISTAS DISPONIVEIS PRA RE-DISPATCH*`, clientePhone, `Corrida: ${corridaId}`);
+      return;
+    }
+
+    // PROTECAO TESTE: re-dispatch tambem nao pode chamar fretistas reais em teste
+    if (isPhoneTeste(clientePhone)) {
+      await notificarAdmins(
+        `🧪 *[TESTE] RE-DISPATCH SIMULADO* (cliente teste, NAO chamou fretistas)`,
+        clientePhone,
+        `Corrida: ${corridaId}\nFretistas que SERIAM chamados: ${telefones.length}\n_Nenhum fretista real foi notificado._`
+      );
       return;
     }
 

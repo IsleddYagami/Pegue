@@ -1401,9 +1401,11 @@ async function handleFoto(
     return;
   }
 
+  // Fallback quando entrada nao foi reconhecida (nem foto, nem numero da lista,
+  // nem texto descritivo). NAO repete pedido cheio de opcoes (cliente nao le).
   await sendToClient({
     to: phone,
-    message: "Escolha como informar os materiais:\n\n1️⃣ *Mandar foto* 📸\n2️⃣ *Lista rapida de mudanca*\n3️⃣ *Descrever por texto*",
+    message: "Nao entendi 🤔\n\nManda *foto*, *digita os itens* (ex: geladeira, sofa) ou digite *3* para ver lista de mudanca.",
   });
 }
 
@@ -1709,7 +1711,7 @@ async function handleConfirmandoOrigem(phone: string, message: string) {
     await updateSession(phone, { step: "aguardando_foto" });
     await sendToClient({
       to: phone,
-      message: `Anotado! ✅\n\nAgora me conta *o que vai transportar*:\n\n📸 Manda *foto* dos itens\n✏️ Ou *digita* (ex: geladeira, sofa, 3 caixas)\n📋 Ou digita *lista* se for mudanca completa`,
+      message: `Anotado! ✅\n\nAgora me conta *o que vai transportar*:\n\n📸 Manda *foto* dos itens\n✏️ Ou *digita* (ex: geladeira, sofa, 3 caixas)\n📋 Ou digite *3* para selecionar os itens que quer enviar`,
     });
     return;
   }

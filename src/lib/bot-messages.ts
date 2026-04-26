@@ -256,11 +256,18 @@ ${detalhes}
 □ *Data e horário* estão certos?
 □ *Fretista NÃO faz montagem e desmontagem* — confira se não há essa necessidade
 □ Se escolheu *elevador*, certifique-se que *todos os itens caibam* — divergência no dia pode gerar *custos adicionais*
+□ *Esteja pronto no horário marcado* — fretista tem outros trabalhos agendados
 
 ━━━━━━━━━━━━━━━━
 
-⚠️ *Importante:*
-Por segurança, o fretista *não pode transportar itens fora da lista*. Se quiser incluir algo, será necessária *nova cotação* e pagamento separado.
+⚠️ *IMPORTANTE — leia com atenção:*
+
+🔸 *Itens fora da lista*: por segurança, fretista *não pode transportar*. Pra incluir mais, será necessária *nova cotação*.
+
+🔸 *Atrasos do cliente*: tolerância de até *15 minutos* na coleta. Após isso, pode haver:
+  • *Cobrança adicional* por hora de espera
+  • *Cancelamento* sem reembolso (fretista perde a próxima entrega)
+  • *Reagendamento* sujeito a nova cotação
 
 ━━━━━━━━━━━━━━━━
 

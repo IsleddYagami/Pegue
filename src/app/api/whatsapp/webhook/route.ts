@@ -1540,7 +1540,25 @@ async function handleMaisFotos(phone: string, message: string) {
     return;
   }
 
-  if (lower === "pronto" || lower === "so isso" || lower === "só isso" || lower === "nao" || lower === "não" || lower === "n") {
+  // Botao "2 Editar" - mostra lista atual + comandos de edicao
+  if (lower === "2" || lower === "editar") {
+    const listaNum = formatarListaNumerada(session.descricao_carga);
+    if (!listaNum) {
+      await sendToClient({
+        to: phone,
+        message: "Lista vazia. Manda uma foto ou descreve os itens 📦",
+      });
+      return;
+    }
+    await sendToClient({
+      to: phone,
+      message: `📦 *Sua lista:*\n\n${listaNum}\n\nO que quer fazer?\n• *remover 2* = tira o item 2\n• *trocar 1 por X* = substitui item 1\n• *APAGAR* = limpa tudo\n• Manda *foto* ou *descricao* pra adicionar mais`,
+    });
+    return;
+  }
+
+  // Botao "1 Tudo certo" + sinonimos textuais
+  if (lower === "1" || lower === "tudo certo" || lower === "pronto" || lower === "so isso" || lower === "só isso" || lower === "nao" || lower === "não" || lower === "n") {
     const veiculoNome: Record<string, string> = {
       carro_comum: "Carro Comum",
       utilitario: "Utilitario (Strada/Saveiro)",

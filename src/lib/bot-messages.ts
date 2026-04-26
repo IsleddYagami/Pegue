@@ -135,7 +135,7 @@ Se tiver algo diferente, escreva no final!`,
     // (MSG.todosItensProntos ja mostra resumo formatado).
     const total = listaItens.split(", ").filter((i) => i.trim().length > 0).length;
     const itemTotal = total === 1 ? "1 item" : `${total} itens`;
-    return `${emoji} *${item}* — anotado! (${itemTotal} no total)\n\n_Manda mais fotos ou digita *PRONTO* pra seguir._`;
+    return `${emoji} *${item}* — anotado! (${itemTotal} no total)\n\nManda mais fotos ou:\n\n1️⃣ *Tudo certo*\n2️⃣ *Editar*`;
   },
 
   todosItensProntos: (listaItens: string, veiculo: string) =>

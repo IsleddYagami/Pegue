@@ -564,7 +564,8 @@ export function pareceEndereco(texto: string): boolean {
     "zona leste",
     "zona oeste",
   ];
-  const lower = texto.toLowerCase();
+  // Normaliza pra detectar tambem com acento ("Praça da Sé" vira "praca da se")
+  const lower = texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return palavras.some((p) => lower.includes(p)) || !!extrairCep(texto);
 }
 
@@ -593,7 +594,8 @@ export function isInicioServico(texto: string): boolean {
 // Detecta agradecimento
 export function isAgradecimento(texto: string): boolean {
   const palavras = ["obrigad", "valeu", "thanks", "brigad", "agradec"];
-  const lower = texto.toLowerCase();
+  // Normaliza pra detectar tambem com cedilha ("agradeço" vira "agradeco")
+  const lower = texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return palavras.some((p) => lower.includes(p));
 }
 

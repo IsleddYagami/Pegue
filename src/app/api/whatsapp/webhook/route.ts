@@ -42,6 +42,7 @@ import {
   sugerirVeiculoPorVolumePeso,
   parseDimensoes,
   calcularVolumeM3,
+  contarItensTexto,
 } from "@/lib/bot-utils";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
@@ -1432,14 +1433,9 @@ async function handleFoto(
     }
 
     // Inferencia basica de veiculo pelo numero de itens mencionados - mas nao regride.
-    // Conta quantidade real: "2 camas, 3 cadeiras" = 5 itens (nao 2).
-    const partes = message.split(/[,;.]|\s+e\s+/i).map((p) => p.trim()).filter((p) => p.length > 2);
-    let qtdItens = 0;
-    for (const parte of partes) {
-      // Captura quantidade no inicio da parte: "2 camas", "3 cadeiras", "5x caixas"
-      const matchQtd = parte.match(/^(\d+)\s*x?\s*\w/i);
-      qtdItens += matchQtd ? parseInt(matchQtd[1]) : 1;
-    }
+    // Conta quantidade real via contarItensTexto (testavel via Vitest):
+    // "2 camas, 3 cadeiras" = 5 itens (nao 2).
+    let qtdItens = contarItensTexto(message);
     if (qtdItens === 0) qtdItens = 1;
     let veiculoSugerido = "utilitario";
     if (qtdItens >= 8) veiculoSugerido = "caminhao_bau";

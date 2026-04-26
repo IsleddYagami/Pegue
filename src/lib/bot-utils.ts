@@ -845,6 +845,22 @@ export function extrairData(texto: string): string | null {
   return null;
 }
 
+// Conta quantidade total de itens em texto livre.
+// Ex: "2 camas, 3 cadeiras, 1 sofa" => 6 (nao 3).
+// Ex: "geladeira, fogao" => 2 (sem qtd, conta 1 por separador).
+// Ex: "5x caixas" => 5 (forma alternativa com 'x').
+// Separadores aceitos: virgula, ponto, ponto-e-virgula, ' e '.
+export function contarItensTexto(texto: string): number {
+  if (!texto) return 0;
+  const partes = texto.split(/[,;.]|\s+e\s+/i).map((p) => p.trim()).filter((p) => p.length > 2);
+  let total = 0;
+  for (const parte of partes) {
+    const matchQtd = parte.match(/^(\d+)\s*x?\s*\w/i);
+    total += matchQtd ? parseInt(matchQtd[1], 10) : 1;
+  }
+  return total || (texto.trim() ? 1 : 0);
+}
+
 // Sugere veiculo baseado em volume (m3) e peso (kg) total da carga.
 // Limites calibrados 26/Abr/2026 com base em FROTA REAL Pegue + ajustes
 // conservadores Fabio (HR 1000kg, caminhao 2500kg pra evitar saturacao

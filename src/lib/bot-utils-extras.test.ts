@@ -14,6 +14,7 @@ import {
   sugerirVeiculoPorVolumePeso,
   parseDimensoes,
   calcularVolumeM3,
+  contarItensTexto,
 } from "./bot-utils";
 
 describe("extrairCep", () => {
@@ -264,6 +265,52 @@ describe("extrairRespostaPrestador", () => {
   it("rejeita 'não'", () => {
     const r = extrairRespostaPrestador("não");
     expect(r.aceite).toBe(false);
+  });
+});
+
+describe("contarItensTexto", () => {
+  describe("texto sem quantidade conta 1 por separador", () => {
+    it.each([
+      ["geladeira", 1],
+      ["geladeira, fogao", 2],
+      ["geladeira, fogao, sofa", 3],
+      ["geladeira; fogao; sofa", 3],
+      ["geladeira. fogao. sofa", 3],
+      ["geladeira e fogao e sofa", 3],
+      ["geladeira, fogao e sofa", 3],
+    ])("'%s' = %s", (input, expected) => {
+      expect(contarItensTexto(input)).toBe(expected);
+    });
+  });
+
+  describe("captura quantidade no inicio", () => {
+    it.each([
+      ["2 camas", 2],
+      ["5 caixas", 5],
+      ["10 cadeiras", 10],
+      ["5x caixas", 5],
+      ["100 barras de aco", 100],
+    ])("'%s' = %s", (input, expected) => {
+      expect(contarItensTexto(input)).toBe(expected);
+    });
+  });
+
+  describe("combina quantidade com multiplos itens", () => {
+    it.each([
+      ["2 camas, 3 cadeiras", 5],
+      ["2 camas, 3 cadeiras, 1 sofa", 6],
+      ["10 caixas e 2 camas", 12],
+      ["5 caixas, geladeira", 6],
+      ["geladeira, 5 caixas", 6],
+    ])("'%s' = %s", (input, expected) => {
+      expect(contarItensTexto(input)).toBe(expected);
+    });
+  });
+
+  describe("rejeita strings vazias", () => {
+    it("retorna 0 pra ''", () => {
+      expect(contarItensTexto("")).toBe(0);
+    });
   });
 });
 

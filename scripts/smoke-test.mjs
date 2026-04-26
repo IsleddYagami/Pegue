@@ -262,10 +262,86 @@ async function testFluxoCompleto() {
     );
   }
 
-  // 6. Conta erros recentes (não deve ter)
+  // 6. Pede lista (digita "2")
+  r = await call(WEBHOOK_URL_1, makePayload({ text: "2" }));
+  check("'2' (lista) retorna 200", r.status === 200, `(${r.ms}ms)`);
+  await sleep(300);
+
+  // 7. Manda 3 itens da lista (geladeira, cama casal, sofa = 1, 8, 15)
+  r = await call(WEBHOOK_URL_1, makePayload({ text: "1 8 15" }));
+  check("Lista '1 8 15' retorna 200", r.status === 200, `(${r.ms}ms)`);
+  await sleep(500);
   if (supabase) {
-    const erros = await countErrosRecentes(60);
-    check("Sem erros criticos nos ultimos 60s do fluxo", erros === 0, `(erros = ${erros})`);
+    const s = await getSession();
+    check("Step apos itens = 'aguardando_destino'",
+      s?.step === "aguardando_destino",
+      `(step = ${s?.step})`
+    );
+    check("descricao_carga preenchida com 3 itens",
+      (s?.descricao_carga || "").includes("Geladeira") &&
+      (s?.descricao_carga || "").includes("Cama casal") &&
+      (s?.descricao_carga || "").includes("Sofa"),
+      `(carga = ${s?.descricao_carga})`
+    );
+    check("veiculo_sugerido preenchido (HR pra 3 itens grandes)",
+      s?.veiculo_sugerido === "hr" || s?.veiculo_sugerido === "utilitario",
+      `(veiculo = ${s?.veiculo_sugerido})`
+    );
+  }
+
+  // 8. Manda destino
+  r = await call(WEBHOOK_URL_1, makePayload({ text: "Rua Brasil, Centro, Osasco" }));
+  check("Destino retorna 200", r.status === 200, `(${r.ms}ms)`);
+  check("Latencia destino < 8s", r.ms < 8000, `(${r.ms}ms — geocoder)`);
+  await sleep(1500);
+  if (supabase) {
+    const s = await getSession();
+    check("Step apos destino = 'confirmando_destino'",
+      s?.step === "confirmando_destino",
+      `(step = ${s?.step})`
+    );
+    check("destino_lat preenchido", typeof s?.destino_lat === "number");
+    check("destino_lng preenchido", typeof s?.destino_lng === "number");
+  }
+
+  // 9. Confirma destino
+  r = await call(WEBHOOK_URL_1, makePayload({ text: "1" }));
+  check("Confirmar destino retorna 200", r.status === 200, `(${r.ms}ms)`);
+  await sleep(500);
+  if (supabase) {
+    const s = await getSession();
+    check("Step apos confirmar destino avancou (aguardando_tipo_local ou similar)",
+      s?.step !== "confirmando_destino",
+      `(step = ${s?.step})`
+    );
+  }
+
+  // 10. Tipo local origem (1 = terreo)
+  r = await call(WEBHOOK_URL_1, makePayload({ text: "1" }));
+  check("Tipo local origem (terreo) retorna 200", r.status === 200, `(${r.ms}ms)`);
+  await sleep(500);
+
+  // 11. Tipo local destino (1 = terreo)
+  r = await call(WEBHOOK_URL_1, makePayload({ text: "1" }));
+  check("Tipo local destino retorna 200", r.status === 200, `(${r.ms}ms)`);
+  await sleep(800); // pode chamar IA pra desmontagem
+
+  // 12. Ajudante (2 = sem ajudante) - aqui finalmente calcula cotacao
+  r = await call(WEBHOOK_URL_1, makePayload({ text: "2" }));
+  check("Ajudante 'sem' retorna 200", r.status === 200, `(${r.ms}ms)`);
+  await sleep(1500); // calcula precos
+  if (supabase) {
+    const s = await getSession();
+    check("distancia_km calculada apos ajudante",
+      typeof s?.distancia_km === "number" && s.distancia_km > 5 && s.distancia_km < 60,
+      `(distancia = ${s?.distancia_km})`
+    );
+  }
+
+  // 13. Conta erros recentes (não deve ter)
+  if (supabase) {
+    const erros = await countErrosRecentes(180);
+    check("Sem erros criticos nos ultimos 180s do fluxo end-to-end", erros === 0, `(erros = ${erros})`);
   }
 }
 

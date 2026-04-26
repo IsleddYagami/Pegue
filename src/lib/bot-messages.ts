@@ -13,9 +13,7 @@ O que voce precisa?
 3️⃣ *Guincho*
 4️⃣ *Duvidas frequentes*`,
 
-  pedirLocalizacao: `🎥 *Veja como enviar sua localizacao:*
-
-📍 Manda sua localizacao atual.`,
+  pedirLocalizacao: `🎥 *Veja como enviar sua localizacao:*`,
 
   // VIDEO tutorial (gravado por Fabio em 25/Abr — print real do WhatsApp dele
   // com setas amarelas mostrando os 3 passos: anexo -> Localizacao -> Enviar).

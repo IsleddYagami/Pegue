@@ -1595,7 +1595,7 @@ async function handleMaisFotos(phone: string, message: string) {
     return;
   }
 
-  // Botao "2 Editar" - mostra lista atual + comandos de edicao
+  // Botao "2 Editar" - mostra lista atual com instrucao SUPER simples
   if (lower === "2" || lower === "editar") {
     const listaNum = formatarListaNumerada(session.descricao_carga);
     if (!listaNum) {
@@ -1607,7 +1607,60 @@ async function handleMaisFotos(phone: string, message: string) {
     }
     await sendToClient({
       to: phone,
-      message: `📦 *Sua lista:*\n\n${listaNum}\n\nO que quer fazer?\n• *remover 2* = tira o item 2\n• *trocar 1 por X* = substitui item 1\n• *APAGAR* = limpa tudo\n• Manda *foto* ou *descricao* pra adicionar mais`,
+      message: `📦 *Sua lista:*\n\n${listaNum}\n\n*Qual item remover?* Manda o número.\n\n_Ou:_\n➕ *adicionar* — incluir mais\n✅ *pronto* — seguir`,
+    });
+    return;
+  }
+
+  // Comando "adicionar" / "+" / "novo" - volta pra adicionar mais itens
+  if (lower === "adicionar" || lower === "+" || lower === "novo" || lower === "incluir" || lower === "mais") {
+    await sendToClient({
+      to: phone,
+      message: `📦 Manda outra *foto* ou *descreve por texto* o que quer adicionar.\n\n_Ex: 'cama solteiro' ou '5 caixas'_`,
+    });
+    return;
+  }
+
+  // NUMERO SOZINHO (sem "remover") - interpreta como remocao do item N
+  // Ex: cliente digitou '2' apos ver lista numerada
+  // Bug Fabio 26/Abr: comandos 'remover N', 'trocar N por X' eram confusos.
+  // Agora aceita apenas o NUMERO direto.
+  const matchNum = lower.match(/^(\d+)$/);
+  if (matchNum) {
+    const idx = parseInt(matchNum[1], 10) - 1;
+    const itens = (session.descricao_carga || "").split(", ").filter((i) => i.trim().length > 0);
+
+    if (idx < 0 || idx >= itens.length) {
+      await sendToClient({
+        to: phone,
+        message: `Numero invalido. Sua lista tem ${itens.length} item${itens.length === 1 ? "" : "s"}:\n\n${formatarListaNumerada(session.descricao_carga)}\n\nManda um numero de *1* a *${itens.length}*.`,
+      });
+      return;
+    }
+
+    const itemRemovido = itens[idx];
+    itens.splice(idx, 1);
+    const novaLista = itens.join(", ");
+
+    await updateSession(phone, { descricao_carga: novaLista || null });
+
+    if (itens.length === 0) {
+      await updateSession(phone, {
+        step: "aguardando_foto",
+        descricao_carga: null,
+        veiculo_sugerido: null,
+        foto_url: null,
+      });
+      await sendToClient({
+        to: phone,
+        message: `✅ Removi *${itemRemovido}*. Lista vazia.\n\n📸 Manda uma *foto* ou *descreve* pra recomecar.`,
+      });
+      return;
+    }
+
+    await sendToClient({
+      to: phone,
+      message: `✅ Removi: *${itemRemovido}*\n\n📦 Sua lista:\n${formatarListaNumerada(novaLista)}\n\n*Mais alguma edicao?*\n• Manda outro numero pra remover\n➕ *adicionar* — incluir mais\n✅ *pronto* — seguir`,
     });
     return;
   }

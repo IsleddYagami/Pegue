@@ -5280,19 +5280,61 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
 
 // === OPENAI VISION ===
 
-// GUARD anti-abuso IA Vision: rate limit 30 fotos/hora por phone.
-// Se exceder, escala humano (NAO bloqueia o telefone, NAO recusa atendimento).
+// GUARD anti-abuso IA Vision em DUAS camadas:
+//
+// CAMADA 1 — Limite de TENTATIVAS de cotacao por foto (max 2 em 24h)
+//   Conta NOVAS tentativas (sessoes onde cliente comecou do zero a mandar fotos).
+//   3a tentativa = escala humano SEM analisar a foto.
+//   Por que: cliente confuso/com dificuldade na 3a vez precisa de gente, nao bot.
+//   Cobre cenarios tipo 5+5+5 fotos OU 10+10+10.
+//
+// CAMADA 2 — Limite de fotos/hora por phone (max 30, anti-spam dentro de uma tentativa)
+//   Protege contra ataque de spam concentrado (100 fotos em 5min).
+//   Cliente legitimo numa cotacao normal: <15 fotos.
+//
+// Em ambos casos: escala humano (NAO bloqueia o telefone, NAO recusa atendimento).
 // Retorna { permitido: true } -> call site segue.
 // Retorna { permitido: false, resposta } -> call site faz `return guard.resposta`.
-//
-// Por que este guard existe (alem do limite de 15 fotos/cotacao):
-// - Limite 15/cotacao protege UMA cotacao individual
-// - Este protege contra MULTIPLAS cotacoes seguidas (cliente confuso retentando)
-//   OU ataque de spam de fotos (atacante mandando 100 fotos em 5min)
-// - Janela de 60min: cliente legitimo pode tentar de novo daqui a 1h sem fricao
 async function protegerVisionLimit(
   phoneNumber: string
 ): Promise<{ permitido: true } | { permitido: false; resposta: NextResponse }> {
+  // CAMADA 1: detecta se eh inicio de NOVA tentativa (descricao_carga vazia)
+  const sessao = await getSession(phoneNumber);
+  const ehNovaTentativa = !sessao?.descricao_carga || sessao.descricao_carga.trim().length === 0;
+
+  if (ehNovaTentativa) {
+    const tentativas = await checkRateLimit({
+      chave: `cotacao_foto_attempt:${phoneNumber}`,
+      max: 2,
+      janelaMinutos: 60 * 24, // 24h
+    });
+    if (!tentativas.permitido) {
+      // 3a+ tentativa em 24h: escala humano SEM analisar foto
+      await updateSession(phoneNumber, { step: "atendimento_humano" });
+      await notificarAdmins(
+        `📸 *3a TENTATIVA — ESCALADO*`,
+        phoneNumber,
+        `Cliente esta na *${tentativas.contador}a tentativa* de cotar com fotos em 24h (limite 2).\n\nIndica que cliente esta com dificuldade — bot nao esta atendendo bem.\n\n*Acao:* especialista deve assumir e cotar manualmente. NAO sera analisada mais nenhuma foto desse cliente nas proximas horas.`
+      );
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "vision_tentativa_excedida",
+          phone: phoneNumber,
+          tentativa: tentativas.contador,
+        },
+      });
+      await sendToClient({
+        to: phoneNumber,
+        message: `📸 *Deixa que um especialista te ajuda!*\n\nVi que voce ja tentou cotar algumas vezes — pra evitar mais erro, vou *passar pra um atendente humano* agora.\n\nEle vai te chamar em alguns minutos pra fazer a cotacao certinha. Aguarda 🙏`,
+      });
+      return {
+        permitido: false,
+        resposta: NextResponse.json({ status: "vision_tentativa_escalada", tentativa: tentativas.contador }),
+      };
+    }
+  }
+
+  // CAMADA 2: limite de fotos/hora (anti-spam dentro de uma tentativa)
   const limite = await checkRateLimit({
     chave: `vision:${phoneNumber}`,
     max: VISION_MAX_HORA,
@@ -5300,12 +5342,11 @@ async function protegerVisionLimit(
   });
   if (limite.permitido) return { permitido: true };
 
-  // Excedeu: escala humano + notifica admin + responde cliente
   await updateSession(phoneNumber, { step: "atendimento_humano" });
   await notificarAdmins(
     `📸 *MUITAS FOTOS — ESCALADO*`,
     phoneNumber,
-    `Cliente fez *${limite.contador}* analises de foto na ultima hora (limite ${VISION_MAX_HORA}).\n\nPossiveis causas:\n• Cliente com dificuldade — varias tentativas de cotar\n• Mudanca grande/complexa\n• Tentativa de abuso/spam\n\nUm especialista deve atender pra cotar manualmente OU validar se eh cliente real.`
+    `Cliente fez *${limite.contador}* analises de foto na ultima hora (limite ${VISION_MAX_HORA}).\n\nPossivel spam OU mudanca grande.\n\nEspecialista deve assumir.`
   );
   await supabase.from("bot_logs").insert({
     payload: {

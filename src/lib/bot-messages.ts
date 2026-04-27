@@ -356,8 +356,6 @@ O valor fica *RETIDO* na Pegue / Mercado Pago. *Não vai direto pro fretista.* S
 
 ⚠️ *Pagamento via cartao tem taxa* cobrada pelo Mercado Pago (varia conforme parcelamento). O valor total aparece na tela de pagamento.
 
-💡 *Quer evitar a taxa?* Pague via *PIX* (mensagem acima) — sem custo adicional.
-
 🔗 Pra pagar com cartao, clica aqui:
 ${linkCartao}
 

@@ -276,11 +276,11 @@ Logo ja sera confirmado!`,
   // Mensagem mostrada APOS cliente confirmar a cotacao, ANTES do dispatch.
   // Foco: cliente precisa entender que valor fica RETIDO ate ele confirmar
   // a entrega. Se NAO aceita os termos, dispatch nao acontece (nao perturba
-  // fretista atoa).
+  // fretista atoa). Comparacao com Mercado Livre pra cliente assimilar rapido.
   aceiteTermosPagamento: (valor: string) =>
     `📋 *ANTES de chamar o fretista, importante saber:*
 
-🔒 *PAGAMENTO 100% PROTEGIDO PELA PEGUE*
+🔒 *PAGAMENTO 100% PROTEGIDO — mesmo sistema do Mercado Livre*
 
 ━━━━━━━━━━━━━━━━
 
@@ -289,7 +289,7 @@ Logo ja sera confirmado!`,
 ✅ Você paga via Pix ou cartão
 ✅ O dinheiro fica *RETIDO* (Pegue / Mercado Pago)
 ✅ *NUNCA vai direto pro fretista*
-✅ Fretista só recebe *DEPOIS* que você confirmar a entrega
+✅ O fretista só recebe *DEPOIS* que o serviço terminar *E* você confirmar o recebimento
 
 ━━━━━━━━━━━━━━━━
 
@@ -306,8 +306,15 @@ Logo ja sera confirmado!`,
 2️⃣ ❌ *NAO, cancelar* - Desistir do frete`,
 
   // Mensagem APOS fretista PEGAR + termos JA aceitos antes.
-  // Versao curta (cliente ja viu termos detalhados no aceite).
-  freteConfirmadoEnviaPagamento: (linkPagamento: string, data: string, nomeFretista: string) =>
+  // Agora usa PIX direto (qrCode + copia/cola), sem login obrigatorio.
+  // qrCodeTexto: codigo copia/cola pra colar no app do banco
+  // ticketUrl: URL alternativa que abre o QR visivel no navegador
+  freteConfirmadoEnviaPagamento: (
+    qrCodeTexto: string,
+    ticketUrl: string,
+    data: string,
+    nomeFretista: string
+  ) =>
     `🎉 *Agenda confirmada pra ${data}!*
 
 🚚 *Fretista: ${nomeFretista}*
@@ -316,12 +323,19 @@ Logo ja sera confirmado!`,
 
 ━━━━━━━━━━━━━━━━
 
-💳 *Link pra pagamento (Pix ou cartão):*
-${linkPagamento}
+💳 *PAGAR VIA PIX*
 
-🔒 Lembrando: o valor fica *RETIDO* até você confirmar a entrega.
+*Opção 1 — Copie e cole no app do banco:*
+\`\`\`${qrCodeTexto}\`\`\`
 
-⏳ Link válido por 20 minutos.`,
+*Opção 2 — Abrir QR Code no navegador:*
+${ticketUrl}
+
+━━━━━━━━━━━━━━━━
+
+🔒 *Mesmo sistema do Mercado Livre:* o valor fica *RETIDO* na Pegue/Mercado Pago até você confirmar a entrega.
+
+⏳ PIX válido por 24 horas.`,
 
   // Mensagem quando pagamento automatico esta OFF (equipe envia link manual).
   freteConfirmadoSemPagamento: (data: string, nomeFretista: string) =>

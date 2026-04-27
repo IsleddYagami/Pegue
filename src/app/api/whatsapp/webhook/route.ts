@@ -5190,10 +5190,11 @@ async function notificarResultadoDispatch(
     const primeiroNomeFretista = (prestador.nome || "").split(" ")[0] || "seu fretista";
 
     if (pagamentoHabilitado) {
-      // Gera link Mercado Pago REAL via lib/mercadopago.criarLinkPagamento.
+      // Gera PIX DIRETO via Mercado Pago Payment API (NAO mais Checkout Pro).
+      // Cliente recebe QR code + copia/cola, paga em qualquer banco SEM login.
       // valor_final ja foi calculado no salvarCorrida (com desconto aplicado).
       try {
-        const { criarLinkPagamento } = await import("@/lib/mercadopago");
+        const { criarPagamentoPixDireto } = await import("@/lib/mercadopago");
         const { data: corridaPagto } = await supabase
           .from("corridas")
           .select("descricao_carga, valor_final, valor_estimado")
@@ -5206,41 +5207,42 @@ async function notificarResultadoDispatch(
           .single();
 
         const valorPagto = Number(corridaPagto?.valor_final || corridaPagto?.valor_estimado || 0);
-        const { linkPagamento, preferenceId } = await criarLinkPagamento({
+        const { paymentId, qrCodeTexto, ticketUrl } = await criarPagamentoPixDireto({
           corridaId,
           descricao: corridaPagto?.descricao_carga || "Frete Pegue",
           valor: valorPagto,
           clienteNome: clientePagto?.nome || "Cliente",
+          clienteTelefone: clientePhone,
           clienteEmail: clientePagto?.email || undefined,
         });
 
-        // Salva preferenceId pra rastrear webhook MP depois
+        // Salva paymentId pra rastrear webhook MP depois
         await supabase
           .from("corridas")
-          .update({ pin_entrega: preferenceId })
+          .update({ pin_entrega: paymentId })
           .eq("id", corridaId);
 
         await sendToClient({
           to: clientePhone,
-          message: MSG.freteConfirmadoEnviaPagamento(linkPagamento, dataFrete, primeiroNomeFretista),
+          message: MSG.freteConfirmadoEnviaPagamento(qrCodeTexto, ticketUrl, dataFrete, primeiroNomeFretista),
         });
         await updateSession(clientePhone, { step: "aguardando_pagamento" });
       } catch (errMP: any) {
         await supabase.from("bot_logs").insert({
           payload: {
-            tipo: "erro_gerar_link_mp",
+            tipo: "erro_gerar_pix_mp",
             corrida_id: corridaId,
             erro: errMP?.message || "sem mensagem",
           },
         });
         await notificarAdmin(
-          `🚨 *ERRO AO GERAR LINK MP*`,
+          `🚨 *ERRO AO GERAR PIX MP*`,
           clientePhone,
-          `Corrida: ${corridaId}\nErro: ${errMP?.message}\n\nFretista ja aceitou. Cliente NAO recebeu link de pagamento. Acao manual necessaria.`
+          `Corrida: ${corridaId}\nErro: ${errMP?.message}\n\nFretista ja aceitou. Cliente NAO recebeu PIX. Acao manual necessaria.`
         );
         await sendToClient({
           to: clientePhone,
-          message: `Houve um problema gerando seu link de pagamento. Nossa equipe vai te enviar manualmente em alguns minutos. 🙏`,
+          message: `Houve um problema gerando seu PIX. Nossa equipe vai te enviar manualmente em alguns minutos. 🙏`,
         });
         await updateSession(clientePhone, { step: "aguardando_pagamento" });
       }

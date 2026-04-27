@@ -63,6 +63,64 @@ export async function criarLinkPagamento(params: {
   };
 }
 
+// Cria pagamento PIX DIRETO via Payment API (NAO usa Checkout Pro).
+// Vantagens sobre Checkout Pro:
+// - NAO exige login na conta MP do cliente (cliente leigo paga sem cadastro)
+// - Retorna QR code + copia/cola (cliente paga em qualquer banco)
+// - Validade default 24h (Checkout Pro era 20min, expirava facil)
+// - Mensagens de erro mais claras (Checkout Pro retornava CPT01 generico)
+// - Contorna restricao de auto-pagamento que afetava Checkout Pro
+//
+// Retorna:
+//   paymentId: ID do pagamento (salvar pra rastreabilidade)
+//   qrCodeBase64: imagem PNG do QR (mandar via sendImageToClient)
+//   qrCodeTexto: codigo copia/cola (cliente cola no app do banco)
+//   ticketUrl: URL alternativa (caso queira abrir no navegador)
+export async function criarPagamentoPixDireto(params: {
+  corridaId: string;
+  descricao: string;
+  valor: number;
+  clienteNome: string;
+  clienteTelefone: string;
+  clienteEmail?: string;
+}) {
+  // MP exige email do payer. Se nao tiver email cadastrado, gera um placeholder
+  // baseado no telefone (formato comum aceito pelo MP).
+  const email = params.clienteEmail || `${params.clienteTelefone}@cliente.chamepegue.com.br`;
+
+  // Quebra nome em first/last (MP tem campos separados).
+  const partesNome = (params.clienteNome || "Cliente").trim().split(/\s+/);
+  const firstName = partesNome[0] || "Cliente";
+  const lastName = partesNome.slice(1).join(" ") || "Pegue";
+
+  const result = await payment.create({
+    body: {
+      transaction_amount: params.valor,
+      description: params.descricao,
+      payment_method_id: "pix",
+      payer: {
+        email,
+        first_name: firstName,
+        last_name: lastName,
+      },
+      external_reference: params.corridaId,
+      notification_url: "https://chamepegue.com.br/api/pagamento/webhook",
+      // PIX expira em 24h (vs 20min do Checkout Pro - menos atrito).
+      date_of_expiration: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    } as any,
+  });
+
+  const txData = (result as any).point_of_interaction?.transaction_data;
+
+  return {
+    paymentId: String(result.id || ""),
+    qrCodeBase64: txData?.qr_code_base64 || "",
+    qrCodeTexto: txData?.qr_code || "",
+    ticketUrl: txData?.ticket_url || "",
+    status: result.status || "pending",
+  };
+}
+
 // Busca detalhes de um pagamento
 export async function buscarPagamento(paymentId: string) {
   const result = await payment.get({ id: paymentId });

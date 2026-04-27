@@ -5255,7 +5255,12 @@ async function notificarResultadoDispatch(
         });
         await sendToClient({
           to: clientePhone,
-          message: MSG.freteOpcaoCartao(cartaoData.linkPagamento),
+          message: MSG.freteOpcaoCartao(
+            cartaoData.linkPagamento,
+            cartaoData.valorOriginal,
+            cartaoData.taxaCartao,
+            cartaoData.valorTotalCartao,
+          ),
         });
         await updateSession(clientePhone, { step: "aguardando_pagamento" });
       } catch (errMP: any) {

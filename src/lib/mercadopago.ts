@@ -11,7 +11,21 @@ const client = new MercadoPagoConfig({
 const preference = new Preference(client);
 const payment = new Payment(client);
 
-// Cria link de pagamento (Checkout Pro)
+// Taxa estimada cobrada pelo MP em cartao de credito (percentual sobre o valor).
+// Usada pra repassar a taxa pro cliente (Pegue nao absorve - margem ja eh apertada).
+// Valor padrao 4.98% (taxa MP cartao 1 parcela). Pra outras parcelas/taxas reais,
+// usar a calculadora do MP ou taxa real cobrada na conta.
+export const TAXA_CARTAO_PCT = 4.98;
+
+export function calcularTaxaCartao(valor: number): { taxa: number; total: number } {
+  const taxa = Math.round(valor * (TAXA_CARTAO_PCT / 100) * 100) / 100;
+  const total = Math.round((valor + taxa) * 100) / 100;
+  return { taxa, total };
+}
+
+// Cria link de pagamento (Checkout Pro). Repassa taxa do cartao pro cliente:
+// valor cobrado = valor original + taxa MP. Cliente ve o total final no checkout.
+// PIX direto NAO tem essa taxa (gera-se separado em criarPagamentoPixDireto).
 export async function criarLinkPagamento(params: {
   corridaId: string;
   descricao: string;
@@ -19,8 +33,7 @@ export async function criarLinkPagamento(params: {
   clienteNome: string;
   clienteEmail?: string;
 }) {
-  const taxaCartao = Math.round(params.valor * 0.0498 * 100) / 100;
-  const valorComTaxa = Math.round((params.valor + taxaCartao) * 100) / 100;
+  const { taxa, total } = calcularTaxaCartao(params.valor);
 
   const result = await preference.create({
     body: {
@@ -28,9 +41,9 @@ export async function criarLinkPagamento(params: {
         {
           id: params.corridaId,
           title: `Frete Pegue - ${params.descricao}`,
-          description: `Servico de frete/mudanca`,
+          description: `Servico de frete/mudanca (inclui taxa MP ${TAXA_CARTAO_PCT}%)`,
           quantity: 1,
-          unit_price: params.valor,
+          unit_price: total, // valor com taxa repassada ao cliente
           currency_id: "BRL",
         },
       ],
@@ -60,6 +73,9 @@ export async function criarLinkPagamento(params: {
   return {
     linkPagamento: result.init_point || "",
     preferenceId: result.id || "",
+    valorOriginal: params.valor,
+    taxaCartao: taxa,
+    valorTotalCartao: total,
   };
 }
 

@@ -264,10 +264,6 @@ ${detalhes}
 
 🔸 *Itens fora da lista*: por segurança, fretista *não pode transportar*. Pra incluir mais, será necessária *nova cotação*.
 
-🔸 *Evite atrasos*: o fretista tem horário apertado por causa de outros trabalhos agendados.
-  • Tolerância de até *1 hora* sem custo adicional
-  • Após *1 hora* de atraso, será cobrado *valor adicional pela espera*
-
 ━━━━━━━━━━━━━━━━
 
 1️⃣ ✅ *SIM* - Conferi tudo, confirmar!
@@ -277,83 +273,67 @@ ${detalhes}
 
 Logo ja sera confirmado!`,
 
-  // Mensagem de pagamento com confianca maxima:
-  // - Comparacao com Mercado Livre (conceito que todo brasileiro entende)
-  // - Nome do fretista revelado (sem telefone) pra dar cara humana
-  // - Taxa de cartao clara pra nao ter surpresa
-  // - Trust signals (CPF, CNH, redes sociais, endereco)
+  // Mensagem mostrada APOS cliente confirmar a cotacao, ANTES do dispatch.
+  // Foco: cliente precisa entender que valor fica RETIDO ate ele confirmar
+  // a entrega. Se NAO aceita os termos, dispatch nao acontece (nao perturba
+  // fretista atoa).
+  aceiteTermosPagamento: (valor: string) =>
+    `📋 *ANTES de chamar o fretista, importante saber:*
+
+🔒 *PAGAMENTO 100% PROTEGIDO PELA PEGUE*
+
+━━━━━━━━━━━━━━━━
+
+💰 Valor: *R$ ${valor}*
+
+✅ Você paga via Pix ou cartão
+✅ O dinheiro fica *RETIDO* (Pegue / Mercado Pago)
+✅ *NUNCA vai direto pro fretista*
+✅ Fretista só recebe *DEPOIS* que você confirmar a entrega
+
+━━━━━━━━━━━━━━━━
+
+🛡️ *PROTEÇÃO TOTAL:*
+• Fretista nao apareceu = *reembolso 100%*
+• Item danificado = disputa mediada pela Pegue
+• Servico diferente do contratado = reembolso
+
+━━━━━━━━━━━━━━━━
+
+*Aceita os termos pra prosseguir?*
+
+1️⃣ ✅ *SIM, aceito* - Chamar fretista agora
+2️⃣ ❌ *NAO, cancelar* - Desistir do frete`,
+
+  // Mensagem APOS fretista PEGAR + termos JA aceitos antes.
+  // Versao curta (cliente ja viu termos detalhados no aceite).
   freteConfirmadoEnviaPagamento: (linkPagamento: string, data: string, nomeFretista: string) =>
     `🎉 *Agenda confirmada pra ${data}!*
 
-💳 *PAGAMENTO SEGURO*
-${linkPagamento}
-
-━━━━━━━━━━━━━━━━
-
-🔒 *Exatamente como Mercado Livre:*
-
-Após a confirmação do pagamento, o valor fica *retido no Mercado Pago*. Só é liberado ao fretista *depois que você confirmar* que o serviço foi concluído.
-
-Qualquer problema = *reembolso 100%* 🔄
-
-━━━━━━━━━━━━━━━━
-
-🚚 *Fretista confirmado: ${nomeFretista}*
-✅ CPF validado
-✅ CNH validada
-✅ Veículo + placa registrados
-✅ Aceite dos termos de responsabilidade
-
-━━━━━━━━━━━━━━━━
-
-💰 *Pix* ou *cartão de crédito*
-
-━━━━━━━━━━━━━━━━
-
-📋 *Antes de pagar, saiba:*
-
-• O fretista só leva o que está na sua cotação. Itens adicionais precisam de nova cotação.
-
-• *Pontualidade é essencial.* O fretista reserva o horário pra você e tem outros compromissos. Cancelamento ou atraso no dia por parte do cliente gera *reembolso de 50%* do valor (taxa de locomoção do fretista).
-
-━━━━━━━━━━━━━━━━
-
-📸 Instagram: *@chamepegue*
-🌐 *chamepegue.com.br*
-📍 Sede: Presidente Altino, Osasco-SP
-
-⏳ A reserva vale por *20 minutos*.
-Dúvidas? Digite *SEGURO* 😊`,
-
-  // Mensagem quando pagamento automatico esta OFF (equipe envia link manual depois).
-  // Revela NOME do fretista (dá confianca) mas NAO telefone (evita negociacao direta).
-  freteConfirmadoSemPagamento: (data: string, nomeFretista: string) =>
-    `🎉 *Frete reservado pra ${data}!*
-
-🚚 *Fretista confirmado: ${nomeFretista}*
+🚚 *Fretista: ${nomeFretista}*
 ✅ CPF + CNH validados
 ✅ Veículo registrado
 
-Em alguns minutos nossa equipe te envia o *link de pagamento seguro* aqui no WhatsApp.
-
 ━━━━━━━━━━━━━━━━
 
-🔒 *Pagamento igual Mercado Livre:*
-Valor fica *retido no Mercado Pago* até você confirmar a entrega. Qualquer problema = *reembolso 100%*.
+💳 *Link pra pagamento (Pix ou cartão):*
+${linkPagamento}
 
-💰 Pix ou cartão de crédito
+🔒 Lembrando: o valor fica *RETIDO* até você confirmar a entrega.
 
-━━━━━━━━━━━━━━━━
+⏳ Link válido por 20 minutos.`,
 
-📋 *Antes de pagar, saiba:*
+  // Mensagem quando pagamento automatico esta OFF (equipe envia link manual).
+  freteConfirmadoSemPagamento: (data: string, nomeFretista: string) =>
+    `🎉 *Frete reservado pra ${data}!*
 
-• O fretista só leva o que está na sua cotação.
-• *Pontualidade é essencial.* Cancelamento ou atraso pelo cliente no dia = reembolso de *50%* (taxa de locomoção do fretista).
+🚚 *Fretista: ${nomeFretista}*
+✅ CPF + CNH validados
+✅ Veículo registrado
 
-━━━━━━━━━━━━━━━━
+Em alguns minutos nossa equipe envia o link de pagamento aqui.
 
-📸 @chamepegue | 🌐 chamepegue.com.br
-Dúvidas? Digite *SEGURO* 😊`,
+🔒 Lembrando: o valor fica *RETIDO* até você confirmar a entrega.`,
 
   nenhumFretista: `Nosso especialista logo enviara a confirmacao do seu frete! 😊
 Fique tranquilo, ja estamos cuidando disso!`,
@@ -374,28 +354,25 @@ O ${nomePrestador} vai entrar em contato pra alinhar os detalhes com voce.
 Qualquer coisa, estamos aqui!
 Relaxa. A gente leva. 🚚✨`,
 
-  explicaSeguranca: `🔒 *Pagamento Seguro — exatamente como Mercado Livre*
+  explicaSeguranca: `🔒 *PAGAMENTO 100% PROTEGIDO PELA PEGUE*
 
 ━━━━━━━━━━━━━━━━
 
-🏦 *Como funciona o escrow:*
+🏦 *Como funciona:*
 
-1️⃣ Você paga no link (Pix ou cartão)
-2️⃣ O valor fica *RETIDO no Mercado Pago*
-3️⃣ Fretista faz o serviço
+1️⃣ Você paga via Pix ou cartão
+2️⃣ O valor fica *RETIDO* na Pegue / Mercado Pago
+3️⃣ O fretista executa o serviço
 4️⃣ Você confirma que recebeu tudo certinho
-5️⃣ *Só então* o pagamento é liberado ao fretista
+5️⃣ *SÓ ENTÃO* o pagamento é liberado ao fretista
 
 ━━━━━━━━━━━━━━━━
 
-🔄 *Reembolsos:*
-• Fretista não apareceu → *100% reembolso*
-• Cliente cancelou ANTES da coleta (mesmo dia ainda sem fretista a caminho) → *100% reembolso*
-• Objeto danificado no transporte → disputa mediada pela Pegue
-• Serviço não conforme → disputa mediada
-
-⏰ *Política de atraso/cancelamento pelo cliente:*
-Se o fretista já saiu ou chegou no local e cliente cancela/atrasa, será reembolsado *50%* do valor (os outros 50% cobrem a locomoção e tempo reservado do fretista).
+🛡️ *PROTEÇÕES:*
+• Fretista nao apareceu → reembolso *100%*
+• Cancelou ANTES da coleta → reembolso *100%*
+• Objeto danificado → disputa mediada pela Pegue
+• Servico diferente do contratado → disputa mediada
 
 ━━━━━━━━━━━━━━━━
 
@@ -403,11 +380,10 @@ Se o fretista já saiu ou chegou no local e cliente cancela/atrasa, será reembo
 
 ━━━━━━━━━━━━━━━━
 
-🛡️ *Fretistas 100% verificados:*
+🛡️ *Fretistas verificados:*
 ✅ CPF validado
 ✅ CNH validada
 ✅ Foto do veículo + placa
-✅ Selfie com documento no cadastro
 ✅ Termos de responsabilidade assinados
 ✅ Score em cada frete
 
@@ -417,9 +393,7 @@ Se o fretista já saiu ou chegou no local e cliente cancela/atrasa, será reembo
 🌐 *chamepegue.com.br*
 📍 Presidente Altino, Osasco-SP
 
-É o *mesmo modelo do Mercado Livre* — você já conhece e confia nele. 😊
-
-A Pegue garante a segurança do valor pago até a confirmação da entrega. Seu dinheiro não vai direto pro fretista, passa pelo Mercado Pago.`,
+A Pegue garante a segurança do valor pago até a confirmação da entrega. Seu dinheiro fica retido na Pegue/Mercado Pago — *não vai direto pro fretista*.`,
 
   aguardarLinkPagamentoAvulso: `💳 *Pagamento:*
 

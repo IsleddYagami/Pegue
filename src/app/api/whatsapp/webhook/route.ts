@@ -5,6 +5,7 @@ import {
   getSession,
   createSession,
   updateSession,
+  deleteSession,
   getDispatchForPrestador,
   getDispatchByCorridaId,
   tryAceitarDispatch,
@@ -933,6 +934,10 @@ Boa sorte! 🎯`,
 
     case "aguardando_confirmacao":
       await handleConfirmacao(phone, message, instance);
+      break;
+
+    case "aguardando_aceite_termos":
+      await handleAceiteTermos(phone, message, instance);
       break;
 
     case "editando_escolha":
@@ -2447,19 +2452,16 @@ async function handleConfirmacao(phone: string, message: string, instance: 1 | 2
   const lower = message.toLowerCase().trim();
 
   if (lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "confirmar" || lower === "confirmo" || lower === "correto") {
-    const corridaId = await salvarCorrida(session);
-
-    if (corridaId) {
-      await updateSession(phone, { step: "aguardando_fretista", corrida_id: corridaId });
-
-      // Informa que esta reservando a agenda
-      await sendToClient({ to: phone, message: MSG.freteRecebido });
-
-      // Dispara para fretistas e aguarda resposta
-      await dispararParaFretistas(corridaId, session, phone);
-    } else {
-      await sendToClient({ to: phone, message: MSG.erroInterno });
-    }
+    // NOVO FLUXO: nao salva corrida nem dispara dispatch ainda.
+    // Mostra termos de pagamento retido. So depois do cliente aceitar
+    // explicitamente eh que envolvemos o fretista (evita perturbar
+    // fretista por cliente que nao aceitou os termos depois).
+    const valorFmt = (session.valor_estimado || 0).toFixed(2).replace(".", ",");
+    await updateSession(phone, { step: "aguardando_aceite_termos" });
+    await sendToClient({
+      to: phone,
+      message: MSG.aceiteTermosPagamento(valorFmt),
+    });
   } else if (lower === "2" || lower === "alterar" || lower.includes("corrigir") || lower.includes("mudar") || lower.startsWith("nao") || lower === "n" || lower === "não") {
     // NAO reseta sessao - mostra menu de edicao preservando dados ja informados.
     // Cliente escolhe o que quer corrigir e volta pro step especifico.
@@ -2472,6 +2474,41 @@ async function handleConfirmacao(phone: string, message: string, instance: 1 | 2
     await sendToClient({
       to: phone,
       message: "1️⃣ ✅ *SIM* - Tudo certo, confirmar!\n2️⃣ ✏️ *ALTERAR* - Quero corrigir algo",
+    });
+  }
+}
+
+// STEP 7.5: Aceite de termos de pagamento (dispatch APOS aceite explicito).
+// Garante que cliente que NAO aceita os termos nao perturba fretistas atoa.
+async function handleAceiteTermos(phone: string, message: string, instance: 1 | 2 = 1) {
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const lower = message.toLowerCase().trim();
+
+  if (lower === "1" || lower.startsWith("sim") || lower === "aceito" || lower === "s" || lower.includes("aceit")) {
+    // Cliente aceitou termos -> agora sim cria corrida + dispara dispatch
+    const corridaId = await salvarCorrida(session);
+
+    if (corridaId) {
+      await updateSession(phone, { step: "aguardando_fretista", corrida_id: corridaId });
+      await sendToClient({ to: phone, message: MSG.freteRecebido });
+      await dispararParaFretistas(corridaId, session, phone);
+    } else {
+      await sendToClient({ to: phone, message: MSG.erroInterno });
+    }
+  } else if (lower === "2" || lower.startsWith("nao") || lower === "n" || lower === "não" || lower === "cancelar" || lower.includes("recus") || lower.includes("desist")) {
+    // Cliente recusou termos -> cancela tudo, NAO chama fretista
+    await deleteSession(phone);
+    await sendToClient({
+      to: phone,
+      message: `Tudo bem! ✅\n\nSeu frete foi *cancelado* — nenhum fretista foi acionado.\n\nQuando quiser cotar de novo, manda *oi* 😊`,
+    });
+  } else {
+    // Resposta nao reconhecida
+    await sendToClient({
+      to: phone,
+      message: "Pra prosseguir, escolha:\n\n1️⃣ ✅ *SIM, aceito* - Chamar fretista\n2️⃣ ❌ *NAO, cancelar* - Desistir do frete",
     });
   }
 }
@@ -5153,13 +5190,60 @@ async function notificarResultadoDispatch(
     const primeiroNomeFretista = (prestador.nome || "").split(" ")[0] || "seu fretista";
 
     if (pagamentoHabilitado) {
-      // TODO: Gerar link Mercado Pago real via /api/pagamento/criar
-      const linkPagamento = "https://chamepegue.com.br/simular";
-      await sendToClient({
-        to: clientePhone,
-        message: MSG.freteConfirmadoEnviaPagamento(linkPagamento, dataFrete, primeiroNomeFretista),
-      });
-      await updateSession(clientePhone, { step: "aguardando_pagamento" });
+      // Gera link Mercado Pago REAL via lib/mercadopago.criarLinkPagamento.
+      // valor_final ja foi calculado no salvarCorrida (com desconto aplicado).
+      try {
+        const { criarLinkPagamento } = await import("@/lib/mercadopago");
+        const { data: corridaPagto } = await supabase
+          .from("corridas")
+          .select("descricao_carga, valor_final, valor_estimado")
+          .eq("id", corridaId)
+          .single();
+        const { data: clientePagto } = await supabase
+          .from("clientes")
+          .select("nome, email")
+          .eq("telefone", clientePhone)
+          .single();
+
+        const valorPagto = Number(corridaPagto?.valor_final || corridaPagto?.valor_estimado || 0);
+        const { linkPagamento, preferenceId } = await criarLinkPagamento({
+          corridaId,
+          descricao: corridaPagto?.descricao_carga || "Frete Pegue",
+          valor: valorPagto,
+          clienteNome: clientePagto?.nome || "Cliente",
+          clienteEmail: clientePagto?.email || undefined,
+        });
+
+        // Salva preferenceId pra rastrear webhook MP depois
+        await supabase
+          .from("corridas")
+          .update({ pin_entrega: preferenceId })
+          .eq("id", corridaId);
+
+        await sendToClient({
+          to: clientePhone,
+          message: MSG.freteConfirmadoEnviaPagamento(linkPagamento, dataFrete, primeiroNomeFretista),
+        });
+        await updateSession(clientePhone, { step: "aguardando_pagamento" });
+      } catch (errMP: any) {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "erro_gerar_link_mp",
+            corrida_id: corridaId,
+            erro: errMP?.message || "sem mensagem",
+          },
+        });
+        await notificarAdmin(
+          `🚨 *ERRO AO GERAR LINK MP*`,
+          clientePhone,
+          `Corrida: ${corridaId}\nErro: ${errMP?.message}\n\nFretista ja aceitou. Cliente NAO recebeu link de pagamento. Acao manual necessaria.`
+        );
+        await sendToClient({
+          to: clientePhone,
+          message: `Houve um problema gerando seu link de pagamento. Nossa equipe vai te enviar manualmente em alguns minutos. 🙏`,
+        });
+        await updateSession(clientePhone, { step: "aguardando_pagamento" });
+      }
     } else {
       // Pagamento automatico OFF: libera NOME (acolhedor) mas NAO telefone (evita negociacao direta)
       await sendToClient({

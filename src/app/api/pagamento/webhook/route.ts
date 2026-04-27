@@ -8,6 +8,13 @@ import { updateSession } from "@/lib/bot-sessions";
 
 export const dynamic = "force-dynamic";
 
+// Timeout 60s (default Vercel sao 10s, mas processamento envolve:
+// 1) validar assinatura, 2) buscar pagamento na MP API, 3) UPDATE corrida,
+// 4) sendToClient pro cliente (2x) + 1x pro fretista via ChatPro.
+// Cada chamada externa pode demorar 1-3s. Total >10s ja viola default
+// Vercel -> 502 Bad Gateway -> MP achava webhook quebrado.
+export const maxDuration = 60;
+
 // Webhook do Mercado Pago - recebe notificacoes de pagamento.
 // Retorna:
 //   200 - processado com sucesso ou evento irrelevante
@@ -135,16 +142,10 @@ export async function POST(req: NextRequest) {
 
         if (clienteTel && prestador) {
           const telFormatado = formatarTelefoneExibicao(prestador.telefone);
-          await sendToClient({
-            to: clienteTel,
-            message: MSG.pagamentoConfirmado(prestador.nome, telFormatado),
-          });
 
+          // Atualiza session ANTES das chamadas chatpro pra garantir step
+          // mesmo se ChatPro falhar/atrasar.
           await updateSession(clienteTel, { step: "aguardando_numero_coleta" });
-          await sendToClient({
-            to: clienteTel,
-            message: `📍 *Pra o fretista nao errar na coleta:*\n\nMe manda o *numero* e *complemento* do endereco de retirada 😊\n\nExemplo:\n• *450, Apto 12B*\n• *230, Casa 2*\n• *1500, Bloco 3 Apto 45*\n\nSe for so numero, manda so o numero 👍`,
-          });
 
           const clienteNome = (corrida.clientes as any)?.nome || formatarTelefoneExibicao(clienteTel);
           const qtdAjudantes = corrida.qtd_ajudantes || 0;
@@ -155,10 +156,9 @@ export async function POST(req: NextRequest) {
 
           const isGuincho = (corrida.descricao_carga || "").toLowerCase().includes("guincho");
 
-          if (isGuincho) {
-            await sendToClient({
-              to: prestador.telefone,
-              message: `✅ *Pagamento confirmado! Servico de guincho liberado!*
+          // Mensagem do prestador (montada em variavel pra usar no allSettled)
+          const mensagemPrestador = isGuincho
+            ? `✅ *Pagamento confirmado! Servico de guincho liberado!*
 
 👤 *Cliente:* ${clienteNome}
 📱 *Contato:* ${formatarTelefoneExibicao(clienteTel)}
@@ -185,12 +185,8 @@ Apos descarregar o veiculo, *aguarde no local* ate o cliente confirmar que esta 
 Seu pagamento so sera processado apos a confirmacao do cliente.
 *Nao saia do local sem a confirmacao!*
 
-Bom trabalho! 🚗✨`,
-            });
-          } else {
-            await sendToClient({
-              to: prestador.telefone,
-              message: `✅ *Pagamento confirmado! Servico liberado!*
+Bom trabalho! 🚗✨`
+            : `✅ *Pagamento confirmado! Servico liberado!*
 
 👤 *Cliente:* ${clienteNome}
 📱 *Contato:* ${formatarTelefoneExibicao(clienteTel)}
@@ -217,9 +213,26 @@ Apos descarregar, *aguarde no local* ate o cliente conferir e confirmar que esta
 Seu pagamento so sera processado apos a confirmacao do cliente.
 *Nao saia do local sem a confirmacao!*
 
-Bom trabalho! 🚚✨`,
-            });
-          }
+Bom trabalho! 🚚✨`;
+
+          // Envia 3 mensagens em PARALELO (cliente x2 + prestador x1).
+          // Antes era sequencial (~3-6s). Agora ~1-2s = nao estoura timeout.
+          // allSettled: se 1 falhar, outras seguem (resiliencia).
+          await Promise.allSettled([
+            sendToClient({
+              to: clienteTel,
+              message: MSG.pagamentoConfirmado(prestador.nome, telFormatado),
+            }),
+            sendToClient({
+              to: clienteTel,
+              message: `📍 *Pra o fretista nao errar na coleta:*\n\nMe manda o *numero* e *complemento* do endereco de retirada 😊\n\nExemplo:\n• *450, Apto 12B*\n• *230, Casa 2*\n• *1500, Bloco 3 Apto 45*\n\nSe for so numero, manda so o numero 👍`,
+            }),
+            sendToClient({
+              to: prestador.telefone,
+              message: mensagemPrestador,
+            }),
+          ]);
+
         }
 
         // Marca processamento concluido com sucesso na tabela de idempotencia.

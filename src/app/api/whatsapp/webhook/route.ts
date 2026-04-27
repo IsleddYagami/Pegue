@@ -5222,9 +5222,17 @@ async function notificarResultadoDispatch(
           .update({ pin_entrega: paymentId })
           .eq("id", corridaId);
 
+        // Envia em 2 mensagens separadas pra cliente leigo conseguir copiar
+        // o codigo PIX com 1 toque (sem formatacao atrapalhando).
+        // 1: Explicacao + URL alternativa do QR
         await sendToClient({
           to: clientePhone,
-          message: MSG.freteConfirmadoEnviaPagamento(qrCodeTexto, ticketUrl, dataFrete, primeiroNomeFretista),
+          message: MSG.freteConfirmadoEnviaPagamento(ticketUrl, dataFrete, primeiroNomeFretista),
+        });
+        // 2: Codigo PIX cru, isolado (cliente pressiona e segura -> Copiar)
+        await sendToClient({
+          to: clientePhone,
+          message: MSG.pixCodigoCopiaCola(qrCodeTexto),
         });
         await updateSession(clientePhone, { step: "aguardando_pagamento" });
       } catch (errMP: any) {

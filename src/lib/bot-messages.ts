@@ -306,11 +306,10 @@ Logo ja sera confirmado!`,
 2️⃣ ❌ *NAO, cancelar* - Desistir do frete`,
 
   // Mensagem APOS fretista PEGAR + termos JA aceitos antes.
-  // Agora usa PIX direto (qrCode + copia/cola), sem login obrigatorio.
-  // qrCodeTexto: codigo copia/cola pra colar no app do banco
-  // ticketUrl: URL alternativa que abre o QR visivel no navegador
+  // PARTE 1 da confirmacao pos-PEGAR. PIX direto enviado em 2 mensagens
+  // separadas: a explicacao (esta) + o codigo PIX cru (pra cliente pressionar
+  // e copiar com 1 toque, sem formatacao atrapalhando).
   freteConfirmadoEnviaPagamento: (
-    qrCodeTexto: string,
     ticketUrl: string,
     data: string,
     nomeFretista: string
@@ -323,19 +322,29 @@ Logo ja sera confirmado!`,
 
 ━━━━━━━━━━━━━━━━
 
-💳 *PAGAR VIA PIX*
+💳 *PAGAR VIA PIX (R$ a confirmar abaixo)*
 
-*Opção 1 — Copie e cole no app do banco:*
-\`\`\`${qrCodeTexto}\`\`\`
+📋 *Como pagar:*
+1) Pressione e segure o codigo da proxima mensagem
+2) Toque em *Copiar*
+3) Abra o app do seu banco -> *Pix Copia e Cola*
+4) Cole o codigo e confirme
 
-*Opção 2 — Abrir QR Code no navegador:*
+🔗 Ou abre o QR no navegador:
 ${ticketUrl}
 
 ━━━━━━━━━━━━━━━━
 
 🔒 *Mesmo sistema do Mercado Livre:* o valor fica *RETIDO* na Pegue/Mercado Pago até você confirmar a entrega.
 
-⏳ PIX válido por 24 horas.`,
+⏳ PIX válido por 24 horas.
+
+👇 *Codigo PIX abaixo:*`,
+
+  // PARTE 2 da confirmacao pos-PEGAR. Apenas o codigo PIX cru, em mensagem
+  // separada, sem formatacao. Cliente pressiona e segura -> Copiar -> cola
+  // no app do banco. Maxima simplicidade pra cliente leigo.
+  pixCodigoCopiaCola: (qrCodeTexto: string) => qrCodeTexto,
 
   // Mensagem quando pagamento automatico esta OFF (equipe envia link manual).
   freteConfirmadoSemPagamento: (data: string, nomeFretista: string) =>

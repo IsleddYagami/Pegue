@@ -81,7 +81,35 @@ export async function POST(req: NextRequest) {
 
       const pgto = await buscarPagamento(paymentId);
 
-      if (pgto.status === "approved" && pgto.referencia) {
+      // Log diagnostico: status real do pagamento + se tem referencia
+      // (External_reference = corrida_id, deve estar setado no preference).
+      // Sem isso nao tem como vincular pagamento -> corrida.
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "webhook_mp_buscar_pagamento",
+          payment_id: paymentId,
+          status: pgto.status,
+          tem_referencia: !!pgto.referencia,
+          referencia: pgto.referencia || null,
+          valor: pgto.valor,
+          metodo: pgto.metodo,
+        },
+      });
+
+      // Pagamento NAO aprovado OU sem referencia: log e ignora silenciosamente.
+      if (pgto.status !== "approved" || !pgto.referencia) {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "webhook_mp_ignorado",
+            motivo: pgto.status !== "approved" ? "status_nao_approved" : "sem_external_reference",
+            payment_id: paymentId,
+            status: pgto.status,
+          },
+        });
+        return NextResponse.json({ status: "ignorado", motivo_status: pgto.status, tem_ref: !!pgto.referencia });
+      }
+
+      {
         const corridaId = pgto.referencia;
 
         // IDEMPOTENCIA: tenta marcar payment_id como processado ANTES de qualquer

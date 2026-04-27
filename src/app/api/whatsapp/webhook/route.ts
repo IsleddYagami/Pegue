@@ -410,12 +410,30 @@ export async function POST(req: NextRequest) {
 
       const stepsAceitamFoto = ["aguardando_foto", "aguardando_mais_fotos", "aguardando_destino"];
       if (session && stepsAceitamFoto.includes(session.step)) {
-        // Feedback IMEDIATO pro cliente nao achar que travou.
-        // IA Vision demora 4-6s (download + OpenAI). Sem isso, cliente que
-        // manda 3 fotos juntas espera 30s sem retorno e aperta '2 Editar'
-        // achando que travou (bug 26/Abr).
         const itensExistentes = (session.descricao_carga || "").split(", ").filter((i) => i.trim().length > 0).length;
         const numeroFoto = itensExistentes + 1;
+
+        // GUARD ANTI-ABUSE: limite de 15 fotos por cotacao.
+        // Acima disso: escala humano. Razoes:
+        // 1. Custo OpenAI Vision: 16+ fotos = R$ 0.04+ so de IA, mais que ganho
+        //    da maioria das corridas pequenas
+        // 2. Carga grande/complexa precisa avaliacao humana (frete >8m³ provavel)
+        // 3. Anti-DDoS: limita gasto em caso de cliente malicioso/loop bot
+        if (numeroFoto > 15) {
+          await updateSession(phoneNumber, { step: "atendimento_humano" });
+          await notificarAdmins(
+            `📦 *CARGA GRANDE — ESPECIALISTA*`,
+            phoneNumber,
+            `Cliente mandou *${numeroFoto}+ fotos* (limite 15 atingido).\n\nProvavel mudanca grande/complexa. IA Vision parou de processar pra evitar custo desnecessario.\n\n*Itens identificados ate agora:*\n${session.descricao_carga || "-"}\n\n*Como agir:* chamar cliente no WhatsApp pra cotar manual.`
+          );
+          await sendToClient({
+            to: phoneNumber,
+            message: `📦 *Sua carga eh grande!*\n\nIdentifiquei mais de 15 itens — mudancas dessa proporcao precisam de *avaliacao personalizada* pra cotar o veiculo certo.\n\nUm *especialista* foi acionado e vai te chamar em alguns minutos pra fazer a cotacao manualmente. Aguarda 🙏`,
+          });
+          return NextResponse.json({ status: "carga_grande_escalada" });
+        }
+
+        // Feedback IMEDIATO pro cliente nao achar que travou (IA Vision demora 4-6s).
         await sendToClient({
           to: phoneNumber,
           message: `📸 Foto ${numeroFoto} recebida! Analisando... ⏳`,

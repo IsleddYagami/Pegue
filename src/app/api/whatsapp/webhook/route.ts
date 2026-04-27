@@ -3806,22 +3806,42 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
       return;
     }
 
-    // PROTECAO TESTE: se cliente eh phone de teste (Fabio, Mateus, etc),
-    // NAO dispara pra fretistas reais. Notifica admin com [TESTE] mostrando
-    // o que SERIA enviado. Evita Mauricio/Jackeline receberem dispatch fake.
+    // PROTECAO TESTE: se cliente eh phone de teste (Fabio, etc), filtra a
+    // lista de fretistas pra incluir APENAS fretistas tambem marcados como
+    // teste (ex: Jackeline). Fretistas reais (Mauricio, etc) nunca recebem
+    // dispatch de cliente teste.
+    //
+    // Comportamentos:
+    // a) Tem fretista teste disponivel -> dispara real APENAS pra ele
+    //    -> permite teste E2E completo (cliente cota, fretista pega, etc)
+    // b) Nenhum fretista teste disponivel -> simula (notifica admin),
+    //    nao dispara pra ninguem -> evita confundir fretistas reais.
     if (isPhoneTeste(clientePhone)) {
-      const nomesFretistas = prestadores.map((p) => `${p.nome} (${p.telefone})`).join("\n");
+      const prestadoresTeste = prestadores.filter((p) => isPhoneTeste(p.telefone));
+
+      if (prestadoresTeste.length === 0) {
+        const nomesFretistas = prestadores.map((p) => `${p.nome} (${p.telefone})`).join("\n");
+        await notificarAdmins(
+          `🧪 *[TESTE] DISPATCH SIMULADO* (cliente teste, sem fretista teste disponivel)`,
+          clientePhone,
+          `Corrida: ${corridaId}\nTipo: ${isGuincho ? "GUINCHO" : "FRETE"}\n📅 ${session.data_agendada || "A combinar"}\n📍 ${session.origem_endereco}\n🏠 ${session.destino_endereco}\n💰 R$ ${session.valor_estimado}\n\n*Fretistas REAIS que SERIAM chamados (${prestadores.length}):*\n${nomesFretistas}\n\n_Nenhum foi notificado pra evitar perturbacao._`
+        );
+        await sendToClient({
+          to: clientePhone,
+          message: `🧪 *MODO TESTE*\n\nNenhum fretista de teste disponivel — dispatch SIMULADO. Cadastra a Jackeline (ou outro testador) como ADMIN_PHONES pra rodar teste E2E real.`,
+        });
+        return;
+      }
+
+      // Filtra pra disparar SOMENTE pra fretistas teste
+      prestadores = prestadoresTeste;
+      const nomesTeste = prestadoresTeste.map((p) => `${p.nome} (${p.telefone})`).join(", ");
       await notificarAdmins(
-        `🧪 *[TESTE] DISPATCH SIMULADO* (cliente teste, NAO chamou fretistas reais)`,
+        `🧪 *[TESTE] DISPATCH REAL P/ TESTERS*`,
         clientePhone,
-        `Corrida: ${corridaId}\nTipo: ${isGuincho ? "GUINCHO" : "FRETE"}\n📅 ${session.data_agendada || "A combinar"}\n📍 ${session.origem_endereco}\n🏠 ${session.destino_endereco}\n💰 R$ ${session.valor_estimado}\n\n*Fretistas que SERIAM chamados (${prestadores.length}):*\n${nomesFretistas}\n\n_Nenhum fretista real foi notificado._`
+        `Corrida: ${corridaId}\n💰 R$ ${session.valor_estimado}\n\n*Disparando real pra ${prestadoresTeste.length} fretista(s) teste:* ${nomesTeste}\n\n_Fretistas reais NAO foram notificados._`
       );
-      // Atualiza a sessao do cliente teste informando que dispatch foi simulado
-      await sendToClient({
-        to: clientePhone,
-        message: `🧪 *MODO TESTE detectado*\n\nDispatch foi SIMULADO — nenhum fretista real foi notificado (${prestadores.length} fretistas seriam chamados).\n\nResumo enviado pro admin pra acompanhar.`,
-      });
-      return;
+      // Continua o fluxo normal abaixo (com lista filtrada)
     }
 
     let telefones = prestadores.map((p) => p.telefone);

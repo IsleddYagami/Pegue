@@ -347,7 +347,7 @@ ${ticketUrl}
 
 Em alguns minutos nossa equipe envia o link de pagamento aqui.
 
-🔒 Lembrando: o valor fica *RETIDO* até você confirmar a entrega.`,
+🔒 *Mesmo sistema do Mercado Livre:* o valor fica *RETIDO* na Pegue/Mercado Pago até você confirmar a entrega.`,
 
   nenhumFretista: `Nosso especialista logo enviara a confirmacao do seu frete! 😊
 Fique tranquilo, ja estamos cuidando disso!`,
@@ -368,14 +368,14 @@ O ${nomePrestador} vai entrar em contato pra alinhar os detalhes com voce.
 Qualquer coisa, estamos aqui!
 Relaxa. A gente leva. 🚚✨`,
 
-  explicaSeguranca: `🔒 *PAGAMENTO 100% PROTEGIDO PELA PEGUE*
+  explicaSeguranca: `🔒 *PAGAMENTO PROTEGIDO — mesmo sistema do Mercado Livre*
 
 ━━━━━━━━━━━━━━━━
 
 🏦 *Como funciona:*
 
 1️⃣ Você paga via Pix ou cartão
-2️⃣ O valor fica *RETIDO* na Pegue / Mercado Pago
+2️⃣ O valor fica *RETIDO* na Pegue / Mercado Pago (igual MercadoLivre)
 3️⃣ O fretista executa o serviço
 4️⃣ Você confirma que recebeu tudo certinho
 5️⃣ *SÓ ENTÃO* o pagamento é liberado ao fretista

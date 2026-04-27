@@ -306,9 +306,9 @@ Logo ja sera confirmado!`,
 2️⃣ ❌ *NAO, cancelar* - Desistir do frete`,
 
   // Mensagem APOS fretista PEGAR + termos JA aceitos antes.
-  // PARTE 1 da confirmacao pos-PEGAR. PIX direto enviado em 2 mensagens
-  // separadas: a explicacao (esta) + o codigo PIX cru (pra cliente pressionar
-  // e copiar com 1 toque, sem formatacao atrapalhando).
+  // PARTE 1 (PIX): mensagem com explicacao do PIX + seguranca + URL QR.
+  // Codigo PIX cru vem em mensagem separada (PARTE 2) pra cliente copiar com
+  // 1 toque. Opcao cartao vem em mensagem propria (PARTE 3).
   freteConfirmadoEnviaPagamento: (
     ticketUrl: string,
     data: string,
@@ -322,7 +322,7 @@ Logo ja sera confirmado!`,
 
 ━━━━━━━━━━━━━━━━
 
-💳 *PAGAR VIA PIX (R$ a confirmar abaixo)*
+🟢 *OPCAO 1: PAGAR VIA PIX (mais rapido)*
 
 📋 *Como pagar:*
 1) Pressione e segure o codigo da proxima mensagem
@@ -335,16 +335,33 @@ ${ticketUrl}
 
 ━━━━━━━━━━━━━━━━
 
-🔒 *Mesmo sistema do Mercado Livre:* o valor fica *RETIDO* na Pegue/Mercado Pago até você confirmar a entrega.
+🔒 *Pagamento 100% seguro — mesmo sistema do Mercado Livre:*
+O valor fica *RETIDO* na Pegue / Mercado Pago. *Não vai direto pro fretista.* Só é liberado depois que você confirmar a entrega. Qualquer problema = *reembolso 100%*.
 
 ⏳ PIX válido por 24 horas.
 
 👇 *Codigo PIX abaixo:*`,
 
-  // PARTE 2 da confirmacao pos-PEGAR. Apenas o codigo PIX cru, em mensagem
-  // separada, sem formatacao. Cliente pressiona e segura -> Copiar -> cola
-  // no app do banco. Maxima simplicidade pra cliente leigo.
+  // PARTE 2 (codigo PIX): apenas o codigo cru, sem formatacao. Cliente
+  // pressiona e segura -> Copiar -> cola no app do banco.
   pixCodigoCopiaCola: (qrCodeTexto: string) => qrCodeTexto,
+
+  // PARTE 3 (cartao): mensagem propria pra opcao cartao credito/debito.
+  // Vem DEPOIS das duas msgs do PIX. Mantem mesma seguranca explicada.
+  freteOpcaoCartao: (linkCartao: string) =>
+    `━━━━━━━━━━━━━━━━
+
+💳 *OPCAO 2: PAGAR COM CARTAO (credito ou debito)*
+
+🔗 Clica no link abaixo pra pagar com cartao:
+${linkCartao}
+
+━━━━━━━━━━━━━━━━
+
+🔒 *Mesma seguranca do PIX — sistema do Mercado Livre:*
+O valor fica *RETIDO* na Pegue / Mercado Pago. *Não vai direto pro fretista.* Só é liberado depois que você confirmar a entrega. Qualquer problema = *reembolso 100%*.
+
+⏳ Link valido por 20 minutos.`,
 
   // Mensagem quando pagamento automatico esta OFF (equipe envia link manual).
   freteConfirmadoSemPagamento: (data: string, nomeFretista: string) =>

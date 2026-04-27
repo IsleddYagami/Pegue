@@ -5190,11 +5190,12 @@ async function notificarResultadoDispatch(
     const primeiroNomeFretista = (prestador.nome || "").split(" ")[0] || "seu fretista";
 
     if (pagamentoHabilitado) {
-      // Gera PIX DIRETO via Mercado Pago Payment API (NAO mais Checkout Pro).
-      // Cliente recebe QR code + copia/cola, paga em qualquer banco SEM login.
-      // valor_final ja foi calculado no salvarCorrida (com desconto aplicado).
+      // Gera PIX DIRETO (Payment API) E link Checkout Pro (cartao) em paralelo.
+      // Cliente escolhe a forma de pagar:
+      //   - PIX: copia/cola sem login, paga em qualquer banco
+      //   - Cartao: clica no link Checkout Pro, paga com credito/debito
       try {
-        const { criarPagamentoPixDireto } = await import("@/lib/mercadopago");
+        const { criarPagamentoPixDireto, criarLinkPagamento } = await import("@/lib/mercadopago");
         const { data: corridaPagto } = await supabase
           .from("corridas")
           .select("descricao_carga, valor_final, valor_estimado")
@@ -5207,32 +5208,54 @@ async function notificarResultadoDispatch(
           .single();
 
         const valorPagto = Number(corridaPagto?.valor_final || corridaPagto?.valor_estimado || 0);
-        const { paymentId, qrCodeTexto, ticketUrl } = await criarPagamentoPixDireto({
-          corridaId,
-          descricao: corridaPagto?.descricao_carga || "Frete Pegue",
-          valor: valorPagto,
-          clienteNome: clientePagto?.nome || "Cliente",
-          clienteTelefone: clientePhone,
-          clienteEmail: clientePagto?.email || undefined,
-        });
+        const descricaoPagto = corridaPagto?.descricao_carga || "Frete Pegue";
+        const nomeCliente = clientePagto?.nome || "Cliente";
+        const emailCliente = clientePagto?.email || undefined;
 
-        // Salva paymentId pra rastrear webhook MP depois
+        // Gera PIX direto + link cartao em paralelo (latencia menor)
+        const [pixData, cartaoData] = await Promise.all([
+          criarPagamentoPixDireto({
+            corridaId,
+            descricao: descricaoPagto,
+            valor: valorPagto,
+            clienteNome: nomeCliente,
+            clienteTelefone: clientePhone,
+            clienteEmail: emailCliente,
+          }),
+          criarLinkPagamento({
+            corridaId,
+            descricao: descricaoPagto,
+            valor: valorPagto,
+            clienteNome: nomeCliente,
+            clienteEmail: emailCliente,
+          }),
+        ]);
+
+        // Salva paymentId do PIX pra rastrear webhook MP
         await supabase
           .from("corridas")
-          .update({ pin_entrega: paymentId })
+          .update({ pin_entrega: pixData.paymentId })
           .eq("id", corridaId);
 
-        // Envia em 2 mensagens separadas pra cliente leigo conseguir copiar
-        // o codigo PIX com 1 toque (sem formatacao atrapalhando).
-        // 1: Explicacao + URL alternativa do QR
+        // Envia em 3 mensagens sequenciais (ordem: PIX primeiro, cartao depois):
+        // 1) Explicacao PIX + seguranca + URL QR
+        // 2) Codigo PIX cru (cliente pressiona+copia)
+        // 3) Opcao cartao com link Checkout Pro + seguranca
         await sendToClient({
           to: clientePhone,
-          message: MSG.freteConfirmadoEnviaPagamento(ticketUrl, dataFrete, primeiroNomeFretista),
+          message: MSG.freteConfirmadoEnviaPagamento(
+            pixData.ticketUrl,
+            dataFrete,
+            primeiroNomeFretista,
+          ),
         });
-        // 2: Codigo PIX cru, isolado (cliente pressiona e segura -> Copiar)
         await sendToClient({
           to: clientePhone,
-          message: MSG.pixCodigoCopiaCola(qrCodeTexto),
+          message: MSG.pixCodigoCopiaCola(pixData.qrCodeTexto),
+        });
+        await sendToClient({
+          to: clientePhone,
+          message: MSG.freteOpcaoCartao(cartaoData.linkPagamento),
         });
         await updateSession(clientePhone, { step: "aguardando_pagamento" });
       } catch (errMP: any) {

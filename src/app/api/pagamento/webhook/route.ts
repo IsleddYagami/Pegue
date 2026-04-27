@@ -133,11 +133,25 @@ export async function POST(req: NextRequest) {
           throw errIdempotencia;
         }
 
-        const { data: corrida } = await supabase
+        // Especifica FK pra evitar PGRST201 (corridas tem 2 FKs pra prestadores:
+        // prestador_id e contraoferta_prestador_id - sem !prestador_id, Supabase
+        // nao sabe qual usar e retorna null silenciosamente).
+        const { data: corrida, error: errCorrida } = await supabase
           .from("corridas")
-          .select("*, prestadores(nome, telefone), clientes(nome, telefone)")
+          .select("*, prestadores!prestador_id(nome, telefone), clientes(nome, telefone)")
           .eq("id", corridaId)
           .single();
+
+        if (errCorrida) {
+          await supabase.from("bot_logs").insert({
+            payload: {
+              tipo: "webhook_mp_select_corrida_falhou",
+              corrida_id: corridaId,
+              erro: errCorrida.message,
+              code: errCorrida.code,
+            },
+          });
+        }
 
         if (!corrida) {
           // Referencia invalida. Isso eh suspeito mas nao eh erro do sistema.

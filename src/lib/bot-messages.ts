@@ -347,23 +347,18 @@ O valor fica *RETIDO* na Pegue / Mercado Pago. *Não vai direto pro fretista.* S
   pixCodigoCopiaCola: (qrCodeTexto: string) => qrCodeTexto,
 
   // PARTE 3 (cartao): mensagem propria pra opcao cartao credito/debito.
-  // Vem DEPOIS das duas msgs do PIX. Avisa do REPASSE DA TAXA do cartao.
-  freteOpcaoCartao: (linkCartao: string, valorOriginal: number, taxa: number, total: number) =>
+  // Avisa que cartao tem taxa (sem mostrar valor — varia por parcela e o
+  // cliente ve o total real na tela de pagamento do MP).
+  freteOpcaoCartao: (linkCartao: string) =>
     `━━━━━━━━━━━━━━━━
 
 💳 *OPCAO 2: PAGAR COM CARTAO (credito ou debito)*
 
-⚠️ *Atencao - taxa do cartao:*
-Pagamento via cartao tem *taxa cobrada pelo Mercado Pago* (4,98%) que eh repassada ao cliente.
-
-📊 *Detalhamento:*
-• Valor do frete: R$ ${valorOriginal.toFixed(2).replace(".", ",")}
-• Taxa do cartao: R$ ${taxa.toFixed(2).replace(".", ",")}
-• *Total no cartao: R$ ${total.toFixed(2).replace(".", ",")}*
+⚠️ *Pagamento via cartao tem taxa* cobrada pelo Mercado Pago (varia conforme parcelamento). O valor total aparece na tela de pagamento.
 
 💡 *Quer evitar a taxa?* Pague via *PIX* (mensagem acima) — sem custo adicional.
 
-🔗 Se preferir cartao mesmo, clica aqui:
+🔗 Pra pagar com cartao, clica aqui:
 ${linkCartao}
 
 ━━━━━━━━━━━━━━━━

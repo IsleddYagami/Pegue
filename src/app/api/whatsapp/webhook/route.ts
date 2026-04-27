@@ -53,6 +53,20 @@ import { criteriosMediaDaSimulacao, invalidarCacheAjustes } from "@/lib/ajustes-
 import { isAdminPhone, isPhoneTeste } from "@/lib/admin-auth";
 import { notificarAdmins } from "@/lib/admin-notify";
 import { extrairContextoInicial, formatarConfirmacaoContexto, type ContextoExtraido } from "@/lib/extrair-contexto";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+// Limite de chamadas IA Vision por hora por telefone.
+// Cliente legitimo numa cotacao normal faz <15 fotos. 30/hora cobre ate 2
+// tentativas seguidas. Acima disso = sinal de dificuldade do cliente OU
+// tentativa de abuso. Em ambos os casos, escala humano (NAO bloqueia).
+// Janela rolante de 60min: cliente pode tentar de novo daqui a 1h sem fricao.
+const VISION_MAX_HORA = 30;
+
+// Tamanho maximo da foto pra analise IA. Cliente legitimo manda <2MB
+// (foto WhatsApp comprimida). Acima de 5MB = anomalia OU ataque.
+// Bloquear AQUI evita gasto desnecessario na OpenAI Vision (que mediria a
+// imagem inteira pra rejeitar depois).
+const VISION_MAX_BYTES = 5 * 1024 * 1024;
 
 export const dynamic = "force-dynamic";
 
@@ -314,6 +328,9 @@ export async function POST(req: NextRequest) {
 
       // Foto no guincho - Cotacao Express
       if (session && session.step === "guincho_categoria") {
+        const guardVision = await protegerVisionLimit(phoneNumber);
+        if (!guardVision.permitido) return guardVision.resposta;
+
         const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
         await sendToClient({
           to: phoneNumber,
@@ -343,6 +360,10 @@ export async function POST(req: NextRequest) {
       if (!session || session.step === "aguardando_servico" || session.step === "concluido" || session.step === "inicio") {
         await createSession(phoneNumber, instance);
         invalidateInstanceCache(phoneNumber);
+
+        const guardVision = await protegerVisionLimit(phoneNumber);
+        if (!guardVision.permitido) return guardVision.resposta;
+
         const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
         await sendToClient({
           to: phoneNumber,
@@ -432,6 +453,9 @@ export async function POST(req: NextRequest) {
           });
           return NextResponse.json({ status: "carga_grande_escalada" });
         }
+
+        const guardVision = await protegerVisionLimit(phoneNumber);
+        if (!guardVision.permitido) return guardVision.resposta;
 
         // Feedback IMEDIATO pro cliente nao achar que travou (IA Vision demora 4-6s).
         await sendToClient({
@@ -2910,6 +2934,9 @@ async function handleAdicionarItemDescricao(phone: string, message: string, hasM
   let descricaoNovaItem = "";
 
   if (hasMedia && imageUrl) {
+    const guardVision = await protegerVisionLimit(phone);
+    if (!guardVision.permitido) return;
+
     const analise = await analisarFotoIA(imageUrl);
     if (analise && Array.isArray(analise.itens)) {
       descricaoNovaItem = analise.itens.join(", ");
@@ -5253,9 +5280,87 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
 
 // === OPENAI VISION ===
 
+// GUARD anti-abuso IA Vision: rate limit 30 fotos/hora por phone.
+// Se exceder, escala humano (NAO bloqueia o telefone, NAO recusa atendimento).
+// Retorna { permitido: true } -> call site segue.
+// Retorna { permitido: false, resposta } -> call site faz `return guard.resposta`.
+//
+// Por que este guard existe (alem do limite de 15 fotos/cotacao):
+// - Limite 15/cotacao protege UMA cotacao individual
+// - Este protege contra MULTIPLAS cotacoes seguidas (cliente confuso retentando)
+//   OU ataque de spam de fotos (atacante mandando 100 fotos em 5min)
+// - Janela de 60min: cliente legitimo pode tentar de novo daqui a 1h sem fricao
+async function protegerVisionLimit(
+  phoneNumber: string
+): Promise<{ permitido: true } | { permitido: false; resposta: NextResponse }> {
+  const limite = await checkRateLimit({
+    chave: `vision:${phoneNumber}`,
+    max: VISION_MAX_HORA,
+    janelaMinutos: 60,
+  });
+  if (limite.permitido) return { permitido: true };
+
+  // Excedeu: escala humano + notifica admin + responde cliente
+  await updateSession(phoneNumber, { step: "atendimento_humano" });
+  await notificarAdmins(
+    `📸 *MUITAS FOTOS — ESCALADO*`,
+    phoneNumber,
+    `Cliente fez *${limite.contador}* analises de foto na ultima hora (limite ${VISION_MAX_HORA}).\n\nPossiveis causas:\n• Cliente com dificuldade — varias tentativas de cotar\n• Mudanca grande/complexa\n• Tentativa de abuso/spam\n\nUm especialista deve atender pra cotar manualmente OU validar se eh cliente real.`
+  );
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "vision_limite_hora_excedido",
+      phone: phoneNumber,
+      contador: limite.contador,
+      max: VISION_MAX_HORA,
+    },
+  });
+  await sendToClient({
+    to: phoneNumber,
+    message: `📸 *Vamos te atender direto!*\n\nVi que voce esta enviando varias fotos — quero garantir que sua mudanca eh cotada *certinho*.\n\nUm *especialista* foi acionado e vai te chamar em alguns minutos. Aguarda 🙏`,
+  });
+  return {
+    permitido: false,
+    resposta: NextResponse.json({ status: "vision_limite_escalado", contador: limite.contador }),
+  };
+}
+
 // Analisa foto de veiculo pra guincho (Cotacao Express)
 async function analisarFotoGuincho(imageUrl: string): Promise<string | null> {
   try {
+    // PASSO 1: Baixa imagem do ChatPro pro nosso servidor + valida tamanho/tipo.
+    // (Mesmo motivo de analisarFotoIA: URLs ChatPro tem token/expiram, OpenAI
+    // recebe 403/404 se passar direto.)
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      await supabase.from("bot_logs").insert({
+        payload: { tipo: "vision_guincho_download_falhou", status: imageResponse.status },
+      });
+      return null;
+    }
+    const imageBuffer = await imageResponse.arrayBuffer();
+    const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
+
+    if (imageBuffer.byteLength > VISION_MAX_BYTES) {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "vision_guincho_foto_grande",
+          bytes: imageBuffer.byteLength,
+          max_bytes: VISION_MAX_BYTES,
+        },
+      });
+      return null;
+    }
+    if (!contentType.startsWith("image/")) {
+      await supabase.from("bot_logs").insert({
+        payload: { tipo: "vision_guincho_tipo_invalido", content_type: contentType },
+      });
+      return null;
+    }
+
+    const imageBase64 = Buffer.from(imageBuffer).toString("base64");
+    const dataUrl = `data:${contentType};base64,${imageBase64}`;
+
     const OpenAI = (await import("openai")).default;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
 
@@ -5275,7 +5380,7 @@ Responda SOMENTE o texto, sem explicacao.`,
           role: "user",
           content: [
             { type: "text", text: "Identifique este veiculo:" },
-            { type: "image_url", image_url: { url: imageUrl } },
+            { type: "image_url", image_url: { url: dataUrl, detail: "low" } },
           ],
         },
       ],
@@ -5331,8 +5436,37 @@ async function analisarFotoIA(imageUrl: string): Promise<{
       return null;
     }
     const imageBuffer = await imageResponse.arrayBuffer();
-    const imageBase64 = Buffer.from(imageBuffer).toString("base64");
     const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
+
+    // GUARD anti-abuso: rejeita imagens > VISION_MAX_BYTES (5MB).
+    // Cliente WhatsApp normal manda <2MB (foto comprimida). Acima de 5MB =
+    // anomalia OU tentativa de gastar tokens da OpenAI. Rejeitar AQUI evita
+    // o custo (token-per-image scale com tamanho).
+    if (imageBuffer.byteLength > VISION_MAX_BYTES) {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "vision_foto_grande_demais",
+          bytes: imageBuffer.byteLength,
+          max_bytes: VISION_MAX_BYTES,
+          content_type: contentType,
+        },
+      });
+      return null;
+    }
+
+    // GUARD: rejeita conteudo nao-imagem (atacante mandando .pdf/.zip).
+    if (!contentType.startsWith("image/")) {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "vision_content_type_invalido",
+          content_type: contentType,
+          bytes: imageBuffer.byteLength,
+        },
+      });
+      return null;
+    }
+
+    const imageBase64 = Buffer.from(imageBuffer).toString("base64");
     const dataUrl = `data:${contentType};base64,${imageBase64}`;
 
     // Log: download OK

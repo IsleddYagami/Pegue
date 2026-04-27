@@ -12,14 +12,22 @@
 
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
-function janelaAtual(): string {
-  // YYYY-MM-DDTHH:MM (minuto atual em UTC)
-  return new Date().toISOString().slice(0, 16);
+function janelaAtual(janelaMinutos: number = 1): string {
+  // Bucket arredondado pra inicio do periodo de N minutos em UTC.
+  // janelaMinutos=1 -> "YYYY-MM-DDTHH:MM" (cada minuto)
+  // janelaMinutos=60 -> "YYYY-MM-DDTHH:00" (cada hora)
+  // janelaMinutos=1440 -> "YYYY-MM-DDT00:00" (cada dia)
+  const agora = new Date();
+  const minutosTotais = Math.floor(agora.getTime() / 60000);
+  const bucketMin = Math.floor(minutosTotais / janelaMinutos) * janelaMinutos;
+  const bucketDate = new Date(bucketMin * 60000);
+  return bucketDate.toISOString().slice(0, 16);
 }
 
 export interface RateLimitConfig {
-  chave: string;       // identificador unico (ex: "admin_login:187.64.2.1")
-  max: number;         // max requests por minuto
+  chave: string;              // identificador unico (ex: "admin_login:187.64.2.1")
+  max: number;                // max requests por janela
+  janelaMinutos?: number;     // duracao da janela em minutos (default 1)
 }
 
 export interface RateLimitResponse {
@@ -30,7 +38,7 @@ export interface RateLimitResponse {
 }
 
 export async function checkRateLimit(cfg: RateLimitConfig): Promise<RateLimitResponse> {
-  const janela = janelaAtual();
+  const janela = janelaAtual(cfg.janelaMinutos || 1);
 
   // Tenta inserir com contador=1. Se ja existir, faz update incrementando.
   // Como Supabase RPC direto seria melhor, usamos SELECT + UPSERT.

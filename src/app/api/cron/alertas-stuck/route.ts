@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
-import { isValidCronKey, isValidAdminKey } from "@/lib/admin-auth";
+import { isValidCronKey, isValidAdminKey, isPhoneTeste } from "@/lib/admin-auth";
 import { notificarAdmins } from "@/lib/admin-notify";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +76,15 @@ export async function GET(req: NextRequest) {
   for (const sessao of sessoes) {
     const config = STEPS_MONITORADOS[sessao.step];
     if (!config) continue;
+
+    // GUARD: NAO alerta sobre phones de teste/admin (Fabio + Jackeline + outros).
+    // Sessao de teste em step monitorado nao deve perturbar admin (memory:
+    // "testes nao devem perturbar admin"). Cobre tanto teste E2E manual
+    // quanto sessoes que ficaram zumbis depois de teste.
+    if (isPhoneTeste(sessao.phone)) {
+      ignorados.push({ phone: sessao.phone, step: sessao.step, motivo: "phone_teste_ignorado" });
+      continue;
+    }
 
     const idadeMs = agora - new Date(sessao.atualizado_em).getTime();
     const idadeMin = Math.floor(idadeMs / 60000);

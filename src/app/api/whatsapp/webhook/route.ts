@@ -1394,6 +1394,47 @@ async function handleLocalizacao(
       );
       return;
     }
+
+    // Caminho C2: Nominatim falhou. Tenta IA limpar o endereco antes
+    // de desistir. Cliente brasileiro manda formato informal tipo:
+    //   "Rua X 52 uma travessa da Y perto do céu Vila Z"
+    // IA extrai rua + bairro + cidade, ignora ruido. Custo ~R$0.003.
+    try {
+      const { interpretarEnderecoComIA } = await import("@/lib/geocoder-ia");
+      const interpretado = await interpretarEnderecoComIA(message);
+
+      if (interpretado && interpretado.confianca !== "BAIXA" && interpretado.textoLimpo) {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "geocoder_ia_tentativa",
+            texto_original: message.slice(0, 200),
+            texto_limpo: interpretado.textoLimpo,
+            confianca: interpretado.confianca,
+            phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+          },
+        });
+
+        const coordsIA = await geocodeAddress(interpretado.textoLimpo);
+        if (coordsIA?.lat && coordsIA?.lng) {
+          // IA salvou! Reformata e apresenta pra confirmar
+          const enderecoFinal =
+            (await reverseGeocode(coordsIA.lat, coordsIA.lng)) || interpretado.textoLimpo;
+          await supabase.from("bot_logs").insert({
+            payload: {
+              tipo: "geocoder_ia_sucesso",
+              texto_original: message.slice(0, 200),
+              endereco_final: enderecoFinal,
+              phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+            },
+          });
+          await apresentarOrigemPraConfirmacao(phone, enderecoFinal, coordsIA.lat, coordsIA.lng);
+          return;
+        }
+      }
+    } catch (e: any) {
+      // Falha da IA nao bloqueia fluxo — segue pro escalation manual
+      console.warn("geocoder-ia falhou:", e?.message);
+    }
   }
 
   // Geocoder falhou OU texto muito vago.
@@ -1412,33 +1453,91 @@ async function handleLocalizacao(
     },
   });
 
-  // Conta quantas vezes a sessao atual ja falhou identificar origem
-  // Janela: ult 30min (sessao normal nao dura mais que isso)
-  const limiteTentativas = 2;
+  // Conta quantas vezes a sessao atual ja falhou identificar origem.
+  // Janela: ult 30min. Threshold 1 = ja na 1a falha alerta admin (Fabio
+  // exigiu 28/Abr - cliente nao pode ficar tentando varias vezes sem o
+  // admin saber).
+  const LIMITE_TENTATIVAS = 1; // 1 = alerta na primeira falha
   const desde30min = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  const phoneMasked = phone.replace(/\d(?=\d{4})/g, "*");
+
   const { count: tentativasFalhas } = await supabase
     .from("bot_logs")
     .select("id", { count: "exact", head: true })
     .filter("payload->>tipo", "eq", "origem_nao_identificada")
-    .filter("payload->>phone_masked", "eq", phone.replace(/\d(?=\d{4})/g, "*"))
+    .filter("payload->>phone_masked", "eq", phoneMasked)
     .gte("criado_em", desde30min);
 
-  if ((tentativasFalhas || 0) >= limiteTentativas) {
-    // ESCALA pra atendimento humano - cliente em loop
+  if ((tentativasFalhas || 0) >= LIMITE_TENTATIVAS) {
+    // ESCALA pra atendimento humano + alerta URGENTE com info completa
     await updateSession(phone, { step: "atendimento_humano" });
+
+    // Busca todas tentativas dessa sessao pra mostrar ao admin
+    const { data: tentativasLogs } = await supabase
+      .from("bot_logs")
+      .select("payload, criado_em")
+      .filter("payload->>tipo", "eq", "origem_nao_identificada")
+      .filter("payload->>phone_masked", "eq", phoneMasked)
+      .gte("criado_em", desde30min)
+      .order("criado_em", { ascending: true });
+
+    // Busca dados do cliente (se tiver cadastro)
+    const { data: clienteInfo } = await supabase
+      .from("clientes")
+      .select("nome, total_corridas")
+      .eq("telefone", phone)
+      .maybeSingle();
+
+    const sessaoCli = await getSession(phone);
+    const phoneClick = phone.replace(/\D/g, "");
+
+    // Lista TODAS as tentativas (texto completo, nao amostra)
+    const tentativasTexto = (tentativasLogs || [])
+      .map((l, i) => {
+        const txt = (l.payload as any)?.texto_amostra || "(vazio)";
+        const hr = l.criado_em.slice(11, 16);
+        return `${i + 1}) [${hr}] "${txt}"`;
+      })
+      .join("\n");
+
+    const detalhesAdmin = [
+      `🚨🚨🚨 *URGENTE — CLIENTE TRAVADO* 🚨🚨🚨`,
+      ``,
+      `👤 *Cliente:* ${clienteInfo?.nome || "(novo, sem cadastro)"}`,
+      `📞 *Telefone:* +${phoneClick}`,
+      `🔗 *Abrir conversa:* https://wa.me/${phoneClick}`,
+      `📊 *Historico:* ${clienteInfo?.total_corridas || 0} corridas anteriores`,
+      ``,
+      `━━━━━━━━━━━━━━━━`,
+      `❌ *PROBLEMA: nao consegui identificar o endereço de retirada*`,
+      `Geocoder Nominatim falhou ${tentativasFalhas} vez(es).`,
+      ``,
+      `📝 *Tentativas do cliente:*`,
+      tentativasTexto || `(ultima: "${message.slice(0, 200)}")`,
+      ``,
+      `📦 *Carga ja informada:* ${sessaoCli?.descricao_carga || "(nao informou ainda)"}`,
+      `🏠 *Destino ja informado:* ${sessaoCli?.destino_endereco || "(nao informou ainda)"}`,
+      ``,
+      `━━━━━━━━━━━━━━━━`,
+      `🎯 *AÇÃO IMEDIATA:*`,
+      `Chama o cliente AGORA pelo WhatsApp da Pegue pra:`,
+      `1) Pegar o endereço completo (rua + numero + bairro + cidade)`,
+      `2) Continuar a cotacao manual`,
+      ``,
+      `🔇 Bot ja foi calado — voce pode responder sem conflito.`,
+      `🤖 Pra reativar o bot depois: /admin/operacao-real -> Devolver pro bot`,
+    ].join("\n");
+
     await sendToClient({
       to: phone,
       message: `Eu não tô conseguindo identificar seu endereço aqui — peço desculpa! 😔
 
-Pra agilizar, *um especialista da nossa equipe* vai te chamar em alguns minutos pra anotar manualmente.
+Pra agilizar, *um especialista da nossa equipe* vai te chamar em poucos minutos pra anotar manualmente.
 
 Pode aguardar, ele vai cuidar do seu frete com toda atenção. 🙏`,
     });
-    await notificarAdmins(
-      `📍 *CLIENTE TRAVADO NO ENDEREÇO — ATUAR*`,
-      phone,
-      `Cliente tentou ${tentativasFalhas} vezes mandar endereço, geocoder não achou.\n\nUltimo texto: "${message.slice(0, 200)}"\n\n👉 Chama no WhatsApp pra anotar manualmente.`,
-    );
+
+    await notificarAdmins(`📍 CLIENTE TRAVADO — ATUAR JA`, phone, detalhesAdmin);
     return;
   }
 
@@ -5693,6 +5792,50 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
 //
 // Em ambos casos: escala humano (NAO bloqueia o telefone, NAO recusa atendimento).
 // Retorna { permitido: true } -> call site segue.
+// Helper pra montar alerta admin RICO E COMPLETO (Fabio reforcou 28/Abr:
+// notificacoes precisam ter info real, telefone clicavel, contexto do
+// problema, instrucao de acao). Usar SEMPRE que escalar pra atendimento humano.
+async function montarAlertaAdminRico(opts: {
+  motivo: string; // ex: "Cliente travou no envio de foto"
+  phone: string;
+  problemaDetalhado: string;
+  acaoSugerida: string;
+}): Promise<string> {
+  const phoneClick = opts.phone.replace(/\D/g, "");
+
+  const { data: cliente } = await supabase
+    .from("clientes")
+    .select("nome, total_corridas, nivel")
+    .eq("telefone", opts.phone)
+    .maybeSingle();
+
+  const sessao = await getSession(opts.phone);
+
+  return [
+    `🚨🚨🚨 *URGENTE — CLIENTE PRECISA DE VOCE* 🚨🚨🚨`,
+    ``,
+    `👤 *Cliente:* ${cliente?.nome || "(sem cadastro)"}`,
+    `📞 *Telefone:* +${phoneClick}`,
+    `🔗 *Abrir conversa:* https://wa.me/${phoneClick}`,
+    `📊 *Histórico:* ${cliente?.total_corridas || 0} corridas | ${cliente?.nivel || "novo"}`,
+    ``,
+    `━━━━━━━━━━━━━━━━`,
+    `❌ *PROBLEMA:* ${opts.motivo}`,
+    ``,
+    opts.problemaDetalhado,
+    ``,
+    `📦 *Carga já informada:* ${sessao?.descricao_carga || "(nao informou)"}`,
+    `📍 *Origem:* ${sessao?.origem_endereco || "(nao informou)"}`,
+    `🏠 *Destino:* ${sessao?.destino_endereco || "(nao informou)"}`,
+    ``,
+    `━━━━━━━━━━━━━━━━`,
+    `🎯 *AÇÃO:* ${opts.acaoSugerida}`,
+    ``,
+    `🔇 Bot já está calado.`,
+    `🤖 Pra reativar bot depois: /admin/operacao-real → Devolver pro bot`,
+  ].join("\n");
+}
+
 // Retorna { permitido: false, resposta } -> call site faz `return guard.resposta`.
 async function protegerVisionLimit(
   phoneNumber: string
@@ -5710,11 +5853,15 @@ async function protegerVisionLimit(
     if (!tentativas.permitido) {
       // 3a+ tentativa em 24h: escala humano SEM analisar foto
       await updateSession(phoneNumber, { step: "atendimento_humano" });
-      await notificarAdmins(
-        `📸 *3a TENTATIVA — ESCALADO*`,
-        phoneNumber,
-        `Cliente esta na *${tentativas.contador}a tentativa* de cotar com fotos em 24h (limite 2).\n\nIndica que cliente esta com dificuldade — bot nao esta atendendo bem.\n\n*Acao:* especialista deve assumir e cotar manualmente. NAO sera analisada mais nenhuma foto desse cliente nas proximas horas.`
-      );
+
+      const alertaRico = await montarAlertaAdminRico({
+        phone: phoneNumber,
+        motivo: `Cliente fez ${tentativas.contador}ª tentativa de cotar com fotos em 24h (limite 2)`,
+        problemaDetalhado: `Cliente está com dificuldade — bot não está atendendo bem.\nMudanças repetidas indicam carga grande/complexa OU UX confusa.`,
+        acaoSugerida: `Chama o cliente pelo WhatsApp da Pegue agora pra cotar manualmente. Pergunta lista de itens por texto e usa /admin/simulador pra gerar valor.`,
+      });
+
+      await notificarAdmins(`🚨 CLIENTE TRAVADO COM FOTOS — ATUAR JÁ`, phoneNumber, alertaRico);
       await supabase.from("bot_logs").insert({
         payload: {
           tipo: "vision_tentativa_excedida",
@@ -5742,11 +5889,13 @@ async function protegerVisionLimit(
   if (limite.permitido) return { permitido: true };
 
   await updateSession(phoneNumber, { step: "atendimento_humano" });
-  await notificarAdmins(
-    `📸 *MUITAS FOTOS — ESCALADO*`,
-    phoneNumber,
-    `Cliente fez *${limite.contador}* analises de foto na ultima hora (limite ${VISION_MAX_HORA}).\n\nPossivel spam OU mudanca grande.\n\nEspecialista deve assumir.`
-  );
+  const alertaRicoFotos = await montarAlertaAdminRico({
+    phone: phoneNumber,
+    motivo: `Cliente fez ${limite.contador} análises de foto IA na última hora (limite ${VISION_MAX_HORA})`,
+    problemaDetalhado: `Possível mudança grande OU cliente com dificuldade na cotacao por foto.\nIA Vision foi pausada pra evitar custo desnecessario.`,
+    acaoSugerida: `Chama o cliente pelo WhatsApp da Pegue agora. Cota manualmente perguntando itens por texto.`,
+  });
+  await notificarAdmins(`🚨 MUITAS FOTOS — ATUAR JÁ`, phoneNumber, alertaRicoFotos);
   await supabase.from("bot_logs").insert({
     payload: {
       tipo: "vision_limite_hora_excedido",

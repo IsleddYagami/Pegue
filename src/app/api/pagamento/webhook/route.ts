@@ -185,9 +185,26 @@ export async function POST(req: NextRequest) {
         if (clienteTel && prestador) {
           const telFormatado = formatarTelefoneExibicao(prestador.telefone);
 
-          // Atualiza session ANTES das chamadas chatpro pra garantir step
+          // Atualiza sessions ANTES das chamadas chatpro pra garantir steps
           // mesmo se ChatPro falhar/atrasar.
-          await updateSession(clienteTel, { step: "aguardando_numero_coleta" });
+          // - Cliente: aguardando_numero_coleta (responde com numero/complemento)
+          // - Fretista: fretista_coleta_fotos (UPSERT pra cobrir caso de fretista
+          //   sem session - acontece se cleanup zumbis tiver removido).
+          //   Sem isso, foto que fretista manda nao eh reconhecida como prova
+          //   de coleta -> bug que bloqueava todo o resto do fluxo.
+          await Promise.all([
+            updateSession(clienteTel, { step: "aguardando_numero_coleta" }),
+            supabase.from("bot_sessions").upsert(
+              {
+                phone: prestador.telefone,
+                step: "fretista_coleta_fotos",
+                corrida_id: corridaId,
+                instance_chatpro: 1,
+                atualizado_em: new Date().toISOString(),
+              } as any,
+              { onConflict: "phone" },
+            ),
+          ]);
 
           const clienteNome = (corrida.clientes as any)?.nome || formatarTelefoneExibicao(clienteTel);
           const qtdAjudantes = corrida.qtd_ajudantes || 0;
@@ -243,17 +260,19 @@ Bom trabalho! 🚗✨`
 
 ━━━━━━━━━━━━━━━━
 
-⚠️ *PROTOCOLO OBRIGATORIO:*
-📸 Fotografe TODOS os itens na *COLETA*
-📸 Fotografe TODOS os itens na *ENTREGA*
-🚫 Sem fotos = pagamento *BLOQUEADO*
+⚠️ *PROTOCOLO OBRIGATORIO - COLETA*
+
+📸 *Fotografe TODOS os itens* na coleta. Pode mandar varias fotos aqui mesmo no chat (uma por uma).
+
+✅ Quando terminar de fotografar a coleta, digite *PRONTO* aqui no chat — voce recebe o link do GPS pra acompanhar a entrega.
+
+🚫 Sem fotos = pagamento *BLOQUEADO*.
 
 ━━━━━━━━━━━━━━━━
 
-⏳ *IMPORTANTE - APOS A ENTREGA:*
-Apos descarregar, *aguarde no local* ate o cliente conferir e confirmar que esta tudo certo.
-Seu pagamento so sera processado apos a confirmacao do cliente.
-*Nao saia do local sem a confirmacao!*
+⏳ *APOS A ENTREGA:*
+Fotografe os itens no local de entrega. Aguarde o cliente confirmar antes de sair.
+Seu pagamento so sera liberado depois dessa confirmacao.
 
 Bom trabalho! 🚚✨`;
 

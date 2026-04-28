@@ -1383,6 +1383,10 @@ async function handleLocalizacao(
   // ANTES: aceitavamos com fallback Osasco hardcoded (-23.5329, -46.7916).
   // Isso violava feedback_jamais_cotar_sem_certeza (lat/lng falsos = fretista
   // vai pro endereco errado). Agora pedimos endereco melhor.
+  //
+  // GUARD: contar tentativas falhadas seguidas. Apos 2 falhas, escalar pra
+  // atendimento humano (cliente ficava em loop perdendo paciencia).
+  // Bug detectado 28/Abr: cliente 8131 tentou 5x em 7min e desistiu.
   await supabase.from("bot_logs").insert({
     payload: {
       tipo: "origem_nao_identificada",
@@ -1390,6 +1394,37 @@ async function handleLocalizacao(
       texto_amostra: message.slice(0, 200),
     },
   });
+
+  // Conta quantas vezes a sessao atual ja falhou identificar origem
+  const sessaoAtual = await getSession(phone);
+  const limiteTentativas = 2;
+  const inicioSessao = sessaoAtual?.criado_em || new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count: tentativasFalhas } = await supabase
+    .from("bot_logs")
+    .select("id", { count: "exact", head: true })
+    .filter("payload->>tipo", "eq", "origem_nao_identificada")
+    .filter("payload->>phone_masked", "eq", phone.replace(/\d(?=\d{4})/g, "*"))
+    .gte("criado_em", inicioSessao);
+
+  if ((tentativasFalhas || 0) >= limiteTentativas) {
+    // ESCALA pra atendimento humano - cliente em loop
+    await updateSession(phone, { step: "atendimento_humano" });
+    await sendToClient({
+      to: phone,
+      message: `Eu não tô conseguindo identificar seu endereço aqui — peço desculpa! 😔
+
+Pra agilizar, *um especialista da nossa equipe* vai te chamar em alguns minutos pra anotar manualmente.
+
+Pode aguardar, ele vai cuidar do seu frete com toda atenção. 🙏`,
+    });
+    await notificarAdmins(
+      `📍 *CLIENTE TRAVADO NO ENDEREÇO — ATUAR*`,
+      phone,
+      `Cliente tentou ${tentativasFalhas} vezes mandar endereço, geocoder não achou.\n\nUltimo texto: "${message.slice(0, 200)}"\n\n👉 Chama no WhatsApp pra anotar manualmente.`,
+    );
+    return;
+  }
+
   await sendToClient({
     to: phone,
     message: `Não consegui identificar esse endereço 😅

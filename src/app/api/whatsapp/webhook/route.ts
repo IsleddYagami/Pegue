@@ -1138,6 +1138,23 @@ Boa sorte! 🎯`,
       await handleGuinchoDestino(phone, message);
       break;
 
+    // === ATENDIMENTO HUMANO ===
+    // Cliente esta sob atendimento manual do admin. Bot fica COMPLETAMENTE
+    // calado: nao responde, nao notifica, nao spamma. Admin conversa pelo
+    // WhatsApp da Pegue manualmente. Cliente volta pro bot quando admin
+    // clicar "Devolver pro bot" em /admin/operacao-real.
+    case "atendimento_humano":
+      // Apenas registra que cliente mandou msg (rastreabilidade leve).
+      // SEM sendToClient. SEM notificarAdmin. Silencio absoluto.
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "msg_em_atendimento_humano",
+          phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+          msg_length: message.length,
+        },
+      });
+      break;
+
     default: {
       // Step desconhecido: NAO reseta sessao silenciosamente (isso fazia cliente
       // perder contexto em bugs/migrations). Registra ocorrencia e notifica admin

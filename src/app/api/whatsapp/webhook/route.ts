@@ -3334,7 +3334,7 @@ async function handleNumeroDestino(phone: string, message: string) {
     const cliente = (corridaCompleta?.clientes as any) || {};
     const prestadorInfo = (corridaCompleta?.prestadores as any) || {};
     const valorCliente = corridaCompleta?.valor_final || corridaCompleta?.valor_estimado || 0;
-    const valorFretista = corridaCompleta?.valor_prestador || Math.round(Number(valorCliente) * 0.88);
+    const valorFretista = corridaCompleta?.valor_prestador || (Math.round(Number(valorCliente) * 0.88 * 100) / 100);
     const dataFrete = corridaCompleta?.periodo || corridaCompleta?.data_agendada || "A combinar";
     const ajudanteInfo = (corridaCompleta?.qtd_ajudantes || 0) > 0
       ? `Sim (${corridaCompleta?.qtd_ajudantes})`
@@ -3507,7 +3507,11 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
   const nomeFretista = isAdminPhone(phone)
     ? `👑 Admin ${prestador?.nome || ""}`.trim()
     : (prestador?.nome || null);
-  await supabase.from("feedback_precos").insert({
+
+  // Guard: campos NOT NULL precisam estar preenchidos. Antes o insert silenciava
+  // erros (bug que deixou a tabela vazia apesar de horas de uso). Agora valida +
+  // loga falha + notifica admin se ocorrer.
+  const dadosFeedback = {
     fretista_phone: phone,
     fretista_nome: nomeFretista,
     veiculo: sim.veiculo,
@@ -3522,7 +3526,35 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
     preco_pegue: sim.precoPegue,
     preco_sugerido: preco,
     gap_percentual: Math.round(gap * 100) / 100,
-  });
+  };
+
+  const { error: errFeedback } = await supabase.from("feedback_precos").insert(dadosFeedback);
+
+  if (errFeedback) {
+    // BUG ANTIGO: este insert silenciava erros. Agora rastreia + alerta.
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "feedback_precos_insert_falhou",
+        erro: errFeedback.message,
+        codigo: errFeedback.code,
+        dados: dadosFeedback,
+      },
+    });
+    await notificarAdmin(
+      `🚨 *FALHA AO SALVAR FEEDBACK_PRECOS*`,
+      phone,
+      `Erro: ${errFeedback.message}\nCodigo: ${errFeedback.code}\n\nDados: ${JSON.stringify(dadosFeedback).slice(0, 400)}\n\nFabio: avaliacoes nao estao sendo salvas!`,
+    );
+  } else {
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "feedback_precos_salvo_ok",
+        fretista_phone: phone,
+        veiculo: sim.veiculo,
+        gap: Math.round(gap * 100) / 100,
+      },
+    });
+  }
 
   const novoTotal = estado.total + 1;
   await sendToClient({ to: phone, message: MSG.avaliarRespostaSalva(sim.precoPegue, preco) });
@@ -4681,18 +4713,81 @@ async function handleAvaliacao(phone: string, message: string, tipo: "atendiment
 async function handleAvaliacaoSugestao(phone: string, message: string) {
   const session = await getSession(phone);
   const lower = message.toLowerCase().trim();
+  const sugestao = lower !== "pular" ? message.trim() : null;
 
-  if (lower !== "pular") {
-    // Salva sugestão
+  // Log em bot_logs (rastreabilidade granular)
+  if (sugestao) {
     await supabase.from("bot_logs").insert({
       payload: {
         tipo: "avaliacao",
         categoria: "sugestao",
-        texto: message,
+        texto: sugestao,
         phone,
         corrida_id: session?.corrida_id,
       },
     });
+  }
+
+  // CONSOLIDA em avaliacoes (tabela definitiva): busca 3 notas + sugestao,
+  // calcula media, insere 1 linha. Esta logica garante que avaliacoes
+  // realmente tem dados (regra de armazenamento inegociavel).
+  if (session?.corrida_id) {
+    const { data: logs } = await supabase
+      .from("bot_logs")
+      .select("payload, criado_em")
+      .filter("payload->>tipo", "eq", "avaliacao")
+      .filter("payload->>corrida_id", "eq", session.corrida_id)
+      .order("criado_em", { ascending: true });
+
+    const notas: Record<string, number> = {};
+    let textoSugestao = "(sem sugestao)";
+    logs?.forEach((l) => {
+      const p = l.payload as any;
+      if (p.categoria === "sugestao" && p.texto) textoSugestao = p.texto;
+      else if (p.nota && p.categoria) notas[p.categoria] = Number(p.nota);
+    });
+
+    // Media das 3 categorias (atendimento, praticidade, fretista)
+    const valores = Object.values(notas);
+    const media = valores.length > 0 ? valores.reduce((a, b) => a + b, 0) / valores.length : null;
+
+    // Busca cliente_id (FK obrigatorio em avaliacoes)
+    const { data: cliente } = await supabase
+      .from("clientes")
+      .select("id")
+      .eq("telefone", phone)
+      .single();
+
+    if (cliente?.id && media !== null) {
+      const comentario = `Atendimento: ${notas.atendimento || "-"} / Praticidade: ${notas.praticidade || "-"} / Fretista: ${notas.fretista || "-"} / Sugestao: ${textoSugestao}`;
+
+      const { error: errAvaliacao } = await supabase.from("avaliacoes").insert({
+        corrida_id: session.corrida_id,
+        cliente_id: cliente.id,
+        nota: Math.round(media),
+        comentario,
+      });
+
+      // Loga sucesso/falha pra auditoria
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: errAvaliacao ? "avaliacao_consolidada_falha" : "avaliacao_consolidada_ok",
+          corrida_id: session.corrida_id,
+          erro: errAvaliacao?.message,
+          nota_media: media,
+          notas_individuais: notas,
+        },
+      });
+    } else {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "avaliacao_consolidada_skip",
+          motivo: !cliente?.id ? "cliente_nao_encontrado" : "sem_notas_validas",
+          corrida_id: session.corrida_id,
+          phone,
+        },
+      });
+    }
   }
 
   await updateSession(phone, { step: "concluido" });
@@ -5502,8 +5597,10 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
         plano: "padrao",
         valor_estimado: valorBruto,
         valor_final: valorComDesconto,
-        valor_prestador: Math.round(valorBruto * 0.88),
-        valor_pegue: Math.round(valorBruto * 0.12),
+        // Precisao em centavos (Math.round inteiro zerava comissao em valores
+        // baixos: R$1 -> round(0.12)=0, fretista ficava com R$1 e Pegue zero).
+        valor_prestador: Math.round(valorBruto * 0.88 * 100) / 100,
+        valor_pegue: Math.round(valorBruto * 0.12 * 100) / 100,
         credito_anterior: creditoAnterior,
         corrida_anterior_id: corridaAnteriorId,
         // data_agendada salva como texto no campo periodo (data_agendada e tipo date no banco)

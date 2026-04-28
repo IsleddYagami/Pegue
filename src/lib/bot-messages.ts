@@ -794,6 +794,8 @@ ${descricao}
 
 ━━━━━━━━━━━━━━━━
 
+🤝 *Sua confirmacao eh muito importante!* Assim voce ajuda o amigo guincheiro a *receber mais rapidamente* pelo servico prestado. 💚
+
 ⏳ *O guincheiro esta aguardando sua confirmacao para ser liberado.*
 Por favor, confira rapidamente.
 
@@ -834,6 +836,8 @@ ${carga}
 ✅ Esta tudo conforme o combinado?
 
 ━━━━━━━━━━━━━━━━
+
+🤝 *Sua confirmacao eh muito importante!* Assim voce ajuda o amigo fretista a *receber mais rapidamente* pelos servicos prestados. 💚
 
 ⏳ *O fretista esta aguardando sua confirmacao para ser liberado.*
 Por favor, confira rapidamente.

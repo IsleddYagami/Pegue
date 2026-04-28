@@ -62,12 +62,18 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // PASSO 2: Criar/obter cliente teste (telefone fake mas formato realista
-  // - todo "9" eh rejeitado pelo Asaas como sequencia invalida)
+  // PASSO 2: Criar/obter cliente teste
+  // - Telefone fake formato realista (Asaas rejeita sequencias tipo todo-9)
+  // - CPF fake VALIDO pelo algoritmo (Asaas exige CPF pra cobrar)
+  // - Telefone unico pra forcar criar cliente novo a cada teste (cliente
+  //   anterior pode ter sido criado sem CPF e a busca por externalReference
+  //   retornaria ele cached sem CPF)
+  const sufixo = Date.now().toString().slice(-8); // 8 digitos variantes
   const cliente = await criarOuObterCliente({
     nome: "Cliente Teste Pegue",
-    telefone: "5511987654321",
-    email: "teste@chamepegue.com.br",
+    telefone: "55119" + sufixo, // 13 digitos: 55 11 9 + 8 = celular brasileiro completo
+    email: `teste${sufixo}@chamepegue.com.br`,
+    cpf: "12345678909",
   });
   passos.push({
     passo: "2_criar_cliente",
@@ -79,10 +85,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ sucesso: false, erro: "falha no criar cliente", passos });
   }
 
-  // PASSO 3: Criar cobranca R$1
+  // PASSO 3: Criar cobranca R$5 (minimo pra billingType UNDEFINED no Asaas)
+  // Em producao com fretes reais (R$80+), nao tem essa limitacao.
   const cobranca = await criarCobranca({
     clienteAsaasId: cliente.cliente.id,
-    valor: 1.00,
+    valor: 5.00,
     descricao: "Pegue - Teste integracao Asaas",
     corridaId: "teste-" + Date.now(),
   });

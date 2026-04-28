@@ -62,10 +62,11 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // PASSO 2: Criar/obter cliente teste
+  // PASSO 2: Criar/obter cliente teste (telefone fake mas formato realista
+  // - todo "9" eh rejeitado pelo Asaas como sequencia invalida)
   const cliente = await criarOuObterCliente({
     nome: "Cliente Teste Pegue",
-    telefone: "5511999999999",
+    telefone: "5511987654321",
     email: "teste@chamepegue.com.br",
   });
   passos.push({

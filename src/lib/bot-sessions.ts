@@ -11,7 +11,6 @@ export type BotStep =
   | "aguardando_tipo_local"
   | "aguardando_andar"
   | "aguardando_ajudante"
-  | "aguardando_detalhes"
   | "aguardando_data"
   | "aguardando_fretista"
   | "cadastro_nome"
@@ -68,7 +67,6 @@ export type BotStep =
   | "fretista_cancelar_confirma"
   | "fretista_indicar_qual"
   | "fretista_indicar_telefone"
-  | "dispatch_fretistas"
   | "concluido"
   | "atendimento_humano";
 

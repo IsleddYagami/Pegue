@@ -81,6 +81,15 @@ export interface AsaasCustomer {
   phone?: string;
 }
 
+// Asaas valida mobilePhone como formato brasileiro 11 digitos (DDD + numero).
+// Nosso sistema guarda telefones com DDI 55 prefix (ex: "5511971429605").
+// Remove o 55 pra deixar so 11 digitos.
+function formatTelefoneAsaas(telefone: string): string {
+  const limpo = telefone.replace(/\D/g, "");
+  if (limpo.startsWith("55") && limpo.length === 13) return limpo.slice(2);
+  return limpo;
+}
+
 // Cria ou recupera cliente Asaas. Idempotente via externalReference (telefone).
 export async function criarOuObterCliente(params: {
   nome: string;
@@ -98,12 +107,12 @@ export async function criarOuObterCliente(params: {
     return { ok: true, cliente: busca.data.data[0] };
   }
 
-  // 2) Cria novo
+  // 2) Cria novo (telefone formatado pra padrao brasileiro 11 digitos)
   const criar = await asaasFetch<AsaasCustomer>("POST", "/customers", {
     name: params.nome,
     cpfCnpj: params.cpf || undefined,
     email: params.email || `${params.telefone}@cliente.chamepegue.com.br`,
-    mobilePhone: params.telefone,
+    mobilePhone: formatTelefoneAsaas(params.telefone),
     externalReference: params.telefone,
     notificationDisabled: true, // nao spamma cliente com email/sms do Asaas
   });

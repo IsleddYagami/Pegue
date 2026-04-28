@@ -366,6 +366,39 @@ O valor fica *RETIDO* na Pegue / Mercado Pago. *Não vai direto pro fretista.* S
 
 ⏳ Link valido por 20 minutos.`,
 
+  // Mensagem usada com Asaas: 1 link unico que abre PIX + cartao na mesma tela.
+  // Asaas processa cobranca tipo "UNDEFINED" - cliente escolhe forma na propria
+  // pagina checkout. Mais simples que MP que precisava 2 mensagens separadas.
+  freteConfirmadoAsaas: (
+    linkPagamento: string,
+    valor: number,
+    data: string,
+    nomeFretista: string,
+  ) =>
+    `🎉 *Agenda confirmada pra ${data}!*
+
+🚚 *Fretista: ${nomeFretista}*
+✅ CPF + CNH validados
+✅ Veículo registrado
+
+━━━━━━━━━━━━━━━━
+
+💳 *PAGAMENTO — R$ ${valor.toFixed(2).replace(".", ",")}*
+
+🔗 Clica no link abaixo pra pagar (PIX ou cartão):
+${linkPagamento}
+
+Na proxima tela voce escolhe:
+• 🟢 *PIX* (recomendado, sem taxa)
+• 💳 *Cartão* (credito ou debito - taxa MP aplicada)
+
+━━━━━━━━━━━━━━━━
+
+🔒 *Pagamento 100% seguro — mesmo sistema do Mercado Livre:*
+O valor fica *RETIDO* na Pegue. *Não vai direto pro fretista.* Só é liberado depois que voce confirmar a entrega. Qualquer problema = *reembolso 100%*.
+
+⏳ Link válido por 24 horas.`,
+
   // Mensagem quando pagamento automatico esta OFF (equipe envia link manual).
   freteConfirmadoSemPagamento: (data: string, nomeFretista: string) =>
     `🎉 *Frete reservado pra ${data}!*

@@ -5235,12 +5235,12 @@ async function notificarResultadoDispatch(
     const primeiroNomeFretista = (prestador.nome || "").split(" ")[0] || "seu fretista";
 
     if (pagamentoHabilitado) {
-      // Gera PIX DIRETO (Payment API) E link Checkout Pro (cartao) em paralelo.
-      // Cliente escolhe a forma de pagar:
-      //   - PIX: copia/cola sem login, paga em qualquer banco
-      //   - Cartao: clica no link Checkout Pro, paga com credito/debito
+      // Asaas: cria cliente + cobranca UNDEFINED (PIX + cartao na mesma tela).
+      // 1 link unico que abre checkout com as 2 opcoes - mais simples que MP.
+      // Substitui Mercado Pago (que nao tinha API de PIX out pro repasse final).
       try {
-        const { criarPagamentoPixDireto, criarLinkPagamento } = await import("@/lib/mercadopago");
+        const { criarOuObterCliente, criarCobranca } = await import("@/lib/asaas");
+
         const { data: corridaPagto } = await supabase
           .from("corridas")
           .select("descricao_carga, valor_final, valor_estimado")
@@ -5248,7 +5248,7 @@ async function notificarResultadoDispatch(
           .single();
         const { data: clientePagto } = await supabase
           .from("clientes")
-          .select("nome, email")
+          .select("nome, email, cpf")
           .eq("telefone", clientePhone)
           .single();
 
@@ -5257,68 +5257,77 @@ async function notificarResultadoDispatch(
         const nomeCliente = clientePagto?.nome || "Cliente";
         const emailCliente = clientePagto?.email || undefined;
 
-        // Gera PIX direto + link cartao em paralelo (latencia menor)
-        const [pixData, cartaoData] = await Promise.all([
-          criarPagamentoPixDireto({
-            corridaId,
-            descricao: descricaoPagto,
-            valor: valorPagto,
-            clienteNome: nomeCliente,
-            clienteTelefone: clientePhone,
-            clienteEmail: emailCliente,
-          }),
-          criarLinkPagamento({
-            corridaId,
-            descricao: descricaoPagto,
-            valor: valorPagto,
-            clienteNome: nomeCliente,
-            clienteEmail: emailCliente,
-          }),
-        ]);
+        // 1) Cria/obtem cliente Asaas (idempotente via telefone)
+        // CPF: usa do cadastro se tiver, senao placeholder valido pra teste.
+        // TODO producao: coletar CPF do cliente no fluxo do bot ANTES da cobranca.
+        const cpfCliente = (clientePagto as any)?.cpf || "12345678909";
+        const clienteResult = await criarOuObterCliente({
+          nome: nomeCliente,
+          telefone: clientePhone,
+          email: emailCliente,
+          cpf: cpfCliente,
+        });
 
-        // Salva paymentId do PIX pra rastrear webhook MP
+        if (!clienteResult.ok || !clienteResult.cliente) {
+          throw new Error(`Falha criar cliente Asaas: ${JSON.stringify(clienteResult.erro)}`);
+        }
+
+        // 2) Cria cobranca UNDEFINED (cliente escolhe PIX ou cartao na tela)
+        const cobrancaResult = await criarCobranca({
+          clienteAsaasId: clienteResult.cliente.id,
+          valor: valorPagto,
+          descricao: `Pegue: ${descricaoPagto}`,
+          corridaId,
+        });
+
+        if (!cobrancaResult.ok || !cobrancaResult.cobranca) {
+          throw new Error(`Falha criar cobranca Asaas: ${JSON.stringify(cobrancaResult.erro)}`);
+        }
+
+        // 3) Salva paymentId Asaas no campo pin_entrega pra rastrear webhook
         await supabase
           .from("corridas")
-          .update({ pin_entrega: pixData.paymentId })
+          .update({ pin_entrega: cobrancaResult.cobranca.id })
           .eq("id", corridaId);
 
-        // Envia em 3 mensagens sequenciais (ordem: PIX primeiro, cartao depois):
-        // 1) Explicacao PIX + seguranca + URL QR
-        // 2) Codigo PIX cru (cliente pressiona+copia)
-        // 3) Opcao cartao com link Checkout Pro + seguranca
+        // 4) Envia 1 mensagem com link unico (PIX + cartao na mesma tela)
         await sendToClient({
           to: clientePhone,
-          message: MSG.freteConfirmadoEnviaPagamento(
-            pixData.ticketUrl,
+          message: MSG.freteConfirmadoAsaas(
+            cobrancaResult.cobranca.invoiceUrl || "",
+            valorPagto,
             dataFrete,
             primeiroNomeFretista,
           ),
         });
-        await sendToClient({
-          to: clientePhone,
-          message: MSG.pixCodigoCopiaCola(pixData.qrCodeTexto),
-        });
-        await sendToClient({
-          to: clientePhone,
-          message: MSG.freteOpcaoCartao(cartaoData.linkPagamento),
-        });
         await updateSession(clientePhone, { step: "aguardando_pagamento" });
-      } catch (errMP: any) {
+
         await supabase.from("bot_logs").insert({
           payload: {
-            tipo: "erro_gerar_pix_mp",
+            tipo: "asaas_cobranca_criada",
             corrida_id: corridaId,
-            erro: errMP?.message || "sem mensagem",
+            asaas_cliente_id: clienteResult.cliente.id,
+            asaas_payment_id: cobrancaResult.cobranca.id,
+            valor: valorPagto,
+            invoice_url: cobrancaResult.cobranca.invoiceUrl,
+          },
+        });
+      } catch (errAsaas: any) {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "erro_gerar_cobranca_asaas",
+            corrida_id: corridaId,
+            erro: errAsaas?.message || "sem mensagem",
           },
         });
         await notificarAdmin(
-          `🚨 *ERRO AO GERAR PIX MP*`,
+          `🚨 *ERRO AO GERAR COBRANCA ASAAS*`,
           clientePhone,
-          `Corrida: ${corridaId}\nErro: ${errMP?.message}\n\nFretista ja aceitou. Cliente NAO recebeu PIX. Acao manual necessaria.`
+          `Corrida: ${corridaId}\nErro: ${errAsaas?.message}\n\nFretista ja aceitou. Cliente NAO recebeu link de pagamento. Acao manual necessaria.`
         );
         await sendToClient({
           to: clientePhone,
-          message: `Houve um problema gerando seu PIX. Nossa equipe vai te enviar manualmente em alguns minutos. 🙏`,
+          message: `Houve um problema gerando seu link de pagamento. Nossa equipe vai te enviar manualmente em alguns minutos. 🙏`,
         });
         await updateSession(clientePhone, { step: "aguardando_pagamento" });
       }

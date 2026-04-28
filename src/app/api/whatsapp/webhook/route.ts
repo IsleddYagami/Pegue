@@ -4775,18 +4775,92 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
           .eq("id", prestadorData.id);
       }
 
-      // Notifica fretista que pagamento foi liberado
-      await sendToClient({
-        to: fretistaTel,
-        message: `✅ *Pagamento LIBERADO!* 🎉\n\nO cliente confirmou a entrega.\n💰 *Valor: R$ ${valorPrestador}*\n\nSeu pagamento sera processado em breve via Pix.\n\nObrigado pelo excelente servico! 🚚✨`,
-      });
+      // === REPASSE AUTOMATICO PIX PRO FRETISTA ===
+      // Idempotencia: evita transferir 2x se cliente confirmar duas vezes ou
+      // se webhook for reprocessado.
+      const { data: pagtoExistente } = await supabase
+        .from("pagamentos")
+        .select("id, repasse_status")
+        .eq("corrida_id", session.corrida_id)
+        .eq("repasse_status", "pago")
+        .maybeSingle();
 
-      // Notifica admin pra fazer o Pix
-      await notificarAdmin(
-        `💰 *PAGAMENTO LIBERADO - FAZER PIX*`,
-        phone,
-        `Fretista: ${nomePrestador} (${formatarTelefoneExibicao(fretistaTel)})\n💰 *Valor: R$ ${valorPrestador}*\nCorrida: ${session.corrida_id}\n\n👉 Acesse /admin pra marcar como pago`
-      );
+      if (pagtoExistente) {
+        await supabase.from("bot_logs").insert({
+          payload: { tipo: "repasse_ja_feito", corrida_id: session.corrida_id },
+        });
+      } else {
+        // Busca chave PIX do fretista
+        const { data: prestadorPix } = await supabase
+          .from("prestadores")
+          .select("chave_pix, cpf")
+          .eq("telefone", fretistaTel)
+          .single();
+
+        const { transferirPixParaFretista } = await import("@/lib/mercadopago");
+        const resultado = await transferirPixParaFretista({
+          corridaId: session.corrida_id,
+          valor: valorPrestador,
+          chavePix: prestadorPix?.chave_pix || "",
+          fretistaNome: nomePrestador,
+          fretistaCpf: prestadorPix?.cpf || undefined,
+        });
+
+        if (resultado.sucesso) {
+          // Sucesso: registra em pagamentos + avisa fretista que ja recebeu
+          await supabase.from("pagamentos").insert({
+            corrida_id: session.corrida_id,
+            valor: valorPrestador,
+            metodo: "pix_auto",
+            status: "aprovado",
+            repasse_status: "pago",
+            pago_em: new Date().toISOString(),
+          });
+
+          await supabase.from("bot_logs").insert({
+            payload: {
+              tipo: "repasse_automatico_ok",
+              corrida_id: session.corrida_id,
+              transfer_id: resultado.transferId,
+              valor: valorPrestador,
+            },
+          });
+
+          await sendToClient({
+            to: fretistaTel,
+            message: `💰 *PAGAMENTO ENVIADO!* 🎉\n\nO cliente confirmou a entrega e ja transferimos o PIX pra sua chave cadastrada.\n\n💵 *Valor: R$ ${valorPrestador}*\n📱 Pix: ${prestadorPix?.chave_pix}\n\nObrigado pelo excelente servico! 🚚✨`,
+          });
+        } else {
+          // Falha: cai no fluxo manual (notifica admin + avisa fretista do delay)
+          await supabase.from("pagamentos").insert({
+            corrida_id: session.corrida_id,
+            valor: valorPrestador,
+            metodo: "pix_pendente_manual",
+            status: "aprovado",
+            repasse_status: "pendente",
+          });
+
+          await supabase.from("bot_logs").insert({
+            payload: {
+              tipo: "repasse_automatico_falhou",
+              corrida_id: session.corrida_id,
+              motivo: resultado.motivo,
+              erro: resultado.erro_completo,
+            },
+          });
+
+          await sendToClient({
+            to: fretistaTel,
+            message: `✅ *Pagamento LIBERADO!* 🎉\n\nO cliente confirmou a entrega.\n💰 *Valor: R$ ${valorPrestador}*\n\nSeu pagamento sera processado em breve via Pix.\n\nObrigado pelo excelente servico! 🚚✨`,
+          });
+
+          await notificarAdmin(
+            `🚨 *REPASSE AUTOMATICO FALHOU - FAZER PIX MANUAL*`,
+            phone,
+            `Fretista: ${nomePrestador} (${formatarTelefoneExibicao(fretistaTel)})\n💰 *Valor: R$ ${valorPrestador}*\nChave PIX: ${prestadorPix?.chave_pix || "(nao cadastrada)"}\nCorrida: ${session.corrida_id}\n\nMotivo: ${resultado.motivo}\n\n👉 Acesse /admin/financeiro pra marcar como pago manualmente.`
+          );
+        }
+      }
 
       // Registra pagamento pendente no log
       await supabase.from("bot_logs").insert({

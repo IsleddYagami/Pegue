@@ -449,6 +449,40 @@ export default function OperacaoRealPage() {
                         ✗ Cancelar corrida
                       </button>
                     )}
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`ASSUMIR conversa com ${c.cliente.nome}?\n\nBot vai ficar CALADO. Você responde manualmente pelo WhatsApp da Pegue.\n\nTelefone do cliente: ${c.cliente.telefone}`)) return;
+                        const r = await fetch("/api/admin-operacao", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ key: adminKey, acao: "assumir_conversa", corrida_id: c.id, phone: c.cliente.telefone }),
+                        });
+                        const data = await r.json();
+                        if (!r.ok) { alert("Erro: " + (data.error || "?")); return; }
+                        alert("✅ Bot calado. Pode falar com o cliente pelo WhatsApp da Pegue.");
+                        await carregar();
+                      }}
+                      className="text-xs px-3 py-1 rounded bg-purple-500/20 text-purple-300 hover:bg-purple-500/30"
+                    >
+                      🎙️ Assumir conversa (bot cala)
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Devolver conversa pro BOT?\n\nCliente vai precisar mandar OI pra recomecar o fluxo.`)) return;
+                        const r = await fetch("/api/admin-operacao", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ key: adminKey, acao: "devolver_bot", corrida_id: c.id, phone: c.cliente.telefone }),
+                        });
+                        const data = await r.json();
+                        if (!r.ok) { alert("Erro: " + (data.error || "?")); return; }
+                        alert("✅ Bot reativado pra esse cliente. Quando ele mandar OI vai retomar o fluxo.");
+                        await carregar();
+                      }}
+                      className="text-xs px-3 py-1 rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500/30"
+                    >
+                      🤖 Devolver pro bot
+                    </button>
                   </div>
                 </div>
               )}

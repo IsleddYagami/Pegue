@@ -1396,15 +1396,15 @@ async function handleLocalizacao(
   });
 
   // Conta quantas vezes a sessao atual ja falhou identificar origem
-  const sessaoAtual = await getSession(phone);
+  // Janela: ult 30min (sessao normal nao dura mais que isso)
   const limiteTentativas = 2;
-  const inicioSessao = sessaoAtual?.criado_em || new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const desde30min = new Date(Date.now() - 30 * 60 * 1000).toISOString();
   const { count: tentativasFalhas } = await supabase
     .from("bot_logs")
     .select("id", { count: "exact", head: true })
     .filter("payload->>tipo", "eq", "origem_nao_identificada")
     .filter("payload->>phone_masked", "eq", phone.replace(/\d(?=\d{4})/g, "*"))
-    .gte("criado_em", inicioSessao);
+    .gte("criado_em", desde30min);
 
   if ((tentativasFalhas || 0) >= limiteTentativas) {
     // ESCALA pra atendimento humano - cliente em loop

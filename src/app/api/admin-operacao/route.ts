@@ -206,5 +206,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  // Assumir conversa do cliente: seta sessao dele em atendimento_humano.
+  // Bot fica calado, admin responde manualmente pelo WhatsApp da Pegue.
+  if (acao === "assumir_conversa") {
+    const phone = (body as any).phone;
+    if (!phone) return NextResponse.json({ error: "phone obrigatorio" }, { status: 400 });
+    const { error } = await supabase
+      .from("bot_sessions")
+      .update({ step: "atendimento_humano", atualizado_em: new Date().toISOString() })
+      .eq("phone", phone);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Devolve conversa pro bot: seta sessao em "inicio" (cliente manda OI de novo)
+  if (acao === "devolver_bot") {
+    const phone = (body as any).phone;
+    if (!phone) return NextResponse.json({ error: "phone obrigatorio" }, { status: 400 });
+    const { error } = await supabase
+      .from("bot_sessions")
+      .update({ step: "inicio", atualizado_em: new Date().toISOString() })
+      .eq("phone", phone);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
   return NextResponse.json({ error: "acao invalida" }, { status: 400 });
 }

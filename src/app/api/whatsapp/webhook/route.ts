@@ -2869,17 +2869,22 @@ async function handleFretistaDivergenciaTipo(phone: string, message: string) {
   const { data: prestador } = await supabase.from("prestadores").select("id").eq("telefone", phone).single();
   const { data: corrida } = await supabase.from("corridas").select("cliente_id").eq("id", session.corrida_id).single();
 
-  const { data: ocorrencia } = await supabase
-    .from("ocorrencias")
-    .insert({
+  // safeInsert: garante que ocorrencia eh efetivamente registrada.
+  // Antes silenciava erros (regra de armazenamento inegociavel violada).
+  const { safeInsert } = await import("@/lib/db-helpers");
+  const insertResult = await safeInsert<{ id: string }>({
+    tabela: "ocorrencias",
+    contexto: "fretista_divergencia",
+    notificarAdminEmFalha: true, // critico: sem ocorrencia registrada, problema some
+    dados: {
       corrida_id: session.corrida_id,
       prestador_id: prestador?.id || null,
       cliente_id: corrida?.cliente_id || null,
       tipo: tipoConfig.label,
       status: "aberta",
-    })
-    .select("id")
-    .single();
+    },
+  });
+  const ocorrencia = insertResult.ok ? insertResult.data : null;
 
   await updateSession(phone, {
     step: "fretista_divergencia_foto",
@@ -3794,20 +3799,26 @@ async function handleAdminConfirmarAjuste(phone: string, message: string) {
   const cancelou = lower === "2" || lower === "nao" || lower === "não";
 
   if (confirmou && pendingAjuste) {
-    // Cria regra em ajustes_precos
+    // Cria regra em ajustes_precos com safeInsert (admin precisa saber se falhar)
     const { criterios, fatorMultiplicador, gapPct } = pendingAjuste;
-    await supabase.from("ajustes_precos").insert({
-      veiculo: criterios.veiculo,
-      zona: criterios.zona,
-      km_min: criterios.km_min,
-      km_max: criterios.km_max,
-      qtd_itens_min: criterios.qtd_itens_min,
-      qtd_itens_max: criterios.qtd_itens_max,
-      com_ajudante: criterios.com_ajudante,
-      fator_multiplicador: Math.round(fatorMultiplicador * 1000) / 1000,
-      valor_fixo: 0,
-      descricao: `Ajuste via WhatsApp (${gapPct > 0 ? "+" : ""}${gapPct}%)`,
-      ativo: true,
+    const { safeInsert: safeInsertAjuste } = await import("@/lib/db-helpers");
+    await safeInsertAjuste({
+      tabela: "ajustes_precos",
+      contexto: "admin_aplicar_ajuste_preco",
+      notificarAdminEmFalha: true,
+      dados: {
+        veiculo: criterios.veiculo,
+        zona: criterios.zona,
+        km_min: criterios.km_min,
+        km_max: criterios.km_max,
+        qtd_itens_min: criterios.qtd_itens_min,
+        qtd_itens_max: criterios.qtd_itens_max,
+        com_ajudante: criterios.com_ajudante,
+        fator_multiplicador: Math.round(fatorMultiplicador * 1000) / 1000,
+        valor_fixo: 0,
+        descricao: `Ajuste via WhatsApp (${gapPct > 0 ? "+" : ""}${gapPct}%)`,
+        ativo: true,
+      },
     });
     invalidarCacheAjustes(); // forca recarga das regras no cache
 
@@ -4424,12 +4435,20 @@ async function handleCadastroTermos(phone: string, message: string) {
       .single();
 
     if (prestador) {
-      await supabase.from("prestadores_veiculos").insert({
-        prestador_id: prestador.id,
-        tipo: tipoVeiculo,
-        placa,
-        foto_url: selfieUrl,
-        ativo: true,
+      // safeInsert: se falhar, fretista nao tem veiculo cadastrado e nunca
+      // recebe dispatch. Critico ter visibilidade da falha.
+      const { safeInsert: safeInsertVeiculo } = await import("@/lib/db-helpers");
+      await safeInsertVeiculo({
+        tabela: "prestadores_veiculos",
+        contexto: "cadastro_fretista_veiculo",
+        notificarAdminEmFalha: true,
+        dados: {
+          prestador_id: prestador.id,
+          tipo: tipoVeiculo,
+          placa,
+          foto_url: selfieUrl,
+          ativo: true,
+        },
       });
     }
 
@@ -5057,13 +5076,21 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
 
         if (!prestadorPix?.chave_pix) {
           // Sem chave PIX: cria pendente + alerta admin (caminho manual obrigatorio)
-          await supabase.from("pagamentos").insert({
-            corrida_id: session.corrida_id,
-            valor: valorPrestador,
-            metodo: "pix_sem_chave",
-            status: "aprovado",
-            repasse_status: "pendente",
-          });
+          {
+            const { safeInsert: si } = await import("@/lib/db-helpers");
+            await si({
+              tabela: "pagamentos",
+              contexto: "repasse_pix_sem_chave",
+              notificarAdminEmFalha: true,
+              dados: {
+                corrida_id: session.corrida_id,
+                valor: valorPrestador,
+                metodo: "pix_sem_chave",
+                status: "aprovado",
+                repasse_status: "pendente",
+              },
+            });
+          }
           await sendToClient({
             to: fretistaTel,
             message: `✅ *Pagamento LIBERADO!* 🎉\n\nO cliente confirmou a entrega.\n💰 *Valor: R$ ${valorPrestador}*\n\n⚠️ Voce ainda nao cadastrou sua chave PIX no nosso sistema. Entre em contato com a Pegue pra cadastrar e receber o pagamento.\n\nObrigado pelo excelente servico! 🚚✨`,
@@ -5085,14 +5112,22 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
 
           if (r.ok && r.transfer) {
             // Sucesso: registra como pago + avisa fretista do PIX enviado
-            await supabase.from("pagamentos").insert({
-              corrida_id: session.corrida_id,
-              valor: valorPrestador,
-              metodo: "asaas_pix",
-              status: "aprovado",
-              repasse_status: r.transfer.status === "DONE" ? "pago" : "pendente",
-              pago_em: r.transfer.status === "DONE" ? new Date().toISOString() : null,
-            });
+            {
+              const { safeInsert: si } = await import("@/lib/db-helpers");
+              await si({
+                tabela: "pagamentos",
+                contexto: "asaas_pix_repasse_ok",
+                notificarAdminEmFalha: true,
+                dados: {
+                  corrida_id: session.corrida_id,
+                  valor: valorPrestador,
+                  metodo: "asaas_pix",
+                  status: "aprovado",
+                  repasse_status: r.transfer.status === "DONE" ? "pago" : "pendente",
+                  pago_em: r.transfer.status === "DONE" ? new Date().toISOString() : null,
+                },
+              });
+            }
             await supabase.from("bot_logs").insert({
               payload: {
                 tipo: "asaas_repasse_iniciado",
@@ -5108,13 +5143,21 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
             });
           } else {
             // Falha API: cai no manual (igual antes do Asaas)
-            await supabase.from("pagamentos").insert({
-              corrida_id: session.corrida_id,
-              valor: valorPrestador,
-              metodo: "pix_pendente_manual",
-              status: "aprovado",
-              repasse_status: "pendente",
-            });
+            {
+              const { safeInsert: si } = await import("@/lib/db-helpers");
+              await si({
+                tabela: "pagamentos",
+                contexto: "asaas_pix_falhou_fallback_manual",
+                notificarAdminEmFalha: true,
+                dados: {
+                  corrida_id: session.corrida_id,
+                  valor: valorPrestador,
+                  metodo: "pix_pendente_manual",
+                  status: "aprovado",
+                  repasse_status: "pendente",
+                },
+              });
+            }
             await supabase.from("bot_logs").insert({
               payload: {
                 tipo: "asaas_repasse_falhou",

@@ -16,23 +16,38 @@ export const maxDuration = 30;
 // 2) Cria/obtem cliente teste
 // 3) Cria cobranca R$1
 // 4) Consulta status da cobranca
+// 5) Tenta transferencia (esperado falhar por saldo zero - so valida endpoint)
 //
-// PROTEGIDO POR ADMIN_KEY — nao expor publicamente.
+// AUTH:
+// - Em SANDBOX (chave Asaas $aact_hmlg_*): endpoint publico, sem auth
+//   (sem dinheiro real envolvido, risco zero)
+// - Em PRODUCAO (chave $aact_prod_*): exige ADMIN_KEY como ?key=...
 //
 // Usar:
-//   https://www.chamepegue.com.br/api/asaas/test?key=ADMIN_KEY
-//
-// Retorna JSON com cada passo do teste e onde falhou (se falhar).
+//   sandbox:  https://www.chamepegue.com.br/api/asaas/test
+//   producao: https://www.chamepegue.com.br/api/asaas/test?key=ADMIN_KEY
 export async function GET(req: NextRequest) {
-  const key = req.nextUrl.searchParams.get("key");
-  if (!isValidAdminKey(key)) {
-    return NextResponse.json({ error: "acesso negado" }, { status: 401 });
+  const status = asaasStatus();
+  const ehSandbox = status.api_key_tipo === "sandbox";
+
+  // Em PRODUCAO, exige ADMIN_KEY. Em SANDBOX, libera (zero risco).
+  if (!ehSandbox) {
+    const key = req.nextUrl.searchParams.get("key");
+    if (!isValidAdminKey(key)) {
+      return NextResponse.json(
+        {
+          error: "acesso negado",
+          dica: "endpoint protegido em producao. use ?key=ADMIN_KEY",
+          ambiente: status.api_key_tipo,
+        },
+        { status: 401 },
+      );
+    }
   }
 
   const passos: Array<{ passo: string; ok: boolean; detalhe?: any }> = [];
 
-  // PASSO 1: Status da config
-  const status = asaasStatus();
+  // PASSO 1: Status da config (status ja foi obtido no inicio pra checagem de auth)
   passos.push({
     passo: "1_config_env_vars",
     ok: status.configured,

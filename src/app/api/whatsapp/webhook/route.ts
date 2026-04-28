@@ -4837,7 +4837,10 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
 
   if (lower === "pronto") {
     if (tipo === "coleta") {
-      await updateSession(phone, { step: "concluido" });
+      // BUG FIX: depois da coleta, fretista vai pra step de fotos da ENTREGA.
+      // Antes ia direto pra "concluido" -> proxima foto que ele mandasse (na
+      // entrega) nao era reconhecida como prova de entrega.
+      await updateSession(phone, { step: "fretista_entrega_fotos" });
       await sendToClient({ to: phone, message: MSG.fretistaColetaConfirmada });
 
       // === ATIVA RASTREIO EM TEMPO REAL ===

@@ -4775,9 +4775,19 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
           .eq("id", prestadorData.id);
       }
 
-      // === REPASSE AUTOMATICO PIX PRO FRETISTA ===
-      // Idempotencia: evita transferir 2x se cliente confirmar duas vezes ou
-      // se webhook for reprocessado.
+      // === REPASSE PIX PRO FRETISTA (modo manual) ===
+      // MP nao tem API de envio PIX (confirmado oficialmente em 27/Abr/2026).
+      // Codigo de tentativa MP /v1/transfers removido pra economizar latencia
+      // e nao poluir logs com erro 404 garantido.
+      //
+      // Fluxo atual:
+      // 1) Idempotencia: nao paga 2x mesma corrida
+      // 2) Cria registro pagamentos com repasse_status=pendente
+      // 3) Avisa fretista que pagamento foi liberado
+      // 4) Notifica admin com chave PIX + valor pra fazer transferencia manual
+      //
+      // Proximo: integrar Asaas (provedor que tem API PIX out pra PF) — issue
+      // separada na lista do projeto.
       const { data: pagtoExistente } = await supabase
         .from("pagamentos")
         .select("id, repasse_status")
@@ -4790,76 +4800,34 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
           payload: { tipo: "repasse_ja_feito", corrida_id: session.corrida_id },
         });
       } else {
-        // Busca chave PIX do fretista
+        // Busca chave PIX do fretista pra incluir no alerta admin
         const { data: prestadorPix } = await supabase
           .from("prestadores")
-          .select("chave_pix, cpf")
+          .select("chave_pix")
           .eq("telefone", fretistaTel)
           .single();
 
-        const { transferirPixParaFretista } = await import("@/lib/mercadopago");
-        const resultado = await transferirPixParaFretista({
-          corridaId: session.corrida_id,
+        // Cria registro pagamentos pendente (rastreabilidade financeira)
+        await supabase.from("pagamentos").insert({
+          corrida_id: session.corrida_id,
           valor: valorPrestador,
-          chavePix: prestadorPix?.chave_pix || "",
-          fretistaNome: nomePrestador,
-          fretistaCpf: prestadorPix?.cpf || undefined,
+          metodo: "pix_pendente_manual",
+          status: "aprovado",
+          repasse_status: "pendente",
         });
 
-        if (resultado.sucesso) {
-          // Sucesso: registra em pagamentos + avisa fretista que ja recebeu
-          await supabase.from("pagamentos").insert({
-            corrida_id: session.corrida_id,
-            valor: valorPrestador,
-            metodo: "pix_auto",
-            status: "aprovado",
-            repasse_status: "pago",
-            pago_em: new Date().toISOString(),
-          });
+        // Avisa fretista
+        await sendToClient({
+          to: fretistaTel,
+          message: `✅ *Pagamento LIBERADO!* 🎉\n\nO cliente confirmou a entrega.\n💰 *Valor: R$ ${valorPrestador}*\n\nSeu pagamento sera processado em breve via Pix.\n\nObrigado pelo excelente servico! 🚚✨`,
+        });
 
-          await supabase.from("bot_logs").insert({
-            payload: {
-              tipo: "repasse_automatico_ok",
-              corrida_id: session.corrida_id,
-              transfer_id: resultado.transferId,
-              valor: valorPrestador,
-            },
-          });
-
-          await sendToClient({
-            to: fretistaTel,
-            message: `💰 *PAGAMENTO ENVIADO!* 🎉\n\nO cliente confirmou a entrega e ja transferimos o PIX pra sua chave cadastrada.\n\n💵 *Valor: R$ ${valorPrestador}*\n📱 Pix: ${prestadorPix?.chave_pix}\n\nObrigado pelo excelente servico! 🚚✨`,
-          });
-        } else {
-          // Falha: cai no fluxo manual (notifica admin + avisa fretista do delay)
-          await supabase.from("pagamentos").insert({
-            corrida_id: session.corrida_id,
-            valor: valorPrestador,
-            metodo: "pix_pendente_manual",
-            status: "aprovado",
-            repasse_status: "pendente",
-          });
-
-          await supabase.from("bot_logs").insert({
-            payload: {
-              tipo: "repasse_automatico_falhou",
-              corrida_id: session.corrida_id,
-              motivo: resultado.motivo,
-              erro: resultado.erro_completo,
-            },
-          });
-
-          await sendToClient({
-            to: fretistaTel,
-            message: `✅ *Pagamento LIBERADO!* 🎉\n\nO cliente confirmou a entrega.\n💰 *Valor: R$ ${valorPrestador}*\n\nSeu pagamento sera processado em breve via Pix.\n\nObrigado pelo excelente servico! 🚚✨`,
-          });
-
-          await notificarAdmin(
-            `🚨 *REPASSE AUTOMATICO FALHOU - FAZER PIX MANUAL*`,
-            phone,
-            `Fretista: ${nomePrestador} (${formatarTelefoneExibicao(fretistaTel)})\n💰 *Valor: R$ ${valorPrestador}*\nChave PIX: ${prestadorPix?.chave_pix || "(nao cadastrada)"}\nCorrida: ${session.corrida_id}\n\nMotivo: ${resultado.motivo}\n\n👉 Acesse /admin/financeiro pra marcar como pago manualmente.`
-          );
-        }
+        // Alerta admin com tudo que precisa pra fazer PIX manual
+        await notificarAdmin(
+          `💰 *FAZER PIX FRETISTA*`,
+          phone,
+          `Fretista: ${nomePrestador} (${formatarTelefoneExibicao(fretistaTel)})\n💰 *Valor: R$ ${valorPrestador}*\nChave PIX: ${prestadorPix?.chave_pix || "(NAO cadastrada - escalar)"}\nCorrida: ${session.corrida_id}\n\n👉 Acesse /admin/financeiro depois pra marcar como pago.`
+        );
       }
 
       // Registra pagamento pendente no log

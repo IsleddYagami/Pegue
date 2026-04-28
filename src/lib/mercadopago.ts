@@ -137,93 +137,12 @@ export async function criarPagamentoPixDireto(params: {
   };
 }
 
-// Transfere PIX automatico pra fretista (Money Out / Withdrawal).
-// Usa chave PIX cadastrada do prestador. Idempotencia GARANTIDA pelo
-// caller (verifica tabela pagamentos antes).
-//
-// IMPORTANTE: API de transferencia PIX da MP pode requerir conta empresarial
-// (CNPJ). Pra contas PF (CPF), pode falhar com erro tipo 401/403 ou
-// "feature_not_available". Nesse caso, retorna { sucesso: false, motivo }
-// e caller cai em fluxo manual (notifica admin pra fazer PIX a mao).
-//
-// Se sucesso: retorna { sucesso: true, transferId }.
-//
-// Documentacao MP: https://www.mercadopago.com.br/developers/pt/reference/account/transfer/post
-export async function transferirPixParaFretista(params: {
-  corridaId: string;
-  valor: number;
-  chavePix: string;
-  fretistaNome: string;
-  fretistaCpf?: string;
-}): Promise<
-  | { sucesso: true; transferId: string }
-  | { sucesso: false; motivo: string; erro_completo?: any }
-> {
-  const accessToken = process.env.MP_ACCESS_TOKEN;
-  if (!accessToken) {
-    return { sucesso: false, motivo: "MP_ACCESS_TOKEN nao configurado" };
-  }
-
-  if (!params.chavePix) {
-    return { sucesso: false, motivo: "fretista sem chave PIX cadastrada" };
-  }
-
-  if (params.valor <= 0) {
-    return { sucesso: false, motivo: "valor zero (arredondamento - sem repasse a fazer)" };
-  }
-
-  // MP usa centavos em algumas APIs e reais em outras. Aqui o transfer eh em reais.
-  // External_reference inclui prefixo pra distinguir de pagamentos recebidos.
-  const externalRef = `transfer_fretista_${params.corridaId}`;
-
-  try {
-    const response = await fetch("https://api.mercadopago.com/v1/transfers", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        "X-Idempotency-Key": externalRef, // garantia adicional contra duplicidade
-      },
-      body: JSON.stringify({
-        amount: params.valor,
-        currency_id: "BRL",
-        target: {
-          type: "pix",
-          value: params.chavePix,
-        },
-        description: `Pegue Marketplace - repasse fretista ${params.fretistaNome}`,
-        external_reference: externalRef,
-      }),
-    });
-
-    const responseText = await response.text();
-    let body: any = {};
-    try {
-      body = JSON.parse(responseText);
-    } catch {
-      body = { raw: responseText };
-    }
-
-    if (!response.ok) {
-      return {
-        sucesso: false,
-        motivo: `MP API erro ${response.status}: ${body.message || body.error || "desconhecido"}`,
-        erro_completo: body,
-      };
-    }
-
-    return {
-      sucesso: true,
-      transferId: String(body.id || externalRef),
-    };
-  } catch (e: any) {
-    return {
-      sucesso: false,
-      motivo: `excecao na chamada MP: ${e?.message || "sem mensagem"}`,
-      erro_completo: { stack: e?.stack?.slice(0, 500) },
-    };
-  }
-}
+// NOTA: funcao transferirPixParaFretista REMOVIDA em 28/Abr/2026.
+// Mercado Pago confirmou oficialmente NAO ter API de envio PIX (somente
+// recebimento). Endpoint /v1/transfers tentado retornava 404. Funcao
+// removida pra economizar latencia e nao poluir logs.
+// Repasse PIX pro fretista sera implementado via Asaas (provedor com API
+// PIX out comprovada pra PF) — em desenvolvimento.
 
 // Busca detalhes de um pagamento
 export async function buscarPagamento(paymentId: string) {

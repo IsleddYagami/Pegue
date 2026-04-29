@@ -4643,7 +4643,48 @@ async function handleCadastroTermos(phone: string, message: string) {
       .eq("telefone", phone)
       .single();
 
+    let placaDuplicada = false;
     if (prestador) {
+      // Bug 9 (auditoria 29/Abr): detectada placa FQQ3G59 cadastrada em 2 prestadores
+      // diferentes (Jackeline + Fabio). Bloqueia auto-aprovacao se houver conflito
+      // pra evitar fraude/duplicidade. Alerta admin pra validar manualmente.
+      const placaUpper = placa.toUpperCase().replace(/\s|-/g, "");
+      const { data: placaExistente } = await supabase
+        .from("prestadores_veiculos")
+        .select("prestador_id, prestadores!inner(nome, telefone)")
+        .eq("placa", placaUpper)
+        .eq("ativo", true)
+        .neq("prestador_id", prestador.id)
+        .maybeSingle();
+
+      if (placaExistente) {
+        placaDuplicada = true;
+        const conflito: any = placaExistente.prestadores;
+        await notificarAdmin(
+          `🚨 *PLACA DUPLICADA NO CADASTRO*`,
+          phone,
+          `Novo prestador *${nome}* (${phone}) cadastrou veiculo com placa *${placaUpper}*.
+
+Essa placa JA EXISTE no veiculo do prestador:
+${conflito?.nome || "?"} (${conflito?.telefone || "?"})
+
+Possiveis causas:
+• Mesmo dono cadastrado 2x
+• Erro de digitacao
+• Tentativa de fraude
+
+🎯 *Acao:* validar manualmente antes de aprovar. Auto-aprovacao desativada pra esse cadastro.`,
+        );
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "placa_duplicada_detectada",
+            phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+            placa: placaUpper,
+            prestador_existente_id: placaExistente.prestador_id,
+          },
+        });
+      }
+
       // safeInsert: se falhar, fretista nao tem veiculo cadastrado e nunca
       // recebe dispatch. Critico ter visibilidade da falha.
       const { safeInsert: safeInsertVeiculo } = await import("@/lib/db-helpers");
@@ -4654,9 +4695,9 @@ async function handleCadastroTermos(phone: string, message: string) {
         dados: {
           prestador_id: prestador.id,
           tipo: tipoVeiculo,
-          placa,
+          placa: placaUpper,
           foto_url: selfieUrl,
-          ativo: true,
+          ativo: !placaDuplicada, // se duplicada, fica inativa ate admin validar
         },
       });
     }
@@ -4685,7 +4726,9 @@ async function handleCadastroTermos(phone: string, message: string) {
       .eq("chave", "aceitar_novos_prestadores")
       .single();
 
-    const autoAprovar = cfgAutoAprov?.valor === "habilitado";
+    // Auto-aprovacao bloqueada se placa duplicada (Bug 9 - auditoria 29/Abr).
+    // Fica em revisao manual pra admin validar antes de liberar dispatch.
+    const autoAprovar = cfgAutoAprov?.valor === "habilitado" && !placaDuplicada;
     const docsCompletos = nome.length >= 3 && cpf.length >= 11 && placa.length >= 7 && selfieUrl;
 
     if (autoAprovar && docsCompletos && prestador) {

@@ -28,6 +28,8 @@ export type BotStep =
   | "fretista_coleta_fotos"
   | "fretista_entrega_fotos"
   | "fretista_aguardando_pin"
+  | "fretista_aguardando_cliente_ok_coleta"
+  | "aguardando_confirmacao_coleta"
   | "aguardando_confirmacao_entrega"
   | "avaliacao_atendimento"
   | "avaliacao_praticidade"
@@ -364,7 +366,8 @@ export type TipoTarefa =
   | "rastreio_libera_fretista"
   | "ocorrencia_timeout_admin"
   | "pin_entrega_timeout"
-  | "dispatch_redispatch_rodada2";
+  | "dispatch_redispatch_rodada2"
+  | "auto_libera_apos_coleta";
 
 export async function agendarTarefa(
   tipo: TipoTarefa,

@@ -110,6 +110,10 @@ async function executarTarefa(tarefa: any) {
       await handleDispatchRedispatch(referencia, payload);
       break;
 
+    case "auto_libera_apos_coleta":
+      await handleAutoLiberaAposColeta(referencia);
+      break;
+
     default:
       throw new Error(`Tipo de tarefa desconhecido: ${tipo}`);
   }
@@ -144,6 +148,46 @@ Possiveis causas:
 
 👉 Validar manualmente.`,
   );
+}
+
+// 10min apos PRONTO coleta sem cliente confirmar: libera fretista
+// automaticamente pra entrega (nao trava fluxo). Cliente avisado.
+async function handleAutoLiberaAposColeta(corridaId: string) {
+  const { data: corrida } = await supabase
+    .from("corridas")
+    .select("id, status, prestadores!prestador_id(telefone), clientes(telefone)")
+    .eq("id", corridaId)
+    .single();
+  if (!corrida) return;
+  if (corrida.status === "cancelada" || corrida.status === "concluida") return;
+
+  const fretistaTel = (corrida.prestadores as any)?.telefone;
+  const clienteTel = (corrida.clientes as any)?.telefone;
+  if (!fretistaTel || !clienteTel) return;
+
+  // Verifica step do fretista — se nao esta mais em fretista_aguardando_cliente_ok_coleta,
+  // significa que cliente ja confirmou (ou outro flow tomou controle). Nao mexe.
+  const { data: sessFret } = await supabase
+    .from("bot_sessions")
+    .select("step")
+    .eq("phone", fretistaTel)
+    .maybeSingle();
+  if (sessFret?.step !== "fretista_aguardando_cliente_ok_coleta") return;
+
+  // Libera automatico
+  const { liberarFretistaParaEntrega } = await import("@/app/api/whatsapp/webhook/route");
+  await liberarFretistaParaEntrega(fretistaTel, corridaId);
+
+  await sendToClient({
+    to: clienteTel,
+    message: "⏰ Como nao respondeu em 10min, liberei o fretista automaticamente pra seguir pro destino. Se viu algo errado nas fotos da coleta, fala com a gente que resolvemos.",
+  });
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "coleta_auto_liberada_timeout",
+      corrida_id: corridaId,
+    },
+  });
 }
 
 // Re-dispatch automatico apos timeout 10min sem aceite. Bug auditoria 29/Abr:

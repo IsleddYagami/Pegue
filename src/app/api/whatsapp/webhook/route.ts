@@ -1094,6 +1094,19 @@ Boa sorte! 🎯`,
       await handleFretistaPinEntrega(phone, message);
       break;
 
+    case "aguardando_confirmacao_coleta":
+      await handleConfirmacaoColeta(phone, message);
+      break;
+
+    case "fretista_aguardando_cliente_ok_coleta":
+      // Fretista nao deve falar nada agora - apenas aguarda o cliente.
+      // Se mandar mensagem, lembra que esta aguardando.
+      await sendToClient({
+        to: phone,
+        message: "⏳ Aguardando o cliente confirmar a coleta. Se em 10min ele nao responder, libero automatico.",
+      });
+      break;
+
     case "aguardando_confirmacao_entrega":
       await handleConfirmacaoEntrega(phone, message);
       break;
@@ -5226,6 +5239,97 @@ async function handleAvaliacaoSugestao(phone: string, message: string) {
 
 // === CONFIRMAÇÃO DE ENTREGA PELO CLIENTE ===
 
+// Libera fretista pra seguir do origem ao destino: muda step pra
+// fretista_entrega_fotos, ativa rastreio em tempo real, manda links pro
+// fretista (GPS sender) e pro cliente (mapa). Reusada em 2 lugares:
+// (1) cliente confirma coleta com "1"; (2) timeout 10min auto-libera.
+export async function liberarFretistaParaEntrega(fretistaPhone: string, corridaId: string) {
+  await updateSession(fretistaPhone, { step: "fretista_entrega_fotos" });
+  await sendToClient({ to: fretistaPhone, message: MSG.fretistaColetaConfirmada });
+
+  // Ativa rastreio + manda links
+  await supabase
+    .from("corridas")
+    .update({ rastreio_ativo: true })
+    .eq("id", corridaId);
+
+  const { data: corridaRastreio } = await supabase
+    .from("corridas")
+    .select("rastreio_token, codigo, cliente_id, prestador_id, clientes(telefone), prestadores(nome)")
+    .eq("id", corridaId)
+    .single();
+
+  if (corridaRastreio?.rastreio_token) {
+    const baseUrl = "https://chamepegue.com.br";
+    const nomePrestador = (corridaRastreio.prestadores as any)?.nome || "Fretista";
+
+    const linkFretista = `${baseUrl}/rastrear/motorista/${corridaRastreio.rastreio_token}`;
+    await sendToClient({
+      to: fretistaPhone,
+      message: MSG.rastreioLinkFretista(linkFretista),
+    });
+
+    const clienteTel = (corridaRastreio.clientes as any)?.telefone;
+    if (clienteTel) {
+      const linkCliente = `${baseUrl}/rastrear/${corridaRastreio.codigo}?t=${corridaRastreio.rastreio_token}`;
+      await sendToClient({
+        to: clienteTel,
+        message: MSG.rastreioLinkCliente(linkCliente, nomePrestador),
+      });
+    }
+  }
+}
+
+// Cliente confirma coleta apos fretista PRONTO. 1 = libera fretista pra
+// entrega. 2 = escala humano (cliente reportou problema). Outras respostas
+// re-pedem opcao.
+async function handleConfirmacaoColeta(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session?.corrida_id) return;
+
+  const lower = message.trim().toLowerCase();
+
+  if (lower === "1" || lower.startsWith("sim") || lower === "ok") {
+    const { data: corrida } = await supabase
+      .from("corridas")
+      .select("prestadores!prestador_id(telefone)")
+      .eq("id", session.corrida_id)
+      .single();
+    const fretistaTel = (corrida?.prestadores as any)?.telefone;
+    if (fretistaTel) {
+      await liberarFretistaParaEntrega(fretistaTel, session.corrida_id);
+    }
+    await sendToClient({
+      to: phone,
+      message: "✅ Liberado! O fretista esta a caminho do destino. Voce pode acompanhar pelo link de rastreio.",
+    });
+    return;
+  }
+
+  if (lower === "2" || lower.includes("problem") || lower.includes("erro")) {
+    await supabase
+      .from("corridas")
+      .update({ status: "problema" })
+      .eq("id", session.corrida_id);
+    await updateSession(phone, { step: "atendimento_humano" });
+    await notificarAdmin(
+      "🚨 *PROBLEMA NA COLETA*",
+      phone,
+      `Cliente reportou problema na coleta. Corrida: ${session.corrida_id}\n\n👉 Validar com cliente e fretista. Pagamento ja foi feito.`,
+    );
+    await sendToClient({
+      to: phone,
+      message: "⚠️ Anotado. Um atendente vai te ajudar a resolver. Aguarda alguns minutos.",
+    });
+    return;
+  }
+
+  await sendToClient({
+    to: phone,
+    message: "Responde *1* (libera fretista) ou *2* (tem problema). Se nao responder em 10min, libero automatico.",
+  });
+}
+
 // Fretista digita PIN de 4 digitos pra confirmar entrega.
 // PIN foi gerado no webhook Asaas e enviado AO CLIENTE privadamente.
 // Valida: bate com pin_entrega da corrida -> simula confirmacao do cliente
@@ -5592,52 +5696,38 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
 
   if (lower === "pronto") {
     if (tipo === "coleta") {
-      // BUG FIX: depois da coleta, fretista vai pra step de fotos da ENTREGA.
-      // Antes ia direto pra "concluido" -> proxima foto que ele mandasse (na
-      // entrega) nao era reconhecida como prova de entrega.
-      await updateSession(phone, { step: "fretista_entrega_fotos" });
-      await sendToClient({ to: phone, message: MSG.fretistaColetaConfirmada });
+      // NOVO 29/Abr (auditoria E2E): apos PRONTO coleta, AGUARDA cliente
+      // confirmar antes de liberar fretista. Anti-fraude. Timeout 10min
+      // auto-libera caso cliente nao responder (nao trava fluxo).
+      await updateSession(phone, { step: "fretista_aguardando_cliente_ok_coleta" });
+      await sendToClient({
+        to: phone,
+        message: "📸 Fotos da coleta registradas! ✅\n\nAguardando o cliente confirmar antes de liberar o trajeto. Se em 10min ele nao responder, libero automatico.",
+      });
 
-      // === ATIVA RASTREIO EM TEMPO REAL ===
-      // Fretista coletou os itens, agora vai dirigir pro destino
       const sessionData = await getSession(phone);
       if (sessionData?.corrida_id) {
-        // Ativa rastreio
-        await supabase
+        const { data: corridaConfirma } = await supabase
           .from("corridas")
-          .update({ rastreio_ativo: true })
-          .eq("id", sessionData.corrida_id);
-
-        // Busca dados pra montar links
-        const { data: corridaRastreio } = await supabase
-          .from("corridas")
-          .select("rastreio_token, codigo, cliente_id, prestador_id, clientes(telefone), prestadores(nome)")
+          .select("clientes(telefone, nome)")
           .eq("id", sessionData.corrida_id)
           .single();
-
-        if (corridaRastreio?.rastreio_token) {
-          const rastreioToken = corridaRastreio.rastreio_token;
-          const codigoCorrida = corridaRastreio.codigo;
-          const baseUrl = "https://chamepegue.com.br";
-          const nomePrestador = (corridaRastreio.prestadores as any)?.nome || "Fretista";
-
-          // Link pro fretista (GPS sender)
-          const linkFretista = `${baseUrl}/rastrear/motorista/${rastreioToken}`;
-          await sendToClient({
-            to: phone,
-            message: MSG.rastreioLinkFretista(linkFretista),
+        const clienteTel = (corridaConfirma?.clientes as any)?.telefone;
+        if (clienteTel) {
+          await updateSession(clienteTel, {
+            step: "aguardando_confirmacao_coleta",
+            corrida_id: sessionData.corrida_id,
           });
-
-          // Link pro cliente (mapa tempo real)
-          const clienteTel = (corridaRastreio.clientes as any)?.telefone;
-          if (clienteTel) {
-            const linkCliente = `${baseUrl}/rastrear/${codigoCorrida}?t=${rastreioToken}`;
-            await sendToClient({
-              to: clienteTel,
-              message: MSG.rastreioLinkCliente(linkCliente, nomePrestador),
-            });
-          }
+          await sendToClient({
+            to: clienteTel,
+            message: "📦 *O fretista terminou a coleta dos seus itens!*\n\nQuer conferir as fotos antes de liberar o trajeto?\n\n1️⃣ ✅ *SIM, libere o fretista* (esta tudo certo)\n2️⃣ ⚠️ *Tem algum problema* (chama atendente)\n\nSe nao responder em 10min, libero automatico.",
+          });
         }
+        await agendarTarefa(
+          "auto_libera_apos_coleta",
+          sessionData.corrida_id,
+          10 * 60 * 1000,
+        );
       }
     } else {
       // Fretista terminou de fotografar entrega. Pede PIN antes de concluir.
@@ -5659,13 +5749,10 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
 
         if (corrida?.clientes) {
           const clienteTel = (corrida.clientes as any).telefone;
-          // Avisa cliente que fretista chegou (UX) + lembra do PIN
           await sendToClient({
             to: clienteTel,
             message: `📦 *${(corrida.clientes as any).nome || "Voce"}, o fretista chegou no destino!*\n\nQuando receber tudo certinho, *forneca o PIN de 4 digitos* que mandei mais cedo.\n\nSem PIN, o fretista nao pode encerrar — sua garantia. ✅`,
           });
-
-          // Tarefa agendada: se em 30min ninguem digitar PIN, alerta admin
           await agendarTarefa(
             "pin_entrega_timeout",
             session.corrida_id,
@@ -5674,7 +5761,6 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
         }
       }
 
-      // Pede PIN ao fretista
       await sendToClient({ to: phone, message: montarMensagemPinFretista() });
     }
     return;

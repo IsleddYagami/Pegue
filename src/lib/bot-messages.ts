@@ -196,14 +196,15 @@ Vai precisar de ajudante pra carregar? 😊
     destino: string,
     carga: string,
     veiculo: string,
-    total: string
+    total: string,
+    obsFeriado?: string,
   ) =>
     `Preparei seu orcamento! 📋
 
 📍 *Retirada:* ${origem}
 🏠 *Destino:* ${destino}
 📦 *Material:* ${carga}
-🚚 *Veiculo:* ${veiculo}
+🚚 *Veiculo:* ${veiculo}${obsFeriado ? `\n📅 *${obsFeriado}*` : ""}
 
 ✅ *Total: R$ ${total}*
 

@@ -2586,7 +2586,7 @@ async function handleAjudante(phone: string, message: string) {
   // TODO: salvar temElevador na sessao (por ora nao temos campo)
 
   const veiculo = session.veiculo_sugerido || "utilitario";
-  const precos = calcularPrecos(distanciaKm, veiculo, qtdAjudantes > 0, session.andar || 0, false, session.destino_endereco || "");
+  const precos = calcularPrecos(distanciaKm, veiculo, qtdAjudantes > 0, session.andar || 0, false, session.destino_endereco || "", session.data_agendada || null);
 
   // Adiciona segundo ajudante se necessario
   const ajudanteExtra = qtdAjudantes === 2 ? (distanciaKm <= 10 ? 80 : 100) : 0;
@@ -2675,6 +2675,11 @@ O cliente recebeu mensagem de espera. Acesse o admin pra aprovar ou ajustar.`
     valor_estimado: p.total,
   });
 
+  // Aviso sobre adicional de feriado no orcamento (transparencia pro cliente)
+  const obsFeriado = precos.padrao.feriado > 0
+    ? `Feriado ${precos.padrao.feriadoNome || ""} - adicional R$ ${precos.padrao.feriado} ja incluido`
+    : undefined;
+
   await sendToClient({
     to: phone,
     message: MSG.orcamento(
@@ -2682,7 +2687,8 @@ O cliente recebeu mensagem de espera. Acesse o admin pra aprovar ou ajustar.`
       session.destino_endereco || "Destino",
       session.descricao_carga || "Material",
       veiculoNome[veiculo] || "Utilitario",
-      p.total.toString()
+      p.total.toString(),
+      obsFeriado,
     ),
   });
 }

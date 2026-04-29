@@ -1,5 +1,6 @@
 // Utilitarios do bot
 import { googleGeocode, googleReverseGeocode, googleGeocodeAtivo } from "./geocoder-google";
+import { calcularAdicionalFeriado } from "./feriados-br";
 
 // Palavras reservadas que NUNCA devem ser aceitas como endereço.
 // Bug detectado em 25/Abr/2026: cliente digitou PRONTO pra fechar fotos e o
@@ -469,7 +470,9 @@ export interface PrecoDetalhado {
   ajudante: number;
   elevador: number;
   escada: number;
+  feriado: number;
   total: number;
+  feriadoNome?: string;
 }
 
 export function calcularPrecos(
@@ -478,7 +481,8 @@ export function calcularPrecos(
   temAjudante: boolean = false,
   andares: number = 0,
   temElevador: boolean = false,
-  enderecoDestino: string = ""
+  enderecoDestino: string = "",
+  dataAgendada: string | null = null
 ): { padrao: PrecoDetalhado; zona: ZonaDificuldade } {
   // Preco base do utilitario pela distancia
   const baseUtil = calcularPrecoBaseUtilitario(distanciaKm);
@@ -492,6 +496,16 @@ export function calcularPrecos(
   const zona = detectarZona(enderecoDestino);
   const multZona = getMultZona(zona);
   base = Math.round(base * multZona);
+
+  // Aplica adicional feriado (+20%) se data agendada cair em feriado nacional.
+  // Bug detectado teste Jack 29/Abr: 01/05 (Dia Trabalho) cotado normal,
+  // Pegue perdeu margem.
+  const feriado = calcularAdicionalFeriado(dataAgendada);
+  let adicionalFeriado = 0;
+  if (feriado.ehFeriado) {
+    adicionalFeriado = Math.round(base * (feriado.multiplicador - 1));
+    base = base + adicionalFeriado;
+  }
 
   // Adicionais
   let ajudante = 0;
@@ -512,7 +526,7 @@ export function calcularPrecos(
   const total = base + ajudante + elevador + escada;
 
   return {
-    padrao: { base, ajudante, elevador, escada, total },
+    padrao: { base, ajudante, elevador, escada, feriado: adicionalFeriado, total, feriadoNome: feriado.nomeFeriado },
     zona,
   };
 }
@@ -523,11 +537,12 @@ export function calcularPrecosCompleto(
   temAjudante: boolean = false,
   andares: number = 0,
   temElevador: boolean = false,
-  enderecoDestino: string = ""
+  enderecoDestino: string = "",
+  dataAgendada: string | null = null
 ) {
-  const util = calcularPrecos(distanciaKm, "utilitario", temAjudante, andares, temElevador, enderecoDestino);
-  const hr = calcularPrecos(distanciaKm, "hr", temAjudante, andares, temElevador, enderecoDestino);
-  const cam = calcularPrecos(distanciaKm, "caminhao_bau", temAjudante, andares, temElevador, enderecoDestino);
+  const util = calcularPrecos(distanciaKm, "utilitario", temAjudante, andares, temElevador, enderecoDestino, dataAgendada);
+  const hr = calcularPrecos(distanciaKm, "hr", temAjudante, andares, temElevador, enderecoDestino, dataAgendada);
+  const cam = calcularPrecos(distanciaKm, "caminhao_bau", temAjudante, andares, temElevador, enderecoDestino, dataAgendada);
 
   return {
     utilitario: util.padrao,

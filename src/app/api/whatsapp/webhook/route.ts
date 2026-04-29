@@ -1374,11 +1374,13 @@ async function handleLocalizacao(
     if (enderecoViaCep) {
       const coords = await geocodeAddress(enderecoViaCep);
       if (coords?.lat && coords?.lng) {
-        // Re-formata via reverseGeocode pra padronizar (rua, bairro, cidade)
-        const enderecoFormatado = await reverseGeocode(coords.lat, coords.lng);
+        // NAO chama reverseGeocode aqui: o Google preenche um numero de casa
+        // arbitrario na coord do meio da rua, fazendo o sistema "inventar" um
+        // numero que nao eh o do cliente. O numero real eh coletado depois do
+        // pagamento (handleNumeroColeta). Bug 29/Abr cliente 0774.
         await apresentarOrigemPraConfirmacao(
           phone,
-          enderecoFormatado || enderecoViaCep,
+          enderecoViaCep,
           coords.lat,
           coords.lng
         );

@@ -551,12 +551,20 @@ export function calcularPrecosCompleto(
   };
 }
 
-// Extrai CEP de uma mensagem
+// Extrai CEP de uma mensagem.
+// Aceita varios formatos comuns que clientes usam no whatsapp:
+//   06010000, 06010-000, 06010.000, 06010 000, 06.010-000, "cep 06010-000",
+//   "cep:06010000", "Cep06010000" (sem espaco entre 'cep' e digitos),
+//   "endereco 06010-000 perto da padaria"
+// REJEITA sequencias de digitos maiores que 8 (evita pegar telefone).
+// Lookbehind/lookahead negativo de digito garante que nao esta dentro
+// de outro numero (ex: "11999998888" tem 11 digitos seguidos = NAO eh CEP).
 export function extrairCep(texto: string): string | null {
-  // Aceita: 06010000, 06010-000, 06010.000, 06010 000, 06.010-000, "cep 06010-000"
-  // Remove pontos e espacos antes de bater o regex
+  // Remove pontos (CEPs as vezes vem com ponto: 06.010-000) e normaliza espacos
   const limpo = (texto || "").replace(/\./g, "").replace(/\s+/g, " ");
-  const match = limpo.match(/\b(\d{5})[-\s]?(\d{3})\b/);
+  // (?<!\d) antes e (?!\d) depois: aceita CEP grudado em letras (ex: "cep06010000")
+  // mas rejeita CEP grudado em outros digitos (ex: "abc12345678901" nao casa)
+  const match = limpo.match(/(?<!\d)(\d{5})[-\s]?(\d{3})(?!\d)/);
   if (!match) return null;
   return `${match[1]}${match[2]}`;
 }

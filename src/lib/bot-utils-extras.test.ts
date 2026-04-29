@@ -30,6 +30,13 @@ describe("extrairCep", () => {
       ["meu cep eh 06010-000 obrigado", "06010000"],
       ["CEP: 01310-100", "01310100"],
       ["01310100", "01310100"],
+      // Formatos sem espaco entre "cep" e digitos (cliente real)
+      ["cep06010000", "06010000"],
+      ["CEP06010-000", "06010000"],
+      ["Cep:06010-000", "06010000"],
+      ["meu endereco eh 06010-000 perto da padaria", "06010000"],
+      // CEP no fim sem pontuacao
+      ["preciso entregar 01310100", "01310100"],
     ])("extrai CEP de '%s' -> '%s'", (input, expected) => {
       expect(extrairCep(input)).toBe(expected);
     });
@@ -42,7 +49,10 @@ describe("extrairCep", () => {
       ["123"],
       ["1234567"], // 7 digitos != 8
       ["abc def"],
-      ["telefone 11999999999"], // numero longo demais (10 digitos seguidos != 5+3)
+      ["telefone 11999999999"], // 11 digitos seguidos = telefone, nao CEP
+      ["meu zap eh 11953938849"], // 11 digitos = telefone celular
+      ["123456789"], // 9 digitos seguidos
+      ["111213141516"], // sequencia longa de digitos
     ])("retorna null pra '%s'", (input) => {
       expect(extrairCep(input)).toBeNull();
     });

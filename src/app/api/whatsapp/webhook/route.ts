@@ -831,12 +831,29 @@ Boa sorte! 🎯`,
       const contexto = await extrairContextoInicial(message);
 
       if (contexto && contexto.confianca !== "baixa") {
-        // Salva o que detectou na sessao (pra usar depois)
-        await updateSession(phone, {
+        // Salva TUDO que IA detectou na sessao. Ate 30/Abr salvavamos so 2 campos
+        // (descricao_carga + veiculo_sugerido) e descartavamos andar, escada, ajudante,
+        // data, periodo, qtd_caixas. Cliente real 29/Abr (914963096) deu briefing
+        // completo e o bot pediu tudo de novo. Bug critico de UX.
+        const itensComCaixas = (() => {
+          const partes: string[] = [];
+          if (contexto.itens.length > 0) partes.push(contexto.itens.join(", "));
+          if (contexto.qtd_caixas) partes.push(`${contexto.qtd_caixas} caixa${contexto.qtd_caixas > 1 ? "s" : ""}`);
+          return partes.length > 0 ? partes.join(", ") : null;
+        })();
+        const updatePayload: any = {
           step: "confirmar_contexto_inicial",
-          descricao_carga: contexto.itens.length > 0 ? contexto.itens.join(", ") : null,
+          descricao_carga: itensComCaixas,
           veiculo_sugerido: contexto.veiculo_sugerido,
-        });
+        };
+        if (contexto.andar_origem !== null && contexto.andar_origem > 0) {
+          updatePayload.andar = contexto.andar_origem;
+        }
+        if (contexto.tem_escada_origem) updatePayload.tem_escada = true;
+        if (contexto.precisa_ajudante) updatePayload.precisa_ajudante = true;
+        if (contexto.data_texto) updatePayload.data_agendada = contexto.data_texto;
+        if (contexto.periodo) updatePayload.periodo = contexto.periodo;
+        await updateSession(phone, updatePayload);
 
         // Registra contexto completo em bot_logs (origem/destino textos vao ser usados depois)
         await supabase.from("bot_logs").insert({
@@ -854,6 +871,19 @@ Boa sorte! 🎯`,
         });
         return;
       }
+
+      // IA falhou ou voltou confianca baixa. Antes caia silenciosamente no fluxo
+      // tradicional (saudacao + menu). Cliente perdia o briefing inteiro. Agora
+      // logamos o motivo pra observabilidade.
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "ia_contexto_falhou",
+          phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+          motivo: !contexto ? "ia_retornou_null" : `confianca_${contexto.confianca}`,
+          msg_length: message.length,
+          mensagem_amostra: message.slice(0, 200),
+        },
+      });
     }
 
     // Se digitou termo de servico direto (frete, guincho, carreto, mudanca)
@@ -3443,7 +3473,7 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
 
     const contexto = (logCtx?.payload as any)?.contexto as ContextoExtraido | undefined;
 
-    // Decide proximo step baseado no que ja tem na sessao
+    // Guincho tem fluxo proprio
     if (contexto?.servico === "guincho") {
       await updateSession(phone, { step: "guincho_categoria" });
       await sendToClient({
@@ -3453,13 +3483,137 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
       return;
     }
 
-    // Frete ou mudanca: pode pular foto se ja detectou item
+    // CAMINHO RAPIDO: se IA capturou origem E destino texto, tenta geocodar os dois
+    // e ir direto pra cotacao. Cliente que ja deu briefing completo nao precisa
+    // ser perguntado de novo. Bug 29/Abr cliente real (914963096) que abandonou
+    // por causa disso.
+    if (contexto?.origem_texto && contexto?.destino_texto) {
+      await sendToClient({
+        to: phone,
+        message: `📍 Localizando os endereços, só um momento...`,
+      });
+
+      const [origemCoords, destinoCoords] = await Promise.all([
+        geocodeAddress(contexto.origem_texto),
+        geocodeAddress(contexto.destino_texto),
+      ]);
+
+      const origemOk = !!(origemCoords?.lat && origemCoords?.lng);
+      const destinoOk = !!(destinoCoords?.lat && destinoCoords?.lng);
+
+      if (origemOk && destinoOk) {
+        // Ambos endereços geocodificados - vai direto pra resumo + cotacao
+        const distanciaKm = calcularDistanciaKm(
+          origemCoords!.lat, origemCoords!.lng,
+          destinoCoords!.lat, destinoCoords!.lng
+        );
+        const veiculo = session.veiculo_sugerido || contexto.veiculo_sugerido || "utilitario";
+        const temAjudante = !!session.precisa_ajudante;
+        const andar = session.andar || 0;
+
+        const precos = calcularPrecos(
+          distanciaKm, veiculo, temAjudante, andar, false,
+          contexto.destino_texto, contexto.data_texto || null
+        );
+
+        await updateSession(phone, {
+          step: contexto.data_texto ? "aguardando_confirmacao" : "aguardando_data",
+          origem_endereco: contexto.origem_texto,
+          origem_lat: origemCoords!.lat,
+          origem_lng: origemCoords!.lng,
+          destino_endereco: contexto.destino_texto,
+          destino_lat: destinoCoords!.lat,
+          destino_lng: destinoCoords!.lng,
+          distancia_km: distanciaKm,
+          valor_estimado: precos.padrao.total,
+        });
+
+        // Salva qtd_ajudantes pra usar quando montar a corrida (1 ajudante por padrao
+        // quando IA detectou que cliente quer ajudante; cliente pode revisar depois).
+        if (temAjudante) {
+          await supabase.from("bot_logs").insert({
+            payload: { tipo: "qtd_ajudantes", phone, qtd: 1 },
+          });
+        }
+
+        const veiculoNome: Record<string, string> = {
+          utilitario: "Utilitario (Strada/Saveiro)",
+          hr: "HR",
+          caminhao_bau: "Caminhao Bau",
+          guincho: "Guincho",
+        };
+
+        const obsFeriado = precos.padrao.feriado > 0
+          ? `Feriado ${precos.padrao.feriadoNome || ""} - adicional R$ ${precos.padrao.feriado} ja incluido`
+          : undefined;
+
+        await sendToClient({
+          to: phone,
+          message: MSG.orcamento(
+            contexto.origem_texto,
+            contexto.destino_texto,
+            session.descricao_carga || contexto.itens.join(", ") || "Material",
+            veiculoNome[veiculo] || "Utilitario",
+            precos.padrao.total.toString(),
+            obsFeriado,
+            temAjudante ? 1 : 0,
+          ),
+        });
+
+        // Se tem data, pula direto pra confirmacao final
+        if (contexto.data_texto) {
+          const dataCompleta = contexto.periodo
+            ? `${contexto.data_texto} - ${contexto.periodo === "manha" ? "Manha" : contexto.periodo === "tarde" ? "Tarde" : "Noite"}`
+            : contexto.data_texto;
+          await updateSession(phone, { data_agendada: dataCompleta });
+          // resumoFrete logo abaixo precisa do periodo na string, mas valor_estimado ja salvo acima
+          await sendToClient({
+            to: phone,
+            message: MSG.resumoFrete(
+              contexto.origem_texto,
+              contexto.destino_texto,
+              session.descricao_carga || contexto.itens.join(", ") || "Material",
+              dataCompleta,
+              veiculoNome[veiculo] || "Utilitario",
+              precos.padrao.total.toString(),
+              [
+                temAjudante ? "🙋 Com ajudante" : null,
+                andar > 0 ? `🪜 ${andar}o andar (escada)` : null,
+              ].filter(Boolean).join("\n") + "\n",
+            ),
+          });
+        } else {
+          await sendToClient({
+            to: phone,
+            message: `📅 Pra finalizar, *quando* voce precisa?\n\nManda data e horario juntos:\n• *25/04 as 15h*\n• *amanha 14:30*\n• *segunda 9h*\n\nOu *AGORA* se for urgente.`,
+          });
+        }
+        return;
+      }
+
+      // Geocode falhou em pelo menos 1 endereço - cai no fluxo padrao com info parcial
+      if (origemOk && !destinoOk) {
+        await updateSession(phone, {
+          step: "aguardando_destino",
+          origem_endereco: contexto.origem_texto,
+          origem_lat: origemCoords!.lat,
+          origem_lng: origemCoords!.lng,
+        });
+        await sendToClient({
+          to: phone,
+          message: `📍 Coleta confirmada em *${contexto.origem_texto}*!\n\nNão consegui localizar o destino só pelo texto. Pode mandar o *endereço completo de entrega* (rua + número + bairro)?`,
+        });
+        return;
+      }
+      // Caso só destino ok ou nenhum - pede localizacao do zero
+    }
+
+    // Fluxo padrao: tem item identificado, pula foto e pede localizacao
     if (session.descricao_carga) {
-      // Item ja identificado, pula direto pra localizacao
       await updateSession(phone, { step: "aguardando_localizacao" });
       await sendToClient({
         to: phone,
-        message: `Perfeito! Pulei a parte de identificar o material ✅\n\nAgora me manda a *localização de retirada* 📍\n\nToca no *icone de anexo* (canto inferior direito) > Localização\nOu digite o *endereço completo com rua e bairro*`,
+        message: `Perfeito! Pulei a parte de identificar o material ✅\n\nAgora me manda a *localização de retirada* 📍\n\nToca no *icone de anexo* (canto inferior direito) > Localização\nOu digite o *CEP* ou *endereço completo*`,
       });
       return;
     }

@@ -14,11 +14,20 @@ import OpenAI from "openai";
 
 export type ServicoDetectado = "frete" | "mudanca" | "guincho";
 
+export type PeriodoDetectado = "manha" | "tarde" | "noite";
+
 export interface ContextoExtraido {
   servico: ServicoDetectado | null;
   itens: string[];           // ex: ["Sofa", "Geladeira"]
+  qtd_caixas: number | null; // "15 caixas" => 15
   origem_texto: string | null;  // texto livre: "Presidente Altino", "Rua Brasil"
   destino_texto: string | null; // texto livre: "Barra Funda", "Cotia"
+  andar_origem: number | null;  // "4º andar" => 4. 0 ou null se terreo/nao mencionou
+  tem_escada_origem: boolean;   // "sem elevador", "só escada" => true
+  tem_elevador_destino: boolean; // "com elevador (de servico)" => true
+  precisa_ajudante: boolean;    // "preciso de ajudantes pra carregar" => true
+  data_texto: string | null;    // "11 de maio", "11/05", "amanha", "segunda" - normalizacao depois
+  periodo: PeriodoDetectado | null; // "manha", "tarde", "noite"
   veiculo_sugerido: string | null; // "utilitario" | "hr" | "caminhao_bau" | "carro_comum"
   confianca: "alta" | "media" | "baixa";
   observacao: string | null;
@@ -65,62 +74,40 @@ export async function extrairContextoInicial(mensagem: string): Promise<Contexto
       messages: [
         {
           role: "system",
-          content: `Voce eh um assistente de uma empresa de fretes chamada Pegue (Osasco, SP).
-Sua tarefa: extrair informacoes que o cliente JA FORNECEU na primeira mensagem
-pra bot poder pular etapas e agilizar o atendimento.
+          content: `Extraia infos da mensagem do cliente da Pegue (fretes Osasco/SP) e retorne APENAS este JSON (campos null/[] se nao mencionado):
 
-Analise a mensagem e retorne APENAS um JSON:
 {
-  "servico": "frete" | "mudanca" | "guincho" | null,
-  "itens": ["Item1", "Item2"],
-  "origem_texto": "<endereço ou bairro de retirada, texto livre>" ou null,
-  "destino_texto": "<endereço ou bairro de entrega, texto livre>" ou null,
-  "veiculo_sugerido": "utilitario" | "hr" | "caminhao_bau" | "carro_comum" | null,
-  "confianca": "alta" | "media" | "baixa",
-  "observacao": "<frase curta do que entendeu>"
+  "data_texto": <"11 de maio"|"amanha"|"15/05"|"segunda"|null - texto LITERAL da data>,
+  "periodo": <"manha"|"tarde"|"noite"|null - inclui horarios: 8-12h=manha, 13-17h=tarde, 18h+=noite>,
+  "servico": <"frete"|"mudanca"|"guincho"|null>,
+  "itens": <lista TODOS itens explicitamente mencionados, ex: ["Sofa","Cama","Geladeira"]. Se "mudanca completa" sem listar items: []>,
+  "qtd_caixas": <numero ou null, ex: "15 caixas" => 15>,
+  "origem_texto": <texto livre da origem ou null. "de Osasco pra Sao Paulo" => "Osasco">,
+  "destino_texto": <texto livre destino ou null. Se mencionou 1 lugar sem dizer origem/destino, poe em destino>,
+  "andar_origem": <numero do andar coleta ou null. "4o andar" => 4. "terreo" => 0>,
+  "tem_escada_origem": <true se "sem elevador"|"escada"|"subir escada", false caso contrario>,
+  "tem_elevador_destino": <true se destino tem "elevador"|"elevador de servico", false caso contrario>,
+  "precisa_ajudante": <true se "ajudante"|"carregadores"|"alguem pra ajudar", false caso contrario>,
+  "veiculo_sugerido": <"utilitario"(1-2 itens)|"hr"(3+ itens grandes)|"caminhao_bau"(mudanca completa)|"carro_comum"|null>,
+  "confianca": <"alta"(servico+itens+origem ou destino)|"media"|"baixa">,
+  "observacao": <resumo 1 linha>
 }
 
 REGRAS:
-1. "servico": default "frete" se cliente menciona sofa, geladeira, item isolado pra levar.
-   "mudanca" se menciona mudanca, mudar de casa, apartamento inteiro, varios itens.
-   "guincho" se menciona carro quebrado, moto pifada, rebocar veiculo.
-   null se nao deu pra identificar.
+- NUNCA invente. Se nao tem certeza, use null/false/[].
+- LEIA A MENSAGEM INTEIRA antes de responder. Data e periodo costumam estar no fim ("seria dia X de Y", "no periodo da manha").
+- Itens: se cliente listou (ex: "- sofa\\n- cama\\n- geladeira"), capture TODOS mesmo dentro de "mudanca completa".
 
-2. "itens": lista TODOS os objetos/materiais que o cliente mencionou transportar.
-   Ex: "sofa + geladeira" => ["Sofa", "Geladeira"]. "mudanca completa" => [].
-
-3. "origem_texto" e "destino_texto": preserve exatamente como o cliente falou.
-   - "de Presidente Altino pra Barra Funda" => origem="Presidente Altino", destino="Barra Funda"
-   - "pra Cotia" (so destino) => origem=null, destino="Cotia"
-   - "rua X numero 123 em Osasco" => capture o texto
-   - Se mencionou so 1 lugar sem dizer se eh origem ou destino, coloca em destino_texto.
-
-4. "veiculo_sugerido":
-   - 1 item pequeno/medio => "utilitario"
-   - 1 item grande sozinho => "utilitario" (Strada cabe muita coisa)
-   - 2-3 itens grandes => "hr"
-   - Mudanca completa => "caminhao_bau"
-   - Guincho => null (sera definido depois pelo tipo de veiculo)
-
-5. "confianca":
-   - "alta": mensagem clara, servico + item + pelo menos origem ou destino
-   - "media": detectou servico + item mas sem enderecos
-   - "baixa": detectou 1 informacao fraca (so servico ou so 1 lugar)
-
-6. "observacao": frase curta resumindo o que cliente quer
-   Ex: "Frete de sofa pra Barra Funda"
-
-Se a mensagem NAO tem nada util (cliente so cumprimentou, perguntou algo generico),
-retorne confianca "baixa" e campos null.
-
-Responda SOMENTE o JSON, nada mais.`,
+Responda SOMENTE o JSON.`,
         },
         {
           role: "user",
-          content: `Mensagem do cliente: "${texto.slice(0, 500)}"`,
+          // Limite generoso (2000 chars) - mensagens completas de mudanca chegam a 700+ chars
+          // e cortar em 500 faz IA perder dados (ex: data e periodo no fim do texto).
+          content: `Mensagem do cliente: "${texto.slice(0, 2000)}"`,
         },
       ],
-      max_tokens: 300,
+      max_tokens: 600,
       temperature: 0.1,
     });
 
@@ -130,24 +117,37 @@ Responda SOMENTE o JSON, nada mais.`,
 
     const parsed = JSON.parse(jsonMatch[0]);
 
-    // Normaliza resposta
+    // Normaliza resposta. Defesa: nunca confia cegamente no que IA retornou.
+    const numOuNull = (v: any): number | null => {
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+    };
     const contexto: ContextoExtraido = {
       servico: ["frete", "mudanca", "guincho"].includes(parsed.servico)
         ? parsed.servico
         : null,
-      itens: Array.isArray(parsed.itens) ? parsed.itens : [],
-      origem_texto: parsed.origem_texto || null,
-      destino_texto: parsed.destino_texto || null,
+      itens: Array.isArray(parsed.itens)
+        ? parsed.itens.filter((i: any) => typeof i === "string" && i.trim().length > 0).slice(0, 30)
+        : [],
+      qtd_caixas: numOuNull(parsed.qtd_caixas),
+      origem_texto: typeof parsed.origem_texto === "string" && parsed.origem_texto.trim() ? parsed.origem_texto.trim() : null,
+      destino_texto: typeof parsed.destino_texto === "string" && parsed.destino_texto.trim() ? parsed.destino_texto.trim() : null,
+      andar_origem: numOuNull(parsed.andar_origem),
+      tem_escada_origem: parsed.tem_escada_origem === true,
+      tem_elevador_destino: parsed.tem_elevador_destino === true,
+      precisa_ajudante: parsed.precisa_ajudante === true,
+      data_texto: typeof parsed.data_texto === "string" && parsed.data_texto.trim() ? parsed.data_texto.trim() : null,
+      periodo: ["manha", "tarde", "noite"].includes(parsed.periodo) ? parsed.periodo : null,
       veiculo_sugerido: ["utilitario", "hr", "caminhao_bau", "carro_comum"].includes(parsed.veiculo_sugerido)
         ? parsed.veiculo_sugerido
         : null,
       confianca: ["alta", "media", "baixa"].includes(parsed.confianca)
         ? parsed.confianca
         : "baixa",
-      observacao: parsed.observacao || null,
+      observacao: typeof parsed.observacao === "string" && parsed.observacao.trim() ? parsed.observacao.trim() : null,
     };
 
-    // Se confianca baixa E nao detectou servico nem item, trata como nada detectado
+    // Se confianca baixa E nao detectou nada util, trata como nada detectado
     if (
       contexto.confianca === "baixa" &&
       !contexto.servico &&
@@ -168,31 +168,75 @@ Responda SOMENTE o JSON, nada mais.`,
 // Formata mensagem de confirmacao pra mandar pro cliente.
 // Mostra tudo que detectou + pede confirmacao.
 export function formatarConfirmacaoContexto(ctx: ContextoExtraido): string {
-  const linhas: string[] = ["Entendi que voce quer:\n"];
+  const linhas: string[] = ["✅ Entendi tudo! Confere se está certo:\n"];
 
   if (ctx.servico) {
     const nomeServico: Record<string, string> = {
       frete: "🚚 *Frete*",
-      mudanca: "📦 *Mudança*",
+      mudanca: "📦 *Mudança completa*",
       guincho: "🚗 *Guincho*",
     };
     linhas.push(nomeServico[ctx.servico] || `*${ctx.servico}*`);
   }
 
   if (ctx.itens.length > 0) {
-    linhas.push(`📦 Material: *${ctx.itens.join(", ")}*`);
+    if (ctx.itens.length <= 6) {
+      linhas.push(`📦 Itens: *${ctx.itens.join(", ")}*`);
+    } else {
+      linhas.push(`📦 ${ctx.itens.length} itens: *${ctx.itens.slice(0, 5).join(", ")}* e mais ${ctx.itens.length - 5}`);
+    }
   }
 
-  if (ctx.origem_texto) {
-    linhas.push(`📍 De: *${ctx.origem_texto}*`);
+  if (ctx.qtd_caixas) {
+    linhas.push(`📦 Caixas: *${ctx.qtd_caixas}*`);
   }
 
-  if (ctx.destino_texto) {
-    linhas.push(`🏠 Para: *${ctx.destino_texto}*`);
+  // Origem: mostra se tem texto OU se tem andar/escada (info parcial vale exibir)
+  const temInfoOrigem = ctx.origem_texto || (ctx.andar_origem !== null && ctx.andar_origem > 0) || ctx.tem_escada_origem;
+  if (temInfoOrigem) {
+    const partes: string[] = ["📍 Coleta:"];
+    if (ctx.origem_texto) {
+      partes.push(`*${ctx.origem_texto}*`);
+    }
+    if (ctx.andar_origem !== null && ctx.andar_origem > 0) {
+      partes.push(`— ${ctx.andar_origem}º andar`);
+    }
+    if (ctx.tem_escada_origem) {
+      partes.push(ctx.origem_texto || ctx.andar_origem ? "(sem elevador)" : "*sem elevador*");
+    }
+    linhas.push(partes.join(" "));
   }
 
-  linhas.push("\nEstá correto?\n");
-  linhas.push("1️⃣ ✅ *SIM* - vamos continuar (pulo as etapas já informadas)");
+  const temInfoDestino = ctx.destino_texto || ctx.tem_elevador_destino;
+  if (temInfoDestino) {
+    const partes: string[] = ["🏠 Entrega:"];
+    if (ctx.destino_texto) {
+      partes.push(`*${ctx.destino_texto}*`);
+    }
+    if (ctx.tem_elevador_destino) {
+      partes.push(ctx.destino_texto ? "(com elevador)" : "*com elevador*");
+    }
+    linhas.push(partes.join(" "));
+  }
+
+  if (ctx.precisa_ajudante) {
+    linhas.push(`🙋 Com ajudante`);
+  }
+
+  if (ctx.data_texto) {
+    let dataLinha = `📅 Quando: *${ctx.data_texto}*`;
+    if (ctx.periodo) {
+      const nomePeriodo: Record<string, string> = { manha: "manhã", tarde: "tarde", noite: "noite" };
+      dataLinha += ` (${nomePeriodo[ctx.periodo]})`;
+    }
+    linhas.push(dataLinha);
+  } else if (ctx.periodo) {
+    const nomePeriodo: Record<string, string> = { manha: "manhã", tarde: "tarde", noite: "noite" };
+    linhas.push(`📅 Período: ${nomePeriodo[ctx.periodo]}`);
+  }
+
+  linhas.push("\n*Está tudo certo?*\n");
+  linhas.push("1️⃣ ✅ *SIM* - continuar (pulo as etapas que já me contou)");
   linhas.push("2️⃣ ❌ *NÃO* - prefiro preencher tudo do zero");
 
   return linhas.join("\n");

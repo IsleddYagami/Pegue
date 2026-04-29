@@ -2495,6 +2495,48 @@ async function handleConfirmandoDestino(phone: string, message: string) {
   const corrigiu = lower === "2" || lower === "nao" || lower === "não" || lower === "corrigir" || lower.includes("outro");
 
   if (confirmou) {
+    // CAMINHO RAPIDO: se IA capturou andar/escada/ajudante na 1a msg do cliente,
+    // pula tipo_local + andar + ajudante. Cliente nao eh perguntado de novo.
+    // Detectado via bot_logs.contexto_extraido_inicial.
+    const { data: logCtx } = await supabase
+      .from("bot_logs")
+      .select("payload")
+      .filter("payload->>tipo", "eq", "contexto_extraido_inicial")
+      .filter("payload->>phone", "eq", phone)
+      .order("criado_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const contexto = (logCtx?.payload as any)?.contexto as ContextoExtraido | undefined;
+
+    const iaTemTipoLocal = !!(contexto && (
+      (contexto.andar_origem !== null && contexto.andar_origem !== undefined && contexto.andar_origem > 0) ||
+      contexto.tem_escada_origem ||
+      contexto.tem_elevador_destino
+    ));
+    const iaTemAjudante = contexto && typeof contexto.precisa_ajudante === "boolean";
+
+    if (iaTemTipoLocal && iaTemAjudante) {
+      // Pula tipo_local + andar + ajudante - cota direto.
+      const qtdAjudantes = contexto!.precisa_ajudante ? 1 : 0;
+      await sendToClient({
+        to: phone,
+        message: `📊 Calculando seu orçamento...`,
+      });
+      await calcularEEnviarOrcamento(phone, qtdAjudantes);
+      return;
+    }
+
+    if (iaTemTipoLocal && !iaTemAjudante) {
+      // Tem andar/escada mas falta ajudante - vai direto pra aguardando_ajudante.
+      await updateSession(phone, { step: "aguardando_ajudante" });
+      await sendToClient({
+        to: phone,
+        message: MSG.precisaAjudante(`${contexto!.andar_origem && contexto!.andar_origem > 0 ? `${contexto!.andar_origem}o andar anotado` : "Anotado"}, vamos seguir!`),
+      });
+      return;
+    }
+
+    // Sem info da IA - fluxo padrao
     await updateSession(phone, { step: "aguardando_tipo_local" });
     const cidadeDestino = (session.destino_endereco || "").split(",").pop()?.trim() || session.destino_endereco || "";
     await sendToClient({ to: phone, message: MSG.destinoRecebido(cidadeDestino) });
@@ -2617,11 +2659,20 @@ async function handleAjudante(phone: string, message: string) {
     return;
   }
 
+  await calcularEEnviarOrcamento(phone, qtdAjudantes);
+}
+
+// Calcula preco da corrida e envia orcamento ao cliente. Aplica camadas de
+// sanidade + ajustes admin. Avanca step pra aguardando_data.
+// Reutilizada por: handleAjudante (fluxo padrao) e handleConfirmandoDestino
+// (caminho rapido quando IA ja decidiu ajudante na 1a msg).
+async function calcularEEnviarOrcamento(phone: string, qtdAjudantes: number) {
+  const session = await getSession(phone);
+  if (!session) return;
+
   await updateSession(phone, { precisa_ajudante: qtdAjudantes > 0 });
-  // Salva qtd ajudantes temporario no bot_logs pra usar na corrida
   await supabase.from("bot_logs").insert({ payload: { tipo: "qtd_ajudantes", phone, qtd: qtdAjudantes } });
 
-  // Calcular distancia
   let distanciaKm = 2;
   if (session.origem_lat && session.origem_lng && session.destino_lat && session.destino_lng) {
     distanciaKm = calcularDistanciaKm(
@@ -2630,23 +2681,12 @@ async function handleAjudante(phone: string, message: string) {
     );
   }
 
-  // Detectar se tem elevador (step anterior salvou tem_escada=false e andar=0 para elevador)
-  // Precisamos distinguir terreo de elevador - vamos checar pela mensagem anterior
-  // Se tem_escada=false e andar=0, pode ser terreo ou elevador
-  // Vamos usar um campo extra - por ora checamos o destino_endereco
-
-  const temElevador = !session.tem_escada && session.andar === 0 ? false : false;
-  // TODO: salvar temElevador na sessao (por ora nao temos campo)
-
   const veiculo = session.veiculo_sugerido || "utilitario";
   const precos = calcularPrecos(distanciaKm, veiculo, qtdAjudantes > 0, session.andar || 0, false, session.destino_endereco || "", session.data_agendada || null);
 
-  // Adiciona segundo ajudante se necessario
   const ajudanteExtra = qtdAjudantes === 2 ? (distanciaKm <= 10 ? 80 : 100) : 0;
   let totalAntes = precos.padrao.total + ajudanteExtra;
 
-  // Aplica regras de ajuste manual (criadas pelo admin via WhatsApp ou painel)
-  // Nao mexe na formula base - soma depois como excecao
   const { aplicarAjustes } = await import("@/lib/ajustes-precos");
   const qtdItensTotal = (session.descricao_carga || "").split(",").length;
   const { precoFinal } = await aplicarAjustes(totalAntes, {
@@ -2657,8 +2697,6 @@ async function handleAjudante(phone: string, message: string) {
     comAjudante: qtdAjudantes > 0,
   });
 
-  // CAMADA 1 + 2: Sanidade de preco (limite absoluto + comparacao historica)
-  // Se preco anomalo, cotacao fica em "revisao_admin" e cliente espera aprovacao manual
   const { validarPrecoFinal } = await import("@/lib/sanidade-preco");
   const sanidade = await validarPrecoFinal(precoFinal, {
     veiculo,
@@ -2667,24 +2705,14 @@ async function handleAjudante(phone: string, message: string) {
     temAjudante: qtdAjudantes > 0,
   });
 
-  let precoValidado: number;
-  let emRevisao = false;
-
   if (!sanidade.ok) {
-    // Preco anomalo detectado - nao envia pro cliente, notifica admin
-    emRevisao = true;
-    precoValidado = sanidade.precoOriginal;
-
+    const precoValidado = sanidade.precoOriginal;
     await updateSession(phone, {
       step: "aguardando_revisao_admin",
       distancia_km: distanciaKm,
       valor_estimado: precoValidado,
     });
-
-    // Mensagem calma pro cliente
     await sendToClient({ to: phone, message: MSG.precoEmRevisao });
-
-    // Notifica admin com TUDO pra decidir
     await notificarAdmin(
       `🚨 *PRECO EM REVISAO (${sanidade.tipo === "acima_max" ? "acima do limite" : "anomalia historica"})*`,
       phone,
@@ -2702,18 +2730,10 @@ Ajudante: ${qtdAjudantes > 0 ? "Sim" : "Nao"}
 
 O cliente recebeu mensagem de espera. Acesse o admin pra aprovar ou ajustar.`
     );
-    return; // Para aqui, nao continua o fluxo normal
+    return;
   }
 
-  // Preco ok (ou ajustado pra minimo pela camada 1)
-  precoValidado = sanidade.preco;
-
-  const p = {
-    ...precos.padrao,
-    total: precoValidado,
-  };
-  const zonaInfo = precos.zona;
-
+  const precoValidado = sanidade.preco;
   const veiculoNome: Record<string, string> = {
     utilitario: "Utilitario (Strada/Saveiro)",
     hr: "HR",
@@ -2722,13 +2742,15 @@ O cliente recebeu mensagem de espera. Acesse o admin pra aprovar ou ajustar.`
     moto_guincho: "Guincho de Moto",
   };
 
+  // Se sessao ja tem data_agendada (IA capturou na 1a msg), pula handleData
+  // e vai direto pra aguardando_confirmacao com o resumo final.
+  const temData = session.data_agendada && session.data_agendada.trim().length > 0;
   await updateSession(phone, {
-    step: "aguardando_data",
+    step: temData ? "aguardando_confirmacao" : "aguardando_data",
     distancia_km: distanciaKm,
-    valor_estimado: p.total,
+    valor_estimado: precoValidado,
   });
 
-  // Aviso sobre adicional de feriado no orcamento (transparencia pro cliente)
   const obsFeriado = precos.padrao.feriado > 0
     ? `Feriado ${precos.padrao.feriadoNome || ""} - adicional R$ ${precos.padrao.feriado} ja incluido`
     : undefined;
@@ -2740,11 +2762,30 @@ O cliente recebeu mensagem de espera. Acesse o admin pra aprovar ou ajustar.`
       session.destino_endereco || "Destino",
       session.descricao_carga || "Material",
       veiculoNome[veiculo] || "Utilitario",
-      p.total.toString(),
+      precoValidado.toString(),
       obsFeriado,
       qtdAjudantes,
     ),
   });
+
+  // Se ja temos data, manda resumo final completo + opcoes confirmar/corrigir
+  if (temData) {
+    const detalhes: string[] = [];
+    if (qtdAjudantes > 0) detalhes.push(`🙋 Com ${qtdAjudantes === 1 ? "ajudante" : "2 ajudantes"}`);
+    if (session.tem_escada && session.andar && session.andar > 0) detalhes.push(`🪜 ${session.andar}o andar (escada)`);
+    await sendToClient({
+      to: phone,
+      message: MSG.resumoFrete(
+        session.origem_endereco || "Origem",
+        session.destino_endereco || "Destino",
+        session.descricao_carga || "Material",
+        session.data_agendada!,
+        veiculoNome[veiculo] || "Utilitario",
+        precoValidado.toString(),
+        detalhes.join("\n") + (detalhes.length ? "\n" : ""),
+      ),
+    });
+  }
 }
 
 // STEP 6: Data e Horario

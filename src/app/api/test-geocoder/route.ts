@@ -39,9 +39,9 @@ async function testarUm(nome: string, endereco: string) {
   const coords = await geocodeAddress(endereco);
   resultado.coords = coords;
   resultado.duracao_ms = Date.now() - inicio;
-  resultado.sucesso = !!coords;
 
-  // 2. Tambem testa Google direto (mostra precisao)
+  // 2. Tambem testa Google direto (mostra precisao + partial real)
+  let googlePartial = false;
   if (googleGeocodeAtivo()) {
     const g = await googleGeocode(endereco);
     resultado.google = g
@@ -51,10 +51,18 @@ async function testarUm(nome: string, endereco: string) {
           enderecoFormatado: g.enderecoFormatado,
         }
       : null;
+    googlePartial = !!g?.partial;
   }
 
-  // 3. Se falhou, mostra o que IA extrairia
-  if (!coords) {
+  // Critério de sucesso REAL: tem coords E nao foi adivinhado.
+  // Se geocodeAddress retornou null OU Google chutou (partial=true), conta como falha.
+  resultado.sucesso = !!coords && !googlePartial;
+  if (coords && googlePartial) {
+    resultado.alerta = "Google partial=true — adivinhou. Caindo pro Nominatim, mas pode dar coords de fallback questionaveis.";
+  }
+
+  // 3. Se falhou ou tem alerta, mostra o que IA extrairia (debug)
+  if (!resultado.sucesso) {
     const ia = await interpretarEnderecoComIA(endereco);
     resultado.ia_extraiu = ia;
   }

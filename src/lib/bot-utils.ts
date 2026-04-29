@@ -187,18 +187,20 @@ export async function geocodeAddress(
 
     // Tenta Google primeiro se chave presente (cobertura ~99% BR vs ~80% Nominatim)
     // Cliente real travou em "Vila Atlantico" 28/Abr porque Nominatim nao tinha.
-    // Google rejeita endereco SO se realmente nao existir — bem mais confiavel.
+    // REGRA CRITICA: rejeitar partial=true. Quando Google retorna partial,
+    // significa que ADIVINHOU partes do endereco (ex: cliente cita rua que nao existe,
+    // Google chuta rua parecida na cidade errada). Aceitar partial = enviar fretista
+    // pra endereco errado. Smoke test 29/Abr provou: "Vila Atlantico" texto cru
+    // virou "Vila Jaraguá-SP" (cliente era de Lauro de Freitas-BA). Inaceitavel.
     if (googleGeocodeAtivo()) {
       const g = await googleGeocode(addr);
-      if (g) {
-        // Aceita ROOFTOP/RANGE_INTERPOLATED/GEOMETRIC_CENTER. APPROXIMATE pode ser
-        // muito amplo (cidade inteira) — mas ainda melhor que nada se nao tem fallback.
-        if (g.precisao !== "APPROXIMATE" || !g.partial) {
-          return { lat: g.lat, lng: g.lng };
-        }
-        console.warn(`[geocode] Google retornou APPROXIMATE+partial pra "${addr}" — caindo pro Nominatim`);
+      if (g && !g.partial) {
+        return { lat: g.lat, lng: g.lng };
       }
-      // Se Google nao achou, segue pro Nominatim (rede de seguranca)
+      if (g?.partial) {
+        console.warn(`[geocode] Google partial=true pra "${addr}" (precisao=${g.precisao}, formatado="${g.enderecoFormatado}") — REJEITADO, caindo pro Nominatim`);
+      }
+      // Se Google nao achou OU retornou partial, segue pro Nominatim (rede de seguranca)
     }
 
     const lower = addr.toLowerCase();

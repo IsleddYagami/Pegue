@@ -73,6 +73,7 @@ export type Corrida = {
   periodo: string | null;
   status: string;
   pin_entrega: string | null;
+  asaas_payment_id: string | null;
   pago_em: string | null;
   coleta_em: string | null;
   entrega_em: string | null;

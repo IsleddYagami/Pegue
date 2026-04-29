@@ -5,6 +5,7 @@ import { formatarTelefoneExibicao } from "@/lib/bot-utils";
 import { MSG } from "@/lib/bot-messages";
 import { updateSession } from "@/lib/bot-sessions";
 import { validarWebhookAsaas } from "@/lib/asaas";
+import { gerarPinEntrega, montarMensagemPinCliente } from "@/lib/pin-entrega";
 
 export const dynamic = "force-dynamic";
 
@@ -86,10 +87,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: "ja_processado" });
       }
 
-      // Marca corrida como paga
+      // Gera PIN 4 digitos pra confirmacao de entrega (cliente entrega ao
+      // fretista no destino — anti-fraude). Marca corrida como paga.
+      const pinEntrega = gerarPinEntrega();
       await supabase
         .from("corridas")
-        .update({ status: "paga", pago_em: new Date().toISOString() })
+        .update({
+          status: "paga",
+          pago_em: new Date().toISOString(),
+          pin_entrega: pinEntrega,
+        })
         .eq("id", corridaId);
 
       const clienteTel = (corrida.clientes as any)?.telefone;
@@ -113,11 +120,15 @@ export async function POST(req: NextRequest) {
 
         const telFormatado = formatarTelefoneExibicao(prestador.telefone);
 
-        // 3 mensagens em paralelo (nao bloqueia uma na outra)
+        // 4 mensagens em paralelo (nao bloqueia uma na outra)
         await Promise.allSettled([
           sendToClient({
             to: clienteTel,
             message: MSG.pagamentoConfirmado(prestador.nome, telFormatado),
+          }),
+          sendToClient({
+            to: clienteTel,
+            message: montarMensagemPinCliente(pinEntrega, prestador.nome),
           }),
           sendToClient({
             to: clienteTel,

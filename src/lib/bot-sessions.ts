@@ -27,6 +27,7 @@ export type BotStep =
   | "cadastro_aguardando_aprovacao"
   | "fretista_coleta_fotos"
   | "fretista_entrega_fotos"
+  | "fretista_aguardando_pin"
   | "aguardando_confirmacao_entrega"
   | "avaliacao_atendimento"
   | "avaliacao_praticidade"
@@ -93,6 +94,8 @@ export interface BotSession {
   precisa_ajudante: boolean;
   corrida_id: string | null;
   instance_chatpro?: number | null;
+  msgs_contador?: number | null;
+  msgs_contador_inicio?: string | null;
 }
 
 export async function getSession(phone: string): Promise<BotSession | null> {
@@ -359,7 +362,9 @@ export type TipoTarefa =
   | "dispatch_timeout_estendido"
   | "rastreio_lembrete_confirmacao"
   | "rastreio_libera_fretista"
-  | "ocorrencia_timeout_admin";
+  | "ocorrencia_timeout_admin"
+  | "pin_entrega_timeout"
+  | "dispatch_redispatch_rodada2";
 
 export async function agendarTarefa(
   tipo: TipoTarefa,

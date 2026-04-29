@@ -45,10 +45,11 @@ export async function POST(req: NextRequest) {
       clienteNome,
     });
 
-    // Salva preferenceId na corrida
+    // Salva preferenceId no campo dedicado asaas_payment_id (libera pin_entrega
+    // pra ser PIN real de 4 digitos - migration 29/Abr).
     await supabase
       .from("corridas")
-      .update({ pin_entrega: preferenceId }) // Reutiliza campo pra guardar preferenceId
+      .update({ asaas_payment_id: preferenceId })
       .eq("id", corridaId);
 
     return NextResponse.json({ linkPagamento, preferenceId });

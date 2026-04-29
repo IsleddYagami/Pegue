@@ -102,9 +102,75 @@ async function executarTarefa(tarefa: any) {
       await handleOcorrenciaTimeoutAdmin(referencia, payload);
       break;
 
+    case "pin_entrega_timeout":
+      await handlePinEntregaTimeout(referencia);
+      break;
+
+    case "dispatch_redispatch_rodada2":
+      await handleDispatchRedispatch(referencia, payload);
+      break;
+
     default:
       throw new Error(`Tipo de tarefa desconhecido: ${tipo}`);
   }
+}
+
+// 30min apos pedir PIN ao fretista: se corrida ainda nao concluida (PIN nao
+// validado), alerta admin pra investigar (cliente nao no destino, fretista
+// sem o PIN, ou tentativa de fraude).
+async function handlePinEntregaTimeout(corridaId: string) {
+  const { data: corrida } = await supabase
+    .from("corridas")
+    .select("id, status, prestadores!prestador_id(nome, telefone), clientes(nome, telefone)")
+    .eq("id", corridaId)
+    .single();
+  if (!corrida) return;
+  if (corrida.status === "concluida" || corrida.status === "cancelada") return;
+
+  const { notificarAdmins } = await import("@/lib/admin-notify");
+  await notificarAdmins(
+    "🚨 *PIN ENTREGA TIMEOUT 30min*",
+    "sistema",
+    `Corrida ${corridaId} aguardando PIN do fretista ha 30min.
+
+Fretista: ${(corrida.prestadores as any)?.nome || "?"} (${(corrida.prestadores as any)?.telefone || "?"})
+Cliente: ${(corrida.clientes as any)?.nome || "?"} (${(corrida.clientes as any)?.telefone || "?"})
+
+Possiveis causas:
+- Cliente nao chegou ao destino
+- Cliente nao recebeu o PIN
+- Fretista esqueceu de pedir
+- Tentativa de fraude
+
+👉 Validar manualmente.`,
+  );
+}
+
+// Re-dispatch automatico apos timeout 10min sem aceite. Bug auditoria 29/Abr:
+// corrida ficava em limbo. Roda rodada 2 com novos fretistas (excluindo os que
+// rejeitaram). Apos rodada 2 sem aceite, ai sim escala humano.
+async function handleDispatchRedispatch(corridaId: string, _payload: any) {
+  const { data: corrida } = await supabase
+    .from("corridas")
+    .select("id, status, dispatch_ativo, prestador_id, dispatch_rodada, dispatch_prestadores")
+    .eq("id", corridaId)
+    .single();
+  if (!corrida) return;
+  if (corrida.prestador_id) return; // ja foi aceito
+  if (corrida.status === "cancelada") return;
+
+  // So tenta rodada 2. Se ja foi rodada 2+, escala humano (deixa cron padrao
+  // de timeout estendido lidar).
+  if ((corrida.dispatch_rodada || 0) >= 2) return;
+
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "dispatch_redispatch_iniciado",
+      corrida_id: corridaId,
+      rodada_anterior: corrida.dispatch_rodada,
+      prestadores_rodada1: corrida.dispatch_prestadores,
+    },
+  });
 }
 
 // 31s apos inicio do dispatch: se ninguem aceitou E tem contraoferta de fretista,

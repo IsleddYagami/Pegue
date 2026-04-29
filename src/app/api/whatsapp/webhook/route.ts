@@ -1090,6 +1090,10 @@ Boa sorte! 🎯`,
       await handleFretistFotos(phone, message, "entrega");
       break;
 
+    case "fretista_aguardando_pin":
+      await handleFretistaPinEntrega(phone, message);
+      break;
+
     case "aguardando_confirmacao_entrega":
       await handleConfirmacaoEntrega(phone, message);
       break;
@@ -5222,6 +5226,111 @@ async function handleAvaliacaoSugestao(phone: string, message: string) {
 
 // === CONFIRMAÇÃO DE ENTREGA PELO CLIENTE ===
 
+// Fretista digita PIN de 4 digitos pra confirmar entrega.
+// PIN foi gerado no webhook Asaas e enviado AO CLIENTE privadamente.
+// Valida: bate com pin_entrega da corrida -> simula confirmacao do cliente
+// (chama handleConfirmacaoEntrega) que dispara repasse + avaliacao.
+// 3 tentativas erradas -> escala humano (admin valida manual).
+async function handleFretistaPinEntrega(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session || !session.corrida_id) return;
+
+  const { validarPinEntrega, montarMensagemPinIncorreto, PIN_TENTATIVAS_MAX } =
+    await import("@/lib/pin-entrega");
+
+  // Busca corrida + PIN esperado + cliente
+  const { data: corrida } = await supabase
+    .from("corridas")
+    .select("id, pin_entrega, status, clientes!inner(telefone, nome), prestadores!prestador_id(nome)")
+    .eq("id", session.corrida_id)
+    .single();
+
+  if (!corrida) {
+    await sendToClient({
+      to: phone,
+      message: "🤔 Nao achei a corrida. Aguarda — vou chamar um atendente.",
+    });
+    await notificarAdmin(
+      "🚨 *PIN ENTREGA - CORRIDA NAO ACHADA*",
+      phone,
+      `Corrida_id na sessao: ${session.corrida_id}\nFretista: ${phone}\nPIN digitado: ${message.slice(0, 10)}`,
+    );
+    return;
+  }
+
+  // Idempotencia: corrida ja concluida (PIN ja foi aceito antes)
+  if (corrida.status === "concluida") {
+    await sendToClient({
+      to: phone,
+      message: "✅ Essa corrida ja foi concluida. Pagamento liberado.",
+    });
+    await updateSession(phone, { step: "concluido" });
+    return;
+  }
+
+  const ok = validarPinEntrega(message, corrida.pin_entrega);
+
+  if (ok) {
+    // PIN correto -> simula confirmacao do cliente (libera repasse + avaliacao)
+    const clienteTel = (corrida.clientes as any).telefone;
+
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "pin_entrega_validado",
+        corrida_id: session.corrida_id,
+        fretista_phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+      },
+    });
+
+    // Garante session cliente com step certo + corrida_id antes de chamar handleConfirmacaoEntrega
+    await updateSession(clienteTel, {
+      step: "aguardando_confirmacao_entrega",
+      corrida_id: session.corrida_id,
+    });
+
+    // Avisa fretista que PIN foi aceito antes de processar repasse
+    await sendToClient({
+      to: phone,
+      message: `✅ *PIN confirmado!* Liberando seu repasse...`,
+    });
+
+    // Reusa toda a logica de confirmacao (repasse Asaas + avaliacao + etc)
+    await handleConfirmacaoEntrega(clienteTel, "1");
+    return;
+  }
+
+  // PIN errado: incrementa contador (msgs_contador) e re-pede ate max
+  const tentativas = (session.msgs_contador || 0) + 1;
+  await updateSession(phone, { msgs_contador: tentativas });
+
+  if (tentativas >= PIN_TENTATIVAS_MAX) {
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "pin_entrega_max_tentativas",
+        corrida_id: session.corrida_id,
+        fretista_phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+        tentativas,
+      },
+    });
+    await notificarAdmin(
+      "🚨 *PIN ENTREGA - 3 TENTATIVAS ERRADAS*",
+      phone,
+      `Fretista: ${(corrida.prestadores as any)?.nome || phone}\nCliente: ${(corrida.clientes as any).nome || "?"} (${(corrida.clientes as any).telefone})\nCorrida: ${session.corrida_id}\n\n👉 Validar manualmente. Possiveis causas:\n- Cliente nao esta no destino\n- Cliente nao recebeu o PIN (verificar bot_logs)\n- Tentativa de fraude do fretista`,
+    );
+    await sendToClient({
+      to: phone,
+      message: montarMensagemPinIncorreto(0),
+    });
+    await updateSession(phone, { step: "atendimento_humano" });
+    return;
+  }
+
+  await sendToClient({
+    to: phone,
+    message: montarMensagemPinIncorreto(PIN_TENTATIVAS_MAX - tentativas),
+  });
+}
+
 async function handleConfirmacaoEntrega(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session || !session.corrida_id) return;
@@ -5531,14 +5640,16 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
         }
       }
     } else {
-      // Entrega concluída
-      await updateSession(phone, { step: "concluido" });
+      // Fretista terminou de fotografar entrega. Pede PIN antes de concluir.
+      // PIN foi gerado quando pagamento confirmou e enviado AO CLIENTE PRIVADAMENTE.
+      // Fretista pede pessoalmente, cliente fala oralmente, fretista digita aqui.
+      // PIN correto = confirmacao implicita da entrega + libera repasse.
+      // PIN errado 3x = escala humano (admin valida).
+      await updateSession(phone, { step: "fretista_aguardando_pin" });
 
-      // Avisa fretista pra aguardar no local
-      await sendToClient({ to: phone, message: MSG.fretistaAguardarConfirmacao });
-
-      // Busca corrida pra encontrar o cliente
       const session = await getSession(phone);
+      const { montarMensagemPinFretista } = await import("@/lib/pin-entrega");
+
       if (session?.corrida_id) {
         const { data: corrida } = await supabase
           .from("corridas")
@@ -5548,34 +5659,23 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
 
         if (corrida?.clientes) {
           const clienteTel = (corrida.clientes as any).telefone;
-          const isGuincho = (corrida.descricao_carga || "").toLowerCase().includes("guincho");
-          // Muda sessao do cliente pra aguardar confirmacao
-          await updateSession(clienteTel, { step: "aguardando_confirmacao_entrega" });
+          // Avisa cliente que fretista chegou (UX) + lembra do PIN
           await sendToClient({
             to: clienteTel,
-            message: isGuincho
-              ? MSG.guinchoClienteConfirmarEntrega(corrida.descricao_carga || "Servico de guincho")
-              : MSG.clienteConfirmarEntrega(corrida.descricao_carga || "seus materiais"),
+            message: `📦 *${(corrida.clientes as any).nome || "Voce"}, o fretista chegou no destino!*\n\nQuando receber tudo certinho, *forneca o PIN de 4 digitos* que mandei mais cedo.\n\nSem PIN, o fretista nao pode encerrar — sua garantia. ✅`,
           });
 
-          // Tarefas agendadas (substituem setTimeouts que nao funcionam em serverless).
-          // Cron /api/cron/tarefas-agendadas dispara nos prazos:
-          // - 10 min: lembra cliente de confirmar entrega
-          // - 20 min: libera fretista do local, notifica admin, manda ultima mensagem pro cliente
-          if (session?.corrida_id) {
-            await agendarTarefa(
-              "rastreio_lembrete_confirmacao",
-              session.corrida_id,
-              10 * 60 * 1000
-            );
-            await agendarTarefa(
-              "rastreio_libera_fretista",
-              session.corrida_id,
-              20 * 60 * 1000
-            );
-          }
+          // Tarefa agendada: se em 30min ninguem digitar PIN, alerta admin
+          await agendarTarefa(
+            "pin_entrega_timeout",
+            session.corrida_id,
+            30 * 60 * 1000,
+          );
         }
       }
+
+      // Pede PIN ao fretista
+      await sendToClient({ to: phone, message: montarMensagemPinFretista() });
     }
     return;
   }
@@ -5888,10 +5988,11 @@ async function notificarResultadoDispatch(
           throw new Error(`Falha criar cobranca Asaas: ${JSON.stringify(cobrancaResult.erro)}`);
         }
 
-        // 3) Salva paymentId Asaas no campo pin_entrega pra rastrear webhook
+        // 3) Salva paymentId Asaas no campo dedicado asaas_payment_id
+        // (migration 29/Abr liberou pin_entrega pra ser PIN real de 4 digitos)
         await supabase
           .from("corridas")
-          .update({ pin_entrega: cobrancaResult.cobranca.id })
+          .update({ asaas_payment_id: cobrancaResult.cobranca.id })
           .eq("id", corridaId);
 
         // 4) Envia 1 mensagem com link unico (PIX + cartao na mesma tela)

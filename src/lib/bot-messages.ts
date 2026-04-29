@@ -13,7 +13,7 @@ O que voce precisa?
 3️⃣ *Guincho*
 4️⃣ *Duvidas frequentes*`,
 
-  pedirLocalizacao: `🎥 *Veja como enviar sua localizacao:*`,
+  pedirLocalizacao: `🎥 *Veja como enviar a localizacao de onde sera feita a RETIRADA:*`,
 
   // VIDEO tutorial (gravado por Fabio em 25/Abr — print real do WhatsApp dele
   // com setas amarelas mostrando os 3 passos: anexo -> Localizacao -> Enviar).
@@ -73,20 +73,20 @@ Ou digite *AGORA* se for urgente.`,
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅
 
-Como prefere informar os materiais?
+Como prefere informar o que vai transportar?
 
-1️⃣ *Mandar foto* 📸
-2️⃣ *Lista rapida de mudanca* (so escolher os itens)
-3️⃣ *Descrever por texto*`,
+1️⃣ 📸 *Mandar foto do MATERIAL* (so a carga, sem outras coisas)
+2️⃣ ✏️ *Descrever por texto*
+3️⃣ 📋 *Lista rapida de mudanca* (so escolher os itens)`,
 
   enderecoRecebido: (endereco: string) =>
     `Anotado! Coleta em: ${endereco} ✅
 
-Como prefere informar os materiais?
+Como prefere informar o que vai transportar?
 
-1️⃣ *Mandar foto* 📸
-2️⃣ *Lista rapida de mudanca* (so escolher os itens)
-3️⃣ *Descrever por texto*`,
+1️⃣ 📸 *Mandar foto do MATERIAL* (so a carga, sem outras coisas)
+2️⃣ ✏️ *Descrever por texto*
+3️⃣ 📋 *Lista rapida de mudanca* (so escolher os itens)`,
 
   listaMudanca: `📋 *LISTA RAPIDA DE MUDANCA*
 
@@ -198,13 +198,15 @@ Vai precisar de ajudante pra carregar? 😊
     veiculo: string,
     total: string,
     obsFeriado?: string,
+    qtdAjudantes: number = 0,
   ) =>
     `Preparei seu orcamento! 📋
 
 📍 *Retirada:* ${origem}
 🏠 *Destino:* ${destino}
 📦 *Material:* ${carga}
-🚚 *Veiculo:* ${veiculo}${obsFeriado ? `\n📅 *${obsFeriado}*` : ""}
+🚚 *Veiculo:* ${veiculo}
+👷 *Ajudante:* ${qtdAjudantes === 0 ? "Sem ajudante" : qtdAjudantes === 1 ? "1 ajudante" : `${qtdAjudantes} ajudantes`}${obsFeriado ? `\n📅 *${obsFeriado}*` : ""}
 
 ✅ *Total: R$ ${total}*
 
@@ -257,7 +259,7 @@ ${detalhes}
 □ *Data e horário* estão certos?
 □ *Fretista NÃO faz montagem e desmontagem* — confira se não há essa necessidade
 □ Se escolheu *elevador*, certifique-se que *todos os itens caibam* — divergência no dia pode gerar *custos adicionais*
-□ *Esteja pronto no horário marcado* — fretista tem outros trabalhos agendados
+□ *Esteja pronto no horário marcado* — fretista tem outros trabalhos agendados. *Atrasos acima de 1 hora podem gerar custo adicional*
 
 ━━━━━━━━━━━━━━━━
 

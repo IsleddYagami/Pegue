@@ -2689,6 +2689,7 @@ O cliente recebeu mensagem de espera. Acesse o admin pra aprovar ou ajustar.`
       veiculoNome[veiculo] || "Utilitario",
       p.total.toString(),
       obsFeriado,
+      qtdAjudantes,
     ),
   });
 }

@@ -4234,6 +4234,25 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
         }
       }
     } else {
+      // Filtragem por TIPO de veiculo compativel com a corrida.
+      // Bug auditoria 29/Abr: dispatch enviava pra todos veiculos
+      // (utilitario/hr/caminhao/carro), mesmo se corrida pedisse HR.
+      // Fretista com carro_comum aceitava HR -> nao cabia carga -> frustracao.
+      //
+      // Hierarquia: fretista com veiculo MAIOR pode aceitar corridas menores.
+      // - corrida carro_comum: aceita carro_comum, utilitario, hr, caminhao
+      // - corrida utilitario: aceita utilitario, hr, caminhao
+      // - corrida hr: aceita hr, caminhao
+      // - corrida caminhao_bau: aceita SO caminhao
+      const tipoCorrida = session.veiculo_sugerido || "utilitario";
+      const VEICULOS_COMPATIVEIS: Record<string, string[]> = {
+        carro_comum: ["carro_comum", "utilitario", "hr", "caminhao_bau"],
+        utilitario: ["utilitario", "hr", "caminhao_bau"],
+        hr: ["hr", "caminhao_bau"],
+        caminhao_bau: ["caminhao_bau"],
+      };
+      const veiculosOK = VEICULOS_COMPATIVEIS[tipoCorrida] || ["utilitario", "hr", "caminhao_bau"];
+
       const { data } = await supabase
         .from("prestadores")
         .select("telefone, nome, id")
@@ -4241,7 +4260,6 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
         .eq("status", "aprovado");
 
       if (data) {
-        // Filtra prestadores que NAO sao guincheiros (tem veiculo de frete)
         for (const p of data) {
           const { data: veiculos } = await supabase
             .from("prestadores_veiculos")
@@ -4249,12 +4267,20 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
             .eq("prestador_id", p.id)
             .eq("ativo", true);
 
-          const ehFretista = veiculos?.some(v =>
-            ["utilitario", "hr", "caminhao_bau", "carro_comum"].includes(v.tipo)
-          );
-          if (ehFretista) prestadores.push(p);
+          const compativel = veiculos?.some(v => veiculosOK.includes(v.tipo));
+          if (compativel) prestadores.push(p);
         }
       }
+
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "dispatch_filtro_veiculo",
+          corrida_id: corridaId,
+          tipo_corrida: tipoCorrida,
+          veiculos_compativeis: veiculosOK,
+          fretistas_compativeis: prestadores.length,
+        },
+      });
     }
 
     if (prestadores.length === 0) {

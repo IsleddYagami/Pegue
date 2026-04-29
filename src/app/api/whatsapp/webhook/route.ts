@@ -126,8 +126,12 @@ export async function POST(req: NextRequest) {
     const eventosIgnoradosLog = new Set(["charge_status", "reaction", "group_event"]);
     if (!eventosIgnoradosLog.has(eventType)) {
       // Log minimo no Supabase (sem rawBody completo por LGPD).
+      // Bug 12 (auditoria 29/Abr): logs sem `tipo` viraram 96% dos registros
+      // (289/300 sem campo tipo). Padroniza tipo: "webhook_chatpro_event"
+      // pra observabilidade. event_type segue como detalhe especifico.
       await supabase.from("bot_logs").insert({
         payload: {
+          tipo: "webhook_chatpro_event",
           _instance: instance,
           event_type: eventType,
           from_masked: fromMasked,

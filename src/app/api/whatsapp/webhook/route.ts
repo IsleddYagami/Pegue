@@ -940,6 +940,10 @@ Boa sorte! 🎯`,
       await handleAceiteTermos(phone, message, instance);
       break;
 
+    case "aguardando_clarificacao_itens":
+      await handleClarificacaoItens(phone, message);
+      break;
+
     case "editando_escolha":
       await handleEditandoEscolha(phone, message, instance);
       break;
@@ -1726,9 +1730,88 @@ async function handleFoto(
       return;
     }
 
-    // Inferencia basica de veiculo pelo numero de itens mencionados - mas nao regride.
-    // Conta quantidade real via contarItensTexto (testavel via Vitest):
-    // "2 camas, 3 cadeiras" = 5 itens (nao 2).
+    // NOVO 29/Abr: classifica itens com IA OpenAI antes de aceitar.
+    // Cliente brasileiro digita texto vago ("cama geladeira sofa"). IA:
+    //  1. Separa cada item, estima volume_m3 + peso_kg
+    //  2. Detecta itens VAGOS (sofa sem tamanho, cama sem tipo)
+    //  3. Se vago, pergunta antes de cotar (regra: jamais cotar sem certeza)
+    //  4. Se OK, calcula veiculo via volume+peso real
+    // Custo IA: ~R$0,003/req. Bug origem: Jack 29/Abr "cama geladeira sofa"
+    // virou utilitario errado (devia ser HR).
+    try {
+      const { classificarItensComIA, montarPerguntaClarificacao } = await import("@/lib/classificador-itens");
+      const resultado = await classificarItensComIA(message);
+
+      if (resultado) {
+        const sessaoAtual = await getSession(phone);
+
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "classificador_itens_resultado",
+            phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+            texto: message.slice(0, 200),
+            qtd_itens: resultado.itens.length,
+            vagos: resultado.vagos.map(v => v.item),
+            volume_total_m3: resultado.volume_total_m3,
+            peso_total_kg: resultado.peso_total_kg,
+            confianca: resultado.confianca,
+          },
+        });
+
+        // Tem vagos -> pergunta antes de prosseguir
+        if (resultado.vagos.length > 0) {
+          await updateSession(phone, {
+            step: "aguardando_clarificacao_itens",
+            descricao_carga: message, // texto original preservado
+          });
+          await sendToClient({
+            to: phone,
+            message: montarPerguntaClarificacao(resultado.vagos),
+          });
+          return;
+        }
+
+        // Sem vagos -> calcula veiculo via volume+peso (preciso!)
+        if (resultado.itens.length > 0) {
+          const veiculoCalc = sugerirVeiculoPorVolumePeso(
+            resultado.volume_total_m3,
+            resultado.peso_total_kg,
+          );
+
+          if (veiculoCalc === "carga_excedida") {
+            await sendToClient({
+              to: phone,
+              message: "📦 Carga muito grande pra nossa frota.\n\nUm atendente vai te ajudar com cotação personalizada. Aguarda alguns minutos 😊",
+            });
+            await updateSession(phone, {
+              step: "atendimento_humano",
+              descricao_carga: message,
+            });
+            return;
+          }
+
+          const veiculo = determinarMelhorVeiculo(
+            sessaoAtual?.veiculo_sugerido || null,
+            veiculoCalc,
+          );
+          const descricaoEstrutura = resultado.itens
+            .map(i => `${i.qtd}x ${i.nome}`)
+            .join(", ");
+
+          await updateSession(phone, {
+            step: "aguardando_destino",
+            descricao_carga: descricaoEstrutura,
+            veiculo_sugerido: veiculo,
+          });
+          await sendToClient({ to: phone, message: MSG.fotoRecebida(descricaoEstrutura) });
+          return;
+        }
+      }
+    } catch (e: any) {
+      console.warn("classificador-itens falhou, fallback legado:", e?.message);
+    }
+
+    // FALLBACK LEGADO (se IA nao respondeu): contagem simples.
     let qtdItens = contarItensTexto(message);
     if (qtdItens === 0) qtdItens = 1;
     let veiculoSugerido = "utilitario";
@@ -1755,6 +1838,83 @@ async function handleFoto(
 }
 
 // formatarListaNumerada movida pra @/lib/bot-utils (importada no topo).
+
+// STEP intermediario: cliente respondeu clarificacao de itens vagos (sofa,cama,etc)
+// Combina texto original + resposta e re-classifica. Se ainda vago apos 1 tentativa,
+// segue mesmo assim com estimativa conservadora (nao trava cliente em loop).
+async function handleClarificacaoItens(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const textoOriginal = session.descricao_carga || "";
+  const textoCompleto = `${textoOriginal} - clarificacao do cliente: ${message}`;
+
+  try {
+    const { classificarItensComIA } = await import("@/lib/classificador-itens");
+    const resultado = await classificarItensComIA(textoCompleto);
+
+    if (resultado && resultado.itens.length > 0) {
+      const veiculoCalc = sugerirVeiculoPorVolumePeso(
+        resultado.volume_total_m3,
+        resultado.peso_total_kg,
+      );
+
+      if (veiculoCalc === "carga_excedida") {
+        await sendToClient({
+          to: phone,
+          message: "📦 Carga muito grande pra nossa frota.\n\nUm atendente vai te ajudar com cotacao personalizada 😊",
+        });
+        await updateSession(phone, { step: "atendimento_humano" });
+        return;
+      }
+
+      const veiculo = determinarMelhorVeiculo(
+        session.veiculo_sugerido || null,
+        veiculoCalc,
+      );
+      const descricaoEstrutura = resultado.itens
+        .map(i => `${i.qtd}x ${i.nome}`)
+        .join(", ");
+
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "classificador_itens_clarificado",
+          phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+          original: textoOriginal.slice(0, 100),
+          clarificacao: message.slice(0, 100),
+          confianca: resultado.confianca,
+          ainda_vagos: resultado.vagos.length,
+          veiculo_sugerido: veiculo,
+        },
+      });
+
+      await updateSession(phone, {
+        step: "aguardando_destino",
+        descricao_carga: descricaoEstrutura,
+        veiculo_sugerido: veiculo,
+      });
+      await sendToClient({ to: phone, message: MSG.fotoRecebida(descricaoEstrutura) });
+      return;
+    }
+  } catch (e: any) {
+    console.warn("clarificacao itens IA falhou:", e?.message);
+  }
+
+  // Fallback: IA nao respondeu - junta texto e segue com contagem simples
+  const todoTexto = `${textoOriginal} ${message}`.trim();
+  let qtdItens = contarItensTexto(todoTexto) || 1;
+  let veiculoSugerido = "utilitario";
+  if (qtdItens >= 8) veiculoSugerido = "caminhao_bau";
+  else if (qtdItens >= 3) veiculoSugerido = "hr";
+  const veiculo = determinarMelhorVeiculo(session.veiculo_sugerido || null, veiculoSugerido);
+
+  await updateSession(phone, {
+    step: "aguardando_destino",
+    descricao_carga: todoTexto,
+    veiculo_sugerido: veiculo,
+  });
+  await sendToClient({ to: phone, message: MSG.fotoRecebida(todoTexto) });
+}
 
 // STEP 2b: Mais fotos ou PRONTO
 async function handleMaisFotos(phone: string, message: string) {

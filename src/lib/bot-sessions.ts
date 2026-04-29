@@ -34,6 +34,7 @@ export type BotStep =
   | "avaliacao_sugestao"
   | "aguardando_confirmacao"
   | "aguardando_aceite_termos"
+  | "aguardando_clarificacao_itens"
   | "editando_escolha"
   | "confirmar_itens_foto"
   | "confirmando_origem"

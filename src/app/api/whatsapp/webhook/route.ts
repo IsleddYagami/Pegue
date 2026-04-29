@@ -1378,6 +1378,48 @@ async function handleLocalizacao(
   // Exige minimo 2 palavras de 3+ chars pra evitar geocodar lixo.
   const palavras = message.split(/\s+/).filter((p) => p.length > 2);
   if (palavras.length >= 2) {
+    // Heuristica: se mensagem tem ruido tipico de cliente brasileiro
+    // (referencias subjetivas, mensagem longa), roda IA PRIMEIRO pra
+    // limpar antes de geocodar. Custa ~R$0,003. Reduz falha em
+    // periferia/casos de Vila Atlantico (28/Abr cliente real perdido).
+    const lowerMsg = message.toLowerCase();
+    const ruidoRegex = /perto\s+(do|da|de)|ao\s+lado|atras\s+(do|da)|embaixo|em\s+frente|proximo\s+(ao|do|da)|uma\s+(rua|travessa|esquina)\s+(da|do|de)|de?ois\s+(do|da)|antes\s+(do|da)|na\s+esquina|fundo[s]?\s+(do|da)/i;
+    const enderecoConfuso =
+      message.length > 60 || ruidoRegex.test(lowerMsg) || palavras.length > 8;
+
+    if (enderecoConfuso) {
+      try {
+        const { interpretarEnderecoComIA } = await import("@/lib/geocoder-ia");
+        const interpretado = await interpretarEnderecoComIA(message);
+        if (interpretado && interpretado.confianca !== "BAIXA" && interpretado.textoLimpo) {
+          const coordsIA = await geocodeAddress(interpretado.textoLimpo);
+          if (coordsIA?.lat && coordsIA?.lng) {
+            await supabase.from("bot_logs").insert({
+              payload: {
+                tipo: "geocoder_ia_primeiro_sucesso",
+                texto_original: message.slice(0, 200),
+                texto_limpo: interpretado.textoLimpo,
+                confianca: interpretado.confianca,
+                phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+              },
+            });
+            const enderecoFinalIA =
+              (await reverseGeocode(coordsIA.lat, coordsIA.lng)) || interpretado.textoLimpo;
+            await apresentarOrigemPraConfirmacao(
+              phone,
+              enderecoFinalIA,
+              coordsIA.lat,
+              coordsIA.lng,
+            );
+            return;
+          }
+        }
+      } catch (e: any) {
+        console.warn("geocoder-ia primeiro tent falhou:", e?.message);
+        // Cai pro fluxo padrao
+      }
+    }
+
     const coords = await geocodeAddress(message);
     if (coords?.lat && coords?.lng) {
       // Bug 25/Abr: cliente digitou so "Agua Branca" (bairro), reverseGeocode

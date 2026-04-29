@@ -1,4 +1,5 @@
 // Utilitarios do bot
+import { googleGeocode, googleReverseGeocode, googleGeocodeAtivo } from "./geocoder-google";
 
 // Palavras reservadas que NUNCA devem ser aceitas como endereço.
 // Bug detectado em 25/Abr/2026: cliente digitou PRONTO pra fechar fotos e o
@@ -65,6 +66,15 @@ export async function reverseGeocodeBairroCidade(
   lat: number,
   lng: number
 ): Promise<string> {
+  // Tenta Google primeiro (extrai bairro+cidade dos address_components)
+  if (googleGeocodeAtivo()) {
+    const g = await googleReverseGeocode(lat, lng);
+    if (g) {
+      const parts = [g.bairro, g.cidade].filter(Boolean);
+      if (parts.length) return parts.join(", ");
+    }
+  }
+
   try {
     const response = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
@@ -83,11 +93,18 @@ export async function reverseGeocodeBairroCidade(
   }
 }
 
-// Busca endereco por coordenadas via Nominatim
+// Busca endereco por coordenadas. Google se chave presente, senao Nominatim.
 export async function reverseGeocode(
   lat: number,
   lng: number
 ): Promise<string> {
+  // Tenta Google primeiro se ativo (cobertura ~99% Brasil vs ~80% Nominatim)
+  if (googleGeocodeAtivo()) {
+    const g = await googleReverseGeocode(lat, lng);
+    if (g?.enderecoFormatado) return g.enderecoFormatado;
+    // Fallback Nominatim em caso de falha pontual da Google
+  }
+
   try {
     const response = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
@@ -167,6 +184,23 @@ export async function geocodeAddress(
 ): Promise<{ lat: number; lng: number } | null> {
   try {
     let addr = address.trim();
+
+    // Tenta Google primeiro se chave presente (cobertura ~99% BR vs ~80% Nominatim)
+    // Cliente real travou em "Vila Atlantico" 28/Abr porque Nominatim nao tinha.
+    // Google rejeita endereco SO se realmente nao existir — bem mais confiavel.
+    if (googleGeocodeAtivo()) {
+      const g = await googleGeocode(addr);
+      if (g) {
+        // Aceita ROOFTOP/RANGE_INTERPOLATED/GEOMETRIC_CENTER. APPROXIMATE pode ser
+        // muito amplo (cidade inteira) — mas ainda melhor que nada se nao tem fallback.
+        if (g.precisao !== "APPROXIMATE" || !g.partial) {
+          return { lat: g.lat, lng: g.lng };
+        }
+        console.warn(`[geocode] Google retornou APPROXIMATE+partial pra "${addr}" — caindo pro Nominatim`);
+      }
+      // Se Google nao achou, segue pro Nominatim (rede de seguranca)
+    }
+
     const lower = addr.toLowerCase();
 
     // Corrige nomes comuns da Grande SP que dao conflito

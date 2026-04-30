@@ -4719,19 +4719,14 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
   const sim = estado.simAtual;
   const gap = ((preco - sim.precoPegue) / sim.precoPegue) * 100;
 
-  // Resolve nome do avaliador. Hierarquia (mais especifico ao mais generico):
-  //   1) prestadores.nome (cadastro de fretista oficial)
-  //   2) clientes.nome (nome capturado via pushName WhatsApp)
-  //   3) ADMIN_PHONE_NAMES env var (mapeamento phone:nome separado por virgula)
-  //   4) "Admin" + telefone formatado se admin sem nome configurado
-  //   5) telefone formatado (fallback)
-  const [{ data: prestador }, { data: cliente }] = await Promise.all([
-    supabase.from("prestadores").select("nome").eq("telefone", phone).maybeSingle(),
-    supabase.from("clientes").select("nome").eq("telefone", phone).maybeSingle(),
-  ]);
-
+  // Resolve nome do avaliador. Hierarquia (mais ESPECIFICO ao mais GENERICO):
+  //   1) ADMIN_PHONE_NAMES env var (Fabio configurou explicitamente — vence)
+  //   2) prestadores.nome (cadastro oficial de fretista)
+  //   3) clientes.nome (pushName capturado do WhatsApp — pode estar minusculo)
+  //   4) "Admin" generico se for admin sem nome configurado
+  //   5) null (sem nome — fallback exibe phone)
+  // Admin SEMPRE recebe prefixo 👑 pra distinguir de fretista comum no admin.
   function nomeDoAdmin(p: string): string | null {
-    // ADMIN_PHONE_NAMES="5511971429605:Fabio,5511953938849:Jackeline"
     const raw = process.env.ADMIN_PHONE_NAMES || "";
     if (!raw) return null;
     const map = new Map<string, string>();
@@ -4742,16 +4737,22 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
     return map.get(p) || null;
   }
 
+  const nomeAdminConfigurado = nomeDoAdmin(phone);
   let nomeFretista: string | null = null;
-  if (prestador?.nome) {
-    nomeFretista = prestador.nome;
-  } else if (cliente?.nome) {
-    nomeFretista = cliente.nome;
-  } else if (isAdminPhone(phone)) {
-    const nomeAdmin = nomeDoAdmin(phone);
-    nomeFretista = nomeAdmin ? `👑 ${nomeAdmin}` : `👑 Admin`;
+
+  if (nomeAdminConfigurado) {
+    nomeFretista = nomeAdminConfigurado;
+  } else {
+    const [{ data: prestador }, { data: cliente }] = await Promise.all([
+      supabase.from("prestadores").select("nome").eq("telefone", phone).maybeSingle(),
+      supabase.from("clientes").select("nome").eq("telefone", phone).maybeSingle(),
+    ]);
+    if (prestador?.nome) nomeFretista = prestador.nome;
+    else if (cliente?.nome) nomeFretista = cliente.nome;
+    else if (isAdminPhone(phone)) nomeFretista = "Admin";
   }
-  // Adiciona prefixo Admin se for admin E ainda nao tem prefixo
+
+  // Admin sempre prefixado (independente da fonte do nome)
   if (isAdminPhone(phone) && nomeFretista && !nomeFretista.startsWith("👑")) {
     nomeFretista = `👑 ${nomeFretista}`;
   }

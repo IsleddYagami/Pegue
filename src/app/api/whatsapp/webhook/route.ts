@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
     // automaticamente do lado do cliente — atropelando o humano.
     //
     // Comportamento novo:
-    //   1) Se admin escreveu "VOLTA BOT" pro cliente -> reativa o fluxo do bot
+    //   1) Se admin escreveu "VOLTA IRIS" (ou apelido "VOLTA BOT") pro cliente -> reativa o fluxo
     //      (cliente volta pra menu inicial na proxima msg).
     //   2) Caso contrario -> marca step=atendimento_humano. Esse step ja tem case
     //      no switch que silencia o bot (so loga). NAO seta silenciado_ate aqui:
@@ -203,7 +203,11 @@ export async function POST(req: NextRequest) {
       const destinatario = from.replace("@s.whatsapp.net", "").replace("@lid", "");
       if (isValidBrPhone(destinatario)) {
         const lowerMsg = (message || "").trim().toLowerCase();
-        const ehVoltaBot = lowerMsg === "volta bot" || lowerMsg === "/volta bot" || lowerMsg.startsWith("volta bot ");
+        // Aceita VOLTA IRIS (preferido — Iris eh a persona) E VOLTA BOT
+        // (apelido tecnico mantido por compatibilidade).
+        const ehVoltaBot =
+          lowerMsg === "volta iris" || lowerMsg === "/volta iris" || lowerMsg.startsWith("volta iris ") ||
+          lowerMsg === "volta bot" || lowerMsg === "/volta bot" || lowerMsg.startsWith("volta bot ");
 
         if (ehVoltaBot) {
           // Devolve cliente pro fluxo do bot (case "inicio" reapresenta o menu).
@@ -339,7 +343,7 @@ export async function POST(req: NextRequest) {
         // Confirma pro admin que assumiu
         await sendToClient({
           to: phoneNumber,
-          message: `✅ Voce assumiu *${codigo}* — ${titulo}${clientePhone ? `\n\n📱 Cliente: wa.me/${clientePhone}` : ""}\n\nO bot vai parar de responder. Quando terminar, mande *VOLTA BOT* pro cliente.`,
+          message: `✅ Voce assumiu *${codigo}* — ${titulo}${clientePhone ? `\n\n📱 Cliente: wa.me/${clientePhone}` : ""}\n\nA Iris vai parar de responder. Quando terminar, mande *VOLTA IRIS* pro cliente.`,
         });
 
         // Avisa demais admins
@@ -1389,7 +1393,7 @@ Boa sorte! 🎯`,
 
     // === ESTADO INICIAL ===
     // Cliente em "inicio" (recem-criado, escalado de admin-operacao, ou devolvido
-    // por VOLTA BOT). Antes caia no default e gerava step_desconhecido. Agora
+    // por VOLTA IRIS). Antes caia no default e gerava step_desconhecido. Agora
     // reseta pra menu inicial e segue fluxo padrao.
     case "inicio":
       await updateSession(phone, { step: "aguardando_servico" });

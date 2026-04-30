@@ -4,7 +4,7 @@ export const MSG = {
   // Menu inicial - Iris se apresenta na primeira interacao.
   // Mitologia grega: mensageira dos deuses, asas douradas, ponte entre lugares
   // (arco-iris). Nome alinhado com a marca de entregas Pegue.
-  boasVindas: `Olá! 😊 Sou a *Íris*, atendente virtual da Pegue 🌈
+  boasVindas: `Olá! 😊 Sou a *Íris*, atendente virtual da Pegue
 
 Vamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚
 

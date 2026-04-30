@@ -2334,12 +2334,19 @@ async function handleDestino(phone: string, message: string) {
   // Re-formata via Nominatim pra ter rua + bairro + cidade reais (nao so eco do texto).
   // Bug 25/Abr: 'Encontrei este endereço: Pronto' — sistema apenas ecoava o input.
   // Se cliente nao digitou rua (so bairro), nao acrescentamos uma rua inventada.
-  const enderecoFormatado = (cep || inputContemRua(message))
-    ? await reverseGeocode(destinoLat, destinoLng)
-    : await reverseGeocodeBairroCidade(destinoLat, destinoLng);
-  if (enderecoFormatado && enderecoFormatado !== "Localizacao recebida") {
-    destinoEndereco = enderecoFormatado;
+  // Bug 29/Abr: quando vem por CEP, reverseGeocode adiciona numero arbitrario do
+  // meio da rua (Google "embeleza" coords). Mantemos string crua do ViaCEP
+  // (sem numero) — numero real eh coletado pos-pagamento via handleNumeroDestino.
+  if (!cep && !linkMaps) {
+    const enderecoFormatado = inputContemRua(message)
+      ? await reverseGeocode(destinoLat, destinoLng)
+      : await reverseGeocodeBairroCidade(destinoLat, destinoLng);
+    if (enderecoFormatado && enderecoFormatado !== "Localizacao recebida") {
+      destinoEndereco = enderecoFormatado;
+    }
   }
+  // Quando veio de CEP ou link Maps, destinoEndereco ja foi setado acima
+  // (string ViaCEP sem numero, ou reverse do link Maps que reflete o ponto real).
 
   // Verifica se destino é area indisponivel (favela/area livre)
   const zonaDestino = detectarZona(destinoEndereco);
@@ -2569,26 +2576,28 @@ async function handleConfirmandoDestino(phone: string, message: string) {
       .maybeSingle();
     const contexto = (logCtx?.payload as any)?.contexto as ContextoExtraido | undefined;
 
-    const iaTemTipoLocal = !!(contexto && (
+    // SO pula tipo_local se cliente falou EXPLICITAMENTE da origem (andar/escada).
+    // tem_elevador_destino eh do destino, nao info de origem.
+    const iaTemTipoLocalOrigem = !!(contexto && (
       (contexto.andar_origem !== null && contexto.andar_origem !== undefined && contexto.andar_origem > 0) ||
-      contexto.tem_escada_origem ||
-      contexto.tem_elevador_destino
+      contexto.tem_escada_origem
     ));
-    const iaTemAjudante = contexto && typeof contexto.precisa_ajudante === "boolean";
+    // SO pula handleAjudante se cliente disse EXPLICITAMENTE que quer ajudante.
+    // Default false (nao mencionou) NAO pula - mantem cliente sendo perguntado.
+    const iaConfirmouAjudante = contexto?.precisa_ajudante === true;
 
-    if (iaTemTipoLocal && iaTemAjudante) {
+    if (iaTemTipoLocalOrigem && iaConfirmouAjudante) {
       // Pula tipo_local + andar + ajudante - cota direto.
-      const qtdAjudantes = contexto!.precisa_ajudante ? 1 : 0;
       await sendToClient({
         to: phone,
         message: `📊 Calculando seu orçamento...`,
       });
-      await calcularEEnviarOrcamento(phone, qtdAjudantes);
+      await calcularEEnviarOrcamento(phone, 1);
       return;
     }
 
-    if (iaTemTipoLocal && !iaTemAjudante) {
-      // Tem andar/escada mas falta ajudante - vai direto pra aguardando_ajudante.
+    if (iaTemTipoLocalOrigem && !iaConfirmouAjudante) {
+      // Tem andar/escada mas nao confirmou ajudante - vai pra aguardando_ajudante.
       await updateSession(phone, { step: "aguardando_ajudante" });
       await sendToClient({
         to: phone,
@@ -3604,22 +3613,13 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
       const destinoOk = !!(destinoCoords?.lat && destinoCoords?.lng);
 
       if (origemOk && destinoOk) {
-        // Ambos endereços geocodificados - vai direto pra resumo + cotacao
+        // Ambos endereços geocodificados - salva e decide proximo step.
         const distanciaKm = calcularDistanciaKm(
           origemCoords!.lat, origemCoords!.lng,
           destinoCoords!.lat, destinoCoords!.lng
         );
-        const veiculo = session.veiculo_sugerido || contexto.veiculo_sugerido || "utilitario";
-        const temAjudante = !!session.precisa_ajudante;
-        const andar = session.andar || 0;
-
-        const precos = calcularPrecos(
-          distanciaKm, veiculo, temAjudante, andar, false,
-          contexto.destino_texto, contexto.data_texto || null
-        );
 
         await updateSession(phone, {
-          step: contexto.data_texto ? "aguardando_confirmacao" : "aguardando_data",
           origem_endereco: contexto.origem_texto,
           origem_lat: origemCoords!.lat,
           origem_lng: origemCoords!.lng,
@@ -3627,69 +3627,29 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
           destino_lat: destinoCoords!.lat,
           destino_lng: destinoCoords!.lng,
           distancia_km: distanciaKm,
-          valor_estimado: precos.padrao.total,
         });
 
-        // Salva qtd_ajudantes pra usar quando montar a corrida (1 ajudante por padrao
-        // quando IA detectou que cliente quer ajudante; cliente pode revisar depois).
-        if (temAjudante) {
-          await supabase.from("bot_logs").insert({
-            payload: { tipo: "qtd_ajudantes", phone, qtd: 1 },
+        // Decide se pula handleAjudante: SO se IA confirmou explicitamente.
+        // Senao, cliente pode querer ajudante e nao ter mencionado - vai ser perguntado.
+        const iaConfirmouAjudante = contexto.precisa_ajudante === true;
+
+        if (iaConfirmouAjudante) {
+          // Pula tipo_local + andar + ajudante - cota direto.
+          await sendToClient({
+            to: phone,
+            message: `📊 Calculando seu orçamento...`,
           });
+          await calcularEEnviarOrcamento(phone, 1);
+          return;
         }
 
-        const veiculoNome: Record<string, string> = {
-          utilitario: "Utilitario (Strada/Saveiro)",
-          hr: "HR",
-          caminhao_bau: "Caminhao Bau",
-          guincho: "Guincho",
-        };
-
-        const obsFeriado = precos.padrao.feriado > 0
-          ? `Feriado ${precos.padrao.feriadoNome || ""} - adicional R$ ${precos.padrao.feriado} ja incluido`
-          : undefined;
-
+        // IA nao confirmou ajudante - vai perguntar (e nao pula tipo_local de origem
+        // se IA detectou andar/escada, salva isso pra handleConfirmandoDestino usar).
+        await updateSession(phone, { step: "aguardando_ajudante" });
         await sendToClient({
           to: phone,
-          message: MSG.orcamento(
-            contexto.origem_texto,
-            contexto.destino_texto,
-            session.descricao_carga || contexto.itens.join(", ") || "Material",
-            veiculoNome[veiculo] || "Utilitario",
-            precos.padrao.total.toString(),
-            obsFeriado,
-            temAjudante ? 1 : 0,
-          ),
+          message: MSG.precisaAjudante(`Endereços localizados! ✅`),
         });
-
-        // Se tem data, pula direto pra confirmacao final
-        if (contexto.data_texto) {
-          const dataCompleta = contexto.periodo
-            ? `${contexto.data_texto} - ${contexto.periodo === "manha" ? "Manha" : contexto.periodo === "tarde" ? "Tarde" : "Noite"}`
-            : contexto.data_texto;
-          await updateSession(phone, { data_agendada: dataCompleta });
-          // resumoFrete logo abaixo precisa do periodo na string, mas valor_estimado ja salvo acima
-          await sendToClient({
-            to: phone,
-            message: MSG.resumoFrete(
-              contexto.origem_texto,
-              contexto.destino_texto,
-              session.descricao_carga || contexto.itens.join(", ") || "Material",
-              dataCompleta,
-              veiculoNome[veiculo] || "Utilitario",
-              precos.padrao.total.toString(),
-              [
-                temAjudante ? "🙋 Com ajudante" : null,
-                andar > 0 ? `🪜 ${andar}o andar (escada)` : null,
-              ].filter(Boolean).join("\n") + "\n",
-            ),
-          });
-        } else {
-          await sendToClient({
-            to: phone,
-            message: `📅 Pra finalizar, *quando* voce precisa?\n\nManda data e horario juntos:\n• *25/04 as 15h*\n• *amanha 14:30*\n• *segunda 9h*\n\nOu *AGORA* se for urgente.`,
-          });
-        }
         return;
       }
 
@@ -7605,15 +7565,27 @@ async function handleGuinchoLocalizacao(
     const geo = await reverseGeocode(lat, lng);
     endereco = geo || `${lat},${lng}`;
   } else {
+    // Tenta link Google Maps (cliente cola URL em vez de mandar GPS pelo clipe)
+    const linkMaps = detectarLinkGoogleMaps(message);
+    if (linkMaps) {
+      const coords = await resolverGoogleMapsLink(linkMaps);
+      if (coords) {
+        endereco = (await reverseGeocode(coords.lat, coords.lng)) || `${coords.lat},${coords.lng}`;
+        latitude = coords.lat;
+        longitude = coords.lng;
+      }
+    }
     // Tenta CEP
-    const cep = extrairCep(message);
-    if (cep) {
-      const endCep = await buscaCep(cep);
-      if (endCep) {
-        endereco = endCep;
-        const coords = await geocodeAddress(endCep);
-        latitude = coords?.lat || null;
-        longitude = coords?.lng || null;
+    if (!endereco) {
+      const cep = extrairCep(message);
+      if (cep) {
+        const endCep = await buscaCep(cep);
+        if (endCep) {
+          endereco = endCep;
+          const coords = await geocodeAddress(endCep);
+          latitude = coords?.lat || null;
+          longitude = coords?.lng || null;
+        }
       }
     }
     // Tenta endereco
@@ -7654,15 +7626,28 @@ async function handleGuinchoDestino(phone: string, message: string) {
   let destLat: number | null = null;
   let destLng: number | null = null;
 
+  // Tenta link Google Maps primeiro
+  const linkMaps = detectarLinkGoogleMaps(message);
+  if (linkMaps) {
+    const coords = await resolverGoogleMapsLink(linkMaps);
+    if (coords) {
+      destLat = coords.lat;
+      destLng = coords.lng;
+      destino = (await reverseGeocode(coords.lat, coords.lng)) || `${coords.lat},${coords.lng}`;
+    }
+  }
+
   // Tenta CEP
-  const cep = extrairCep(message);
-  if (cep) {
-    const endCep = await buscaCep(cep);
-    if (endCep) {
-      destino = endCep;
-      const coords = await geocodeAddress(endCep);
-      destLat = coords?.lat || null;
-      destLng = coords?.lng || null;
+  if (!destino) {
+    const cep = extrairCep(message);
+    if (cep) {
+      const endCep = await buscaCep(cep);
+      if (endCep) {
+        destino = endCep;
+        const coords = await geocodeAddress(endCep);
+        destLat = coords?.lat || null;
+        destLng = coords?.lng || null;
+      }
     }
   }
   // Tenta endereco

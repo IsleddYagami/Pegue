@@ -839,7 +839,7 @@ Boa sorte! 🎯`,
       // Mostra "analisando" pra cliente nao achar que travou (IA leva 1-2s)
       await sendToClient({
         to: phone,
-        message: `Ola ${nome}! 😊 Recebi sua mensagem, ja estou analisando pra agilizar o atendimento...`,
+        message: `Olá ${nome}! 😊 Aqui é a *Íris* da Pegue 🌈 Recebi sua mensagem, ja estou analisando pra agilizar o atendimento...`,
       });
 
       const contexto = await extrairContextoInicial(message);
@@ -903,7 +903,7 @@ Boa sorte! 🎯`,
 
     // Se digitou termo de servico direto (frete, guincho, carreto, mudanca)
     if (isInicioServico(message)) {
-      const saudacaoRapida = `Ola ${nome}! 😊 Que bom ter voce aqui na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
+      const saudacaoRapida = `Olá ${nome}! 😊 Sou a *Íris*, atendente virtual da Pegue 🌈\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
       await sendToClient({ to: phone, message: saudacaoRapida });
 
       // Se ja da pra identificar o servico, encaminha direto
@@ -922,7 +922,7 @@ Boa sorte! 🎯`,
     }
 
     // Saudacao normal
-    const saudacao = `Ola ${nome}! 😊 Que bom ter voce aqui na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
+    const saudacao = `Olá ${nome}! 😊 Sou a *Íris*, atendente virtual da Pegue 🌈\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
     await sendToClient({ to: phone, message: saudacao });
     return;
   }
@@ -934,7 +934,7 @@ Boa sorte! 🎯`,
     const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
     await sendToClient({
       to: phone,
-      message: `Ola ${primeiroNome}! 😊 Que bom ter voce de volta na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
+      message: `Olá ${primeiroNome}! 😊 Que bom ter voce de volta — Íris da Pegue 🌈\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
     });
 
     const lowerMsg = lower;

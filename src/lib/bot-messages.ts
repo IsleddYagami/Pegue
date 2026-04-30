@@ -1,8 +1,10 @@
 // Mensagens do bot - sem acentos para compatibilidade total
 
 export const MSG = {
-  // Menu inicial
-  boasVindas: `Ola! 😊 Que bom ter voce aqui na Pegue!
+  // Menu inicial - Iris se apresenta na primeira interacao.
+  // Mitologia grega: mensageira dos deuses, asas douradas, ponte entre lugares
+  // (arco-iris). Nome alinhado com a marca de entregas Pegue.
+  boasVindas: `Olá! 😊 Sou a *Íris*, atendente virtual da Pegue 🌈
 
 Vamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚
 
@@ -634,9 +636,9 @@ A confirmacao chegara logo apos o pagamento do cliente. Fique atento! 📱
 Fica de olho que sempre tem novos aparecendo! 🚚`,
 
   // Atendimento humano
-  transferenciaHumano: `Entendi! Vou acionar nosso especialista agora! 😊
+  transferenciaHumano: `Entendi! Aqui a *Íris* não consegue te ajudar nessa 😊
 
-Ele ja foi notificado e entrara em contato com voce em breve.
+Ja acionei um *especialista humano* — ele entrara em contato com voce em breve.
 Fique tranquilo! 🙏`,
 
   foraHorarioHumano: `Nosso time ta disponivel de segunda a sexta, das 10h as 15h ⏰

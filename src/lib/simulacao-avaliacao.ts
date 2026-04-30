@@ -22,28 +22,52 @@ const VEICULOS_GUINCHO_CARRO = [
   "Fiat Toro 2021", "Mitsubishi L200 2018",
 ];
 
-// Itens por tamanho (espelha o simulador do admin)
+// Itens por tamanho. Pool ampliado em 30/Abr/2026 apos feedback do Fabio
+// que as simulacoes estavam muito repetitivas.
 const ITENS_PEQUENOS = [
   "Microondas", "TV 32\"", "Ventilador", "Tanquinho",
   "Mesa de centro", "Bicicleta", "Maquina de costura",
   "Ar condicionado", "Aquario", "10 caixas",
+  "Bicicleta infantil", "Patinete", "Cadeira de escritorio",
+  "Banco de academia", "Quadro grande", "Estante pequena",
+  "Berco desmontado", "Pufe grande", "Espelho grande",
+  "5 caixas", "8 sacolas",
 ];
 const ITENS_MEDIOS = [
   "Geladeira pequena", "Fogao 4 bocas", "Maquina de lavar",
   "Cama solteiro", "Colchao solteiro", "Escrivaninha",
   "Rack de TV", "Poltrona", "Comoda",
   "Mesa 4 lugares", "Sofa 2 lugares", "TV 55\"",
+  "Cama de beliche", "Estante media", "Mesa de jantar redonda",
+  "Buffet", "Comoda 4 gavetas", "Aparador",
+  "20 caixas", "15 sacolas", "Mesa de escritorio",
 ];
 const ITENS_GRANDES = [
   "Geladeira duplex", "Fogao 5 bocas", "Cama casal",
   "Guarda-roupa 3 portas", "Guarda-roupa 6 portas", "Sofa 3 lugares",
   "Mesa 6 lugares", "Estante grande", "Armario cozinha",
+  "Cama queen", "Cama king", "Sofa retratil 3 lugares",
+  "Sofa de canto", "Frigobar", "Freezer horizontal",
+  "Maquina de lavar e secar", "Guarda-roupa 8 portas",
+  "Estante completa de cozinha", "Modulado completo de quarto",
+  "Mesa 8 lugares", "Adega",
 ];
 
 const TODOS_ITENS = [...ITENS_PEQUENOS, ...ITENS_MEDIOS, ...ITENS_GRANDES];
 
 function sortear<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// Sorteia um indice baseado em pesos relativos. Ex: pesos=[0.5,0.3,0.2] -> 50/30/20.
+function sortearComPeso(pesos: number[]): number {
+  const total = pesos.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < pesos.length; i++) {
+    r -= pesos[i];
+    if (r < 0) return i;
+  }
+  return pesos.length - 1;
 }
 
 function sortearCombinacao(qtd: number, pool: string[]): string[] {
@@ -57,6 +81,29 @@ function sortearCombinacao(qtd: number, pool: string[]): string[] {
   return sel;
 }
 
+// Sorteia qtd de ajudantes (0/1/2) com pesos diferentes por veiculo.
+// Carro_comum quase nunca tem 2; caminhao quase sempre tem 1+.
+function sortearQtdAjudantes(veiculo: string): number {
+  const pesos: Record<string, number[]> = {
+    carro_comum:  [0.70, 0.25, 0.05], // [0,1,2]
+    utilitario:   [0.40, 0.50, 0.10],
+    hr:           [0.25, 0.50, 0.25],
+    caminhao_bau: [0.10, 0.40, 0.50],
+  };
+  return sortearComPeso(pesos[veiculo] || [0.5, 0.4, 0.1]);
+}
+
+// Sorteia andares (0=terreo, 1-5). Maioria dos servicos eh terreo OU 1-2 andares.
+function sortearAndaresOrigem(): number {
+  const pesos = [0.50, 0.25, 0.13, 0.07, 0.03, 0.02]; // [0,1,2,3,4,5]
+  return sortearComPeso(pesos);
+}
+
+// Sorteia se tem elevador GIVEN que andares > 0. Maioria predio tem elevador.
+function sortearTemElevador(): boolean {
+  return Math.random() < 0.6; // 60% elevador, 40% so escada
+}
+
 // Decide pool de itens baseado no veiculo (frete). Guincho desvia antes em
 // gerarSimulacao usando pool proprio de veiculos guinchados.
 function poolPorVeiculo(veiculo: string): string[] {
@@ -65,12 +112,25 @@ function poolPorVeiculo(veiculo: string): string[] {
   return TODOS_ITENS; // utilitario + hr: tudo
 }
 
-// Decide qtd de itens razoavel pro veiculo
+// Decide qtd de itens razoavel pro veiculo. Faixas ampliadas em 30/Abr/2026
+// pra dar mais variacao (Fabio: "esta muito igual a quantidade").
 function qtdItensPorVeiculo(veiculo: string): number {
-  if (veiculo === "carro_comum") return 1 + Math.floor(Math.random() * 2); // 1-2
-  if (veiculo === "utilitario") return 1 + Math.floor(Math.random() * 3); // 1-3
-  if (veiculo === "hr") return 2 + Math.floor(Math.random() * 3); // 2-4
-  if (veiculo === "caminhao_bau") return 4 + Math.floor(Math.random() * 4); // 4-7
+  if (veiculo === "carro_comum") return 1 + Math.floor(Math.random() * 3); // 1-3
+  if (veiculo === "utilitario") {
+    // 1-5 com peso (1=20%, 2=30%, 3=25%, 4=15%, 5=10%)
+    const idx = sortearComPeso([0.20, 0.30, 0.25, 0.15, 0.10]);
+    return idx + 1;
+  }
+  if (veiculo === "hr") {
+    // 2-7 com peso (2=15%, 3=25%, 4=25%, 5=20%, 6=10%, 7=5%)
+    const idx = sortearComPeso([0.15, 0.25, 0.25, 0.20, 0.10, 0.05]);
+    return idx + 2;
+  }
+  if (veiculo === "caminhao_bau") {
+    // 5-12 com peso (mais comum 7-9 itens em mudanca grande)
+    const idx = sortearComPeso([0.10, 0.15, 0.20, 0.20, 0.15, 0.10, 0.07, 0.03]);
+    return idx + 5;
+  }
   return 1;
 }
 
@@ -79,8 +139,13 @@ export type SimulacaoAvaliacao = {
   rota: Rota;
   itens: string[];
   qtdItens: number;
-  temAjudante: boolean;
+  qtdAjudantes: number;     // 0, 1 ou 2 (substitui temAjudante boolean)
+  andaresOrigem: number;    // 0=terreo, 1-5 = andar do predio
+  temElevador: boolean;     // so faz sentido se andaresOrigem > 0
+  temEscada: boolean;       // derivado: andares > 0 && !elevador
   precoPegue: number;
+  // Mantido pra retrocompat com codigo que ainda le boolean
+  temAjudante: boolean;
 };
 
 // Calcula preco do guincho pra simulacao (espelha logica de cotarGuinchoEFinalizar).
@@ -93,6 +158,12 @@ function calcularPrecoGuinchoSim(km: number): number {
 // Gera 1 simulacao aleatoria pra um dos veiculos escolhidos pelo fretista.
 // Detecta automaticamente se eh guincho e usa pool de carros + preco apropriado.
 // Frete usa calcularPrecos, guincho usa calcularPrecoGuinchoSim.
+//
+// Variacao COMPLETA (refactor 30/Abr/2026 apos feedback do Fabio):
+//   - 0/1/2 ajudantes (peso varia por veiculo)
+//   - 0-5 andares (50% terreo)
+//   - Elevador OU escada (60% elevador quando ha andar)
+//   - Pool de itens ampliado (60+ itens)
 export function gerarSimulacao(veiculosEscolhidos: string[]): SimulacaoAvaliacao {
   const veiculo = sortear(veiculosEscolhidos);
   const rota = sortear(ROTAS);
@@ -104,33 +175,49 @@ export function gerarSimulacao(veiculosEscolhidos: string[]): SimulacaoAvaliacao
     return {
       veiculo,
       rota,
-      itens: [veiculoGuinchado], // pra guincho, "itens" eh o veiculo guinchado
+      itens: [veiculoGuinchado],
       qtdItens: 1,
-      temAjudante: false, // guincho nao tem ajudante
+      qtdAjudantes: 0,
+      andaresOrigem: 0,
+      temElevador: false,
+      temEscada: false,
+      temAjudante: false,
       precoPegue,
     };
   }
 
+  // Frete: sorteia variaveis
   const qtd = qtdItensPorVeiculo(veiculo);
   const itens = sortearCombinacao(qtd, poolPorVeiculo(veiculo));
-  const temAjudante = Math.random() > 0.5;
+  const qtdAjudantes = sortearQtdAjudantes(veiculo);
+  const andaresOrigem = sortearAndaresOrigem();
+  const temElevador = andaresOrigem > 0 ? sortearTemElevador() : false;
+  const temEscada = andaresOrigem > 0 && !temElevador;
 
+  // calcularPrecos so aceita boolean pra ajudante. Pra 2 ajudantes,
+  // adicionamos manualmente o extra (mesmo padrao em webhook/route.ts:3049).
   const precos = calcularPrecos(
     rota.km,
     veiculo,
-    temAjudante,
-    0, // andares
-    false, // tem elevador
+    qtdAjudantes > 0,
+    andaresOrigem,
+    temElevador,
     enderecoPorZona(rota.zonaDestino)
   );
+  const ajudanteExtra = qtdAjudantes === 2 ? (rota.km <= 10 ? 80 : 100) : 0;
+  const precoPegue = precos.padrao.total + ajudanteExtra;
 
   return {
     veiculo,
     rota,
     itens,
     qtdItens: itens.length,
-    temAjudante,
-    precoPegue: precos.padrao.total,
+    qtdAjudantes,
+    andaresOrigem,
+    temElevador,
+    temEscada,
+    temAjudante: qtdAjudantes > 0,
+    precoPegue,
   };
 }
 
@@ -151,8 +238,24 @@ export function nomeZona(z: string): string {
   return "Normal";
 }
 
+// Formata descricao de ajudantes pra exibicao
+function descAjudantes(qtd: number): string {
+  if (qtd === 0) return "Sem ajudante";
+  if (qtd === 1) return "Com 1 ajudante";
+  return "Com 2 ajudantes";
+}
+
+// Formata descricao de andar/elevador/escada pra exibicao
+function descLocal(sim: SimulacaoAvaliacao): string {
+  if (sim.andaresOrigem === 0) return "Coleta no terreo";
+  const andar = sim.andaresOrigem === 1 ? "1º andar" : `${sim.andaresOrigem}º andar`;
+  if (sim.temElevador) return `${andar} (com elevador)`;
+  return `${andar} (so escada)`;
+}
+
 // Formata simulacao como mensagem pro WhatsApp.
-// Frete: mostra "itens" e "ajudante". Guincho: mostra "veiculo guinchado".
+// Frete: mostra itens, ajudantes (0/1/2), andar, elevador/escada.
+// Guincho: mostra veiculo guinchado e rota.
 export function formatarMensagemSimulacao(sim: SimulacaoAvaliacao, numero: number): string {
   const ehGuincho = sim.veiculo === "guincho";
 
@@ -183,7 +286,8 @@ Ou digite *PARAR* pra finalizar`;
 🏁 *Para:* ${sim.rota.destino}
 📏 ${sim.rota.km}km · ${nomeZona(sim.rota.zonaDestino)}
 📦 ${sim.itens.join(" + ")}
-🙋 ${sim.temAjudante ? "Com ajudante" : "Sem ajudante"}
+🏢 ${descLocal(sim)}
+🙋 ${descAjudantes(sim.qtdAjudantes)}
 
 ━━━━━━━━━━━━━━━━
 💰 *Pegue cobraria: R$ ${sim.precoPegue}*

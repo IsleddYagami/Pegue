@@ -4719,21 +4719,47 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
   const sim = estado.simAtual;
   const gap = ((preco - sim.precoPegue) / sim.precoPegue) * 100;
 
-  // Busca nome do fretista se cadastrado
-  const { data: prestador } = await supabase
-    .from("prestadores")
-    .select("nome")
-    .eq("telefone", phone)
-    .maybeSingle();
+  // Resolve nome do avaliador. Hierarquia (mais especifico ao mais generico):
+  //   1) prestadores.nome (cadastro de fretista oficial)
+  //   2) clientes.nome (nome capturado via pushName WhatsApp)
+  //   3) ADMIN_PHONE_NAMES env var (mapeamento phone:nome separado por virgula)
+  //   4) "Admin" + telefone formatado se admin sem nome configurado
+  //   5) telefone formatado (fallback)
+  const [{ data: prestador }, { data: cliente }] = await Promise.all([
+    supabase.from("prestadores").select("nome").eq("telefone", phone).maybeSingle(),
+    supabase.from("clientes").select("nome").eq("telefone", phone).maybeSingle(),
+  ]);
 
-  // Salva feedback (prefixo "👑 Admin" se for admin)
-  const nomeFretista = isAdminPhone(phone)
-    ? `👑 Admin ${prestador?.nome || ""}`.trim()
-    : (prestador?.nome || null);
+  function nomeDoAdmin(p: string): string | null {
+    // ADMIN_PHONE_NAMES="5511971429605:Fabio,5511953938849:Jackeline"
+    const raw = process.env.ADMIN_PHONE_NAMES || "";
+    if (!raw) return null;
+    const map = new Map<string, string>();
+    for (const par of raw.split(",")) {
+      const [ph, nm] = par.split(":").map(s => s.trim());
+      if (ph && nm) map.set(ph, nm);
+    }
+    return map.get(p) || null;
+  }
+
+  let nomeFretista: string | null = null;
+  if (prestador?.nome) {
+    nomeFretista = prestador.nome;
+  } else if (cliente?.nome) {
+    nomeFretista = cliente.nome;
+  } else if (isAdminPhone(phone)) {
+    const nomeAdmin = nomeDoAdmin(phone);
+    nomeFretista = nomeAdmin ? `👑 ${nomeAdmin}` : `👑 Admin`;
+  }
+  // Adiciona prefixo Admin se for admin E ainda nao tem prefixo
+  if (isAdminPhone(phone) && nomeFretista && !nomeFretista.startsWith("👑")) {
+    nomeFretista = `👑 ${nomeFretista}`;
+  }
 
   // Guard: campos NOT NULL precisam estar preenchidos. Antes o insert silenciava
   // erros (bug que deixou a tabela vazia apesar de horas de uso). Agora valida +
   // loga falha + notifica admin se ocorrer.
+  const simExt = sim as any; // tipos novos: qtdAjudantes, andaresOrigem, etc
   const dadosFeedback = {
     fretista_phone: phone,
     fretista_nome: nomeFretista,
@@ -4746,6 +4772,10 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
     itens: sim.itens.join(" + "),
     qtd_itens: sim.qtdItens,
     tem_ajudante: sim.temAjudante,
+    qtd_ajudantes: typeof simExt.qtdAjudantes === "number" ? simExt.qtdAjudantes : (sim.temAjudante ? 1 : 0),
+    andares_origem: typeof simExt.andaresOrigem === "number" ? simExt.andaresOrigem : 0,
+    tem_elevador: !!simExt.temElevador,
+    tem_escada: !!simExt.temEscada,
     preco_pegue: sim.precoPegue,
     preco_sugerido: preco,
     gap_percentual: Math.round(gap * 100) / 100,

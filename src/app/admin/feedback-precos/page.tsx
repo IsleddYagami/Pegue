@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trash2, Power } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trash2, Power, Wand2 } from "lucide-react";
 
 type Feedback = {
   id: string;
@@ -98,6 +98,40 @@ export default function FeedbackPrecosPage() {
       });
       if (res.ok) loadData();
       else alert("Erro ao alterar regra");
+    } catch {
+      alert("Erro de conexao");
+    }
+  }
+
+  async function aplicarComoRegra(fb: Feedback) {
+    const gap = fb.gap_percentual || 0;
+    const fator = fb.preco_pegue > 0 ? fb.preco_sugerido / fb.preco_pegue : 1;
+    const fatorPct = Math.round((fator - 1) * 10000) / 100;
+    const msg =
+      `Criar regra de ajuste a partir desse feedback?\n\n` +
+      `Veiculo: ${fb.veiculo}\n` +
+      `Rota: ${fb.origem} → ${fb.destino} (${fb.distancia_km}km, zona ${fb.zona})\n` +
+      `Itens: ${fb.qtd_itens} · ${fb.tem_ajudante ? "com" : "sem"} ajudante\n\n` +
+      `Pegue: R$${fb.preco_pegue} · Voce sugeriu: R$${fb.preco_sugerido}\n` +
+      `Gap: ${gap > 0 ? "+" : ""}${gap}%\n` +
+      `Fator multiplicador: ${fatorPct > 0 ? "+" : ""}${fatorPct}%\n\n` +
+      `Vai afetar cotacoes futuras compativeis com esses criterios.`;
+    if (!confirm(msg)) return;
+    const senha = sessionStorage.getItem("admin_key") || "";
+    if (!senha) return;
+    try {
+      const res = await fetch(`/api/admin-feedback-precos?key=${encodeURIComponent(senha)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "criar_regra_de_feedback", id: fb.id }),
+      });
+      if (res.ok) {
+        loadData();
+        setAba("regras");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Erro ao criar regra: ${err.error || res.status}`);
+      }
     } catch {
       alert("Erro de conexao");
     }
@@ -215,13 +249,22 @@ export default function FeedbackPrecosPage() {
                         👤 {f.fretista_nome || f.fretista_phone} · {new Date(f.criado_em).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end gap-1">
                       <p className="text-xs text-gray-500">Pegue: <strong className="text-gray-700">R$ {f.preco_pegue}</strong></p>
                       <p className="text-xs text-gray-500">Sugerido: <strong className="text-[#C9A84C]">R$ {f.preco_sugerido}</strong></p>
-                      <p className={`mt-1 flex items-center justify-end gap-1 text-sm font-bold ${corGap}`}>
+                      <p className={`flex items-center justify-end gap-1 text-sm font-bold ${corGap}`}>
                         <IconeGap size={14} />
                         {gap > 0 ? "+" : ""}{gap}%
                       </p>
+                      {Math.abs(gap) >= 5 && (
+                        <button
+                          onClick={() => aplicarComoRegra(f)}
+                          className="mt-1 inline-flex items-center gap-1 rounded-lg border border-[#C9A84C] bg-[#C9A84C]/10 px-2 py-1 text-xs font-semibold text-[#C9A84C] hover:bg-[#C9A84C] hover:text-white transition"
+                          title="Criar regra de ajuste de preco a partir desse feedback"
+                        >
+                          <Wand2 size={12} /> Aplicar como regra
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

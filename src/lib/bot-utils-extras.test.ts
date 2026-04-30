@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  separarOrigemDestino,
   normalizarEmojiKeycap,
   extrairCep,
   pareceEndereco,
@@ -19,6 +20,35 @@ import {
   determinarMelhorVeiculo,
   formatarListaNumerada,
 } from "./bot-utils";
+
+describe("separarOrigemDestino", () => {
+  describe("detecta origem e destino", () => {
+    it.each([
+      ["Alphaville para Osasco", "Alphaville", "Osasco"],
+      ["Osasco pra Sao Paulo", "Osasco", "Sao Paulo"],
+      ["de Cotia para Barueri", "Cotia", "Barueri"],
+      ["Vila Yara ate Mooca", "Vila Yara", "Mooca"],
+      ["Centro até Itaim Bibi", "Centro", "Itaim Bibi"],
+      ["Rua Augusta -> Rua das Flores", "Rua Augusta", "Rua das Flores"],
+      ["saindo de Osasco indo pra Cotia", "Osasco", "Cotia"],
+    ])("'%s' -> origem='%s', destino='%s'", (input, origem, destino) => {
+      const r = separarOrigemDestino(input);
+      expect(r).toEqual({ origem, destino });
+    });
+  });
+
+  describe("retorna null quando nao tem padrao", () => {
+    it.each([
+      [""],
+      ["Rua Augusta"],
+      ["short"],
+      ["Osasco"],
+      ["pra"],
+    ])("'%s' -> null", (input) => {
+      expect(separarOrigemDestino(input)).toBeNull();
+    });
+  });
+});
 
 describe("normalizarEmojiKeycap", () => {
   it.each([

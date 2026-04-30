@@ -551,6 +551,44 @@ export function calcularPrecosCompleto(
   };
 }
 
+// Detecta padrao "ORIGEM para/pra/ate DESTINO" em uma mensagem de endereco
+// e separa nos dois lados. Cliente real 30/Abr (958763067) mandou "Alphaville
+// para osasco" quando o bot pediu localizacao - sistema tentou geocodar a
+// frase inteira e falhou.
+//
+// Padroes suportados:
+//   "X para Y", "X pra Y", "X p/ Y"
+//   "de X para Y", "de X pra Y"
+//   "X ate Y", "X até Y"
+//   "X -> Y", "X >> Y"
+//   "saindo de X indo pra Y"
+//
+// Retorna null se nao identificou padrao claro.
+export function separarOrigemDestino(texto: string): { origem: string; destino: string } | null {
+  if (!texto || texto.length < 7) return null;
+  const limpo = texto.trim();
+  const patterns: RegExp[] = [
+    /^saindo\s+de\s+(.+?)\s+(?:indo\s+)?(?:para|pra|ate|até|a)\s+(.+)$/i,
+    /^de\s+(.+?)\s+(?:para|pra|ate|até)\s+(.+)$/i,
+    /^(.+?)\s+(?:para|pra|p\/)\s+(.+)$/i,
+    /^(.+?)\s+(?:ate|até)\s+(.+)$/i,
+    /^(.+?)\s*->\s*(.+)$/,
+    /^(.+?)\s*>>\s*(.+)$/,
+  ];
+  for (const p of patterns) {
+    const m = limpo.match(p);
+    if (m) {
+      const origem = m[1].trim();
+      const destino = m[2].trim();
+      // Validacao minima: ambos com 3+ chars e nao sao so palavras de fluxo
+      if (origem.length >= 3 && destino.length >= 3 && origem.toLowerCase() !== destino.toLowerCase()) {
+        return { origem, destino };
+      }
+    }
+  }
+  return null;
+}
+
 // Normaliza emoji keycap pra digito puro: "1️⃣" => "1", "2️⃣" => "2", etc.
 // Cliente real 29/Abr (47-9901-0385) viu o menu com "1️⃣" e respondeu mandando
 // o EMOJI 1️⃣ achando que era o esperado. O parser do menu (lower === "1")

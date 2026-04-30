@@ -28,6 +28,7 @@ import {
   detectarZona,
   extrairCep,
   normalizarEmojiKeycap,
+  separarOrigemDestino,
   pareceEndereco,
   isSaudacao,
   isAgradecimento,
@@ -1409,6 +1410,55 @@ async function handleLocalizacao(
   // Feedback imediato pro cliente nao achar que bot travou (geocoder pode demorar 1-3s)
   if (message && message.trim().length >= 5) {
     await sendToClient({ to: phone, message: "📍 Anotei, tô localizando..." });
+  }
+
+  // Caminho A1: cliente mandou origem E destino numa mensagem so (ex: "Alphaville
+  // para Osasco"). Cliente real 30/Abr (958763067). Sistema antes geocodava a frase
+  // inteira como UM endereco e falhava. Agora detecta padrao, separa os 2 e geocoda
+  // os 2 em paralelo - depois pula direto pra resumo + cotacao se ambos sao validos.
+  const origDest = separarOrigemDestino(message);
+  if (origDest) {
+    const session = await getSession(phone);
+    const [origemCoords, destinoCoords] = await Promise.all([
+      geocodeAddress(origDest.origem),
+      geocodeAddress(origDest.destino),
+    ]);
+    const origemOk = !!(origemCoords?.lat && origemCoords?.lng);
+    const destinoOk = !!(destinoCoords?.lat && destinoCoords?.lng);
+    if (origemOk && destinoOk && session) {
+      const distanciaKm = calcularDistanciaKm(
+        origemCoords!.lat, origemCoords!.lng,
+        destinoCoords!.lat, destinoCoords!.lng
+      );
+      await updateSession(phone, {
+        origem_endereco: origDest.origem,
+        origem_lat: origemCoords!.lat,
+        origem_lng: origemCoords!.lng,
+        destino_endereco: origDest.destino,
+        destino_lat: destinoCoords!.lat,
+        destino_lng: destinoCoords!.lng,
+        distancia_km: distanciaKm,
+      });
+      // Decide se pula handleAjudante: igual handleConfirmarContextoInicial
+      const iaConfirmouAjudante = !!session.precisa_ajudante;
+      if (iaConfirmouAjudante) {
+        await sendToClient({
+          to: phone,
+          message: `📊 Calculando seu orçamento...`,
+        });
+        await calcularEEnviarOrcamento(phone, 1);
+        return;
+      }
+      // Sem ajudante confirmado - pergunta
+      await updateSession(phone, { step: "aguardando_ajudante" });
+      await sendToClient({
+        to: phone,
+        message: MSG.precisaAjudante(`Endereços anotados! ✅`),
+      });
+      return;
+    }
+    // Nao geocodou os 2 - cai no fluxo padrao abaixo (provavelmente algum dos 2 nao foi
+    // entendido pelo geocoder). Reseta a separacao pra evitar confusao.
   }
 
   // Caminho A2: cliente colou um link de Google Maps em vez de mandar GPS pelo clipe.

@@ -2976,8 +2976,15 @@ async function handleConfirmandoEnderecosIA(phone: string, message: string) {
   if (!session) return;
   const lower = message.toLowerCase().trim();
 
+  // Detecta se eh fluxo de guincho ou frete (rotas diferentes apos confirmar)
+  const isGuincho = session.veiculo_sugerido === "guincho" || session.veiculo_sugerido === "moto_guincho";
+
   if (lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "ok" || lower === "confirmar" || lower === "correto") {
     await sendToClient({ to: phone, message: `📊 Calculando seu orçamento...` });
+    if (isGuincho) {
+      await cotarGuinchoEFinalizar(phone);
+      return;
+    }
     const iaConfirmouAjudante = !!session.precisa_ajudante;
     if (iaConfirmouAjudante) {
       await calcularEEnviarOrcamento(phone, 1);
@@ -7854,6 +7861,45 @@ async function handleGuinchoLocalizacao(
   let latitude = lat;
   let longitude = lng;
 
+  // Caminho A0: cliente mandou origem E destino numa mensagem so (paridade
+  // com fluxo de frete - cliente real 30/Abr "Pompeia para Osasco" cotou
+  // errado por geocoder pegar Pompeia interior).
+  if (!lat || !lng) {
+    const origDest = separarOrigemDestino(message);
+    if (origDest) {
+      // Se ambas pareceRuaSemContexto, pede bairro/cidade de cada
+      if (pareceRuaSemContexto(origDest.origem) && pareceRuaSemContexto(origDest.destino)) {
+        await updateSession(phone, {
+          step: "aguardando_bairro_origem",
+          origem_endereco: origDest.origem,
+          destino_endereco: origDest.destino,
+        });
+        await sendToClient({
+          to: phone,
+          message: `Anotei: *${origDest.origem}* (coleta) e *${origDest.destino}* (entrega)! 📍\n\nPra eu localizar certo, preciso saber o *bairro/cidade* de cada uma.\n\nEm qual *bairro ou cidade* fica a *${origDest.origem}*?\n\n_Ex: vila yara, osasco_`,
+        });
+        return;
+      }
+      // Geocoda os dois e pede confirmacao antes de cotar
+      const [oCoords, dCoords] = await Promise.all([
+        geocodeAddress(origDest.origem),
+        geocodeAddress(origDest.destino),
+      ]);
+      const oOk = !!(oCoords?.lat && oCoords?.lng);
+      const dOk = !!(dCoords?.lat && dCoords?.lng);
+      if (oOk && dOk) {
+        await pedirConfirmacaoEnderecosIA(
+          phone,
+          origDest.origem, oCoords!.lat, oCoords!.lng,
+          origDest.destino, dCoords!.lat, dCoords!.lng,
+        );
+        return;
+      }
+      // Algum falhou - cai no fluxo padrao abaixo (vai geocodar a frase
+      // inteira como 1 endereco; se falhar, sistema pede de novo).
+    }
+  }
+
   // Tenta GPS primeiro
   if (lat && lng) {
     const geo = await reverseGeocode(lat, lng);
@@ -7953,78 +7999,92 @@ async function handleGuinchoDestino(phone: string, message: string) {
       destLng = coords.lng;
     }
   }
-  // Aceita texto livre
+  // Aceita texto livre como destino, mas sem coords
   if (!destino) {
     destino = message.trim();
   }
 
-  // Calcular preco baseado na categoria
-  const categoriaNum = session.plano_escolhido || "1";
-  let distKm = 0;
-
-  // Se tem coordenadas dos dois pontos, calcula distancia
-  if (session.origem_lat && session.origem_lng && destLat && destLng) {
-    distKm = calcularDistanciaKm(session.origem_lat, session.origem_lng, destLat, destLng);
+  // Antes de cotar, MOSTRA os enderecos identificados pra cliente confirmar
+  // que geocoder pegou os lugares certos (regra: jamais cotar sem certeza).
+  // Cliente real cotou Pompeia interior por engano - viola a regra.
+  if (destLat && destLng && session.origem_lat && session.origem_lng) {
+    await pedirConfirmacaoEnderecosIA(
+      phone,
+      session.origem_endereco!, session.origem_lat, session.origem_lng,
+      destino, destLat, destLng,
+    );
+    return;
   }
+
+  // Sem coords precisas - cota com risco (mantem comportamento antigo, mas loga)
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "guincho_destino_sem_coords",
+      phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+      origem: session.origem_endereco?.slice(0, 100) || null,
+      destino: destino.slice(0, 100),
+    },
+  });
+
+  // Salva o que tem e segue pra cotacao mesmo sem coords precisas
+  await updateSession(phone, {
+    destino_endereco: destino,
+    destino_lat: destLat,
+    destino_lng: destLng,
+    distancia_km: (session.origem_lat && session.origem_lng && destLat && destLng)
+      ? calcularDistanciaKm(session.origem_lat, session.origem_lng, destLat, destLng)
+      : null,
+  });
+  await cotarGuinchoEFinalizar(phone);
+}
+
+// Cota guincho com base em session ja preenchida (origem + destino + coords +
+// distancia_km + descricao_carga). Reutilizada por handleGuinchoDestino e
+// handleConfirmandoEnderecosIA quando servico=guincho.
+async function cotarGuinchoEFinalizar(phone: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+
+  const categoriaNum = session.plano_escolhido || "1";
+  const distKm = session.distancia_km || 0;
+  const destino = session.destino_endereco || "";
 
   // Detecta tipo de veiculo da descricao
   const descCarga = session.descricao_carga || "";
-  let tipoVeic = "carro_comum"; // padrao
+  let tipoVeic = "carro_comum";
   if (descCarga.includes("Moto")) tipoVeic = "moto";
   else if (descCarga.includes("Caminhonete") || descCarga.includes("SUV")) tipoVeic = "caminhonete_suv";
   else if (descCarga.includes("Veiculo grande")) tipoVeic = "veiculo_grande";
 
-  // Preco: base + porKm/km apos 5km
   const precoInfo = GUINCHO_PRECOS_VEICULO[tipoVeic] || { base: 200, porKm: 5 };
   const kmExtra = Math.max(0, distKm - 5);
   let valorTotal = Math.round(precoInfo.base + kmExtra * precoInfo.porKm);
 
-  // Taxas adicionais (noturno/feriado/fim de semana) so aplicam pra guincho IMEDIATO,
-  // porque a data/hora de execucao e agora. Pra guincho AGENDADO, o cliente ainda
-  // vai escolher data e horario - recalculamos depois com essa info.
+  // Taxas adicionais (noturno/feriado/fim de semana) so aplicam pra guincho IMEDIATO
   let taxaExtra = "";
   if (categoriaNum === "1") {
     const agora = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
     const hora = agora.getHours();
-    const diaSemana = agora.getDay(); // 0=domingo, 6=sabado
+    const diaSemana = agora.getDay();
     const isNoturno = hora >= 22 || hora < 6;
     const isFimDeSemana = diaSemana === 0 || diaSemana === 6;
-
-    // Feriados nacionais fixos (mes-dia)
     const feriados = ["01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "12-25"];
     const mesdia = `${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
     const isFeriado = feriados.includes(mesdia);
-
-    if (isNoturno) {
-      valorTotal = Math.round(valorTotal * 1.3);
-      taxaExtra = "noturno";
-    }
-    if (isFeriado) {
-      valorTotal = Math.round(valorTotal * (isNoturno ? 1 : 1.3)); // nao acumula
-      taxaExtra = taxaExtra ? "noturno + feriado" : "feriado";
-    }
-    if (isFimDeSemana && !isFeriado && !isNoturno) {
-      valorTotal = Math.round(valorTotal * 1.2); // fim de semana: +20%
-      taxaExtra = "fim de semana";
-    }
+    if (isNoturno) { valorTotal = Math.round(valorTotal * 1.3); taxaExtra = "noturno"; }
+    if (isFeriado) { valorTotal = Math.round(valorTotal * (isNoturno ? 1 : 1.3)); taxaExtra = taxaExtra ? "noturno + feriado" : "feriado"; }
+    if (isFimDeSemana && !isFeriado && !isNoturno) { valorTotal = Math.round(valorTotal * 1.2); taxaExtra = "fim de semana"; }
   }
 
   const categoria = GUINCHO_CATEGORIAS[categoriaNum] || "Guincho";
 
-  // Guincho Imediato pula direto pra confirmacao
   if (categoriaNum === "1") {
     await updateSession(phone, {
       step: "aguardando_confirmacao",
-      destino_endereco: destino,
-      destino_lat: destLat,
-      destino_lng: destLng,
-      distancia_km: distKm || null,
       valor_estimado: valorTotal,
       data_agendada: "AGORA - Urgente",
     });
-
     const nomeVeic = TIPO_VEICULO_NOME[tipoVeic] || "Veiculo";
-
     await sendToClient({
       to: phone,
       message: `📋 *Resumo do seu pedido:*
@@ -8040,21 +8100,16 @@ ${taxaExtra ? `🌙 *Taxa ${taxaExtra} aplicada*\n` : ""}
 
 ━━━━━━━━━━━━━━━━
 
-⚠️ *Confirma que todas as informacoes estao corretas?*
+*Está tudo certo?*
 
-1️⃣ ✅ *SIM* - Tudo certo, confirmar!
-2️⃣ ✏️ *ALTERAR* - Quero corrigir algo`,
+1️⃣ 🚚 *CHAMAR GUINCHEIRO*
+2️⃣ ✏️ *EDITAR* (corrigir algo)`,
     });
   } else {
     await updateSession(phone, {
       step: "aguardando_data",
-      destino_endereco: destino,
-      destino_lat: destLat,
-      destino_lng: destLng,
-      distancia_km: distKm || null,
       valor_estimado: valorTotal,
     });
-
     await sendToClient({
       to: phone,
       message: MSG.guinchoOrcamento(categoria, session.origem_endereco || "", destino, valorTotal.toString(), taxaExtra),

@@ -2,16 +2,50 @@
 // no Supabase Storage. Bucket separado de prestadores-docs porque tem
 // politicas/lifecycle diferentes (proof retention legal eh longa).
 //
-// Bucket: provas-digitais (criar manualmente no Supabase Dashboard ou via
-// migration). Public bucket — URLs sao dificeis de adivinhar (UUID corrida).
+// Bucket: provas-digitais. PRIVATIZAR no Supabase Dashboard pra evitar
+// acesso direto via URL guess (atualmente URLs publicas usam UUID corrida
+// como path — adivinhavel se atacante souber UUIDs).
+//
+// Estrategia atual:
+//   - Salvar PATH (string interna) na coluna foto_url, NAO URL publica
+//   - Gerar signed URL on-demand via getProvaSignedUrl quando admin precisar
+//   - Signed URL tem TTL curta (1h) e nao funciona depois de expirar
+//   - Mesmo se bucket for privatizado, signed URLs continuam funcionando
 
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 const BUCKET = "provas-digitais";
+const SIGNED_URL_TTL_SEGUNDOS = 60 * 60; // 1h
 
 export type TipoProva = "coleta" | "entrega";
 
-// Baixa foto do ChatPro e salva no Storage. Retorna URL publica permanente.
+// Detecta se um valor em foto_url eh path interno (novo) ou URL completa
+// (legado, gravado antes da migration de seguranca).
+function ehPathInterno(s: string | null | undefined): boolean {
+  if (!s) return false;
+  return !s.startsWith("http");
+}
+
+// Gera signed URL pra um path interno do bucket. TTL curta (1h) por seguranca.
+// Aceita tambem URL legada (http*) — retorna ela mesma sem signed (compat).
+export async function getProvaSignedUrl(fotoUrlOuPath: string | null): Promise<string | null> {
+  if (!fotoUrlOuPath) return null;
+  if (!ehPathInterno(fotoUrlOuPath)) return fotoUrlOuPath; // legado: URL publica antiga
+
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(fotoUrlOuPath, SIGNED_URL_TTL_SEGUNDOS);
+
+  if (error || !data?.signedUrl) {
+    console.error("getProvaSignedUrl falhou:", error?.message);
+    return null;
+  }
+  return data.signedUrl;
+}
+
+// Baixa foto do ChatPro e salva no Storage. Grava PATH interno (nao URL)
+// em provas_digitais.foto_url. Consumidores devem chamar getProvaSignedUrl
+// pra obter URL acessavel.
 // Tambem registra na tabela provas_digitais (FK pra corrida).
 export async function salvarProvaDigital(
   chatproUrl: string,
@@ -34,7 +68,7 @@ export async function salvarProvaDigital(
     if (contentType.includes("png")) ext = "png";
     else if (contentType.includes("webp")) ext = "webp";
 
-    // 2. Upload pro Storage. Path: provas-digitais/{corridaId}/{tipo}-{ordem}-{timestamp}.jpg
+    // 2. Upload pro Storage. Path: {corridaId}/{tipo}-{ordem}-{timestamp}.{ext}
     const path = `${corridaId}/${tipo}-${ordem}-${Date.now()}.${ext}`;
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
@@ -45,16 +79,13 @@ export async function salvarProvaDigital(
       return { url: null, provaId: null };
     }
 
-    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-    const url = urlData?.publicUrl || null;
-
-    // 3. Registra na tabela provas_digitais (schema migration-001)
+    // 3. Registra PATH (nao URL) na tabela. Consumidores geram signed URL.
     const { data: prova, error: insertError } = await supabase
       .from("provas_digitais")
       .insert({
         corrida_id: corridaId,
         tipo,
-        foto_url: url,
+        foto_url: path, // path interno (string sem "http")
         metadata: { ordem, content_type: contentType, bytes: buffer.length },
       })
       .select("id")
@@ -62,10 +93,12 @@ export async function salvarProvaDigital(
 
     if (insertError) {
       console.error(`Erro inserir prova_digital ${tipo}:`, insertError.message);
-      return { url, provaId: null };
+      return { url: path, provaId: null };
     }
 
-    return { url, provaId: prova?.id || null };
+    // Pro retorno imediato (callers que querem mostrar logo), gera signed URL
+    const signed = await getProvaSignedUrl(path);
+    return { url: signed, provaId: prova?.id || null };
   } catch (e: any) {
     console.error(`Excecao salvar prova ${tipo}:`, e?.message);
     return { url: null, provaId: null };

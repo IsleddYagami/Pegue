@@ -90,7 +90,9 @@ export async function sendImage({ to, url, caption, instance }: SendImageOptions
           to_masked: to.replace(/\d(?=\d{4})/g, "*"),
         },
       });
-    } catch {}
+    } catch (e: any) {
+      console.warn("chatpro_send_image_falhou log falhou:", e?.message);
+    }
     throw new Error(`ChatPro image error: ${response.status}`);
   }
 
@@ -108,14 +110,6 @@ export function formatPhone(phone: string): string {
 export function isValidBrPhone(phone: string | null | undefined): boolean {
   if (!phone) return false;
   return /^55\d{2}\d{8,9}$/.test(phone);
-}
-
-// Envia mensagem para multiplos numeros (usa instancia 1 por padrao)
-export async function sendMessageToMany(numbers: string[], message: string, instance?: 1 | 2) {
-  const results = await Promise.allSettled(
-    numbers.map((to) => sendMessage({ to, message, instance }))
-  );
-  return results;
 }
 
 // === Helpers que resolvem instance via session do destinatario ===
@@ -174,22 +168,3 @@ export async function sendToClients(phones: string[], message: string) {
   return results;
 }
 
-// Envia pelos 2 numeros ao mesmo tempo (dispatch pra mais alcance)
-export async function sendMessageToManyDual(numbers: string[], message: string) {
-  // Divide a lista entre as 2 instancias pra distribuir carga
-  // Se so tem 1 instancia, manda tudo pela 1
-  if (!CHATPRO_ENDPOINT_2 || !CHATPRO_TOKEN_2) {
-    return sendMessageToMany(numbers, message, 1);
-  }
-
-  const metade = Math.ceil(numbers.length / 2);
-  const grupo1 = numbers.slice(0, metade);
-  const grupo2 = numbers.slice(metade);
-
-  const [r1, r2] = await Promise.all([
-    sendMessageToMany(grupo1, message, 1),
-    sendMessageToMany(grupo2, message, 2),
-  ]);
-
-  return [...r1, ...r2];
-}

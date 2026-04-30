@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
-import { isValidAdminKey } from "@/lib/admin-auth";
+import { requireAdminAuth } from "@/lib/admin-auth";
 import { enviarEmailCadastroPrestador } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +13,9 @@ export async function POST(req: NextRequest) {
   try {
     const { key, phone } = await req.json();
 
-    if (!isValidAdminKey(key)) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+    const auth = await requireAdminAuth(req, key);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     if (!phone) {

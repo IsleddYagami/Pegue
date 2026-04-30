@@ -180,7 +180,12 @@ Retorne APENAS este JSON:
       });
 
       if (errInsert) {
-        erros.push({ phone_masked: phoneMasked, motivo: errInsert.message });
+        // 23505 = unique violation (esperado quando 2 crons rodam concorrente
+        // e ambos passam o SELECT-COUNT; UNIQUE INDEX barra a duplicata).
+        // Outros erros sao reais — reporta.
+        if (errInsert.code !== "23505") {
+          erros.push({ phone_masked: phoneMasked, motivo: errInsert.message });
+        }
         continue;
       }
 

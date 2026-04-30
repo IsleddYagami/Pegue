@@ -78,20 +78,22 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     // 1) Valida secret do webhook (ChatPro configura ?secret=X na URL do webhook)
-    // Fail-OPEN se WEBHOOK_WHATSAPP_SECRET nao estiver configurado (compat transitoria),
-    // mas registra warning. Configurar env var = passa a ser fail-CLOSED automaticamente.
+    // FAIL-SECURE: em producao, secret OBRIGATORIO. Em dev (NODE_ENV !== production)
+    // permite ausencia pra facilitar smoke test local. Auditoria 30/Abr/2026
+    // identificou fail-open antigo como vulnerabilidade alta.
     const expectedSecret = process.env.WEBHOOK_WHATSAPP_SECRET;
+    if (process.env.NODE_ENV === "production" && !expectedSecret) {
+      console.error("[SEGURANCA CRITICA] WEBHOOK_WHATSAPP_SECRET ausente em producao — bloqueando.");
+      return NextResponse.json({ error: "config invalida" }, { status: 500 });
+    }
     if (expectedSecret) {
       const providedSecret =
         req.nextUrl.searchParams.get("secret") ||
         req.headers.get("authorization")?.replace("Bearer ", "") ||
         "";
       if (providedSecret !== expectedSecret) {
-        console.error("Webhook WhatsApp: secret invalido ou ausente");
         return NextResponse.json({ error: "acesso negado" }, { status: 401 });
       }
-    } else if (process.env.NODE_ENV === "production") {
-      console.warn("[SEGURANCA] WEBHOOK_WHATSAPP_SECRET nao configurado em producao");
     }
 
     // SMOKE MODE: smoke test passa header 'X-Smoke-Mode: true' pra simular
@@ -108,7 +110,10 @@ export async function POST(req: NextRequest) {
             criado_em: new Date().toISOString(),
           },
         });
-      } catch {}
+      } catch (e: any) {
+        // Smoke nunca deve quebrar — apenas avisa em console (Sentry pega).
+        console.warn("smoke_request log falhou:", e?.message);
+      }
       return NextResponse.json({ status: "smoke_ignored" });
     }
 
@@ -1391,6 +1396,14 @@ Boa sorte! 🎯`,
       break;
     case "fretista_indicar_telefone":
       await handleIndicarTelefone(phone, message);
+      break;
+
+    // Defensivo: handler primario eh handlePrestadorResponse (linha ~6800)
+    // que so dispara se ha dispatch ATIVO. Se prestador escapar daquele
+    // gate (ex: dispatch finalizou mas session ainda esta nesse step),
+    // delegamos pra mesma funcao que entende o estado.
+    case "fretista_confirmar_alteracao_data":
+      await handleFretistaConfirmarAlteracao(phone, message, session.corrida_id || "");
       break;
 
     // === GUINCHO ===
@@ -5091,25 +5104,35 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
     let prestadores: { telefone: string; nome: string }[] = [];
 
     if (isGuincho) {
-      const { data } = await supabase
+      // Otimizado 30/Abr/2026 — antes era N+1 (1 query por prestador).
+      // Agora 2 queries: lista prestadores aprovados + lista veiculos ativos
+      // com .in() pra filtrar em memoria.
+      const { data: prests } = await supabase
         .from("prestadores")
         .select("telefone, nome, id")
         .eq("disponivel", true)
         .eq("status", "aprovado");
 
-      if (data) {
-        // Filtra prestadores que tem veiculo tipo guincho
-        for (const p of data) {
-          const { data: veiculos } = await supabase
-            .from("prestadores_veiculos")
-            .select("tipo")
-            .eq("prestador_id", p.id)
-            .eq("ativo", true);
+      if (prests && prests.length > 0) {
+        const ids = prests.map(p => p.id);
+        const { data: veiculos } = await supabase
+          .from("prestadores_veiculos")
+          .select("prestador_id, tipo")
+          .in("prestador_id", ids)
+          .eq("ativo", true);
 
-          const temGuincho = veiculos?.some(v =>
-            v.tipo === "guincho" || v.tipo === "guincho_plataforma"
-          );
-          if (temGuincho) prestadores.push(p);
+        const veiculosPorPrestador = new Map<string, string[]>();
+        for (const v of veiculos || []) {
+          const arr = veiculosPorPrestador.get(v.prestador_id) || [];
+          arr.push(v.tipo);
+          veiculosPorPrestador.set(v.prestador_id, arr);
+        }
+
+        for (const p of prests) {
+          const tipos = veiculosPorPrestador.get(p.id) || [];
+          if (tipos.some(t => t === "guincho" || t === "guincho_plataforma")) {
+            prestadores.push({ telefone: p.telefone, nome: p.nome });
+          }
         }
       }
     } else {
@@ -5132,22 +5155,33 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
       };
       const veiculosOK = VEICULOS_COMPATIVEIS[tipoCorrida] || ["utilitario", "hr", "caminhao_bau"];
 
-      const { data } = await supabase
+      // Mesma otimizacao do guincho: 2 queries em vez de N+1.
+      const { data: prests } = await supabase
         .from("prestadores")
         .select("telefone, nome, id")
         .eq("disponivel", true)
         .eq("status", "aprovado");
 
-      if (data) {
-        for (const p of data) {
-          const { data: veiculos } = await supabase
-            .from("prestadores_veiculos")
-            .select("tipo")
-            .eq("prestador_id", p.id)
-            .eq("ativo", true);
+      if (prests && prests.length > 0) {
+        const ids = prests.map(p => p.id);
+        const { data: veiculos } = await supabase
+          .from("prestadores_veiculos")
+          .select("prestador_id, tipo")
+          .in("prestador_id", ids)
+          .eq("ativo", true);
 
-          const compativel = veiculos?.some(v => veiculosOK.includes(v.tipo));
-          if (compativel) prestadores.push(p);
+        const veiculosPorPrestador = new Map<string, string[]>();
+        for (const v of veiculos || []) {
+          const arr = veiculosPorPrestador.get(v.prestador_id) || [];
+          arr.push(v.tipo);
+          veiculosPorPrestador.set(v.prestador_id, arr);
+        }
+
+        for (const p of prests) {
+          const tipos = veiculosPorPrestador.get(p.id) || [];
+          if (tipos.some(t => veiculosOK.includes(t))) {
+            prestadores.push({ telefone: p.telefone, nome: p.nome });
+          }
         }
       }
 
@@ -7081,31 +7115,27 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
   const contextoErro = `📍 ${session.origem_endereco || "-"}\n🏠 ${session.destino_endereco || "-"}\n📦 ${session.descricao_carga || "-"}\n💰 R$ ${session.valor_estimado || "-"}`;
 
   try {
-    let clienteId: string | null = null;
-
-    const { data: clienteExistente } = await supabase
+    // UPSERT atomico em vez de SELECT-INSERT (race condition se 2 webhooks
+    // chegarem simultaneos pra cliente novo). onConflict=telefone garante
+    // que se cliente ja existe, retorna o existente; senao insere.
+    // Audit 30/Abr/2026: padrao SELECT->INSERT podia gerar UNIQUE violation
+    // em retries de ChatPro.
+    const { data: cliente, error: errCliente } = await supabase
       .from("clientes")
+      .upsert(
+        { telefone: session.phone, nivel: "bronze", total_corridas: 0, ativo: true },
+        { onConflict: "telefone", ignoreDuplicates: false },
+      )
       .select("id")
-      .eq("telefone", session.phone)
       .single();
 
-    if (clienteExistente) {
-      clienteId = clienteExistente.id;
-    } else {
-      const { data: novoCliente, error: errCliente } = await supabase
-        .from("clientes")
-        .insert({ telefone: session.phone, nivel: "bronze", total_corridas: 0, ativo: true })
-        .select("id")
-        .single();
-
-      if (errCliente) {
-        await supabase.from("bot_logs").insert({ payload: { debug: "erro_criar_cliente", error: errCliente.message, phone: session.phone } });
-        await notificarAdmin(`🚨 *ERRO AO SALVAR CORRIDA (cliente novo)*`, session.phone, `Erro: ${errCliente.message}\n${contextoErro}`);
-        return null;
-      }
-      clienteId = novoCliente?.id || null;
+    if (errCliente) {
+      await supabase.from("bot_logs").insert({ payload: { debug: "erro_upsert_cliente", error: errCliente.message, phone: session.phone } });
+      await notificarAdmin(`🚨 *ERRO AO SALVAR CORRIDA (cliente upsert)*`, session.phone, `Erro: ${errCliente.message}\n${contextoErro}`);
+      return null;
     }
 
+    const clienteId: string | null = cliente?.id || null;
     if (!clienteId) {
       await supabase.from("bot_logs").insert({ payload: { debug: "cliente_id_null", phone: session.phone } });
       await notificarAdmin(`🚨 *ERRO AO SALVAR CORRIDA (cliente_id null)*`, session.phone, `${contextoErro}`);
@@ -7611,7 +7641,9 @@ Responda SOMENTE o JSON.`,
     console.error("Erro OpenAI Vision:", detalhe);
     try {
       await supabase.from("bot_logs").insert({ payload: detalhe });
-    } catch {}
+    } catch (e: any) {
+      console.warn("vision_falhou log falhou:", e?.message);
+    }
     return null;
   }
 }
@@ -8095,13 +8127,6 @@ const GUINCHO_PRECOS_VEICULO: Record<string, { base: number; porKm: number }> = 
   veiculo_grande: { base: 350, porKm: 8 },
 };
 
-const TIPO_VEICULO_GUINCHO: Record<string, string> = {
-  "1": "carro_comum",
-  "2": "caminhonete_suv",
-  "3": "veiculo_grande",
-  "4": "moto",
-};
-
 const TIPO_VEICULO_NOME: Record<string, string> = {
   carro_comum: "Hatch/Sedan",
   caminhonete_suv: "SUV/Caminhonete",
@@ -8148,34 +8173,6 @@ async function handleGuinchoCategoria(phone: string, message: string) {
       message: `Qual a *marca, modelo e ano* do seu veiculo? 🚗\n\nExemplo: *Fiat Uno 2018*, *Honda CG 160 2022*, *Hilux 2020*`,
     });
   }
-}
-
-async function handleGuinchoTipoVeiculo(phone: string, message: string) {
-  const lower = message.trim();
-  const tipoVeiculo = TIPO_VEICULO_GUINCHO[lower];
-
-  if (!tipoVeiculo) {
-    await sendToClient({
-      to: phone,
-      message: "Escolha de 1 a 4:\n\n1️⃣ *Hatch/Sedan* (Gol, Onix, Strada, Fiorino...)\n2️⃣ *SUV/Caminhonete* (Hilux, S10, HR, Bongo...)\n3️⃣ *Van/Caminhao* (Sprinter, Master...)\n4️⃣ *Moto*",
-    });
-    return;
-  }
-
-  const session = await getSession(phone);
-  const categoria = session?.descricao_carga || "Guincho";
-  const nomeVeiculo = TIPO_VEICULO_NOME[tipoVeiculo];
-
-  await updateSession(phone, {
-    step: "guincho_marca_modelo" as any,
-    descricao_carga: `${categoria} - ${nomeVeiculo}`,
-    veiculo_sugerido: tipoVeiculo === "moto" ? "moto_guincho" : "guincho",
-  });
-
-  await sendToClient({
-    to: phone,
-    message: `Qual a *marca, modelo e ano* do veiculo?\n\nExemplo: *Fiat Uno 2018* ou *Honda CG 160 2022*`,
-  });
 }
 
 // Detecta categoria do veiculo pelo nome

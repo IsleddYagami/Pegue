@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidAdminKey } from "@/lib/admin-auth";
+import { requireAdminAuth } from "@/lib/admin-auth";
 import { calcularPrecos } from "@/lib/bot-utils";
 import { Resend } from "resend";
 
@@ -107,8 +107,9 @@ function fakeEnderecoPorZona(z: string): string {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    if (!isValidAdminKey(body.key)) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+    const auth = await requireAdminAuth(req, body.key);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const f: Filtros = body.filtros;

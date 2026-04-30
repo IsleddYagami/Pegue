@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { criarLinkPagamento } from "@/lib/mercadopago";
-import { isValidAdminKey } from "@/lib/admin-auth";
+import { requireAdminAuth } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +10,9 @@ export async function POST(req: NextRequest) {
   try {
     const { corridaId, key } = await req.json();
 
-    if (!isValidAdminKey(key)) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+    const auth = await requireAdminAuth(req, key);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     // Verifica se pagamento automatico esta habilitado

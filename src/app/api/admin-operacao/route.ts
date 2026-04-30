@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
-import { isValidAdminKey } from "@/lib/admin-auth";
+import { requireAdminAuth } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -14,9 +14,9 @@ export const maxDuration = 30;
 //
 // Page /admin/operacao-real consome esse endpoint com auto-refresh.
 export async function GET(req: NextRequest) {
-  const key = req.nextUrl.searchParams.get("key");
-  if (!isValidAdminKey(key)) {
-    return NextResponse.json({ error: "acesso negado" }, { status: 401 });
+  const auth = await requireAdminAuth(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   const dias = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get("dias") || "7"), 1), 30);
@@ -54,13 +54,17 @@ export async function GET(req: NextRequest) {
         .order("criado_em", { ascending: true })
     : { data: [] };
 
-  // Indexa fotos por corrida
+  // Indexa fotos por corrida — gera signed URLs (TTL 1h) pra evitar exposicao
+  // permanente. Aceita tambem URLs legadas (dados antes da migration de seg).
+  const { getProvaSignedUrl } = await import("@/lib/storage-provas");
   const fotosByCorrida: Record<string, { coleta: string[]; entrega: string[] }> = {};
-  (provas || []).forEach((p: any) => {
+  await Promise.all((provas || []).map(async (p: any) => {
     if (!fotosByCorrida[p.corrida_id]) fotosByCorrida[p.corrida_id] = { coleta: [], entrega: [] };
-    if (p.tipo === "coleta") fotosByCorrida[p.corrida_id].coleta.push(p.foto_url);
-    else if (p.tipo === "entrega") fotosByCorrida[p.corrida_id].entrega.push(p.foto_url);
-  });
+    const signed = await getProvaSignedUrl(p.foto_url);
+    if (!signed) return;
+    if (p.tipo === "coleta") fotosByCorrida[p.corrida_id].coleta.push(signed);
+    else if (p.tipo === "entrega") fotosByCorrida[p.corrida_id].entrega.push(signed);
+  }));
 
   // 3) Pagamentos das corridas
   const { data: pagamentos } = corridaIds.length
@@ -177,8 +181,12 @@ export async function GET(req: NextRequest) {
 // Acoes admin: cancelar corrida, marcar repasse pago, etc
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
-  if (!body || !isValidAdminKey(body.key)) {
-    return NextResponse.json({ error: "acesso negado" }, { status: 401 });
+  if (!body) {
+    return NextResponse.json({ error: "body invalido" }, { status: 400 });
+  }
+  const auth = await requireAdminAuth(req, body.key);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   const { acao, corrida_id } = body as { acao: string; corrida_id: string };

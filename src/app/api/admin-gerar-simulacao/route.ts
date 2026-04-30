@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidAdminKey } from "@/lib/admin-auth";
+import { requireAdminAuth } from "@/lib/admin-auth";
 import { calcularPrecos } from "@/lib/bot-utils";
 import { Resend } from "resend";
 
@@ -72,9 +72,9 @@ function gerarCombinacaoUnica(qtdItens: number): string[] {
 }
 
 export async function GET(req: NextRequest) {
-  const key = req.nextUrl.searchParams.get("key");
-  if (!isValidAdminKey(key)) {
-    return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+  const auth = await requireAdminAuth(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   try {

@@ -68,7 +68,14 @@ export function isPhoneTeste(phone: string | null | undefined): boolean {
 // Helper completo de auth admin: rate limit por IP + validacao de key.
 // Retorna { ok: false, ...} pra responder direto ao cliente.
 // Rate limit: 10 tentativas/minuto por IP (pra /admin login).
-export async function requireAdminAuth(req: Request): Promise<
+//
+// `keyOverride` permite passar a key extraida do body/formData quando ela
+// nao vem na URL (ex: admin-cadastrar-prestador usa formData). Sem isso, o
+// codigo caia em isValidAdminKey direto e perdia o rate limit (vuln auditoria).
+export async function requireAdminAuth(
+  req: Request,
+  keyOverride?: string | null,
+): Promise<
   | { ok: true }
   | { ok: false; status: number; error: string }
 > {
@@ -80,9 +87,10 @@ export async function requireAdminAuth(req: Request): Promise<
     return { ok: false, status: 429, error: "muitas tentativas, aguarde 1 minuto" };
   }
 
-  // Extrai key da URL ou do header Authorization
+  // Extrai key da URL, do header Authorization, ou do override (body/form)
   const url = new URL(req.url);
   const key =
+    keyOverride ||
     url.searchParams.get("key") ||
     req.headers.get("authorization")?.replace("Bearer ", "") ||
     null;

@@ -65,7 +65,6 @@ export type BotStep =
   | "admin_confirmar_ajuste"
   | "aguardando_revisao_admin"
   | "guincho_categoria"
-  | "guincho_tipo_veiculo"
   | "guincho_marca_modelo"
   | "guincho_localizacao"
   | "guincho_destino"

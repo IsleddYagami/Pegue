@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
-import { isValidAdminKey } from "@/lib/admin-auth";
+import { requireAdminAuth } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const senha = req.nextUrl.searchParams.get("key");
-
-  // Protecao basica - so Fabio acessa
-  if (!isValidAdminKey(senha)) {
-    return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+  const auth = await requireAdminAuth(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   try {

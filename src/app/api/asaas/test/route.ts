@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidAdminKey } from "@/lib/admin-auth";
+import { requireAdminAuth } from "@/lib/admin-auth";
 import {
   asaasStatus,
   criarOuObterCliente,
@@ -30,17 +30,17 @@ export async function GET(req: NextRequest) {
   const status = asaasStatus();
   const ehSandbox = status.api_key_tipo === "sandbox";
 
-  // Em PRODUCAO, exige ADMIN_KEY. Em SANDBOX, libera (zero risco).
+  // Em PRODUCAO, exige ADMIN_KEY (com rate limit). Em SANDBOX, libera (zero risco).
   if (!ehSandbox) {
-    const key = req.nextUrl.searchParams.get("key");
-    if (!isValidAdminKey(key)) {
+    const auth = await requireAdminAuth(req);
+    if (!auth.ok) {
       return NextResponse.json(
         {
-          error: "acesso negado",
+          error: auth.error,
           dica: "endpoint protegido em producao. use ?key=ADMIN_KEY",
           ambiente: status.api_key_tipo,
         },
-        { status: 401 },
+        { status: auth.status },
       );
     }
   }

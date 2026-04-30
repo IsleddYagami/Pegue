@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
-import { isValidAdminKey } from "@/lib/admin-auth";
+import { requireAdminAuth } from "@/lib/admin-auth";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
 import crypto from "crypto";
 
@@ -13,10 +13,11 @@ export const maxDuration = 60; // upload de 3 fotos pode demorar
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const key = formData.get("key")?.toString();
+    const key = formData.get("key")?.toString() || null;
 
-    if (!isValidAdminKey(key)) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+    const auth = await requireAdminAuth(req, key);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const nome = formData.get("nome")?.toString().trim() || "";

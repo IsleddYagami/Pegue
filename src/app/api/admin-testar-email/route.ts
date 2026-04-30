@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidAdminKey } from "@/lib/admin-auth";
+import { requireAdminAuth } from "@/lib/admin-auth";
 import { enviarEmailCadastroPrestador } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
@@ -8,10 +8,9 @@ export const dynamic = "force-dynamic";
 // integracao com Resend + dominio chamepegue.com.br esta funcionando.
 // Uso: /api/admin-testar-email?key=SENHA_ADMIN
 export async function GET(req: NextRequest) {
-  const key = req.nextUrl.searchParams.get("key");
-
-  if (!isValidAdminKey(key)) {
-    return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+  const auth = await requireAdminAuth(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   try {

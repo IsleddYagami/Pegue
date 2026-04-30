@@ -3167,26 +3167,13 @@ async function handleData(phone: string, message: string) {
 }
 
 // STEP 7: Confirmacao
-// CTA do resumo agora pede dia/hora OU "EDITAR". Cliente pode:
-// - mandar data + horario (extrair e salvar) → avanca pra termos
-// - mandar "AGORA"/"urgente" → data="AGORA - Urgente" e avanca
-// - mandar "confirmar"/"sim"/"ok"/"1" se ja tem data salva → mantem e avanca
-// - mandar "EDITAR"/"alterar"/"corrigir"/"2" → fluxo de edicao
+// Resumo agora oferece 3 opcoes claras: 1=CONFIRMAR, 2=FRETE AGORA, 3=EDITAR.
+// Cliente tb pode mandar nova data/hora (atualiza) ou palavras-chave.
 async function handleConfirmacao(phone: string, message: string, instance: 1 | 2 = 1) {
   const session = await getSession(phone);
   if (!session) return;
 
   const lower = message.toLowerCase().trim();
-
-  // EDITAR
-  if (lower === "2" || lower === "editar" || lower === "alterar" || lower.includes("corrigir") || lower.includes("mudar") || lower.startsWith("nao") || lower === "n" || lower === "não") {
-    await updateSession(phone, { step: "editando_escolha" });
-    await sendToClient({
-      to: phone,
-      message: `✏️ *O que você quer corrigir?*\n\n1️⃣ *Origem* (onde buscar)\n2️⃣ *Destino* (onde entregar)\n3️⃣ *Itens / material*\n4️⃣ *Data / horário*\n5️⃣ *Cancelar tudo* e começar do zero`,
-    });
-    return;
-  }
 
   // Helper que avanca pra termos de pagamento.
   const avancarParaTermos = async () => {
@@ -3195,14 +3182,38 @@ async function handleConfirmacao(phone: string, message: string, instance: 1 | 2
     await sendToClient({ to: phone, message: MSG.aceiteTermosPagamento(valorFmt) });
   };
 
-  // AGORA / urgente
-  if (lower === "agora" || lower === "ja" || lower === "já" || lower === "urgente") {
+  // Opcao 2: FRETE AGORA (urgente)
+  if (lower === "2" || lower === "agora" || lower === "ja" || lower === "já" || lower === "urgente" || lower.includes("frete agora") || lower.includes("urgent")) {
     await updateSession(phone, { data_agendada: "AGORA - Urgente", periodo: null });
     await avancarParaTermos();
     return;
   }
 
-  // Tenta extrair data/horario da mensagem (cliente confirmando ou mudando data)
+  // Opcao 3: EDITAR
+  if (lower === "3" || lower === "editar" || lower === "alterar" || lower.includes("corrigir") || lower.includes("mudar") || lower.startsWith("nao") || lower === "n" || lower === "não") {
+    await updateSession(phone, { step: "editando_escolha" });
+    await sendToClient({
+      to: phone,
+      message: `✏️ *O que você quer corrigir?*\n\n1️⃣ *Origem* (onde buscar)\n2️⃣ *Destino* (onde entregar)\n3️⃣ *Itens / material*\n4️⃣ *Data / horário*\n5️⃣ *Cancelar tudo* e começar do zero`,
+    });
+    return;
+  }
+
+  // Opcao 1: CONFIRMAR (mantem data atual da sessao)
+  const confirmacaoSimples = lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "confirmar" || lower === "confirmo" || lower === "correto" || lower === "ok";
+  if (confirmacaoSimples) {
+    if (session.data_agendada && session.data_agendada.trim().length > 0) {
+      await avancarParaTermos();
+      return;
+    }
+    await sendToClient({
+      to: phone,
+      message: `Pra confirmar, preciso do *dia e horário* 😊\n\n_Ex: 11/05 manhã, amanha 14h, segunda 9h_\n\nOu digite *2* pra *frete agora* (urgente) ou *3* pra editar.`,
+    });
+    return;
+  }
+
+  // Cliente mandou nova data/hora — atualiza e avanca
   const dataExtraida = extrairData(lower);
   const horarioExtraido = extrairHorario(lower);
 
@@ -3212,21 +3223,6 @@ async function handleConfirmacao(phone: string, message: string, instance: 1 | 2
       periodo: null,
     });
     await avancarParaTermos();
-    return;
-  }
-
-  // Cliente respondeu vagamente "sim/ok/confirmo/1" - se ja tem data salva,
-  // confirma mantendo. Se NAO tem, pede data.
-  const confirmacaoSimples = lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "confirmar" || lower === "confirmo" || lower === "correto" || lower === "ok";
-  if (confirmacaoSimples) {
-    if (session.data_agendada && session.data_agendada.trim().length > 0) {
-      await avancarParaTermos();
-      return;
-    }
-    await sendToClient({
-      to: phone,
-      message: `Pra confirmar, preciso do *dia e horário* 😊\n\n_Ex: 11/05 manhã, amanha 14h, segunda 9h_\n\nOu digite *EDITAR* pra corrigir.`,
-    });
     return;
   }
 

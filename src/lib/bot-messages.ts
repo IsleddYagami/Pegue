@@ -214,15 +214,15 @@ Vai precisar de ajudante pra carregar? 😊
 
 ━━━━━━━━━━━━━━━━
 
-*Se estiver tudo certo, me informe o dia e horário* pra eu chamar o fretista.
+*Quando precisa do frete?*
 
-_Exemplos:_
+1️⃣ ⚡ *AGORA* (urgente, sair hoje)
+2️⃣ ✏️ *EDITAR* (corrigir algo)
+
+_Ou me manda dia/horário direto:_
 • *25/04 as 15h*
 • *amanha 14:30*
-• *segunda 9h*
-• *AGORA* (urgente)
-
-Ou digite *EDITAR* pra corrigir algo.`,
+• *segunda 9h*`,
 
   planoEscolhido: `Otima escolha! ✨
 
@@ -258,14 +258,13 @@ ${detalhes}
 
 ━━━━━━━━━━━━━━━━
 
-*Se estiver tudo certo, me confirme o dia e horário* pra eu chamar o fretista.
+*Está tudo certo?*
 
-_Exemplos:_
-• *Confirmo, ${data}*
-• *amanha 14h*
-• *25/04 as 15h*
+1️⃣ ✅ *CONFIRMAR* (manter ${data})
+2️⃣ ⚡ *FRETE AGORA* (urgente, sair hoje)
+3️⃣ ✏️ *EDITAR* (corrigir algo)
 
-Ou digite *EDITAR* pra corrigir algo.`,
+_Ou me manda outro dia/horário (ex: 25/04 14h)_`,
 
   freteRecebido: `Ok! Um momento, estamos preparando sua reserva 😊
 

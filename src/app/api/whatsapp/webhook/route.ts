@@ -27,6 +27,7 @@ import {
   calcularPrecos,
   detectarZona,
   extrairCep,
+  normalizarEmojiKeycap,
   pareceEndereco,
   isSaudacao,
   isAgradecimento,
@@ -54,6 +55,7 @@ import { criteriosMediaDaSimulacao, invalidarCacheAjustes } from "@/lib/ajustes-
 import { isAdminPhone, isPhoneTeste } from "@/lib/admin-auth";
 import { notificarAdmins } from "@/lib/admin-notify";
 import { extrairContextoInicial, formatarConfirmacaoContexto, type ContextoExtraido } from "@/lib/extrair-contexto";
+import { detectarLinkGoogleMaps, resolverGoogleMapsLink } from "@/lib/google-maps-link";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 // Limite de chamadas IA Vision por hora por telefone.
@@ -154,7 +156,10 @@ export async function POST(req: NextRequest) {
     }
 
     const info = rawBody.Body?.Info || rawBody.Info || {};
-    const message = rawBody.Body?.Text || "";
+    // Normaliza emoji keycap (1️⃣ -> 1) ANTES de tudo. Cliente real digita o emoji
+    // do menu pensando que eh o esperado, e os 50+ comparadores `lower === "1"`
+    // viram travar. Normalizando na entrada, todo o codigo abaixo funciona igual.
+    const message = normalizarEmojiKeycap(rawBody.Body?.Text || "");
     const from = info.RemoteJid || info.SenderJid || "";
     const isGroup = from.includes("@g.us");
     const isFromMe = info.FromMe || false;
@@ -839,6 +844,7 @@ Boa sorte! 🎯`,
           const partes: string[] = [];
           if (contexto.itens.length > 0) partes.push(contexto.itens.join(", "));
           if (contexto.qtd_caixas) partes.push(`${contexto.qtd_caixas} caixa${contexto.qtd_caixas > 1 ? "s" : ""}`);
+          if (contexto.qtd_sacolas) partes.push(`${contexto.qtd_sacolas} sacola${contexto.qtd_sacolas > 1 ? "s" : ""}`);
           return partes.length > 0 ? partes.join(", ") : null;
         })();
         const updatePayload: any = {
@@ -888,7 +894,7 @@ Boa sorte! 🎯`,
 
     // Se digitou termo de servico direto (frete, guincho, carreto, mudanca)
     if (isInicioServico(message)) {
-      const saudacaoRapida = `Ola ${nome}! 😊 Que bom ter voce aqui na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
+      const saudacaoRapida = `Ola ${nome}! 😊 Que bom ter voce aqui na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
       await sendToClient({ to: phone, message: saudacaoRapida });
 
       // Se ja da pra identificar o servico, encaminha direto
@@ -907,7 +913,7 @@ Boa sorte! 🎯`,
     }
 
     // Saudacao normal
-    const saudacao = `Ola ${nome}! 😊 Que bom ter voce aqui na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
+    const saudacao = `Ola ${nome}! 😊 Que bom ter voce aqui na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
     await sendToClient({ to: phone, message: saudacao });
     return;
   }
@@ -919,7 +925,7 @@ Boa sorte! 🎯`,
     const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
     await sendToClient({
       to: phone,
-      message: `Ola ${primeiroNome}! 😊 Que bom ter voce de volta na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
+      message: `Ola ${primeiroNome}! 😊 Que bom ter voce de volta na Pegue!\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
     });
 
     const lowerMsg = lower;
@@ -1395,6 +1401,33 @@ async function handleLocalizacao(
   // Feedback imediato pro cliente nao achar que bot travou (geocoder pode demorar 1-3s)
   if (message && message.trim().length >= 5) {
     await sendToClient({ to: phone, message: "📍 Anotei, tô localizando..." });
+  }
+
+  // Caminho A2: cliente colou um link de Google Maps em vez de mandar GPS pelo clipe.
+  // Cliente real 29/Abr (47-9901-0385) mandou maps.app.goo.gl shortlink achando que
+  // era equivalente. Sistema rejeitava como endereco invalido. Agora resolvemos o
+  // link, extraimos lat/lng e geocodificamos como se fosse GPS.
+  const linkMaps = detectarLinkGoogleMaps(message);
+  if (linkMaps) {
+    const coords = await resolverGoogleMapsLink(linkMaps);
+    if (coords) {
+      const endereco = await reverseGeocode(coords.lat, coords.lng);
+      await apresentarOrigemPraConfirmacao(phone, endereco, coords.lat, coords.lng);
+      return;
+    }
+    // Falhou em resolver - logar e cair pro fluxo de erro abaixo
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "google_maps_link_falhou",
+        phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+        link: linkMaps.slice(0, 200),
+      },
+    });
+    await sendToClient({
+      to: phone,
+      message: `🤔 Não consegui ler esse link do Google Maps. Tenta mandar a *localização pelo ícone de anexo* (clipe 📎) > Localização. Ou digite o *endereço completo* (rua, número, bairro).`,
+    });
+    return;
   }
 
   // Caminho B: CEP
@@ -2228,28 +2261,56 @@ async function handleDestino(phone: string, message: string) {
   let destinoLat: number | null = null;
   let destinoLng: number | null = null;
 
-  const cep = extrairCep(message);
-  if (cep) {
-    const endereco = await buscaCep(cep);
-    if (endereco) {
-      destinoEndereco = endereco;
-      const coords = await geocodeAddress(endereco);
-      destinoLat = coords?.lat || null;
-      destinoLng = coords?.lng || null;
+  // Cliente mandou link Google Maps em vez de digitar endereco do destino
+  const linkMaps = detectarLinkGoogleMaps(message);
+  if (linkMaps) {
+    const coords = await resolverGoogleMapsLink(linkMaps);
+    if (coords) {
+      destinoLat = coords.lat;
+      destinoLng = coords.lng;
+      destinoEndereco = await reverseGeocode(coords.lat, coords.lng) || "Localizacao do Google Maps";
     } else {
       await supabase.from("bot_logs").insert({
-        payload: { tipo: "cep_destino_nao_encontrado", phone, cep, destino_tentativa: message.slice(0, 100) },
+        payload: {
+          tipo: "google_maps_link_destino_falhou",
+          phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+          link: linkMaps.slice(0, 200),
+        },
       });
       await sendToClient({
         to: phone,
-        message: `🤔 Não achei esse CEP (*${cep}*) de destino.\n\nConfere se digitou certo ou manda:\n• *Rua, bairro e cidade* do destino\n\nExemplo: *Rua Augusta, Consolação, São Paulo*`,
+        message: `🤔 Não consegui ler esse link do Google Maps. Pode digitar o *endereço completo de entrega* (rua, número, bairro)?`,
       });
       return;
     }
-  } else {
-    const coords = await geocodeAddress(message);
-    destinoLat = coords?.lat || null;
-    destinoLng = coords?.lng || null;
+  }
+
+  // Se ja resolvemos por link Maps, pula o fluxo de CEP / texto.
+  let cep: string | null = null;
+  if (!linkMaps) {
+    cep = extrairCep(message);
+    if (cep) {
+      const endereco = await buscaCep(cep);
+      if (endereco) {
+        destinoEndereco = endereco;
+        const coords = await geocodeAddress(endereco);
+        destinoLat = coords?.lat || null;
+        destinoLng = coords?.lng || null;
+      } else {
+        await supabase.from("bot_logs").insert({
+          payload: { tipo: "cep_destino_nao_encontrado", phone, cep, destino_tentativa: message.slice(0, 100) },
+        });
+        await sendToClient({
+          to: phone,
+          message: `🤔 Não achei esse CEP (*${cep}*) de destino.\n\nConfere se digitou certo ou manda:\n• *Rua, bairro e cidade* do destino\n\nExemplo: *Rua Augusta, Consolação, São Paulo*`,
+        });
+        return;
+      }
+    } else {
+      const coords = await geocodeAddress(message);
+      destinoLat = coords?.lat || null;
+      destinoLng = coords?.lng || null;
+    }
   }
 
   // SEM coords reais = NAO ACEITAMOS. ANTES usavamos fallback Osasco hardcoded
@@ -3047,7 +3108,7 @@ async function handleEditandoEscolha(phone: string, message: string, instance: 1
     await updateSession(phone, { step: "aguardando_servico" });
     await sendToClient({
       to: phone,
-      message: "Tudo bem, vamos começar do zero 😊\n\nO que você precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudança completa*\n3️⃣ *Guincho* (carro ou moto)\n4️⃣ *Dúvidas frequentes*",
+      message: "Tudo bem, vamos começar do zero 😊\n\nO que você precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudança completa*\n3️⃣ *Guincho* (carro ou moto)\n4️⃣ *Dúvidas frequentes*",
     });
     return;
   }
@@ -3672,7 +3733,7 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
 
     await sendToClient({
       to: phone,
-      message: `Vamos la! 🚚\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
+      message: `Vamos la! 🚚\n\nO que voce precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
     });
     return;
   }
@@ -3686,7 +3747,7 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
     });
     await sendToClient({
       to: phone,
-      message: `Sem problema! 😊 Vamos do inicio.\n\nO que voce precisa?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
+      message: `Sem problema! 😊 Vamos do inicio.\n\nO que voce precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
     });
     return;
   }

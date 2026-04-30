@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  normalizarEmojiKeycap,
   extrairCep,
   pareceEndereco,
   isSaudacao,
@@ -18,6 +19,21 @@ import {
   determinarMelhorVeiculo,
   formatarListaNumerada,
 } from "./bot-utils";
+
+describe("normalizarEmojiKeycap", () => {
+  it.each([
+    ["1\uFE0F\u20E3", "1"],          // 1️⃣ -> 1
+    ["2\uFE0F\u20E3", "2"],          // 2️⃣ -> 2
+    ["1\uFE0F\u20E3 quero", "1 quero"],
+    ["resposta: 3\uFE0F\u20E3", "resposta: 3"],
+    ["1\u20E3", "1"],                // sem variation selector tb
+    ["1", "1"],                       // ja normalizado
+    ["sim", "sim"],                   // texto puro
+    ["", ""],                         // vazio
+  ])("normaliza '%s' -> '%s'", (input, expected) => {
+    expect(normalizarEmojiKeycap(input)).toBe(expected);
+  });
+});
 
 describe("extrairCep", () => {
   describe("aceita formatos validos", () => {

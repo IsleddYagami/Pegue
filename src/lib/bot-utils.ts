@@ -551,6 +551,18 @@ export function calcularPrecosCompleto(
   };
 }
 
+// Normaliza emoji keycap pra digito puro: "1️⃣" => "1", "2️⃣" => "2", etc.
+// Cliente real 29/Abr (47-9901-0385) viu o menu com "1️⃣" e respondeu mandando
+// o EMOJI 1️⃣ achando que era o esperado. O parser do menu (lower === "1")
+// nao reconheceu o emoji e travou o cliente.
+//
+// Estrutura do emoji keycap: digito + U+FE0F (variation selector) + U+20E3 (combining keycap).
+// Regex remove os dois codepoints adicionais e mantem so o digito.
+export function normalizarEmojiKeycap(texto: string): string {
+  if (!texto) return texto;
+  return texto.replace(/([0-9*#])\uFE0F?\u20E3/g, "$1");
+}
+
 // Extrai CEP de uma mensagem.
 // Aceita varios formatos comuns que clientes usam no whatsapp:
 //   06010000, 06010-000, 06010.000, 06010 000, 06.010-000, "cep 06010-000",

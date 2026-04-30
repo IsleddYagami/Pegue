@@ -6,7 +6,7 @@ export const MSG = {
 
 Vamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚
 
-O que voce precisa?
+O que voce precisa? *(digite o número)*
 
 1️⃣ *Pequenos Fretes*
 2️⃣ *Mudanca completa*

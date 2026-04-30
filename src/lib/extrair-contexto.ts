@@ -20,6 +20,7 @@ export interface ContextoExtraido {
   servico: ServicoDetectado | null;
   itens: string[];           // ex: ["Sofa", "Geladeira"]
   qtd_caixas: number | null; // "15 caixas" => 15
+  qtd_sacolas: number | null; // "8 sacolas" => 8 (sacolas pesam menos mas ocupam volume)
   origem_texto: string | null;  // texto livre: "Presidente Altino", "Rua Brasil"
   destino_texto: string | null; // texto livre: "Barra Funda", "Cotia"
   andar_origem: number | null;  // "4º andar" => 4. 0 ou null se terreo/nao mencionou
@@ -80,8 +81,9 @@ export async function extrairContextoInicial(mensagem: string): Promise<Contexto
   "data_texto": <"11 de maio"|"amanha"|"15/05"|"segunda"|null - texto LITERAL da data>,
   "periodo": <"manha"|"tarde"|"noite"|null - inclui horarios: 8-12h=manha, 13-17h=tarde, 18h+=noite>,
   "servico": <"frete"|"mudanca"|"guincho"|null>,
-  "itens": <lista TODOS itens explicitamente mencionados, ex: ["Sofa","Cama","Geladeira"]. Se "mudanca completa" sem listar items: []>,
-  "qtd_caixas": <numero ou null, ex: "15 caixas" => 15>,
+  "itens": <lista TODOS itens explicitamente mencionados, ex: ["Sofa","Cama","Geladeira"]. Se "mudanca completa" sem listar items: []. NAO inclua "caixas"/"sacolas" no array - eles vao em qtd_caixas/qtd_sacolas>,
+  "qtd_caixas": <numero ou null, ex: "15 caixas" => 15. Soma se cliente menciona em 2 lugares ("3 caixas... mais 5 caixinhas" => 8)>,
+  "qtd_sacolas": <numero ou null, ex: "8 sacolas" => 8. Sacolas pesam menos mas ocupam volume>,
   "origem_texto": <texto livre da origem ou null. "de Osasco pra Sao Paulo" => "Osasco">,
   "destino_texto": <texto livre destino ou null. Se mencionou 1 lugar sem dizer origem/destino, poe em destino>,
   "andar_origem": <numero do andar coleta ou null. "4o andar" => 4. "terreo" => 0>,
@@ -97,6 +99,7 @@ REGRAS:
 - NUNCA invente. Se nao tem certeza, use null/false/[].
 - LEIA A MENSAGEM INTEIRA antes de responder. Data e periodo costumam estar no fim ("seria dia X de Y", "no periodo da manha").
 - Itens: se cliente listou (ex: "- sofa\\n- cama\\n- geladeira"), capture TODOS mesmo dentro de "mudanca completa".
+- ATENCAO: "boa tarde", "boa manha", "boa noite", "bom dia" sao SAUDACOES, NAO indicam o periodo do servico. So coloque "periodo" se cliente disser explicitamente quando precisa do servico (ex: "pra amanha de manha", "no periodo da tarde", "as 14h"). Saudacoes sozinhas NAO contam.
 
 Responda SOMENTE o JSON.`,
         },
@@ -130,6 +133,7 @@ Responda SOMENTE o JSON.`,
         ? parsed.itens.filter((i: any) => typeof i === "string" && i.trim().length > 0).slice(0, 30)
         : [],
       qtd_caixas: numOuNull(parsed.qtd_caixas),
+      qtd_sacolas: numOuNull(parsed.qtd_sacolas),
       origem_texto: typeof parsed.origem_texto === "string" && parsed.origem_texto.trim() ? parsed.origem_texto.trim() : null,
       destino_texto: typeof parsed.destino_texto === "string" && parsed.destino_texto.trim() ? parsed.destino_texto.trim() : null,
       andar_origem: numOuNull(parsed.andar_origem),
@@ -187,8 +191,12 @@ export function formatarConfirmacaoContexto(ctx: ContextoExtraido): string {
     }
   }
 
-  if (ctx.qtd_caixas) {
+  if (ctx.qtd_caixas && ctx.qtd_sacolas) {
+    linhas.push(`📦 Volumes: *${ctx.qtd_caixas} caixas + ${ctx.qtd_sacolas} sacolas*`);
+  } else if (ctx.qtd_caixas) {
     linhas.push(`📦 Caixas: *${ctx.qtd_caixas}*`);
+  } else if (ctx.qtd_sacolas) {
+    linhas.push(`📦 Sacolas: *${ctx.qtd_sacolas}*`);
   }
 
   // Origem: mostra se tem texto OU se tem andar/escada (info parcial vale exibir)

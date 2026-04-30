@@ -845,6 +845,18 @@ Boa sorte! 🎯`,
 
       const contexto = await extrairContextoInicial(message);
 
+      // Loga custo IA (gpt-4o-mini ~$0.001 por chamada). Cumpre regra
+      // INFORMAR CUSTOS SEMPRE - admin pode somar via dashboard.
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "custo_estimado_ia",
+          phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+          servico: "extrair_contexto_inicial",
+          modelo: "gpt-4o-mini",
+          custo_usd_estimado: 0.001,
+        },
+      });
+
       if (contexto && contexto.confianca !== "baixa") {
         // Salva TUDO que IA detectou na sessao. Ate 30/Abr salvavamos so 2 campos
         // (descricao_carga + veiculo_sugerido) e descartavamos andar, escada, ajudante,
@@ -2945,6 +2957,44 @@ async function pedirConfirmacaoEnderecosIA(
     reverseGeocodeBairroCidade(origemLat, origemLng).catch(() => null),
     reverseGeocodeBairroCidade(destinoLat, destinoLng).catch(() => null),
   ]);
+
+  // Salva enderecos formatados em bot_logs pra historico/auditoria/observabilidade.
+  // (regra armazenamento inegociavel: nada de info perdida silenciosamente).
+  // Util pra: detectar ambiguidade (Pompeia capital vs interior), comparar input
+  // vs resultado real do geocoder, alimentar aprendizado constante.
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "enderecos_formatados_ia",
+      phone,
+      origem_input: origem,
+      origem_formatado: origemFmt || null,
+      origem_lat: origemLat,
+      origem_lng: origemLng,
+      destino_input: destino,
+      destino_formatado: destinoFmt || null,
+      destino_lat: destinoLat,
+      destino_lng: destinoLng,
+      distancia_km: distanciaKm,
+    },
+  });
+
+  // Distancia anomala (>100km na Grande SP) = sinal de geocoder pegou cidade
+  // errada. Loga pra alerta proativo e auditoria. Cliente vai ver na confirmacao
+  // mas isso eh sinal vermelho pro aprendizado constante.
+  if (distanciaKm > 100) {
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "distancia_anomala_detectada",
+        phone,
+        origem,
+        destino,
+        origem_formatado: origemFmt,
+        destino_formatado: destinoFmt,
+        distancia_km: distanciaKm,
+      },
+    });
+  }
+
   await updateSession(phone, {
     step: "confirmando_enderecos_ia",
     origem_endereco: origem,

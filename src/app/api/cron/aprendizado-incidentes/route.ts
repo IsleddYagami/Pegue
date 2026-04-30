@@ -180,10 +180,7 @@ Retorne APENAS este JSON:
       });
 
       if (errInsert) {
-        // Conflito por unique index = ja tem do dia, ignora silenciosamente
-        if (!errInsert.message.includes("duplicate")) {
-          erros.push({ phone_masked: phoneMasked, motivo: errInsert.message });
-        }
+        erros.push({ phone_masked: phoneMasked, motivo: errInsert.message });
         continue;
       }
 

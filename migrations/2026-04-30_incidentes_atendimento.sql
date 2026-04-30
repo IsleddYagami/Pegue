@@ -26,9 +26,13 @@ CREATE TABLE IF NOT EXISTS incidentes_atendimento (
   criado_em    timestamptz NOT NULL DEFAULT now()
 );
 
--- Indice pra evitar duplicar incidente do mesmo phone na mesma janela
-CREATE UNIQUE INDEX IF NOT EXISTS idx_incidentes_atendimento_phone_dia
-  ON incidentes_atendimento (phone, date_trunc('day', criado_em));
+-- Idempotencia: feita no cron via SELECT COUNT antes de INSERT (mais flexivel
+-- que indice unique). Indice composto acelera a query de dedupe.
+-- Tentativa anterior usava UNIQUE em date_trunc('day', criado_em) mas Postgres
+-- rejeita: "functions in index expression must be marked IMMUTABLE" (date_trunc
+-- depende de timezone quando criado_em eh timestamptz).
+CREATE INDEX IF NOT EXISTS idx_incidentes_atendimento_phone_criado
+  ON incidentes_atendimento (phone, criado_em DESC);
 
 CREATE INDEX IF NOT EXISTS idx_incidentes_atendimento_status_criado
   ON incidentes_atendimento (status, criado_em DESC);

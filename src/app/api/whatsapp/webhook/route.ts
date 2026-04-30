@@ -29,6 +29,7 @@ import {
   extrairCep,
   normalizarEmojiKeycap,
   separarOrigemDestino,
+  pareceRuaSemContexto,
   pareceEndereco,
   isSaudacao,
   isAgradecimento,
@@ -1040,6 +1041,14 @@ Boa sorte! 🎯`,
       await handleNumeroDestino(phone, message);
       break;
 
+    case "aguardando_bairro_origem":
+      await handleBairroOrigem(phone, message);
+      break;
+
+    case "aguardando_bairro_destino":
+      await handleBairroDestino(phone, message);
+      break;
+
     case "adicionar_pequeno_grande":
       await handleAdicionarPequenoGrande(phone, message);
       break;
@@ -1418,6 +1427,22 @@ async function handleLocalizacao(
   // os 2 em paralelo - depois pula direto pra resumo + cotacao se ambos sao validos.
   const origDest = separarOrigemDestino(message);
   if (origDest) {
+    // Caso especial: cliente mandou SO ruas sem bairro/cidade ("rua X para rua Y").
+    // Geocoder pode pegar rua errada em outra cidade. Mais seguro: pedir bairros
+    // de cada uma. Pedido de Fabio 30/Abr.
+    if (pareceRuaSemContexto(origDest.origem) && pareceRuaSemContexto(origDest.destino)) {
+      await updateSession(phone, {
+        step: "aguardando_bairro_origem",
+        origem_endereco: origDest.origem, // guardado parcialmente (so a rua)
+        destino_endereco: origDest.destino, // idem
+      });
+      await sendToClient({
+        to: phone,
+        message: `Anotei: *${origDest.origem}* (retirada) e *${origDest.destino}* (entrega)! 📍\n\nPra eu localizar certo, preciso saber o *bairro/cidade* de cada uma.\n\nEm qual *bairro ou cidade* fica a *${origDest.origem}*?\n\n_Ex: vila yara, osasco_`,
+      });
+      return;
+    }
+
     const session = await getSession(phone);
     const [origemCoords, destinoCoords] = await Promise.all([
       geocodeAddress(origDest.origem),
@@ -2916,6 +2941,119 @@ O cliente recebeu mensagem de espera. Acesse o admin pra aprovar ou ajustar.`
       ),
     });
   }
+}
+
+// Cliente mandou "rua X para rua Y" sem bairro. Sistema agora pergunta os
+// bairros um de cada vez (origem -> destino) e depois geocoda + cota direto.
+async function handleBairroOrigem(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session || !session.origem_endereco) return;
+
+  const bairro = message.trim();
+  if (bairro.length < 2) {
+    await sendToClient({
+      to: phone,
+      message: `Pra localizar a *${session.origem_endereco}*, me manda o *bairro ou cidade* 😊\n\n_Ex: vila yara, osasco_`,
+    });
+    return;
+  }
+
+  const origemFull = `${session.origem_endereco}, ${bairro}`;
+  await sendToClient({ to: phone, message: `📍 Localizando *${session.origem_endereco}, ${bairro}*...` });
+  const coords = await geocodeAddress(origemFull);
+
+  if (!coords?.lat || !coords?.lng) {
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "bairro_origem_nao_geocodou",
+        phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+        tentativa: origemFull.slice(0, 200),
+      },
+    });
+    await sendToClient({
+      to: phone,
+      message: `Não consegui achar *${origemFull}* 😅\n\nPode mandar com mais detalhes? *Bairro + cidade*\n\n_Ex: vila yara, osasco_`,
+    });
+    return;
+  }
+
+  await updateSession(phone, {
+    step: "aguardando_bairro_destino",
+    origem_endereco: origemFull,
+    origem_lat: coords.lat,
+    origem_lng: coords.lng,
+  });
+  await sendToClient({
+    to: phone,
+    message: `✅ Origem anotada!\n\nAgora me diz o *bairro ou cidade* da *${session.destino_endereco}* (entrega):\n\n_Ex: vila madalena, sao paulo_`,
+  });
+}
+
+async function handleBairroDestino(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session || !session.destino_endereco) return;
+
+  const bairro = message.trim();
+  if (bairro.length < 2) {
+    await sendToClient({
+      to: phone,
+      message: `Me manda o *bairro ou cidade* da *${session.destino_endereco}* 😊\n\n_Ex: vila madalena, sao paulo_`,
+    });
+    return;
+  }
+
+  const destinoFull = `${session.destino_endereco}, ${bairro}`;
+  await sendToClient({ to: phone, message: `📍 Localizando *${session.destino_endereco}, ${bairro}*...` });
+  const coords = await geocodeAddress(destinoFull);
+
+  if (!coords?.lat || !coords?.lng) {
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "bairro_destino_nao_geocodou",
+        phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+        tentativa: destinoFull.slice(0, 200),
+      },
+    });
+    await sendToClient({
+      to: phone,
+      message: `Não consegui achar *${destinoFull}* 😅\n\nPode mandar com mais detalhes? *Bairro + cidade*\n\n_Ex: vila madalena, sao paulo_`,
+    });
+    return;
+  }
+
+  // Tudo localizado - calcula distancia, salva e cota direto (mesmo padrao
+  // do caminho rapido em handleLocalizacao caminho A1).
+  if (!session.origem_lat || !session.origem_lng) {
+    // edge case: origem foi salva mas perdeu coords - escala humano
+    await sendToClient({
+      to: phone,
+      message: `Algo deu errado ao guardar sua origem 😕 Manda *oi* pra recomecar.`,
+    });
+    return;
+  }
+  const distanciaKm = calcularDistanciaKm(
+    session.origem_lat, session.origem_lng,
+    coords.lat, coords.lng
+  );
+  await updateSession(phone, {
+    destino_endereco: destinoFull,
+    destino_lat: coords.lat,
+    destino_lng: coords.lng,
+    distancia_km: distanciaKm,
+  });
+
+  // Decide se pula handleAjudante (mesma logica do caminho rapido)
+  const iaConfirmouAjudante = !!session.precisa_ajudante;
+  if (iaConfirmouAjudante) {
+    await sendToClient({ to: phone, message: `📊 Calculando seu orçamento...` });
+    await calcularEEnviarOrcamento(phone, 1);
+    return;
+  }
+  await updateSession(phone, { step: "aguardando_ajudante" });
+  await sendToClient({
+    to: phone,
+    message: MSG.precisaAjudante(`Endereços anotados! ✅`),
+  });
 }
 
 // STEP 6: Data e Horario

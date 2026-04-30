@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   separarOrigemDestino,
+  pareceRuaSemContexto,
   normalizarEmojiKeycap,
   extrairCep,
   pareceEndereco,
@@ -46,6 +47,37 @@ describe("separarOrigemDestino", () => {
       ["pra"],
     ])("'%s' -> null", (input) => {
       expect(separarOrigemDestino(input)).toBeNull();
+    });
+  });
+});
+
+describe("pareceRuaSemContexto", () => {
+  describe("detecta rua sem bairro/cidade", () => {
+    it.each([
+      ["Rua Augusta"],
+      ["rua brasil"],
+      ["Av. Paulista"],
+      ["Avenida Faria Lima"],
+      ["alameda santos"],
+      ["Travessa do Comercio"],
+      ["R. Funchal"],
+    ])("'%s' -> true", (input) => {
+      expect(pareceRuaSemContexto(input)).toBe(true);
+    });
+  });
+
+  describe("rejeita textos com contexto", () => {
+    it.each([
+      ["Rua Augusta, Consolacao"],         // tem virgula
+      ["Rua Augusta - Sao Paulo"],         // cidade conhecida
+      ["Rua Brasil osasco"],                // cidade junto
+      ["Av Paulista vila madalena"],        // bairro junto
+      ["Vila Yara"],                        // nao comeca com rua/av
+      ["Centro"],                           // nao eh rua
+      ["Osasco"],                           // cidade
+      [""],
+    ])("'%s' -> false", (input) => {
+      expect(pareceRuaSemContexto(input)).toBe(false);
     });
   });
 });

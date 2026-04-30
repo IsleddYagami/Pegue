@@ -589,6 +589,31 @@ export function separarOrigemDestino(texto: string): { origem: string; destino: 
   return null;
 }
 
+// Heuristica: texto parece ser SO uma rua (sem bairro/cidade)?
+// Cliente real pode mandar "Rua Augusta" sem dizer onde — se for SP, OK
+// (Google acha), mas se for um nome comum (Rua Brasil) o geocoder pode achar
+// outra cidade. Mais seguro: pedir bairro especificamente.
+//
+// Detecta:
+//   - Comeca com Rua/Av/Alameda/Travessa/Estrada/Rodovia
+//   - NAO contem virgula (= sem bairro/cidade no texto)
+//   - NAO contem cidade conhecida (Osasco, Sao Paulo, Cotia, etc)
+export function pareceRuaSemContexto(texto: string): boolean {
+  if (!texto) return false;
+  const lower = texto.toLowerCase().trim();
+  if (lower.includes(",")) return false; // virgula = tem mais que rua
+  if (!/^(rua|r\.?|av\.?|avenida|alameda|al\.?|travessa|tv\.?|estrada|rodovia|praca|praça|largo|viela|beco)\s+/i.test(lower)) {
+    return false;
+  }
+  // Cidades comuns na Grande SP — se mencionou, ja tem contexto
+  const cidades = ["osasco", "sao paulo", "são paulo", "carapicuiba", "cotia", "barueri", "alphaville", "santana de parnaiba", "itapevi", "embu", "taboão", "taboao", "sp"];
+  if (cidades.some((c) => lower.includes(c))) return false;
+  // Bairros comuns que tb dao contexto
+  const bairros = ["centro", "vila", "jardim", "jd ", "parque", "pq ", "conjunto"];
+  if (bairros.some((b) => lower.includes(b))) return false;
+  return true;
+}
+
 // Normaliza emoji keycap pra digito puro: "1️⃣" => "1", "2️⃣" => "2", etc.
 // Cliente real 29/Abr (47-9901-0385) viu o menu com "1️⃣" e respondeu mandando
 // o EMOJI 1️⃣ achando que era o esperado. O parser do menu (lower === "1")

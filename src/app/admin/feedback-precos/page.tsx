@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trash2, Power, Wand2 } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trash2, Power, Wand2, Sparkles, Users } from "lucide-react";
 
 type Feedback = {
   id: string;
@@ -38,6 +38,30 @@ type Regra = {
   criado_em: string;
 };
 
+type Sugestao = {
+  veiculo: string;
+  zona: string;
+  faixa_km_label: string;
+  km_min: number;
+  km_max: number;
+  faixa_itens_label: string;
+  qtd_itens_min: number;
+  qtd_itens_max: number;
+  com_ajudante: boolean;
+  qtd_avaliacoes: number;
+  qtd_avaliadores_unicos: number;
+  gap_medio: number;
+  gap_mediano: number;
+  gap_desvio_padrao: number;
+  concordancia_pct: number;
+  preco_pegue_medio: number;
+  preco_sugerido_medio: number;
+  fator_multiplicador: number;
+  confianca_score: number;
+  ids_feedbacks: string[];
+  avaliadores: { nome: string; qtd: number }[];
+};
+
 function getAdminKey(): string | null {
   if (typeof window === "undefined") return null;
   let senha = sessionStorage.getItem("admin_key") || "";
@@ -52,9 +76,12 @@ function getAdminKey(): string | null {
 export default function FeedbackPrecosPage() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [regras, setRegras] = useState<Regra[]>([]);
+  const [sugestoes, setSugestoes] = useState<Sugestao[]>([]);
+  const [loadingSugestoes, setLoadingSugestoes] = useState(false);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [aba, setAba] = useState<"feedbacks" | "regras">("feedbacks");
+  const [aba, setAba] = useState<"feedbacks" | "sugestoes" | "regras">("feedbacks");
+  const [minAval, setMinAval] = useState(3);
 
   async function loadData() {
     const senha = getAdminKey();
@@ -86,6 +113,74 @@ export default function FeedbackPrecosPage() {
   }
 
   useEffect(() => { loadData(); }, []);
+
+  async function carregarSugestoes(min: number = minAval) {
+    setLoadingSugestoes(true);
+    const senha = sessionStorage.getItem("admin_key") || getAdminKey();
+    if (!senha) { setLoadingSugestoes(false); return; }
+    try {
+      const res = await fetch(`/api/admin-sugestoes-ajuste?key=${encodeURIComponent(senha)}&minAvaliacoes=${min}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSugestoes((data.sugestoes as Sugestao[]) || []);
+      } else {
+        alert("Erro ao analisar avaliacoes");
+      }
+    } catch {
+      alert("Erro de conexao");
+    }
+    setLoadingSugestoes(false);
+  }
+
+  useEffect(() => {
+    if (aba === "sugestoes") carregarSugestoes(minAval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aba]);
+
+  async function aplicarSugestao(s: Sugestao) {
+    const fatorPct = Math.round((s.fator_multiplicador - 1) * 10000) / 100;
+    const direcao = fatorPct < 0 ? "REDUZIR" : "AUMENTAR";
+    const msg =
+      `Aplicar sugestao automatica como regra?\n\n` +
+      `${s.qtd_avaliacoes} avaliacoes (${s.qtd_avaliadores_unicos} avaliador${s.qtd_avaliadores_unicos > 1 ? "es" : ""}) indicam ${direcao} ${Math.abs(fatorPct)}%\n\n` +
+      `Veiculo: ${s.veiculo}\n` +
+      `Zona: ${s.zona}\n` +
+      `Faixa km: ${s.km_min}-${s.km_max}\n` +
+      `Faixa itens: ${s.qtd_itens_min}-${s.qtd_itens_max}\n` +
+      `Ajudante: ${s.com_ajudante ? "com" : "sem"}\n\n` +
+      `Pegue medio: R$${s.preco_pegue_medio} -> Sugerido medio: R$${s.preco_sugerido_medio}\n` +
+      `Concordancia: ${s.concordancia_pct}% | Desvio: ${s.gap_desvio_padrao}%\n\n` +
+      `Vai afetar TODAS as cotacoes futuras compativeis com esses criterios.`;
+    if (!confirm(msg)) return;
+    const senha = sessionStorage.getItem("admin_key") || "";
+    if (!senha) return;
+    try {
+      const res = await fetch(`/api/admin-sugestoes-ajuste?key=${encodeURIComponent(senha)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          veiculo: s.veiculo,
+          zona: s.zona,
+          km_min: s.km_min,
+          km_max: s.km_max,
+          qtd_itens_min: s.qtd_itens_min,
+          qtd_itens_max: s.qtd_itens_max,
+          com_ajudante: s.com_ajudante,
+          fator_multiplicador: s.fator_multiplicador,
+          descricao_extra: `Cluster ${s.qtd_avaliacoes} avaliacoes · concord ${s.concordancia_pct}% · gap medio ${s.gap_medio}%`,
+        }),
+      });
+      if (res.ok) {
+        loadData();
+        setAba("regras");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Erro: ${err.error || res.status}`);
+      }
+    } catch {
+      alert("Erro de conexao");
+    }
+  }
 
   async function toggleRegra(id: string, ativo: boolean) {
     const senha = sessionStorage.getItem("admin_key") || "";
@@ -208,6 +303,12 @@ export default function FeedbackPrecosPage() {
             Feedbacks ({feedbacks.length})
           </button>
           <button
+            onClick={() => setAba("sugestoes")}
+            className={`pb-3 px-1 text-sm font-semibold border-b-2 flex items-center gap-1 ${aba === "sugestoes" ? "border-[#C9A84C] text-[#C9A84C]" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+          >
+            <Sparkles size={14} /> Sugestoes automaticas
+          </button>
+          <button
             onClick={() => setAba("regras")}
             className={`pb-3 px-1 text-sm font-semibold border-b-2 ${aba === "regras" ? "border-[#C9A84C] text-[#C9A84C]" : "border-transparent text-gray-500 hover:text-gray-700"}`}
           >
@@ -272,6 +373,110 @@ export default function FeedbackPrecosPage() {
             })}
           </div>
         )
+      ) : aba === "sugestoes" ? (
+        <div>
+          <div className="mt-4 mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
+            <Sparkles size={16} className="text-[#C9A84C]" />
+            <span className="text-xs text-gray-600">
+              Sistema agrupa avaliacoes por veiculo + zona + faixa km + faixa itens + ajudante. So sugere clusters com gap medio &gt;= 5% e concordancia &gt;= 70%.
+            </span>
+            <div className="ml-auto flex items-center gap-2 text-xs">
+              <label>Min avaliacoes por cluster:</label>
+              <select
+                value={minAval}
+                onChange={(e) => { const v = Number(e.target.value); setMinAval(v); carregarSugestoes(v); }}
+                className="rounded border border-gray-200 px-2 py-1"
+              >
+                <option value={2}>2</option>
+                <option value={3}>3 (recomendado)</option>
+                <option value={4}>4</option>
+                <option value={5}>5</option>
+              </select>
+              <button
+                onClick={() => carregarSugestoes(minAval)}
+                disabled={loadingSugestoes}
+                className="rounded bg-[#C9A84C] px-3 py-1 text-white font-semibold disabled:opacity-50"
+              >
+                {loadingSugestoes ? "Analisando..." : "Reanalisar"}
+              </button>
+            </div>
+          </div>
+
+          {loadingSugestoes ? (
+            <div className="mt-8 text-center text-gray-400">Analisando avaliacoes...</div>
+          ) : sugestoes.length === 0 ? (
+            <div className="mt-8 rounded-2xl bg-white p-12 text-center shadow-sm">
+              <p className="text-gray-500">Nenhum cluster de sugestao encontrado.</p>
+              <p className="mt-2 text-xs text-gray-400">
+                Continue avaliando — a partir de {minAval}+ avaliacoes em condicoes similares com concordancia &gt;= 70%, sugestoes aparecerao aqui.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {sugestoes.map((s, idx) => {
+                const fatorPct = Math.round((s.fator_multiplicador - 1) * 10000) / 100;
+                const corFator = fatorPct < -10 ? "text-blue-700" : fatorPct < 0 ? "text-blue-500" : fatorPct > 10 ? "text-orange-700" : "text-orange-500";
+                const direcao = fatorPct < 0 ? "REDUZIR" : "AUMENTAR";
+                return (
+                  <div key={idx} className="rounded-xl border-2 border-[#C9A84C]/30 bg-gradient-to-br from-[#C9A84C]/5 to-white p-4 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span className="rounded-full bg-[#C9A84C] px-3 py-1 text-xs font-bold text-white">
+                            {direcao} {Math.abs(fatorPct)}%
+                          </span>
+                          <span className="text-sm font-bold text-gray-800">
+                            {veiculoLabel[s.veiculo] || s.veiculo} · {zonaLabel[s.zona] || s.zona}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {s.faixa_km_label} · {s.faixa_itens_label} · {s.com_ajudante ? "com ajud" : "sem ajud"}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                          <div>
+                            <p className="text-gray-500">Avaliacoes</p>
+                            <p className="font-bold text-gray-800">{s.qtd_avaliacoes}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Concordancia</p>
+                            <p className="font-bold text-gray-800">{s.concordancia_pct}%</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Gap medio</p>
+                            <p className={`font-bold ${corFator}`}>{s.gap_medio > 0 ? "+" : ""}{s.gap_medio}%</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Desvio</p>
+                            <p className="font-bold text-gray-800">±{s.gap_desvio_padrao}%</p>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex items-center gap-3 text-xs text-gray-600">
+                          <span>Pegue medio: <strong>R${s.preco_pegue_medio}</strong></span>
+                          <span>→</span>
+                          <span>Sugerido medio: <strong className="text-[#C9A84C]">R${s.preco_sugerido_medio}</strong></span>
+                        </div>
+                        {s.avaliadores.length > 0 && (
+                          <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
+                            <Users size={12} />
+                            <span>
+                              {s.avaliadores.map((a) => `${a.nome} (${a.qtd})`).join(", ")}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => aplicarSugestao(s)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-[#C9A84C] px-3 py-2 text-sm font-bold text-white hover:opacity-90"
+                      >
+                        <Wand2 size={14} /> Aplicar como regra
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       ) : (
         regras.length === 0 ? (
           <div className="mt-8 rounded-2xl bg-white p-12 text-center shadow-sm">

@@ -1,8 +1,34 @@
 // Gera simulacoes aleatorias pro fluxo "AVALIAR" no WhatsApp
-// Fretista so escolhe quais veiculos quer avaliar, sistema sorteia o resto
+// Fretista/admin escolhe quais veiculos quer avaliar, sistema sorteia o resto.
+// Suporta tanto FRETES (carro_comum/utilitario/hr/caminhao_bau) quanto GUINCHOS
+// (guincho/moto_guincho) — paridade com fluxo principal do Pegue.
 
 import { calcularPrecos } from "@/lib/bot-utils";
 import { ROTAS, type Rota, enderecoPorZona } from "@/lib/rotas-simulacao";
+
+// Tabela de precos do guincho (espelha GUINCHO_PRECOS_VEICULO em webhook/route.ts).
+// Mantida aqui pra simulacao funcionar sem importar do webhook (evita ciclo).
+const GUINCHO_PRECOS_AVAL: Record<string, { base: number; porKm: number; categoria: string }> = {
+  guincho: { base: 200, porKm: 5, categoria: "carro_comum" }, // hatch/sedan generico
+  moto_guincho: { base: 150, porKm: 5, categoria: "moto" },
+};
+
+// Pool de veiculos REAIS que cliente pediria guincho. Marca/modelo/ano realista.
+const VEICULOS_GUINCHO_CARRO = [
+  "Honda Civic 2018", "Toyota Corolla 2020", "Hyundai HB20 2019",
+  "Fiat Argo 2021", "Volkswagen Gol 2017", "Chevrolet Onix 2020",
+  "Renault Sandero 2018", "Ford Ka 2019", "Peugeot 208 2021",
+  "Toyota Yaris 2020", "Nissan Versa 2019", "Hyundai Creta 2021",
+  "Jeep Renegade 2020", "Volkswagen T-Cross 2022", "Honda HR-V 2019",
+  "Toyota Hilux 2018", "Chevrolet S10 2020", "Ford Ranger 2019",
+  "Fiat Toro 2021", "Mitsubishi L200 2018",
+];
+const VEICULOS_GUINCHO_MOTO = [
+  "Honda CG 160 2020", "Yamaha Factor 125 2019", "Honda Biz 125 2021",
+  "Yamaha Fazer 250 2020", "Honda CB 300 2018", "Yamaha XTZ 250 2019",
+  "Suzuki Yes 125 2020", "Honda PCX 150 2021", "Yamaha NMax 160 2022",
+  "Kawasaki Ninja 400 2020", "Honda XRE 300 2019", "BMW G 310 GS 2021",
+];
 
 // Itens por tamanho (espelha o simulador do admin)
 const ITENS_PEQUENOS = [
@@ -65,10 +91,36 @@ export type SimulacaoAvaliacao = {
   precoPegue: number;
 };
 
-// Gera 1 simulacao aleatoria pra um dos veiculos escolhidos pelo fretista
+// Calcula preco do guincho pra simulacao (espelha logica de cotarGuinchoEFinalizar).
+// Sem taxas noturnas/feriado pra simulacao (queremos comparar PRECO BASE).
+function calcularPrecoGuinchoSim(veiculoTipo: string, km: number): number {
+  const precoInfo = GUINCHO_PRECOS_AVAL[veiculoTipo] || GUINCHO_PRECOS_AVAL.guincho;
+  const kmExtra = Math.max(0, km - 5);
+  return Math.round(precoInfo.base + kmExtra * precoInfo.porKm);
+}
+
+// Gera 1 simulacao aleatoria pra um dos veiculos escolhidos pelo fretista.
+// Detecta automaticamente se eh guincho (guincho/moto_guincho) e usa pool +
+// preco apropriados. Frete usa calcularPrecos, guincho usa calcularPrecoGuinchoSim.
 export function gerarSimulacao(veiculosEscolhidos: string[]): SimulacaoAvaliacao {
   const veiculo = sortear(veiculosEscolhidos);
   const rota = sortear(ROTAS);
+  const ehGuincho = veiculo === "guincho" || veiculo === "moto_guincho";
+
+  if (ehGuincho) {
+    const pool = veiculo === "moto_guincho" ? VEICULOS_GUINCHO_MOTO : VEICULOS_GUINCHO_CARRO;
+    const veiculoGuinchado = sortear(pool); // ex: "Honda Civic 2018"
+    const precoPegue = calcularPrecoGuinchoSim(veiculo, rota.km);
+    return {
+      veiculo,
+      rota,
+      itens: [veiculoGuinchado], // pra guincho, "itens" eh o veiculo guinchado
+      qtdItens: 1,
+      temAjudante: false, // guincho nao tem ajudante
+      precoPegue,
+    };
+  }
+
   const qtd = qtdItensPorVeiculo(veiculo);
   const itens = sortearCombinacao(qtd, poolPorVeiculo(veiculo));
   const temAjudante = Math.random() > 0.5;
@@ -110,8 +162,31 @@ export function nomeZona(z: string): string {
   return "Normal";
 }
 
-// Formata simulacao como mensagem pro WhatsApp
+// Formata simulacao como mensagem pro WhatsApp.
+// Frete: mostra "itens" e "ajudante". Guincho: mostra "veiculo guinchado".
 export function formatarMensagemSimulacao(sim: SimulacaoAvaliacao, numero: number): string {
+  const ehGuincho = sim.veiculo === "guincho" || sim.veiculo === "moto_guincho";
+
+  if (ehGuincho) {
+    return `📊 *Avaliacao #${numero}*
+
+🚛 *${nomeVeiculo(sim.veiculo)}*
+🚗 *Veiculo:* ${sim.itens[0]}
+📍 *De:* ${sim.rota.origem}
+🏁 *Para:* ${sim.rota.destino}
+📏 ${sim.rota.km}km · ${nomeZona(sim.rota.zonaDestino)}
+
+━━━━━━━━━━━━━━━━
+💰 *Pegue cobraria: R$ ${sim.precoPegue}*
+━━━━━━━━━━━━━━━━
+
+Quanto *VOCE* cobraria nesse guincho?
+
+Me responda *so o valor* (exemplo: *280*)
+
+Ou digite *PARAR* pra finalizar`;
+  }
+
   return `📊 *Avaliacao #${numero}*
 
 🚚 *${nomeVeiculo(sim.veiculo)}*

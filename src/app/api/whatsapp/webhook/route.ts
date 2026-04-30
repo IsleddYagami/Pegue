@@ -4647,8 +4647,9 @@ async function handleAvaliarEscolherVeiculos(phone: string, message: string) {
     return;
   }
 
-  // Parseia numeros da mensagem (aceita "2", "2 3", "2,3", "2, 3")
-  const numeros = message.match(/[1-4]/g);
+  // Parseia numeros da mensagem (aceita "2", "2 3", "2,3", "2, 3", "5 6")
+  // 1-4 = frete, 5-6 = guincho. Cliente pode misturar (ex: "2 3 5").
+  const numeros = message.match(/[1-6]/g);
   if (!numeros || numeros.length === 0) {
     await sendToClient({ to: phone, message: MSG.avaliarOpcaoInvalida });
     return;
@@ -4659,6 +4660,8 @@ async function handleAvaliarEscolherVeiculos(phone: string, message: string) {
     "2": "utilitario",
     "3": "hr",
     "4": "caminhao_bau",
+    "5": "guincho",
+    "6": "moto_guincho",
   };
   const veiculos = [...new Set(numeros.map(n => mapaVeiculos[n]).filter(Boolean))];
 
@@ -4780,10 +4783,13 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
   const novoTotal = estado.total + 1;
   await sendToClient({ to: phone, message: MSG.avaliarRespostaSalva(sim.precoPegue, preco) });
 
-  // ADMIN ONLY: se for admin e o gap for significativo (>= 5% ou <= -5%),
+  // ADMIN ONLY + FRETE: se for admin e o gap for significativo (>= 5% ou <= -5%),
   // pergunta se quer JA aplicar como regra de ajuste.
-  // Essa funcionalidade SO funciona pros admins (env ADMIN_PHONES), outros numeros ignoram.
-  const adminSignificativo = isAdminPhone(phone) && Math.abs(gap) >= 5;
+  // Pula pra guincho — criterios de ajuste (qtd_itens, tem_ajudante, km range)
+  // sao especificos do frete. Guincho usa preco base + km, ajuste teria
+  // semantica diferente. Admin revisa em /admin/feedback-precos.
+  const ehGuinchoAval = sim.veiculo === "guincho" || sim.veiculo === "moto_guincho";
+  const adminSignificativo = !ehGuinchoAval && isAdminPhone(phone) && Math.abs(gap) >= 5;
   if (adminSignificativo) {
     const criterios = criteriosMediaDaSimulacao(sim);
     // Guarda criterios + ajuste a aplicar no estado pra handler confirmar depois

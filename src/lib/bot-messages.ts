@@ -485,33 +485,40 @@ Apos o pagamento, seu frete esta 100% confirmado. 🚚`,
 Obrigado por ajudar a Pegue a manter precos justos!
 
 Como funciona:
-1. Voce escolhe quais veiculos quer avaliar (pode ser varios)
-2. Vou te mostrar varios fretes aleatorios, um por vez
+1. Voce escolhe quais servicos/veiculos quer avaliar (pode ser varios)
+2. Vou te mostrar varios fretes/guinchos aleatorios, um por vez
 3. Pra cada um, voce me diz quanto cobraria
 4. Pode responder quantos quiser! Digite *PARAR* quando cansar
 
 Nao precisa pensar muito - me diga o primeiro valor justo que vier na cabeca.
 
-Vamos la! *Quais veiculos voce quer avaliar?*
+Vamos la! *Quais voce quer avaliar?*
 
-Escolha um ou mais (separe por virgula ou espaco):
+*FRETE:*
 1️⃣ Carro comum (Kicks, Livina)
 2️⃣ Utilitario (Strada, Saveiro)
 3️⃣ HR (Hyundai HR, Bongo)
 4️⃣ Caminhao Bau
 
-Exemplo: *2* (so utilitario) ou *2 3* (utilitario e HR)`,
+*GUINCHO:*
+5️⃣ Guincho de carro (hatch/sedan/SUV)
+6️⃣ Guincho de moto
+
+Escolha um ou mais (separe por virgula ou espaco).
+Exemplos: *3* (so HR) · *5 6* (so guinchos) · *2 3 5* (frete + guincho)`,
 
   avaliarOpcaoInvalida: `Nao entendi 😅
 
-Escolha um ou mais veiculos separando por espaco ou virgula:
+Escolha um ou mais separando por espaco ou virgula:
 
 1️⃣ Carro comum
 2️⃣ Utilitario
 3️⃣ HR
 4️⃣ Caminhao Bau
+5️⃣ Guincho carro
+6️⃣ Guincho moto
 
-Exemplo: *2 3* (pra avaliar Utilitario e HR)
+Exemplo: *3 5* (pra avaliar HR e Guincho carro)
 
 Ou digite *PARAR* pra sair.`,
 

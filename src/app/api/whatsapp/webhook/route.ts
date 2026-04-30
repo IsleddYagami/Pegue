@@ -826,7 +826,15 @@ Boa sorte! 🎯`,
     // NOVO: tenta extrair contexto da mensagem inicial via IA.
     // Se cliente ja chega falando "quero sofa pra barra funda", pulamos etapas.
     // Se IA nao detectou ou confianca baixa, cai no fluxo tradicional abaixo.
-    if (!isSaudacao(message) && message.trim().length >= 10) {
+    //
+    // BUG 30/Abr: isSaudacao retorna true pra QUALQUER mensagem que COMECA com
+    // "oi"/"ola"/etc, mesmo briefings de 500+ chars que iniciam com saudacao.
+    // Cliente real e teste do Fabio caiam aqui porque mandaram "Oi, tudo bem?
+    // queria orcamento de mudanca..." (584 chars). Sistema pulava IA e perdia
+    // tudo. Solucao: so consideramos saudacao PURA se mensagem eh curta (<30
+    // chars) E comeca com saudacao. Briefings longos sempre vao pra IA.
+    const ehSaudacaoPura = isSaudacao(message) && message.trim().length < 30;
+    if (!ehSaudacaoPura && message.trim().length >= 10) {
       // Mostra "analisando" pra cliente nao achar que travou (IA leva 1-2s)
       await sendToClient({
         to: phone,

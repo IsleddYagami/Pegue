@@ -3167,37 +3167,112 @@ async function handleData(phone: string, message: string) {
 }
 
 // STEP 7: Confirmacao
+// CTA do resumo agora pede dia/hora OU "EDITAR". Cliente pode:
+// - mandar data + horario (extrair e salvar) → avanca pra termos
+// - mandar "AGORA"/"urgente" → data="AGORA - Urgente" e avanca
+// - mandar "confirmar"/"sim"/"ok"/"1" se ja tem data salva → mantem e avanca
+// - mandar "EDITAR"/"alterar"/"corrigir"/"2" → fluxo de edicao
 async function handleConfirmacao(phone: string, message: string, instance: 1 | 2 = 1) {
   const session = await getSession(phone);
   if (!session) return;
 
   const lower = message.toLowerCase().trim();
 
-  if (lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "confirmar" || lower === "confirmo" || lower === "correto") {
-    // NOVO FLUXO: nao salva corrida nem dispara dispatch ainda.
-    // Mostra termos de pagamento retido. So depois do cliente aceitar
-    // explicitamente eh que envolvemos o fretista (evita perturbar
-    // fretista por cliente que nao aceitou os termos depois).
-    const valorFmt = (session.valor_estimado || 0).toFixed(2).replace(".", ",");
-    await updateSession(phone, { step: "aguardando_aceite_termos" });
-    await sendToClient({
-      to: phone,
-      message: MSG.aceiteTermosPagamento(valorFmt),
-    });
-  } else if (lower === "2" || lower === "alterar" || lower.includes("corrigir") || lower.includes("mudar") || lower.startsWith("nao") || lower === "n" || lower === "não") {
-    // NAO reseta sessao - mostra menu de edicao preservando dados ja informados.
-    // Cliente escolhe o que quer corrigir e volta pro step especifico.
+  // EDITAR
+  if (lower === "2" || lower === "editar" || lower === "alterar" || lower.includes("corrigir") || lower.includes("mudar") || lower.startsWith("nao") || lower === "n" || lower === "não") {
     await updateSession(phone, { step: "editando_escolha" });
     await sendToClient({
       to: phone,
       message: `✏️ *O que você quer corrigir?*\n\n1️⃣ *Origem* (onde buscar)\n2️⃣ *Destino* (onde entregar)\n3️⃣ *Itens / material*\n4️⃣ *Data / horário*\n5️⃣ *Cancelar tudo* e começar do zero`,
     });
-  } else {
+    return;
+  }
+
+  // Helper que avanca pra termos de pagamento.
+  const avancarParaTermos = async () => {
+    const valorFmt = (session.valor_estimado || 0).toFixed(2).replace(".", ",");
+    await updateSession(phone, { step: "aguardando_aceite_termos" });
+    await sendToClient({ to: phone, message: MSG.aceiteTermosPagamento(valorFmt) });
+  };
+
+  // AGORA / urgente
+  if (lower === "agora" || lower === "ja" || lower === "já" || lower === "urgente") {
+    await updateSession(phone, { data_agendada: "AGORA - Urgente", periodo: null });
+    await avancarParaTermos();
+    return;
+  }
+
+  // Tenta extrair data/horario da mensagem (cliente confirmando ou mudando data)
+  const dataExtraida = extrairData(lower);
+  const horarioExtraido = extrairHorario(lower);
+
+  if (dataExtraida && horarioExtraido) {
+    await updateSession(phone, {
+      data_agendada: `${dataExtraida} - ${horarioExtraido}`,
+      periodo: null,
+    });
+    await avancarParaTermos();
+    return;
+  }
+
+  // Cliente respondeu vagamente "sim/ok/confirmo/1" - se ja tem data salva,
+  // confirma mantendo. Se NAO tem, pede data.
+  const confirmacaoSimples = lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "confirmar" || lower === "confirmo" || lower === "correto" || lower === "ok";
+  if (confirmacaoSimples) {
+    if (session.data_agendada && session.data_agendada.trim().length > 0) {
+      await avancarParaTermos();
+      return;
+    }
     await sendToClient({
       to: phone,
-      message: "1️⃣ ✅ *SIM* - Tudo certo, confirmar!\n2️⃣ ✏️ *ALTERAR* - Quero corrigir algo",
+      message: `Pra confirmar, preciso do *dia e horário* 😊\n\n_Ex: 11/05 manhã, amanha 14h, segunda 9h_\n\nOu digite *EDITAR* pra corrigir.`,
     });
+    return;
   }
+
+  // So data: salva e pede horario (mantem horario salvo se existir)
+  if (dataExtraida && !horarioExtraido) {
+    if (session.periodo) {
+      // ja tinha periodo salvo - completa e avanca
+      await updateSession(phone, {
+        data_agendada: `${dataExtraida} - ${session.periodo}`,
+        periodo: null,
+      });
+      await avancarParaTermos();
+      return;
+    }
+    await updateSession(phone, { data_agendada: dataExtraida });
+    await sendToClient({
+      to: phone,
+      message: `📅 *${dataExtraida}* - Anotado!\n\nAgora informe o *horario*:\n\n1️⃣ *Manha* (08:00 - 12:00)\n2️⃣ *Tarde* (13:00 - 17:00)\n\nOu digite o horario direto (ex: *14h*, *15:30*, *9 horas*).`,
+    });
+    return;
+  }
+
+  // So horario: salva temp em periodo + pede dia (a menos que ja tenha data)
+  if (!dataExtraida && horarioExtraido) {
+    if (session.data_agendada && session.data_agendada.trim().length > 0) {
+      // ja tem data - completa e avanca
+      await updateSession(phone, {
+        data_agendada: `${session.data_agendada} - ${horarioExtraido}`,
+        periodo: null,
+      });
+      await avancarParaTermos();
+      return;
+    }
+    await updateSession(phone, { periodo: horarioExtraido });
+    await sendToClient({
+      to: phone,
+      message: `⏰ *${horarioExtraido}* - Anotado!\n\nAgora me informa o *dia*:\n\n_Ex: 25/04, amanha, segunda_`,
+    });
+    return;
+  }
+
+  // Nao entendeu - repete pergunta
+  await sendToClient({
+    to: phone,
+    message: `Pra confirmar, me manda o *dia e horário* 😊\n\n_Ex: 25/04 as 15h, amanha 14:30, segunda 9h, AGORA_\n\nOu digite *EDITAR* pra corrigir algo.`,
+  });
 }
 
 // STEP 7.5: Aceite de termos de pagamento (dispatch APOS aceite explicito).

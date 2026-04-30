@@ -214,15 +214,15 @@ Vai precisar de ajudante pra carregar? 😊
 
 ━━━━━━━━━━━━━━━━
 
-🤝 *Quer fechar o serviço?*
+*Se estiver tudo certo, me informe o dia e horário* pra eu chamar o fretista.
 
-Me informa *dia e horário* pra eu chamar o fretista 👇
-
+_Exemplos:_
 • *25/04 as 15h*
 • *amanha 14:30*
 • *segunda 9h*
+• *AGORA* (urgente)
 
-Ou digite *AGORA* se for urgente.`,
+Ou digite *EDITAR* pra corrigir algo.`,
 
   planoEscolhido: `Otima escolha! ✨
 
@@ -233,7 +233,8 @@ Pode enviar tudo junto ou um de cada vez:
 • *amanha 14:30*
 • *segunda 9h*`,
 
-  // Mensagem ENXUTA pos-cotacao. So dados + valor + 1/2.
+  // Mensagem ENXUTA pos-cotacao. So dados + valor + CTA unica.
+  // CTA: cliente confirma mandando dia/horario, OU digita EDITAR.
   // Os protocolos longos (checklist, avisos, termos pagamento) vao DEPOIS,
   // quando cliente confirmar — pra nao sobrecarregar leitura inicial.
   resumoFrete: (
@@ -257,10 +258,14 @@ ${detalhes}
 
 ━━━━━━━━━━━━━━━━
 
-*Está tudo certo?*
+*Se estiver tudo certo, me confirme o dia e horário* pra eu chamar o fretista.
 
-1️⃣ ✅ *SIM* - confirmar
-2️⃣ ✏️ *ALTERAR* - corrigir ou adicionar algo`,
+_Exemplos:_
+• *Confirmo, ${data}*
+• *amanha 14h*
+• *25/04 as 15h*
+
+Ou digite *EDITAR* pra corrigir algo.`,
 
   freteRecebido: `Ok! Um momento, estamos preparando sua reserva 😊
 

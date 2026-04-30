@@ -3279,10 +3279,9 @@ async function handleAceiteTermos(phone: string, message: string, instance: 1 | 
 
   const lower = message.toLowerCase().trim();
 
-  if (lower === "1" || lower.startsWith("sim") || lower === "aceito" || lower === "s" || lower.includes("aceit")) {
-    // Cliente aceitou termos -> agora sim cria corrida + dispara dispatch
+  // Opcao 1: CHAMAR FRETISTA
+  if (lower === "1" || lower.startsWith("sim") || lower === "aceito" || lower === "s" || lower.includes("aceit") || lower.includes("chamar fretista") || lower.includes("chamar fret")) {
     const corridaId = await salvarCorrida(session);
-
     if (corridaId) {
       await updateSession(phone, { step: "aguardando_fretista", corrida_id: corridaId });
       await sendToClient({ to: phone, message: MSG.freteRecebido });
@@ -3290,20 +3289,34 @@ async function handleAceiteTermos(phone: string, message: string, instance: 1 | 
     } else {
       await sendToClient({ to: phone, message: MSG.erroInterno });
     }
-  } else if (lower === "2" || lower.startsWith("nao") || lower === "n" || lower === "não" || lower === "cancelar" || lower.includes("recus") || lower.includes("desist")) {
-    // Cliente recusou termos -> cancela tudo, NAO chama fretista
+    return;
+  }
+
+  // Opcao 2: EDITAR (volta pro menu de edicao - nao reseta sessao)
+  if (lower === "2" || lower === "editar" || lower === "alterar" || lower.includes("corrigir") || lower.includes("mudar")) {
+    await updateSession(phone, { step: "editando_escolha" });
+    await sendToClient({
+      to: phone,
+      message: `✏️ *O que você quer corrigir?*\n\n1️⃣ *Origem* (onde buscar)\n2️⃣ *Destino* (onde entregar)\n3️⃣ *Itens / material*\n4️⃣ *Data / horário*\n5️⃣ *Cancelar tudo* e começar do zero`,
+    });
+    return;
+  }
+
+  // Cancelar explicito (palavra-chave forte)
+  if (lower.startsWith("nao") || lower === "n" || lower === "não" || lower === "cancelar" || lower.includes("recus") || lower.includes("desist")) {
     await deleteSession(phone);
     await sendToClient({
       to: phone,
       message: `Tudo bem! ✅\n\nSeu frete foi *cancelado* — nenhum fretista foi acionado.\n\nQuando quiser cotar de novo, manda *oi* 😊`,
     });
-  } else {
-    // Resposta nao reconhecida
-    await sendToClient({
-      to: phone,
-      message: "Pra prosseguir, escolha:\n\n1️⃣ ✅ *SIM, aceito* - Chamar fretista\n2️⃣ ❌ *NAO, cancelar* - Desistir do frete",
-    });
+    return;
   }
+
+  // Resposta nao reconhecida
+  await sendToClient({
+    to: phone,
+    message: "Pra prosseguir, escolha:\n\n1️⃣ 🚚 *CHAMAR FRETISTA*\n2️⃣ ✏️ *EDITAR* (corrigir algo)",
+  });
 }
 
 // Handler do menu de edicao - volta pro step especifico SEM perder dados.

@@ -303,8 +303,8 @@ Logo ja sera confirmado!`,
 
 *Aceita os protocolos e os termos pra prosseguir?*
 
-1️⃣ ✅ *SIM, aceito* - Chamar fretista agora
-2️⃣ ❌ *NÃO* - Cancelar`,
+1️⃣ 🚚 *CHAMAR FRETISTA*
+2️⃣ ✏️ *EDITAR* (corrigir algo)`,
 
   // Mensagem APOS fretista PEGAR + termos JA aceitos antes.
   // PARTE 1 (PIX): mensagem com explicacao do PIX + seguranca + URL QR.

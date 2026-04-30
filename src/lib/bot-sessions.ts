@@ -51,6 +51,7 @@ export type BotStep =
   | "aguardando_numero_destino"
   | "aguardando_bairro_origem"
   | "aguardando_bairro_destino"
+  | "confirmando_enderecos_ia"
   | "adicionar_pequeno_grande"
   | "adicionar_item_descricao"
   | "confirmar_contexto_inicial"

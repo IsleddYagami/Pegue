@@ -1049,6 +1049,10 @@ Boa sorte! 🎯`,
       await handleBairroDestino(phone, message);
       break;
 
+    case "confirmando_enderecos_ia":
+      await handleConfirmandoEnderecosIA(phone, message);
+      break;
+
     case "adicionar_pequeno_grande":
       await handleAdicionarPequenoGrande(phone, message);
       break;
@@ -1451,35 +1455,14 @@ async function handleLocalizacao(
     const origemOk = !!(origemCoords?.lat && origemCoords?.lng);
     const destinoOk = !!(destinoCoords?.lat && destinoCoords?.lng);
     if (origemOk && destinoOk && session) {
-      const distanciaKm = calcularDistanciaKm(
-        origemCoords!.lat, origemCoords!.lng,
-        destinoCoords!.lat, destinoCoords!.lng
+      // Mostra enderecos identificados pra cliente CONFIRMAR antes de cotar.
+      // Evita geocoder pegar lugar errado (ex: bairro Pompeia SP vs cidade
+      // Pompeia interior — diferenca de 500km na cotacao).
+      await pedirConfirmacaoEnderecosIA(
+        phone,
+        origDest.origem, origemCoords!.lat, origemCoords!.lng,
+        origDest.destino, destinoCoords!.lat, destinoCoords!.lng,
       );
-      await updateSession(phone, {
-        origem_endereco: origDest.origem,
-        origem_lat: origemCoords!.lat,
-        origem_lng: origemCoords!.lng,
-        destino_endereco: origDest.destino,
-        destino_lat: destinoCoords!.lat,
-        destino_lng: destinoCoords!.lng,
-        distancia_km: distanciaKm,
-      });
-      // Decide se pula handleAjudante: igual handleConfirmarContextoInicial
-      const iaConfirmouAjudante = !!session.precisa_ajudante;
-      if (iaConfirmouAjudante) {
-        await sendToClient({
-          to: phone,
-          message: `📊 Calculando seu orçamento...`,
-        });
-        await calcularEEnviarOrcamento(phone, 1);
-        return;
-      }
-      // Sem ajudante confirmado - pergunta
-      await updateSession(phone, { step: "aguardando_ajudante" });
-      await sendToClient({
-        to: phone,
-        message: MSG.precisaAjudante(`Endereços anotados! ✅`),
-      });
       return;
     }
     // Nao geocodou os 2 - cai no fluxo padrao abaixo (provavelmente algum dos 2 nao foi
@@ -2943,6 +2926,83 @@ O cliente recebeu mensagem de espera. Acesse o admin pra aprovar ou ajustar.`
   }
 }
 
+// Mostra os enderecos identificados pra cliente CONFIRMAR antes de cotar.
+// Crucial pra evitar geocoder pegar lugar errado (ex: cliente diz "Pompeia"
+// referindo-se ao bairro de SP, geocoder pega Pompeia interior 500km longe).
+// Cliente real 30/Abr cotou R$2k+ por engano. Regra "JAMAIS cotar sem certeza".
+async function pedirConfirmacaoEnderecosIA(
+  phone: string,
+  origem: string,
+  origemLat: number,
+  origemLng: number,
+  destino: string,
+  destinoLat: number,
+  destinoLng: number,
+) {
+  const distanciaKm = calcularDistanciaKm(origemLat, origemLng, destinoLat, destinoLng);
+  // Pega nome formatado (cidade/UF) pra cliente conferir se geocoder pegou certo
+  const [origemFmt, destinoFmt] = await Promise.all([
+    reverseGeocodeBairroCidade(origemLat, origemLng).catch(() => null),
+    reverseGeocodeBairroCidade(destinoLat, destinoLng).catch(() => null),
+  ]);
+  await updateSession(phone, {
+    step: "confirmando_enderecos_ia",
+    origem_endereco: origem,
+    origem_lat: origemLat,
+    origem_lng: origemLng,
+    destino_endereco: destino,
+    destino_lat: destinoLat,
+    destino_lng: destinoLng,
+    distancia_km: distanciaKm,
+  });
+  await sendToClient({
+    to: phone,
+    message: `📍 *Confere se identifiquei os endereços certos:*
+
+📍 *Coleta:* ${origem}${origemFmt && origemFmt !== "Localizacao recebida" ? `\n   _(${origemFmt})_` : ""}
+🏠 *Entrega:* ${destino}${destinoFmt && destinoFmt !== "Localizacao recebida" ? `\n   _(${destinoFmt})_` : ""}
+
+📏 *Distância:* ${distanciaKm.toFixed(1)} km
+
+━━━━━━━━━━━━━━━━
+
+1️⃣ ✅ *SIM, está certo* - calcular orçamento
+2️⃣ ✏️ *EDITAR* - corrigir endereço`,
+  });
+}
+
+async function handleConfirmandoEnderecosIA(phone: string, message: string) {
+  const session = await getSession(phone);
+  if (!session) return;
+  const lower = message.toLowerCase().trim();
+
+  if (lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "ok" || lower === "confirmar" || lower === "correto") {
+    await sendToClient({ to: phone, message: `📊 Calculando seu orçamento...` });
+    const iaConfirmouAjudante = !!session.precisa_ajudante;
+    if (iaConfirmouAjudante) {
+      await calcularEEnviarOrcamento(phone, 1);
+    } else {
+      await updateSession(phone, { step: "aguardando_ajudante" });
+      await sendToClient({ to: phone, message: MSG.precisaAjudante(`Endereços confirmados! ✅`) });
+    }
+    return;
+  }
+
+  if (lower === "2" || lower === "editar" || lower === "alterar" || lower.startsWith("nao") || lower === "n" || lower === "não" || lower.includes("corrigir")) {
+    await updateSession(phone, { step: "editando_escolha" });
+    await sendToClient({
+      to: phone,
+      message: `✏️ *O que você quer corrigir?*\n\n1️⃣ *Origem* (onde buscar)\n2️⃣ *Destino* (onde entregar)\n3️⃣ *Itens / material*\n4️⃣ *Data / horário*\n5️⃣ *Cancelar tudo* e começar do zero`,
+    });
+    return;
+  }
+
+  await sendToClient({
+    to: phone,
+    message: `Pra prosseguir:\n\n1️⃣ ✅ *SIM, está certo*\n2️⃣ ✏️ *EDITAR*`,
+  });
+}
+
 // Cliente mandou "rua X para rua Y" sem bairro. Sistema agora pergunta os
 // bairros um de cada vez (origem -> destino) e depois geocoda + cota direto.
 async function handleBairroOrigem(phone: string, message: string) {
@@ -3021,8 +3081,7 @@ async function handleBairroDestino(phone: string, message: string) {
     return;
   }
 
-  // Tudo localizado - calcula distancia, salva e cota direto (mesmo padrao
-  // do caminho rapido em handleLocalizacao caminho A1).
+  // Tudo localizado - mostra confirmacao antes de cotar (regra: jamais cotar sem certeza)
   if (!session.origem_lat || !session.origem_lng) {
     // edge case: origem foi salva mas perdeu coords - escala humano
     await sendToClient({
@@ -3031,29 +3090,11 @@ async function handleBairroDestino(phone: string, message: string) {
     });
     return;
   }
-  const distanciaKm = calcularDistanciaKm(
-    session.origem_lat, session.origem_lng,
-    coords.lat, coords.lng
+  await pedirConfirmacaoEnderecosIA(
+    phone,
+    session.origem_endereco!, session.origem_lat, session.origem_lng,
+    destinoFull, coords.lat, coords.lng,
   );
-  await updateSession(phone, {
-    destino_endereco: destinoFull,
-    destino_lat: coords.lat,
-    destino_lng: coords.lng,
-    distancia_km: distanciaKm,
-  });
-
-  // Decide se pula handleAjudante (mesma logica do caminho rapido)
-  const iaConfirmouAjudante = !!session.precisa_ajudante;
-  if (iaConfirmouAjudante) {
-    await sendToClient({ to: phone, message: `📊 Calculando seu orçamento...` });
-    await calcularEEnviarOrcamento(phone, 1);
-    return;
-  }
-  await updateSession(phone, { step: "aguardando_ajudante" });
-  await sendToClient({
-    to: phone,
-    message: MSG.precisaAjudante(`Endereços anotados! ✅`),
-  });
 }
 
 // STEP 6: Data e Horario
@@ -3895,43 +3936,14 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
       const destinoOk = !!(destinoCoords?.lat && destinoCoords?.lng);
 
       if (origemOk && destinoOk) {
-        // Ambos endereços geocodificados - salva e decide proximo step.
-        const distanciaKm = calcularDistanciaKm(
-          origemCoords!.lat, origemCoords!.lng,
-          destinoCoords!.lat, destinoCoords!.lng
+        // Antes de cotar, MOSTRA os enderecos identificados pra cliente
+        // confirmar que geocoder pegou os lugares certos (evita Pompeia
+        // capital virar Pompeia interior). Regra: jamais cotar sem certeza.
+        await pedirConfirmacaoEnderecosIA(
+          phone,
+          contexto.origem_texto, origemCoords!.lat, origemCoords!.lng,
+          contexto.destino_texto, destinoCoords!.lat, destinoCoords!.lng,
         );
-
-        await updateSession(phone, {
-          origem_endereco: contexto.origem_texto,
-          origem_lat: origemCoords!.lat,
-          origem_lng: origemCoords!.lng,
-          destino_endereco: contexto.destino_texto,
-          destino_lat: destinoCoords!.lat,
-          destino_lng: destinoCoords!.lng,
-          distancia_km: distanciaKm,
-        });
-
-        // Decide se pula handleAjudante: SO se IA confirmou explicitamente.
-        // Senao, cliente pode querer ajudante e nao ter mencionado - vai ser perguntado.
-        const iaConfirmouAjudante = contexto.precisa_ajudante === true;
-
-        if (iaConfirmouAjudante) {
-          // Pula tipo_local + andar + ajudante - cota direto.
-          await sendToClient({
-            to: phone,
-            message: `📊 Calculando seu orçamento...`,
-          });
-          await calcularEEnviarOrcamento(phone, 1);
-          return;
-        }
-
-        // IA nao confirmou ajudante - vai perguntar (e nao pula tipo_local de origem
-        // se IA detectou andar/escada, salva isso pra handleConfirmandoDestino usar).
-        await updateSession(phone, { step: "aguardando_ajudante" });
-        await sendToClient({
-          to: phone,
-          message: MSG.precisaAjudante(`Endereços localizados! ✅`),
-        });
         return;
       }
 

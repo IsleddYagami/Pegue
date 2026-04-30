@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendMessage, sendToClient, sendToClients, sendImageToClient, invalidateInstanceCache, setInstanceCache } from "@/lib/chatpro";
+import { sendMessage, sendToClient, sendToClients, sendImageToClient, invalidateInstanceCache, setInstanceCache, isValidBrPhone } from "@/lib/chatpro";
 import {
   type BotSession,
   getSession,
@@ -164,6 +164,9 @@ export async function POST(req: NextRequest) {
     const message = normalizarEmojiKeycap(rawBody.Body?.Text || "");
     const from = info.RemoteJid || info.SenderJid || "";
     const isGroup = from.includes("@g.us");
+    // @lid eh LinkedID (JID anonimizado pelo WhatsApp em alguns contatos novos).
+    // Bot nao consegue responder pra @lid (numero mascarado), gera sessao-lixo.
+    const isLid = from.includes("@lid");
     const isFromMe = info.FromMe || false;
 
     const sourceMsg = info.Source?.message || {};
@@ -181,11 +184,81 @@ export async function POST(req: NextRequest) {
       sourceMsg.imageMessage?.url ||
       null;
 
-    if (isGroup || isFromMe || !from) {
+    // ========================================================
+    // ATENDIMENTO HUMANO (FromMe = true)
+    // ========================================================
+    // Quando admin/operador manda mensagem manual pelo WhatsApp da Pegue (Web/app
+    // ou via API direta), ChatPro entrega o webhook com FromMe=true e RemoteJid =
+    // destinatario. Hoje o bot ignorava silenciosamente, mas continuava respondendo
+    // automaticamente do lado do cliente — atropelando o humano.
+    //
+    // Comportamento novo:
+    //   1) Se admin escreveu "VOLTA BOT" pro cliente -> reativa o fluxo do bot
+    //      (cliente volta pra menu inicial na proxima msg).
+    //   2) Caso contrario -> marca step=atendimento_humano. Esse step ja tem case
+    //      no switch que silencia o bot (so loga). NAO seta silenciado_ate aqui:
+    //      isso bloquearia o cliente no rate-limit antes de chegar no switch e a
+    //      proxima msg dele NAO seria registrada no historico do bot.
+    if (isFromMe && !isGroup && from) {
+      const destinatario = from.replace("@s.whatsapp.net", "").replace("@lid", "");
+      if (isValidBrPhone(destinatario)) {
+        const lowerMsg = (message || "").trim().toLowerCase();
+        const ehVoltaBot = lowerMsg === "volta bot" || lowerMsg === "/volta bot" || lowerMsg.startsWith("volta bot ");
+
+        if (ehVoltaBot) {
+          // Devolve cliente pro fluxo do bot (case "inicio" reapresenta o menu).
+          await supabase
+            .from("bot_sessions")
+            .update({
+              step: "inicio",
+              silenciado_ate: null,
+              atualizado_em: new Date().toISOString(),
+            })
+            .eq("phone", destinatario);
+          await supabase.from("bot_logs").insert({
+            payload: {
+              tipo: "humano_devolveu_bot",
+              cliente_masked: destinatario.replace(/\d(?=\d{4})/g, "*"),
+            },
+          });
+        } else {
+          await supabase
+            .from("bot_sessions")
+            .update({
+              step: "atendimento_humano",
+              atualizado_em: new Date().toISOString(),
+            })
+            .eq("phone", destinatario);
+          await supabase.from("bot_logs").insert({
+            payload: {
+              tipo: "humano_assumiu_atendimento",
+              cliente_masked: destinatario.replace(/\d(?=\d{4})/g, "*"),
+            },
+          });
+        }
+      }
+      return NextResponse.json({ status: "fromme_handled" });
+    }
+
+    if (isGroup || isLid || !from) {
       return NextResponse.json({ status: "ignored" });
     }
 
     const phoneNumber = from.replace("@s.whatsapp.net", "");
+
+    // Valida formato BR (55 + DDD + 8/9 digitos). Filtra IDs estranhos
+    // que ChatPro entrega ocasionalmente (ex: numeros internacionais sem DDI BR,
+    // contatos com formato malformado). Antes desse filtro virava sessao-lixo.
+    if (!isValidBrPhone(phoneNumber)) {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "ignorado_phone_invalido",
+          phone_masked: phoneNumber.replace(/\d(?=\d{4})/g, "*"),
+          length: phoneNumber.length,
+        },
+      });
+      return NextResponse.json({ status: "ignored_invalid_phone" });
+    }
 
     // ========================================================
     // ANTI-LOOP (proteção contra bot trocando mensagem com bot)
@@ -1231,6 +1304,18 @@ Boa sorte! 🎯`,
       break;
     case "guincho_destino":
       await handleGuinchoDestino(phone, message);
+      break;
+
+    // === ESTADO INICIAL ===
+    // Cliente em "inicio" (recem-criado, escalado de admin-operacao, ou devolvido
+    // por VOLTA BOT). Antes caia no default e gerava step_desconhecido. Agora
+    // reseta pra menu inicial e segue fluxo padrao.
+    case "inicio":
+      await updateSession(phone, { step: "aguardando_servico" });
+      await sendToClient({
+        to: phone,
+        message: `Olá! 😊 Aqui é a Íris da Pegue. Como posso te ajudar hoje?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudança completa*\n3️⃣ *Guincho*\n4️⃣ *Dúvidas frequentes*`,
+      });
       break;
 
     // === ATENDIMENTO HUMANO ===
@@ -3964,8 +4049,60 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
 
     const contexto = (logCtx?.payload as any)?.contexto as ContextoExtraido | undefined;
 
-    // Guincho tem fluxo proprio
+    // Guincho — paridade com fluxo de frete. Aproveita ao maximo o que IA capturou:
+    //  - veiculo_marca_modelo: ja preenche descricao_carga + categoria,
+    //    handleGuinchoCategoria detecta "|" em descricao_carga e pula direto
+    //    pra guincho_localizacao.
+    //  - origem_texto + destino_texto: vai DIRETO pra confirmacao de enderecos
+    //    (igual frete). Cliente que mandou briefing completo nao re-pergunta.
     if (contexto?.servico === "guincho") {
+      const temVeiculo = !!contexto.veiculo_marca_modelo;
+      const cat = temVeiculo ? detectarCategoriaVeiculo(contexto.veiculo_marca_modelo!) : null;
+
+      // Caminho rapido: tem veiculo + origem + destino -> geocoda e confirma enderecos
+      if (temVeiculo && contexto.origem_texto && contexto.destino_texto) {
+        await sendToClient({
+          to: phone,
+          message: `📍 Localizando os endereços, só um momento...`,
+        });
+        const [origemCoords, destinoCoords] = await Promise.all([
+          geocodeAddress(contexto.origem_texto),
+          geocodeAddress(contexto.destino_texto),
+        ]);
+        const origemOk = !!(origemCoords?.lat && origemCoords?.lng);
+        const destinoOk = !!(destinoCoords?.lat && destinoCoords?.lng);
+        if (origemOk && destinoOk) {
+          await updateSession(phone, {
+            descricao_carga: `Guincho - ${cat!.nome} | ${contexto.veiculo_marca_modelo}`,
+            veiculo_sugerido: cat!.tipo === "moto" ? "moto_guincho" : "guincho",
+          });
+          await pedirConfirmacaoEnderecosIA(
+            phone,
+            contexto.origem_texto, origemCoords!.lat, origemCoords!.lng,
+            contexto.destino_texto, destinoCoords!.lat, destinoCoords!.lng,
+          );
+          return;
+        }
+        // Geocode falhou — cai pra fluxo com so veiculo (pede localizacao)
+      }
+
+      // Caminho com veiculo mas sem (ou geocode falhou nos) enderecos:
+      // descricao_carga ja inclui "|" entao handleGuinchoCategoria pula
+      // direto pra guincho_localizacao quando cliente escolher Imediato/Agendado.
+      if (temVeiculo) {
+        await updateSession(phone, {
+          step: "guincho_categoria",
+          descricao_carga: `Guincho - ${cat!.nome} | ${contexto.veiculo_marca_modelo}`,
+          veiculo_sugerido: cat!.tipo === "moto" ? "moto_guincho" : "guincho",
+        });
+        await sendToClient({
+          to: phone,
+          message: `🚗 Anotei: *${contexto.veiculo_marca_modelo}*\n\nPrecisa agora ou vai agendar?\n\n1️⃣ *Guincho Imediato* (preciso AGORA)\n2️⃣ *Guincho Agendado* (escolher dia e horário)`,
+        });
+        return;
+      }
+
+      // Sem info de veiculo na IA — fluxo normal de guincho
       await updateSession(phone, { step: "guincho_categoria" });
       await sendToClient({
         to: phone,
@@ -4853,11 +4990,37 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
     }
 
     if (prestadores.length === 0) {
+      // Diagnostica motivo: tipo cotado nao tem fretista cadastrado, ou todos
+      // ocupados/inativos. Admin precisa saber pra agir (cadastrar, requote, etc).
+      let detalheFrota = "";
+      if (!isGuincho) {
+        const tipoCorrida = session.veiculo_sugerido || "utilitario";
+        const { data: todosFretistas } = await supabase
+          .from("prestadores_veiculos")
+          .select("tipo, prestadores!inner(disponivel,status)")
+          .eq("ativo", true);
+        const tiposCadastrados = new Set<string>();
+        const tiposDisponiveis = new Set<string>();
+        for (const v of todosFretistas || []) {
+          const p = (v as any).prestadores;
+          tiposCadastrados.add((v as any).tipo);
+          if (p?.disponivel && p?.status === "aprovado") tiposDisponiveis.add((v as any).tipo);
+        }
+        detalheFrota = `\n\n*Diagnostico:*\n  Cotado: ${tipoCorrida}\n  Tipos cadastrados: ${[...tiposCadastrados].join(", ") || "NENHUM"}\n  Tipos disponiveis agora: ${[...tiposDisponiveis].join(", ") || "NENHUM"}`;
+      }
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "dispatch_zero_fretistas_compativeis",
+          corrida_id: corridaId,
+          tipo_corrida: session.veiculo_sugerido || (isGuincho ? "guincho" : "utilitario"),
+          eh_guincho: isGuincho,
+        },
+      });
       await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
       await notificarAdmin(
         isGuincho ? `⚠️ *NENHUM GUINCHEIRO DISPONIVEL*` : `⚠️ *NENHUM FRETISTA DISPONIVEL*`,
         clientePhone,
-        `Corrida: ${corridaId}\nTipo: ${isGuincho ? "GUINCHO" : "FRETE"}\n📅 Data/Horario: ${session.data_agendada || "A combinar"}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}`
+        `Corrida: ${corridaId}\nTipo: ${isGuincho ? "GUINCHO" : "FRETE"}\n📅 Data/Horario: ${session.data_agendada || "A combinar"}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}${detalheFrota}`
       );
       return;
     }

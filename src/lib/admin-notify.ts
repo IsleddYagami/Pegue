@@ -27,16 +27,27 @@ export async function notificarAdmins(
 
   let enviadosWhatsapp = 0;
   for (const phone of phones) {
+    // Fallback automatico: tenta instance 1, se falhar tenta 2.
+    // Se as duas estiverem fora, admin perde a notificacao no WhatsApp
+    // (ainda recebe pelo Telegram em paralelo).
+    let entregue = false;
+    let erroInstance1: string | undefined;
     try {
-      await sendMessage({
-        to: phone,
-        message: corpo,
-        instance: 1, // notificacao admin sempre pela instancia principal
-      });
-      enviadosWhatsapp++;
-    } catch (error: any) {
-      console.error(`Falha ao notificar admin ${phone}:`, error?.message);
+      await sendMessage({ to: phone, message: corpo, instance: 1 });
+      entregue = true;
+    } catch (e1: any) {
+      erroInstance1 = e1?.message;
     }
+    if (!entregue) {
+      try {
+        await sendMessage({ to: phone, message: corpo, instance: 2 });
+        entregue = true;
+        console.warn(`notificarAdmins: instancia 1 falhou (${erroInstance1}), entregue via instancia 2 pra ${phone}`);
+      } catch (e2: any) {
+        console.error(`Falha ao notificar admin ${phone} em ambas instancias: i1=${erroInstance1} i2=${e2?.message}`);
+      }
+    }
+    if (entregue) enviadosWhatsapp++;
   }
 
   // Aguarda Telegram pra log

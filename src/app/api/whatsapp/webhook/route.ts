@@ -4647,9 +4647,9 @@ async function handleAvaliarEscolherVeiculos(phone: string, message: string) {
     return;
   }
 
-  // Parseia numeros da mensagem (aceita "2", "2 3", "2,3", "2, 3", "5 6")
-  // 1-4 = frete, 5-6 = guincho. Cliente pode misturar (ex: "2 3 5").
-  const numeros = message.match(/[1-6]/g);
+  // Parseia numeros da mensagem (aceita "2", "2 3", "2,3", "2, 3", "2 3 5")
+  // 1-4 = frete, 5 = guincho. Pode misturar (ex: "2 3 5").
+  const numeros = message.match(/[1-5]/g);
   if (!numeros || numeros.length === 0) {
     await sendToClient({ to: phone, message: MSG.avaliarOpcaoInvalida });
     return;
@@ -4661,7 +4661,6 @@ async function handleAvaliarEscolherVeiculos(phone: string, message: string) {
     "3": "hr",
     "4": "caminhao_bau",
     "5": "guincho",
-    "6": "moto_guincho",
   };
   const veiculos = [...new Set(numeros.map(n => mapaVeiculos[n]).filter(Boolean))];
 
@@ -4788,7 +4787,7 @@ async function handleAvaliarAguardandoPreco(phone: string, message: string) {
   // Pula pra guincho — criterios de ajuste (qtd_itens, tem_ajudante, km range)
   // sao especificos do frete. Guincho usa preco base + km, ajuste teria
   // semantica diferente. Admin revisa em /admin/feedback-precos.
-  const ehGuinchoAval = sim.veiculo === "guincho" || sim.veiculo === "moto_guincho";
+  const ehGuinchoAval = sim.veiculo === "guincho";
   const adminSignificativo = !ehGuinchoAval && isAdminPhone(phone) && Math.abs(gap) >= 5;
   if (adminSignificativo) {
     const criterios = criteriosMediaDaSimulacao(sim);

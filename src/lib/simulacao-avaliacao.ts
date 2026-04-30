@@ -8,12 +8,10 @@ import { ROTAS, type Rota, enderecoPorZona } from "@/lib/rotas-simulacao";
 
 // Tabela de precos do guincho (espelha GUINCHO_PRECOS_VEICULO em webhook/route.ts).
 // Mantida aqui pra simulacao funcionar sem importar do webhook (evita ciclo).
-const GUINCHO_PRECOS_AVAL: Record<string, { base: number; porKm: number; categoria: string }> = {
-  guincho: { base: 200, porKm: 5, categoria: "carro_comum" }, // hatch/sedan generico
-  moto_guincho: { base: 150, porKm: 5, categoria: "moto" },
-};
+const GUINCHO_PRECO_AVAL = { base: 200, porKm: 5 };
 
 // Pool de veiculos REAIS que cliente pediria guincho. Marca/modelo/ano realista.
+// Inclui hatch/sedan/SUV/caminhonete — Pegue nao guincha moto, entao excluido.
 const VEICULOS_GUINCHO_CARRO = [
   "Honda Civic 2018", "Toyota Corolla 2020", "Hyundai HB20 2019",
   "Fiat Argo 2021", "Volkswagen Gol 2017", "Chevrolet Onix 2020",
@@ -22,12 +20,6 @@ const VEICULOS_GUINCHO_CARRO = [
   "Jeep Renegade 2020", "Volkswagen T-Cross 2022", "Honda HR-V 2019",
   "Toyota Hilux 2018", "Chevrolet S10 2020", "Ford Ranger 2019",
   "Fiat Toro 2021", "Mitsubishi L200 2018",
-];
-const VEICULOS_GUINCHO_MOTO = [
-  "Honda CG 160 2020", "Yamaha Factor 125 2019", "Honda Biz 125 2021",
-  "Yamaha Fazer 250 2020", "Honda CB 300 2018", "Yamaha XTZ 250 2019",
-  "Suzuki Yes 125 2020", "Honda PCX 150 2021", "Yamaha NMax 160 2022",
-  "Kawasaki Ninja 400 2020", "Honda XRE 300 2019", "BMW G 310 GS 2021",
 ];
 
 // Itens por tamanho (espelha o simulador do admin)
@@ -65,11 +57,11 @@ function sortearCombinacao(qtd: number, pool: string[]): string[] {
   return sel;
 }
 
-// Decide pool de itens baseado no veiculo (evita geladeira em moto guincho, etc)
+// Decide pool de itens baseado no veiculo (frete). Guincho desvia antes em
+// gerarSimulacao usando pool proprio de veiculos guinchados.
 function poolPorVeiculo(veiculo: string): string[] {
   if (veiculo === "carro_comum") return ITENS_PEQUENOS;
   if (veiculo === "caminhao_bau") return [...ITENS_MEDIOS, ...ITENS_GRANDES];
-  if (veiculo === "guincho" || veiculo === "moto_guincho") return ["Veiculo avariado"]; // stub
   return TODOS_ITENS; // utilitario + hr: tudo
 }
 
@@ -93,24 +85,22 @@ export type SimulacaoAvaliacao = {
 
 // Calcula preco do guincho pra simulacao (espelha logica de cotarGuinchoEFinalizar).
 // Sem taxas noturnas/feriado pra simulacao (queremos comparar PRECO BASE).
-function calcularPrecoGuinchoSim(veiculoTipo: string, km: number): number {
-  const precoInfo = GUINCHO_PRECOS_AVAL[veiculoTipo] || GUINCHO_PRECOS_AVAL.guincho;
+function calcularPrecoGuinchoSim(km: number): number {
   const kmExtra = Math.max(0, km - 5);
-  return Math.round(precoInfo.base + kmExtra * precoInfo.porKm);
+  return Math.round(GUINCHO_PRECO_AVAL.base + kmExtra * GUINCHO_PRECO_AVAL.porKm);
 }
 
 // Gera 1 simulacao aleatoria pra um dos veiculos escolhidos pelo fretista.
-// Detecta automaticamente se eh guincho (guincho/moto_guincho) e usa pool +
-// preco apropriados. Frete usa calcularPrecos, guincho usa calcularPrecoGuinchoSim.
+// Detecta automaticamente se eh guincho e usa pool de carros + preco apropriado.
+// Frete usa calcularPrecos, guincho usa calcularPrecoGuinchoSim.
 export function gerarSimulacao(veiculosEscolhidos: string[]): SimulacaoAvaliacao {
   const veiculo = sortear(veiculosEscolhidos);
   const rota = sortear(ROTAS);
-  const ehGuincho = veiculo === "guincho" || veiculo === "moto_guincho";
+  const ehGuincho = veiculo === "guincho";
 
   if (ehGuincho) {
-    const pool = veiculo === "moto_guincho" ? VEICULOS_GUINCHO_MOTO : VEICULOS_GUINCHO_CARRO;
-    const veiculoGuinchado = sortear(pool); // ex: "Honda Civic 2018"
-    const precoPegue = calcularPrecoGuinchoSim(veiculo, rota.km);
+    const veiculoGuinchado = sortear(VEICULOS_GUINCHO_CARRO); // ex: "Honda Civic 2018"
+    const precoPegue = calcularPrecoGuinchoSim(rota.km);
     return {
       veiculo,
       rota,
@@ -151,7 +141,6 @@ export function nomeVeiculo(v: string): string {
     hr: "HR",
     caminhao_bau: "Caminhao Bau",
     guincho: "Guincho",
-    moto_guincho: "Guincho moto",
   };
   return map[v] || v;
 }
@@ -165,7 +154,7 @@ export function nomeZona(z: string): string {
 // Formata simulacao como mensagem pro WhatsApp.
 // Frete: mostra "itens" e "ajudante". Guincho: mostra "veiculo guinchado".
 export function formatarMensagemSimulacao(sim: SimulacaoAvaliacao, numero: number): string {
-  const ehGuincho = sim.veiculo === "guincho" || sim.veiculo === "moto_guincho";
+  const ehGuincho = sim.veiculo === "guincho";
 
   if (ehGuincho) {
     return `📊 *Avaliacao #${numero}*

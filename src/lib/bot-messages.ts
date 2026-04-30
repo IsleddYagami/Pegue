@@ -501,11 +501,10 @@ Vamos la! *Quais voce quer avaliar?*
 4️⃣ Caminhao Bau
 
 *GUINCHO:*
-5️⃣ Guincho de carro (hatch/sedan/SUV)
-6️⃣ Guincho de moto
+5️⃣ Guincho (hatch/sedan/SUV/caminhonete)
 
 Escolha um ou mais (separe por virgula ou espaco).
-Exemplos: *3* (so HR) · *5 6* (so guinchos) · *2 3 5* (frete + guincho)`,
+Exemplos: *3* (so HR) · *5* (so guincho) · *2 3 5* (frete + guincho)`,
 
   avaliarOpcaoInvalida: `Nao entendi 😅
 
@@ -515,10 +514,9 @@ Escolha um ou mais separando por espaco ou virgula:
 2️⃣ Utilitario
 3️⃣ HR
 4️⃣ Caminhao Bau
-5️⃣ Guincho carro
-6️⃣ Guincho moto
+5️⃣ Guincho
 
-Exemplo: *3 5* (pra avaliar HR e Guincho carro)
+Exemplo: *3 5* (pra avaliar HR e Guincho)
 
 Ou digite *PARAR* pra sair.`,
 

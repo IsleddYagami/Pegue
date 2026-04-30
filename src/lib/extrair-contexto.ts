@@ -21,6 +21,7 @@ export interface ContextoExtraido {
   itens: string[];           // ex: ["Sofa", "Geladeira"]
   qtd_caixas: number | null; // "15 caixas" => 15
   qtd_sacolas: number | null; // "8 sacolas" => 8 (sacolas pesam menos mas ocupam volume)
+  veiculo_marca_modelo: string | null; // SO pra guincho: "Honda Civic 2018", "Hilux 2020"
   origem_texto: string | null;  // texto livre: "Presidente Altino", "Rua Brasil"
   destino_texto: string | null; // texto livre: "Barra Funda", "Cotia"
   andar_origem: number | null;  // "4º andar" => 4. 0 ou null se terreo/nao mencionou
@@ -84,6 +85,7 @@ export async function extrairContextoInicial(mensagem: string): Promise<Contexto
   "itens": <lista TODOS itens explicitamente mencionados, ex: ["Sofa","Cama","Geladeira"]. Se "mudanca completa" sem listar items: []. NAO inclua "caixas"/"sacolas" no array - eles vao em qtd_caixas/qtd_sacolas>,
   "qtd_caixas": <numero ou null, ex: "15 caixas" => 15. Soma se cliente menciona em 2 lugares ("3 caixas... mais 5 caixinhas" => 8)>,
   "qtd_sacolas": <numero ou null, ex: "8 sacolas" => 8. Sacolas pesam menos mas ocupam volume>,
+  "veiculo_marca_modelo": <texto livre da marca/modelo/ano do veiculo - SO se servico=guincho. Ex: "Honda Civic 2018", "Fiat Uno 2015", "moto Honda CG 160". null se nao mencionou>,
   "origem_texto": <texto livre da origem ou null. "de Osasco pra Sao Paulo" => "Osasco">,
   "destino_texto": <texto livre destino ou null. Se mencionou 1 lugar sem dizer origem/destino, poe em destino>,
   "andar_origem": <numero do andar coleta ou null. "4o andar" => 4. "terreo" => 0>,
@@ -134,6 +136,7 @@ Responda SOMENTE o JSON.`,
         : [],
       qtd_caixas: numOuNull(parsed.qtd_caixas),
       qtd_sacolas: numOuNull(parsed.qtd_sacolas),
+      veiculo_marca_modelo: typeof parsed.veiculo_marca_modelo === "string" && parsed.veiculo_marca_modelo.trim() ? parsed.veiculo_marca_modelo.trim() : null,
       origem_texto: typeof parsed.origem_texto === "string" && parsed.origem_texto.trim() ? parsed.origem_texto.trim() : null,
       destino_texto: typeof parsed.destino_texto === "string" && parsed.destino_texto.trim() ? parsed.destino_texto.trim() : null,
       andar_origem: numOuNull(parsed.andar_origem),
@@ -183,7 +186,10 @@ export function formatarConfirmacaoContexto(ctx: ContextoExtraido): string {
     linhas.push(nomeServico[ctx.servico] || `*${ctx.servico}*`);
   }
 
-  if (ctx.itens.length > 0) {
+  // Pra guincho, mostra marca/modelo do veiculo em vez de lista de itens
+  if (ctx.servico === "guincho" && ctx.veiculo_marca_modelo) {
+    linhas.push(`🚗 Veículo: *${ctx.veiculo_marca_modelo}*`);
+  } else if (ctx.itens.length > 0) {
     if (ctx.itens.length <= 6) {
       linhas.push(`📦 Itens: *${ctx.itens.join(", ")}*`);
     } else {

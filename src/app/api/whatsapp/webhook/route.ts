@@ -2883,20 +2883,9 @@ O cliente recebeu mensagem de espera. Acesse o admin pra aprovar ou ajustar.`
     ? `Feriado ${precos.padrao.feriadoNome || ""} - adicional R$ ${precos.padrao.feriado} ja incluido`
     : undefined;
 
-  await sendToClient({
-    to: phone,
-    message: MSG.orcamento(
-      session.origem_endereco || "Origem",
-      session.destino_endereco || "Destino",
-      session.descricao_carga || "Material",
-      veiculoNome[veiculo] || "Utilitario",
-      precoValidado.toString(),
-      obsFeriado,
-      qtdAjudantes,
-    ),
-  });
-
-  // Se ja temos data, manda resumo final completo + opcoes confirmar/corrigir
+  // Se ja temos data + horario salvos (IA capturou na 1a msg), pula MSG.orcamento
+  // (que pediria data) e manda direto o resumoFrete com checklist + 1 SIM / 2 ALTERAR.
+  // Senao, manda orcamento que pede data, e cliente vai pra aguardando_data normal.
   if (temData) {
     const detalhes: string[] = [];
     if (qtdAjudantes > 0) detalhes.push(`🙋 Com ${qtdAjudantes === 1 ? "ajudante" : "2 ajudantes"}`);
@@ -2911,6 +2900,19 @@ O cliente recebeu mensagem de espera. Acesse o admin pra aprovar ou ajustar.`
         veiculoNome[veiculo] || "Utilitario",
         precoValidado.toString(),
         detalhes.join("\n") + (detalhes.length ? "\n" : ""),
+      ),
+    });
+  } else {
+    await sendToClient({
+      to: phone,
+      message: MSG.orcamento(
+        session.origem_endereco || "Origem",
+        session.destino_endereco || "Destino",
+        session.descricao_carga || "Material",
+        veiculoNome[veiculo] || "Utilitario",
+        precoValidado.toString(),
+        obsFeriado,
+        qtdAjudantes,
       ),
     });
   }

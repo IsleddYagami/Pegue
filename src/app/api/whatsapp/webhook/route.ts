@@ -55,7 +55,7 @@ import { uploadFotoPrestador } from "@/lib/storage-prestadores";
 import { gerarSimulacao, formatarMensagemSimulacao, nomeVeiculo as nomeVeiculoAval, type SimulacaoAvaliacao } from "@/lib/simulacao-avaliacao";
 import { criteriosMediaDaSimulacao, invalidarCacheAjustes } from "@/lib/ajustes-precos";
 import { isAdminPhone, isPhoneTeste, getAdminPhones } from "@/lib/admin-auth";
-import { notificarAdmins } from "@/lib/admin-notify";
+import { notificarAdmins, notificarAdminsComClaim } from "@/lib/admin-notify";
 import { extrairContextoInicial, formatarConfirmacaoContexto, type ContextoExtraido } from "@/lib/extrair-contexto";
 import { detectarLinkGoogleMaps, resolverGoogleMapsLink } from "@/lib/google-maps-link";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -612,7 +612,7 @@ export async function POST(req: NextRequest) {
         // 3. Anti-DDoS: limita gasto em caso de cliente malicioso/loop bot
         if (numeroFoto > 15) {
           await updateSession(phoneNumber, { step: "atendimento_humano" });
-          await notificarAdmins(
+          await notificarAdminsComClaim(
             `📦 *CARGA GRANDE — ESPECIALISTA*`,
             phoneNumber,
             `Cliente mandou *${numeroFoto}+ fotos* (limite 15 atingido).\n\nProvavel mudanca grande/complexa. IA Vision parou de processar pra evitar custo desnecessario.\n\n*Itens identificados ate agora:*\n${session.descricao_carga || "-"}\n\n*Como agir:* chamar cliente no WhatsApp pra cotar manual.`
@@ -1395,13 +1395,39 @@ Boa sorte! 🎯`,
     // Cliente em "inicio" (recem-criado, escalado de admin-operacao, ou devolvido
     // por VOLTA IRIS). Antes caia no default e gerava step_desconhecido. Agora
     // reseta pra menu inicial e segue fluxo padrao.
-    case "inicio":
+    //
+    // Edge case prestador: prestador finaliza corrida e fica step=inicio.
+    // Mostrar menu de cliente confunde. Se phone ja eh prestador cadastrado,
+    // resposta neutra que nao puxa fluxo de cliente.
+    case "inicio": {
+      const { data: prestadorExistente } = await supabase
+        .from("prestadores")
+        .select("id,nome,status")
+        .eq("telefone", phone)
+        .maybeSingle();
+
+      if (prestadorExistente && prestadorExistente.status === "aprovado") {
+        // Prestador entre corridas — nao apresenta menu de cliente.
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "prestador_msg_step_inicio",
+            phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+          },
+        });
+        await sendToClient({
+          to: phone,
+          message: `Olá ${(prestadorExistente.nome || "").split(" ")[0] || ""}! 😊 No momento não tem corrida ativa pra voce. Quando aparecer um frete, te aviso aqui.`,
+        });
+        break;
+      }
+
       await updateSession(phone, { step: "aguardando_servico" });
       await sendToClient({
         to: phone,
         message: `Olá! 😊 Aqui é a Íris da Pegue. Como posso te ajudar hoje?\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudança completa*\n3️⃣ *Guincho*\n4️⃣ *Dúvidas frequentes*`,
       });
       break;
+    }
 
     // === ATENDIMENTO HUMANO ===
     // Cliente esta sob atendimento manual do admin. Bot fica COMPLETAMENTE
@@ -1917,7 +1943,9 @@ Pra agilizar, *um especialista da nossa equipe* vai te chamar em poucos minutos 
 Pode aguardar, ele vai cuidar do seu frete com toda atenção. 🙏`,
     });
 
-    await notificarAdmins(`📍 CLIENTE TRAVADO — ATUAR JA`, phone, detalhesAdmin);
+    // Claim: primeiro admin que mandar OK XXXX assume — evita 2 admins
+    // contatarem o mesmo cliente travado em paralelo.
+    await notificarAdminsComClaim(`📍 CLIENTE TRAVADO — ATUAR JA`, phone, detalhesAdmin);
     return;
   }
 
@@ -2739,7 +2767,7 @@ async function handleOutrosPeso(phone: string, message: string) {
       step: "atendimento_humano",
       descricao_carga: descFinal,
     });
-    await notificarAdmins(
+    await notificarAdminsComClaim(
       `📦 *CARGA GRANDE - ESPECIALISTA*`,
       phone,
       `Cliente tem carga acima do nosso maior veiculo (Iveco Daily 2500kg/12m³).\n\nDescricao: ${descFinal}\nVolume total: ${volumeM3.toFixed(2)}m³\nPeso estimado: ${pesoEstimado.toFixed(0)}kg\n\nPrecisa cotar manual ou indicar parceiro com caminhao maior.`
@@ -4991,6 +5019,14 @@ async function notificarAdmin(titulo: string, clientePhone: string, detalhes: st
   await notificarAdmins(titulo, clientePhone, detalhesFormatados);
 }
 
+// Versao com claim — primeiro admin que mandar OK XXXX assume.
+// Use em alertas que CHAMAM acao (atender cliente, resolver dispatch falhou),
+// nao em alertas informativos. Demais admins sao notificados que ja foi assumido.
+async function notificarAdminComClaim(titulo: string, clientePhone: string, detalhes: string) {
+  const detalhesFormatados = `👤 Cliente: ${formatarTelefoneExibicao(clientePhone)}\n📱 wa.me/${clientePhone}\n${detalhes}\n\n⏰ ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`;
+  await notificarAdminsComClaim(titulo, clientePhone, detalhesFormatados);
+}
+
 // === DISPATCH FRETISTAS ===
 
 async function dispararParaFretistas(corridaId: string, session: BotSession, clientePhone: string) {
@@ -5102,7 +5138,7 @@ async function dispararParaFretistas(corridaId: string, session: BotSession, cli
         },
       });
       await sendToClient({ to: clientePhone, message: MSG.nenhumFretista });
-      await notificarAdmin(
+      await notificarAdminComClaim(
         isGuincho ? `⚠️ *NENHUM GUINCHEIRO DISPONIVEL*` : `⚠️ *NENHUM FRETISTA DISPONIVEL*`,
         clientePhone,
         `Corrida: ${corridaId}\nTipo: ${isGuincho ? "GUINCHO" : "FRETE"}\n📅 Data/Horario: ${session.data_agendada || "A combinar"}\nOrigem: ${session.origem_endereco}\nDestino: ${session.destino_endereco}\nValor: R$ ${session.valor_estimado}${detalheFrota}`

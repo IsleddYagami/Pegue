@@ -64,6 +64,18 @@ const REGRAS: RegraAlerta[] = [
     titulo: "🐛 *STEP DESCONHECIDO NO BOT*",
     acao: "Sessao caiu em default do switch. Bug critico. Auditar bot_logs payload->>step pra identificar qual step nao tem case.",
   },
+  {
+    tipo: "dispatch_zero_fretistas_compativeis",
+    threshold: 3,
+    titulo: "🚛 *DISPATCH ZERO FRETISTAS — frota incompativel*",
+    acao: "3+ corridas em 30min cotaram veiculo sem fretista cadastrado/disponivel. Cliente recebeu 'nenhum fretista' e abandonou. Verificar /admin/prestadores: a frota cobre os tipos cotados? Considerar cadastrar fretista do tipo faltante OU revisar sugerirVeiculoPorVolumePeso.",
+  },
+  {
+    tipo: "humano_assumiu_atendimento",
+    threshold: 10,
+    titulo: "👥 *MUITAS ESCALACOES HUMANAS*",
+    acao: "10+ atendimentos em 30min escalaram pra humano (FromMe=true). Pode indicar IA com confianca baixa, fluxo travando, ou pico de demanda. Auditar bot_logs e considerar reforco temporario.",
+  },
 ];
 
 export async function GET(req: NextRequest) {

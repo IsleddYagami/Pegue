@@ -50,6 +50,13 @@ const REGRAS: RegraAuditoria[] = [
     titulo: "📸 *PROVAS_DIGITAIS sem dados ha 7 dias*",
     acao: "Fotos de coleta/entrega nao estao sendo salvas. Verificar handler fretista_coleta_fotos / fretista_entrega_fotos. Pode ser bug de step OU storage.",
   },
+  {
+    tabela: "pagamentos",
+    janela_dias: 7,
+    threshold_minimo: 1,
+    titulo: "💳 *PAGAMENTOS sem dados ha 7 dias*",
+    acao: "Nenhum pagamento confirmado em 7d apesar de ter corridas concluidas. Verificar webhook Asaas + handler de confirmacao. Pode ser sandbox sem confirmacao real.",
+  },
 ];
 
 export async function GET(req: NextRequest) {
@@ -71,6 +78,14 @@ export async function GET(req: NextRequest) {
     .gte("criado_em", inicioJanelaMaior);
 
   const sistemaAtivo = (atividadeLogs || 0) >= 100;
+
+  // Conta corridas CONCLUIDAS na janela. Avaliacoes/pagamentos so fazem sentido
+  // se houver corrida concluida — sem isso, alerta vira falso positivo.
+  const { count: corridasConcluidas7d } = await supabase
+    .from("corridas")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "concluida")
+    .gte("criado_em", inicioJanelaMaior);
 
   if (!sistemaAtivo) {
     return NextResponse.json({
@@ -96,6 +111,20 @@ export async function GET(req: NextRequest) {
     const total = count || 0;
     if (total >= regra.threshold_minimo) {
       resultados.push({ tabela: regra.tabela, count: total, alertou: false, motivo: "ok" });
+      continue;
+    }
+
+    // Avaliacoes/provas_digitais/pagamentos so fazem sentido com corridas
+    // concluidas. Sem corrida concluida na janela, NAO alerta (evita falso
+    // positivo em sistema novo / fase de teste).
+    const dependeDeCorrida = ["avaliacoes", "provas_digitais", "pagamentos"];
+    if (dependeDeCorrida.includes(regra.tabela) && (corridasConcluidas7d || 0) === 0) {
+      resultados.push({
+        tabela: regra.tabela,
+        count: total,
+        alertou: false,
+        motivo: "sem corridas concluidas na janela — nao aplicavel",
+      });
       continue;
     }
 

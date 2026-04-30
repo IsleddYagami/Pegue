@@ -54,7 +54,7 @@ import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
 import { gerarSimulacao, formatarMensagemSimulacao, nomeVeiculo as nomeVeiculoAval, type SimulacaoAvaliacao } from "@/lib/simulacao-avaliacao";
 import { criteriosMediaDaSimulacao, invalidarCacheAjustes } from "@/lib/ajustes-precos";
-import { isAdminPhone, isPhoneTeste } from "@/lib/admin-auth";
+import { isAdminPhone, isPhoneTeste, getAdminPhones } from "@/lib/admin-auth";
 import { notificarAdmins } from "@/lib/admin-notify";
 import { extrairContextoInicial, formatarConfirmacaoContexto, type ContextoExtraido } from "@/lib/extrair-contexto";
 import { detectarLinkGoogleMaps, resolverGoogleMapsLink } from "@/lib/google-maps-link";
@@ -301,6 +301,87 @@ export async function POST(req: NextRequest) {
     // Pre-popula cache de instance pra este phone: garante que sendToClient responda
     // pela mesma instancia que recebeu a mensagem, mesmo antes da session existir no DB
     setInstanceCache(phoneNumber, instance);
+
+    // ========================================================
+    // CLAIM ENTRE ADMINS — admin responde "OK XXXX" pra assumir alerta.
+    // Primeiro admin que mandar codigo valido vence (UPDATE atomico via
+    // .eq('status','pendente')). Demais admins sao avisados que ja foi
+    // assumido. Cliente vai pra step=atendimento_humano (bot silencia).
+    // ========================================================
+    if (isAdminPhone(phoneNumber)) {
+      const matchOk = /^\s*ok\s+([a-z0-9]{4})\s*$/i.exec((message || "").trim());
+      if (matchOk) {
+        const codigo = matchOk[1].toUpperCase();
+        const { data: claim } = await supabase
+          .from("alertas_admin_pendentes")
+          .update({
+            status: "assumido",
+            assumido_por: phoneNumber,
+            assumido_em: new Date().toISOString(),
+          })
+          .eq("codigo", codigo)
+          .eq("status", "pendente")
+          .select("cliente_phone, titulo")
+          .maybeSingle();
+
+        if (!claim) {
+          await sendToClient({
+            to: phoneNumber,
+            message: `❌ Codigo *${codigo}* nao encontrado, ja foi assumido ou expirou.`,
+          });
+          return NextResponse.json({ status: "claim_nao_encontrado" });
+        }
+
+        const clientePhone = (claim as any).cliente_phone || "";
+        const titulo = (claim as any).titulo || "atendimento";
+        const nomeAssumiu = formatarTelefoneExibicao(phoneNumber);
+
+        // Confirma pro admin que assumiu
+        await sendToClient({
+          to: phoneNumber,
+          message: `✅ Voce assumiu *${codigo}* — ${titulo}${clientePhone ? `\n\n📱 Cliente: wa.me/${clientePhone}` : ""}\n\nO bot vai parar de responder. Quando terminar, mande *VOLTA BOT* pro cliente.`,
+        });
+
+        // Avisa demais admins
+        const outros = getAdminPhones().filter((p) => p !== phoneNumber);
+        await Promise.allSettled(
+          outros.map((p) =>
+            sendMessage({
+              to: p,
+              message: `👤 *${nomeAssumiu}* assumiu o alerta *${codigo}*${clientePhone ? ` (cliente ${clientePhone})` : ""}. Voce nao precisa fazer nada.`,
+              instance: 1,
+            }).catch(() =>
+              sendMessage({
+                to: p,
+                message: `👤 *${nomeAssumiu}* assumiu o alerta *${codigo}*${clientePhone ? ` (cliente ${clientePhone})` : ""}.`,
+                instance: 2,
+              }),
+            ),
+          ),
+        );
+
+        // Pausa o bot pro cliente
+        if (clientePhone) {
+          await supabase
+            .from("bot_sessions")
+            .update({
+              step: "atendimento_humano",
+              atualizado_em: new Date().toISOString(),
+            })
+            .eq("phone", clientePhone);
+        }
+
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "claim_admin_assumido",
+            codigo,
+            admin_masked: phoneNumber.replace(/\d(?=\d{4})/g, "*"),
+            cliente_masked: clientePhone.replace(/\d(?=\d{4})/g, "*"),
+          },
+        });
+        return NextResponse.json({ status: "claim_assumido", codigo });
+      }
+    }
 
     // ========================================================
     // MODO MANUTENCAO (toggle /admin/controle)
@@ -1361,22 +1442,30 @@ Boa sorte! 🎯`,
   }
 }
 
+// Envia o video tutorial de como mandar localizacao no WhatsApp + caption.
+// Fallback: se ChatPro falhar (raro), manda so texto. Cliente leigo precisa
+// do guia visual — bug 30/Abr identificou 5 pontos onde fluxo ja avancava
+// pro step "aguardando_localizacao" sem o tutorial, deixando cliente perdido.
+async function enviarTutorialLocalizacao(phone: string, textoFallback?: string) {
+  const caption = textoFallback || MSG.pedirLocalizacao;
+  try {
+    await sendImageToClient({
+      to: phone,
+      url: MSG.TUTORIAL_LOCALIZACAO_URL,
+      caption,
+    });
+  } catch {
+    await sendToClient({ to: phone, message: caption });
+  }
+}
+
 // STEP 0: Escolha do servico
 async function handleEscolhaServico(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
 
   if (lower === "1" || lower.includes("pequeno") || lower.includes("frete")) {
     await updateSession(phone, { step: "aguardando_localizacao" });
-    // Tenta GIF tutorial (mostra visualmente onde clicar). Fallback: texto puro.
-    try {
-      await sendImageToClient({
-        to: phone,
-        url: MSG.TUTORIAL_LOCALIZACAO_URL,
-        caption: MSG.pedirLocalizacao,
-      });
-    } catch {
-      await sendToClient({ to: phone, message: MSG.pedirLocalizacao });
-    }
+    await enviarTutorialLocalizacao(phone);
     return;
   }
 
@@ -1392,15 +1481,7 @@ async function handleEscolhaServico(phone: string, message: string) {
       to: phone,
       message: `📦 *Antes de começar — importante:*\n\n⚠️ Nossos fretistas *não fazem desmontagem/montagem* de móveis.\n\n*Guarda-roupas, camas, beliches, estantes e armários grandes precisam estar DESMONTADOS* antes da coleta.\n\nTambém, se tiver *geladeira*, deixe descongelada e seca 6h antes.\n\n✅ Preparou os móveis? Vamos seguir!`,
     });
-    try {
-      await sendImageToClient({
-        to: phone,
-        url: MSG.TUTORIAL_LOCALIZACAO_URL,
-        caption: MSG.pedirLocalizacao,
-      });
-    } catch {
-      await sendToClient({ to: phone, message: MSG.pedirLocalizacao });
-    }
+    await enviarTutorialLocalizacao(phone);
     return;
   }
 
@@ -2703,10 +2784,10 @@ async function handleConfirmandoOrigem(phone: string, message: string) {
       origem_lat: null,
       origem_lng: null,
     });
-    await sendToClient({
-      to: phone,
-      message: "Sem problema! Me manda o *endereço de retirada correto* 📍\n\nToca no *icone de anexo* (canto inferior direito) > *Localizacao* (mais preciso)\n\nOu digita rua + bairro + cidade.",
-    });
+    await enviarTutorialLocalizacao(
+      phone,
+      "Sem problema! Me manda o *endereço de retirada correto* 📍\n\nToca no *icone de anexo* (canto inferior direito) > *Localizacao* (mais preciso)\n\nOu digita rua + bairro + cidade.",
+    );
     return;
   }
 
@@ -3522,10 +3603,10 @@ async function handleEditandoEscolha(phone: string, message: string, instance: 1
       distancia_km: null,
       valor_estimado: null, // preco vai recalcular
     });
-    await sendToClient({
-      to: phone,
-      message: "Sem problema! Me manda a nova *localização de retirada* 📍\n\nToca no *icone de anexo* (canto inferior direito) > Localização\nOu digite o *CEP* ou *endereço completo com rua e bairro*",
-    });
+    await enviarTutorialLocalizacao(
+      phone,
+      "Sem problema! Me manda a nova *localização de retirada* 📍\n\nToca no *icone de anexo* (canto inferior direito) > Localização\nOu digite o *CEP* ou *endereço completo com rua e bairro*",
+    );
     return;
   }
 
@@ -4161,10 +4242,10 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
     // Fluxo padrao: tem item identificado, pula foto e pede localizacao
     if (session.descricao_carga) {
       await updateSession(phone, { step: "aguardando_localizacao" });
-      await sendToClient({
-        to: phone,
-        message: `Perfeito! Pulei a parte de identificar o material ✅\n\nAgora me manda a *localização de retirada* 📍\n\nToca no *icone de anexo* (canto inferior direito) > Localização\nOu digite o *CEP* ou *endereço completo*`,
-      });
+      await enviarTutorialLocalizacao(
+        phone,
+        `Perfeito! Pulei a parte de identificar o material ✅\n\nAgora me manda a *localização de retirada* 📍\n\nToca no *icone de anexo* (canto inferior direito) > Localização\nOu digite o *CEP* ou *endereço completo*`,
+      );
       return;
     }
 
@@ -4216,10 +4297,10 @@ async function handleConfirmarItensFoto(phone: string, message: string) {
   // 1 - SIM, seguir
   if (lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "confirmar" || lower === "ok" || lower === "seguir" || lower === "correto") {
     await updateSession(phone, { step: "aguardando_localizacao" });
-    await sendToClient({
-      to: phone,
-      message: `Anotado! ✅\n\nAgora me manda a *localização de retirada* 📍\n\nToca no *icone de anexo* (canto inferior direito) > Localização\nOu digite o *CEP* ou *endereço completo com rua e bairro*`,
-    });
+    await enviarTutorialLocalizacao(
+      phone,
+      `Anotado! ✅\n\nAgora me manda a *localização de retirada* 📍\n\nToca no *icone de anexo* (canto inferior direito) > Localização\nOu digite o *CEP* ou *endereço completo com rua e bairro*`,
+    );
     return;
   }
 
@@ -4260,10 +4341,10 @@ async function handleConfirmarItensFoto(phone: string, message: string) {
       descricao_carga: message.trim(),
       veiculo_sugerido: veiculo,
     });
-    await sendToClient({
-      to: phone,
-      message: `Anotado! ✅ *${message.trim()}*\n\nAgora me manda a *localização de retirada* 📍`,
-    });
+    await enviarTutorialLocalizacao(
+      phone,
+      `Anotado! ✅ *${message.trim()}*\n\nAgora me manda a *localização de retirada* 📍`,
+    );
     return;
   }
 

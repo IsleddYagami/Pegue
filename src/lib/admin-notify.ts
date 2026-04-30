@@ -4,6 +4,7 @@
 import { sendMessage } from "@/lib/chatpro";
 import { getAdminPhones } from "@/lib/admin-auth";
 import { sendTelegram } from "@/lib/telegram";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 // Notifica TODOS os admins configurados — WhatsApp E Telegram (em paralelo).
 // Telegram permite som customizado/alta prioridade (configurar no app).
@@ -57,4 +58,51 @@ export async function notificarAdmins(
   }
 
   return enviadosWhatsapp;
+}
+
+// Versao com claim: gera codigo curto, insere alerta na tabela
+// `alertas_admin_pendentes`, e injeta CTA "Responda *OK XXXX* pra assumir."
+// no fim da mensagem. Primeiro admin que responder pelo WhatsApp ganha o
+// claim — os demais sao notificados que ja foi assumido.
+//
+// Use em alertas que CHAMAM acao (escalacao humana, dispatch falhou,
+// dispute, etc), nao em alertas informativos (logs, metricas).
+const ALPHABET_CLAIM = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // sem 0/O/1/I/L
+function gerarCodigoClaim(): string {
+  let s = "";
+  for (let i = 0; i < 4; i++) s += ALPHABET_CLAIM[Math.floor(Math.random() * ALPHABET_CLAIM.length)];
+  return s;
+}
+
+export async function notificarAdminsComClaim(
+  titulo: string,
+  clientePhone: string,
+  detalhes: string,
+): Promise<{ enviados: number; codigo: string | null }> {
+  // Gera codigo unico (3 tentativas no caso muito improvavel de colisao)
+  let codigo: string | null = null;
+  for (let i = 0; i < 3; i++) {
+    const tentativa = gerarCodigoClaim();
+    const { error } = await supabase.from("alertas_admin_pendentes").insert({
+      codigo: tentativa,
+      cliente_phone: clientePhone,
+      titulo,
+      detalhes,
+      status: "pendente",
+    });
+    if (!error) {
+      codigo = tentativa;
+      break;
+    }
+    if (!error || !String(error.message).includes("duplicate")) break;
+  }
+
+  // Mesmo se claim nao deu pra gravar (tabela inexistente em dev), envia
+  // alerta normal — UX nao degrada, so perde feature de claim.
+  const detalhesComClaim = codigo
+    ? `${detalhes}\n\n_Responda *OK ${codigo}* pra assumir o atendimento. Os outros admins serao avisados._`
+    : detalhes;
+
+  const enviados = await notificarAdmins(titulo, clientePhone, detalhesComClaim);
+  return { enviados, codigo };
 }

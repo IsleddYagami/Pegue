@@ -231,6 +231,9 @@ Pode enviar tudo junto ou um de cada vez:
 • *amanha 14:30*
 • *segunda 9h*`,
 
+  // Mensagem ENXUTA pos-cotacao. So dados + valor + 1/2.
+  // Os protocolos longos (checklist, avisos, termos pagamento) vao DEPOIS,
+  // quando cliente confirmar — pra nao sobrecarregar leitura inicial.
   resumoFrete: (
     origem: string,
     destino: string,
@@ -252,25 +255,10 @@ ${detalhes}
 
 ━━━━━━━━━━━━━━━━
 
-🛑 *ANTES DE CONFIRMAR — CONFIRA:*
+*Está tudo certo?*
 
-□ Quer *adicionar mais algum item* que tenha esquecido?
-□ *Endereços* de retirada e entrega estão corretos?
-□ *Data e horário* estão certos?
-□ *Fretista NÃO faz montagem e desmontagem* — confira se não há essa necessidade
-□ Se escolheu *elevador*, certifique-se que *todos os itens caibam* — divergência no dia pode gerar *custos adicionais*
-□ *Esteja pronto no horário marcado* — fretista tem outros trabalhos agendados. *Atrasos acima de 1 hora podem gerar custo adicional*
-
-━━━━━━━━━━━━━━━━
-
-⚠️ *IMPORTANTE — leia com atenção:*
-
-🔸 *Itens fora da lista*: por segurança, fretista *não pode transportar*. Pra incluir mais, será necessária *nova cotação*.
-
-━━━━━━━━━━━━━━━━
-
-1️⃣ ✅ *SIM* - Conferi tudo, confirmar!
-2️⃣ ✏️ *ALTERAR* - Quero corrigir ou adicionar algo`,
+1️⃣ ✅ *SIM* - confirmar
+2️⃣ ✏️ *ALTERAR* - corrigir ou adicionar algo`,
 
   freteRecebido: `Ok! Um momento, estamos preparando sua reserva 😊
 
@@ -281,32 +269,36 @@ Logo ja sera confirmado!`,
   // a entrega. Se NAO aceita os termos, dispatch nao acontece (nao perturba
   // fretista atoa). Comparacao com Mercado Livre pra cliente assimilar rapido.
   aceiteTermosPagamento: (valor: string) =>
-    `📋 *ANTES de chamar o fretista, importante saber:*
+    `🛑 *PROTOCOLOS DO SERVIÇO — confira antes:*
 
-🔒 *PAGAMENTO 100% PROTEGIDO — mesmo sistema do Mercado Livre*
+□ *Endereços* de retirada e entrega estão corretos?
+□ *Data e horário* estão certos?
+□ *Fretista NÃO faz montagem/desmontagem* — móveis grandes precisam estar desmontados
+□ Se escolheu *elevador*, confira se *todos os itens cabem* — divergência no dia gera *custo adicional*
+□ *Esteja pronto no horário marcado* — *atrasos acima de 1h podem gerar custo adicional*
+□ *Itens fora da lista* o fretista *não pode levar* — pra incluir mais, *nova cotação*
 
 ━━━━━━━━━━━━━━━━
+
+🔒 *PAGAMENTO 100% PROTEGIDO* (mesmo sistema do Mercado Livre)
 
 💰 Valor: *R$ ${valor}*
 
-✅ Você paga via Pix ou cartão
-✅ O dinheiro fica *RETIDO* (Pegue / Mercado Pago)
-✅ *NUNCA vai direto pro fretista*
-✅ O fretista só recebe *DEPOIS* que o serviço terminar *E* você confirmar o recebimento
+✅ Pix ou cartão
+✅ Dinheiro fica *RETIDO* (Pegue / Mercado Pago) — *NUNCA* vai direto pro fretista
+✅ Fretista só recebe *DEPOIS* que você confirmar a entrega
 
-━━━━━━━━━━━━━━━━
-
-🛡️ *PROTEÇÃO TOTAL:*
+🛡️ *Proteção total:*
 • Fretista nao apareceu = *reembolso 100%*
-• Item danificado = disputa mediada pela Pegue
-• Servico diferente do contratado = reembolso
+• Item danificado = disputa mediada
+• Serviço diferente = reembolso
 
 ━━━━━━━━━━━━━━━━
 
-*Aceita os termos pra prosseguir?*
+*Aceita os protocolos e os termos pra prosseguir?*
 
 1️⃣ ✅ *SIM, aceito* - Chamar fretista agora
-2️⃣ ❌ *NAO, cancelar* - Desistir do frete`,
+2️⃣ ❌ *NÃO* - Cancelar`,
 
   // Mensagem APOS fretista PEGAR + termos JA aceitos antes.
   // PARTE 1 (PIX): mensagem com explicacao do PIX + seguranca + URL QR.

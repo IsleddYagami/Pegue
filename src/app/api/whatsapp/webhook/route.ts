@@ -209,42 +209,58 @@ export async function POST(req: NextRequest) {
           lowerMsg === "volta iris" || lowerMsg === "/volta iris" || lowerMsg.startsWith("volta iris ") ||
           lowerMsg === "volta bot" || lowerMsg === "/volta bot" || lowerMsg.startsWith("volta bot ");
 
-        if (ehVoltaBot) {
-          // Devolve cliente pro fluxo do bot (case "inicio" reapresenta o menu).
+        // Se cliente eh novo (admin escreveu primeiro, sem session existente),
+        // CRIA session com step apropriado. Se ja existe, ATUALIZA preservando
+        // criado_em original. Sem isso, UPDATE puro silenciava-se em no-op
+        // e a proxima msg do cliente caia no fluxo padrao (bot atropelava admin).
+        const novoStep = ehVoltaBot ? "inicio" : "atendimento_humano";
+        const agora = new Date().toISOString();
+        const { data: sessaoExistente } = await supabase
+          .from("bot_sessions")
+          .select("phone")
+          .eq("phone", destinatario)
+          .maybeSingle();
+
+        if (sessaoExistente) {
           await supabase
             .from("bot_sessions")
             .update({
-              step: "inicio",
-              silenciado_ate: null,
-              atualizado_em: new Date().toISOString(),
+              step: novoStep,
+              ...(ehVoltaBot ? { silenciado_ate: null } : {}),
+              atualizado_em: agora,
             })
             .eq("phone", destinatario);
-          await supabase.from("bot_logs").insert({
-            payload: {
-              tipo: "humano_devolveu_bot",
-              cliente_masked: destinatario.replace(/\d(?=\d{4})/g, "*"),
-            },
-          });
         } else {
-          await supabase
-            .from("bot_sessions")
-            .update({
-              step: "atendimento_humano",
-              atualizado_em: new Date().toISOString(),
-            })
-            .eq("phone", destinatario);
-          await supabase.from("bot_logs").insert({
-            payload: {
-              tipo: "humano_assumiu_atendimento",
-              cliente_masked: destinatario.replace(/\d(?=\d{4})/g, "*"),
-            },
+          await supabase.from("bot_sessions").insert({
+            phone: destinatario,
+            step: novoStep,
+            instance_chatpro: instance,
+            criado_em: agora,
+            atualizado_em: agora,
           });
         }
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: ehVoltaBot ? "humano_devolveu_bot" : "humano_assumiu_atendimento",
+            cliente_masked: destinatario.replace(/\d(?=\d{4})/g, "*"),
+          },
+        });
       }
       return NextResponse.json({ status: "fromme_handled" });
     }
 
     if (isGroup || isLid || !from) {
+      // Loga somente @lid (grupo ja tem trafego conhecido / sem from = vazio).
+      // @lid eh sinal de contato anonimizado pelo WhatsApp - vale rastrear pra
+      // detectar volume e ajustar estrategia se virar comum.
+      if (isLid) {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "ignorado_jid_lid",
+            from_masked: from.replace(/\d(?=\d{4})/g, "*"),
+          },
+        });
+      }
       return NextResponse.json({ status: "ignored" });
     }
 

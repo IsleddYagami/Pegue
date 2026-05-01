@@ -170,6 +170,32 @@ export async function POST(req: NextRequest) {
             .eq("payment_id", paymentId);
           return NextResponse.json({ status: "ja_processado" });
         }
+        // BUG #BATCH5-5 (re-audit 1/Mai/2026): paridade com Asaas webhook
+        // (BUG #F2-3). Antes corrida cancelada/expirada virava "paga" se
+        // MP processasse pagamento tardio. Agora bloqueia + notifica admin.
+        const statusBloqueadores = ["cancelada", "cancelada_admin", "expirada", "recusada", "atribuida_outra"];
+        if (statusBloqueadores.includes(corrida.status)) {
+          await supabase
+            .from("webhooks_mp_processados")
+            .update({ resultado: `ignorado_status_${corrida.status}` })
+            .eq("payment_id", paymentId);
+          await supabase.from("bot_logs").insert({
+            payload: {
+              tipo: "mp_pagamento_em_corrida_terminada",
+              corrida_id: corridaId,
+              status_atual: corrida.status,
+              mp_payment_id: paymentId,
+              valor: pgto.valor,
+            },
+          });
+          const { notificarAdmins } = await import("@/lib/admin-notify");
+          await notificarAdmins(
+            `🚨 *PAGAMENTO MP RECEBIDO EM CORRIDA ${corrida.status.toUpperCase()}*`,
+            "sistema",
+            `Corrida ${corridaId} status "${corrida.status}" mas MP reportou pagamento.\n\nMP ID: ${paymentId}\nValor: R$ ${pgto.valor}\n\n👉 Reembolsar manualmente no Mercado Pago.`
+          );
+          return NextResponse.json({ status: "ignorado_status_terminal" });
+        }
 
         await supabase
           .from("corridas")

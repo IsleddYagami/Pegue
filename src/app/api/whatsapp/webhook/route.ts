@@ -7388,9 +7388,17 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
 
     const codigo = `PG${Date.now().toString(36).toUpperCase()}`;
 
-    // Verifica se existe credito pendente de corrida anterior (fluxo adicionar itens grandes)
+    // Verifica se existe credito pendente de corrida anterior (fluxo adicionar itens grandes).
+    //
+    // BUG #BATCH4-3 (re-audit 1/Mai/2026): antes, o log era marcado como
+    // "_aplicado" ANTES da corrida ser inserida. Se o insert falhasse (ex:
+    // erro de banco, constraint violation, supabase down), o credito ficava
+    // perdido — o log estava marcado como aplicado mas nenhuma corrida usou.
+    // Agora o credito so eh marcado como aplicado APOS sucesso do insert.
     let creditoAnterior = 0;
     let corridaAnteriorId: string | null = null;
+    let logCreditoIdParaAplicar: string | null = null;
+    let logCreditoPayload: any = null;
     const { data: logCredito } = await supabase
       .from("bot_logs")
       .select("id, payload")
@@ -7402,11 +7410,9 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
       const p = logCredito[0].payload as any;
       creditoAnterior = Number(p?.credito_anterior || 0);
       corridaAnteriorId = p?.corrida_anterior_id || null;
-      // Marca o log como aplicado (muda tipo pra nao reutilizar)
-      await supabase
-        .from("bot_logs")
-        .update({ payload: { ...p, tipo: "credito_corrida_anterior_aplicado", aplicado_em: new Date().toISOString() } })
-        .eq("id", logCredito[0].id);
+      // Guarda referencia pra marcar como aplicado SO depois do insert OK.
+      logCreditoIdParaAplicar = logCredito[0].id;
+      logCreditoPayload = p;
     }
 
     const valorBruto = Number(session.valor_estimado || 0);
@@ -7494,7 +7500,23 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
     if (errCorrida) {
       await supabase.from("bot_logs").insert({ payload: { debug: "erro_criar_corrida", error: errCorrida.message, code: errCorrida.code } });
       await notificarAdmin(`🚨 *ERRO AO SALVAR CORRIDA (insert)*`, session.phone, `Erro: ${errCorrida.message}\nCodigo: ${errCorrida.code}\n${contextoErro}`);
+      // Credito NAO eh marcado como aplicado — fica disponivel pra proxima tentativa.
       return null;
+    }
+
+    // Insert OK — agora sim marca o log de credito como aplicado.
+    if (logCreditoIdParaAplicar && logCreditoPayload) {
+      await supabase
+        .from("bot_logs")
+        .update({
+          payload: {
+            ...logCreditoPayload,
+            tipo: "credito_corrida_anterior_aplicado",
+            aplicado_em: new Date().toISOString(),
+            aplicado_em_corrida: corrida?.id,
+          },
+        })
+        .eq("id", logCreditoIdParaAplicar);
     }
 
     return corrida?.id || null;

@@ -6544,17 +6544,37 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
 
   if (lower === "1" || lower.startsWith("sim") || lower === "s") {
-    await updateSession(phone, { step: "avaliacao_atendimento" });
-    await sendToClient({ to: phone, message: MSG.clienteConfirmouEntrega });
-
-    await supabase
+    // BUG #F4-4 (audit 1/Mai/2026): idempotencia atomica. Antes, se cliente
+    // respondesse "1" 2x rapido OU se houvesse retries do webhook, todo o
+    // bloco de repasse PIX rodava 2x (fretista recebia DUPLO PIX). Agora UPDATE
+    // condicional: so segue se status NAO era concluida. Postgres garante
+    // exclusividade.
+    const { data: corridaAtomica } = await supabase
       .from("corridas")
       .update({
         status: "concluida",
         entrega_em: new Date().toISOString(),
         rastreio_ativo: false,
       })
-      .eq("id", session.corrida_id);
+      .eq("id", session.corrida_id)
+      .neq("status", "concluida")
+      .select("id");
+
+    if (!corridaAtomica || corridaAtomica.length === 0) {
+      // Outro processo ja concluiu essa corrida — nao processar repasse de novo.
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "confirmacao_entrega_duplicada_ignorada",
+          corrida_id: session.corrida_id,
+          phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+        },
+      });
+      await updateSession(phone, { step: "avaliacao_atendimento" });
+      return;
+    }
+
+    await updateSession(phone, { step: "avaliacao_atendimento" });
+    await sendToClient({ to: phone, message: MSG.clienteConfirmouEntrega });
 
     // Verifica se e primeiro frete concluido — envia mensagem especial
     const { data: clienteData } = await supabase
@@ -6797,6 +6817,24 @@ async function handleFretistFotos(phone: string, message: string, tipo: "coleta"
   const lower = message.toLowerCase().trim();
 
   if (lower === "pronto") {
+    // BUG #F4-7 (audit 1/Mai/2026): antes aceitava PRONTO sem foto, violando
+    // o protocolo "Sem fotos = pagamento BLOQUEADO". Conta provas digitais
+    // ja salvas pra essa corrida + tipo. Exige minimo 1 antes de avancar.
+    const sessionCheck = await getSession(phone);
+    if (sessionCheck?.corrida_id) {
+      const { count: qtdProvas } = await supabase
+        .from("provas_digitais")
+        .select("id", { count: "exact", head: true })
+        .eq("corrida_id", sessionCheck.corrida_id)
+        .eq("tipo", tipo);
+      if (!qtdProvas || qtdProvas === 0) {
+        await sendToClient({
+          to: phone,
+          message: `📸 Voce ainda nao mandou nenhuma foto da ${tipo}.\n\n*Sem fotos, pagamento fica BLOQUEADO.* Manda pelo menos 1 foto antes de digitar PRONTO.`,
+        });
+        return;
+      }
+    }
     if (tipo === "coleta") {
       // NOVO 29/Abr (auditoria E2E): apos PRONTO coleta, AGUARDA cliente
       // confirmar antes de liberar fretista. Anti-fraude. Timeout 10min

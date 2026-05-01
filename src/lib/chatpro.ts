@@ -32,10 +32,22 @@ function getConfig(instance: 1 | 2 = 1) {
   return { endpoint: CHATPRO_ENDPOINT, token: CHATPRO_TOKEN };
 }
 
+// Helper: fetch com timeout (15s). Audit re-pass 1/Mai/2026.
+// Sem timeout, ChatPro lento trava webhook ate 60s -> retry duplica mensagens.
+async function fetchComTimeout(url: string, init: RequestInit, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function sendMessage({ to, message, instance }: SendMessageOptions) {
   const { endpoint, token } = getConfig(instance);
 
-  const response = await fetch(`${endpoint}/api/v1/send_message`, {
+  const response = await fetchComTimeout(`${endpoint}/api/v1/send_message`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -62,7 +74,7 @@ export async function sendImage({ to, url, caption, instance }: SendImageOptions
   // Endpoint correto descoberto em 25/Abr: ChatPro usa send_message_file_from_url
   // pra qualquer media (imagem, video, doc). Antes estavamos usando /api/v1/send_image
   // que retorna 404. Doc: https://chatpro.readme.io/reference/send_message_file_from_url
-  const response = await fetch(`${endpoint}/api/v1/send_message_file_from_url`, {
+  const response = await fetchComTimeout(`${endpoint}/api/v1/send_message_file_from_url`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

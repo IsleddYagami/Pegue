@@ -37,6 +37,11 @@ async function asaasFetch<T = any>(
   }
 
   try {
+    // Timeout 15s. Sem isso, se Asaas estiver lento, todo o webhook do bot
+    // trava ate maxDuration (60s). Com timeout, falha rapido + caller decide
+    // (retry, fallback manual, etc). Audit re-pass 1/Mai/2026.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     const r = await fetch(`${BASE_URL}${path}`, {
       method,
       headers: {
@@ -45,7 +50,8 @@ async function asaasFetch<T = any>(
         "User-Agent": "PegueMarketplace/1.0",
       },
       body: body ? JSON.stringify(body) : undefined,
-    });
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeoutId));
 
     const text = await r.text();
     let data: any = null;

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     // Busca fretes confirmados (aceitos ou pagos) que ainda nao foram realizados
     const { data: corridas } = await supabase
       .from("corridas")
-      .select("id, periodo, prestador_id, prestadores(telefone, nome), cliente_id, clientes(telefone), origem_endereco, destino_endereco, valor_prestador, urgencia, status")
+      .select("id, periodo, prestador_id, prestadores(telefone, nome), cliente_id, clientes(telefone), origem_endereco, destino_endereco, valor_prestador, urgencia, status, criado_em")
       .in("status", ["aceita", "paga"])
       .not("prestador_id", "is", null);
 
@@ -29,10 +29,45 @@ export async function GET(req: NextRequest) {
 
     let lembreteEnviados = 0;
 
+    // BUG #BATCH3-1 (re-audit 1/Mai/2026): antes, cada execucao do cron
+    // (a cada 10min) avancava o estado de urgencia de cada corrida sem
+    // verificar tempo real. Resultado: em 30min o fretista recebia 3
+    // lembretes "2h/1h/40min" + ABANDONO, mesmo que a corrida fosse pra
+    // dali 2 dias. Agora: guard temporal de 30min entre transicoes via
+    // bot_logs, e skip se a corrida foi criada ha menos de 4h (ainda
+    // longe demais pra mandar lembrete progressivo).
+    const MIN_INTERVALO_LEMBRETE_MS = 30 * 60 * 1000; // 30min
+    const MIN_IDADE_CORRIDA_MS = 4 * 60 * 60 * 1000; // 4h
+    const agora = Date.now();
+
+    async function podeAvancarLembrete(corridaId: string): Promise<boolean> {
+      const { data: ultimoLog } = await supabase
+        .from("bot_logs")
+        .select("criado_em")
+        .filter("payload->>tipo", "eq", "lembrete_fretista_enviado")
+        .filter("payload->>corrida_id", "eq", corridaId)
+        .order("criado_em", { ascending: false })
+        .limit(1);
+      if (!ultimoLog || ultimoLog.length === 0) return true;
+      const ultimo = new Date(ultimoLog[0].criado_em).getTime();
+      return (agora - ultimo) >= MIN_INTERVALO_LEMBRETE_MS;
+    }
+
+    async function logLembreteEnviado(corridaId: string, fase: string) {
+      await supabase.from("bot_logs").insert({
+        payload: { tipo: "lembrete_fretista_enviado", corrida_id: corridaId, fase },
+      });
+    }
+
     for (const corrida of corridas) {
       const fretistaTel = (corrida.prestadores as any)?.telefone;
       const clienteTel = (corrida.clientes as any)?.telefone;
       if (!fretistaTel) continue;
+
+      // Skip corridas muito recentes (ainda longe da data prevista, lembrete 2h
+      // antes da data nao se aplica; defensivo enquanto nao parseia data real).
+      const idadeMs = agora - new Date(corrida.criado_em || agora).getTime();
+      if (idadeMs < MIN_IDADE_CORRIDA_MS) continue;
 
       // Tenta extrair data/hora do campo periodo (formato: "15/04 - Tarde (13:00 - 17:00)")
       const periodoStr = corrida.periodo || "";
@@ -40,6 +75,10 @@ export async function GET(req: NextRequest) {
 
       // Verifica o estado do lembrete
       const urgencia = corrida.urgencia || "";
+
+      // Guard temporal: nao avanca urgencia se ultimo lembrete foi <30min atras.
+      const podeAvancar = await podeAvancarLembrete(corrida.id);
+      if (!podeAvancar) continue;
 
       // Lembrete 1: 2h antes (ou se nao tem parse de data, envia se nao enviou ainda)
       if (!urgencia || urgencia === "lembrete_agendado") {
@@ -49,6 +88,7 @@ export async function GET(req: NextRequest) {
           to: fretistaTel,
           message: `📋 *Lembrete de frete!*\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${periodoStr}\n💰 R$ ${corrida.valor_prestador}\n\nTudo certo pra hoje? Confirme com *SIM* ✅`,
         });
+        await logLembreteEnviado(corrida.id, "2h");
         lembreteEnviados++;
       }
       // Lembrete 2: 1h antes
@@ -60,6 +100,7 @@ export async function GET(req: NextRequest) {
           to: fretistaTel,
           message: `⚠️ *LEMBRETE: Frete em breve!*\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${periodoStr}\n\nPor favor confirme com *SIM* que esta a caminho!`,
         });
+        await logLembreteEnviado(corrida.id, "1h");
         lembreteEnviados++;
       }
       // Lembrete 3: 40min antes (ultimo aviso)
@@ -70,6 +111,7 @@ export async function GET(req: NextRequest) {
           to: fretistaTel,
           message: `🚨 *URGENTE: Confirme AGORA!*\n\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${periodoStr}\n\n⚠️ Se nao confirmar, o frete sera *redistribuido* para outro parceiro.\n\nResponda *SIM* pra confirmar!`,
         });
+        await logLembreteEnviado(corrida.id, "40min");
         lembreteEnviados++;
       }
       // Fretista nao respondeu apos 3 lembretes - ABANDONO
@@ -122,6 +164,7 @@ export async function GET(req: NextRequest) {
           `👤 Fretista: ${(corrida.prestadores as any)?.nome} (${fretistaTel})\n📍 ${corrida.origem_endereco} → ${corrida.destino_endereco}\n📅 ${periodoStr}\nStatus: ${corrida.status === "paga" ? "PAGAMENTO JA FEITO - conta desativada" : "Re-dispatch em andamento"}\n\n⏰ ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
         );
 
+        await logLembreteEnviado(corrida.id, "abandono");
         lembreteEnviados++;
       }
     }

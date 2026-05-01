@@ -1390,6 +1390,9 @@ Boa sorte! 🎯`,
     case "cadastro_selfie":
       await sendToClient({ to: phone, message: MSG.cadastroSelfie });
       break;
+    case "cadastro_foto_documento":
+      await sendToClient({ to: phone, message: MSG.cadastroFotoDocumento });
+      break;
     case "cadastro_foto_placa":
       await sendToClient({ to: phone, message: MSG.cadastroFotoPlaca });
       break;
@@ -5559,22 +5562,35 @@ async function handleCadastroEmail(phone: string, message: string) {
 }
 
 async function handleCadastroPlaca(phone: string, message: string) {
-  if (message.length < 5) {
-    await sendToClient({ to: phone, message: "Me passa a placa do veiculo, por favor 😊" });
+  // BUG #4 (audit 1/Mai/2026): antes aceitava qualquer texto >=5 chars.
+  // Agora valida formato real (Mercosul ABC1D23 ou antigo ABC1234).
+  const { isPlacaValida, normalizarPlaca } = await import("@/lib/validators-cadastro");
+  if (!isPlacaValida(message)) {
+    await sendToClient({
+      to: phone,
+      message: "Placa invalida 😕\n\nEnvia no formato *ABC1234* (antigo) ou *ABC1D23* (Mercosul). So letras e numeros, 7 caracteres no total.",
+    });
     return;
   }
-  await updateSession(phone, { step: "cadastro_chave_pix", periodo: message.toUpperCase() });
+  await updateSession(phone, { step: "cadastro_chave_pix", periodo: normalizarPlaca(message) });
   await sendToClient({ to: phone, message: MSG.cadastroChavePix });
 }
 
 async function handleCadastroChavePix(phone: string, message: string) {
-  if (message.length < 5) {
-    await sendToClient({ to: phone, message: "Me passa sua chave Pix (CPF, email, telefone ou chave aleatoria) 😊" });
+  // BUG #5 (audit 1/Mai/2026): antes aceitava qualquer texto >=5 chars.
+  // Agora valida formato real (CPF/CNPJ/email/celular/UUID).
+  const { validarChavePix } = await import("@/lib/validators-cadastro");
+  const pix = validarChavePix(message);
+  if (!pix) {
+    await sendToClient({
+      to: phone,
+      message: "Chave Pix invalida 😕\n\nEnvia uma das opcoes:\n• *CPF* (so numeros, 11 digitos)\n• *CNPJ* (so numeros, 14 digitos)\n• *Email* (ex: voce@email.com)\n• *Celular* com DDI (ex: +5511999999999)\n• *Chave aleatoria* (UUID)",
+    });
     return;
   }
-  // Salva chave Pix no bot_logs (sera usada no pagamento)
+  // Salva chave Pix no bot_logs (sera usada no pagamento). Salva o valor normalizado.
   await supabase.from("bot_logs").insert({
-    payload: { tipo: "chave_pix_prestador", phone, chave_pix: message.trim() },
+    payload: { tipo: "chave_pix_prestador", phone, chave_pix: pix.valor, tipo_pix: pix.tipo },
   });
   await updateSession(phone, { step: "cadastro_tipo_veiculo" });
   await sendToClient({ to: phone, message: MSG.cadastroTipoVeiculo });
@@ -5671,6 +5687,9 @@ async function handleCadastroTermos(phone: string, message: string) {
   }
   const fotoPlacaUrl = await buscarFotoUpload("foto_cadastro_placa");
   const fotoVeiculoUrl = await buscarFotoUpload("foto_cadastro_veiculo");
+  // BUG #2 (audit 1/Mai/2026): foto do documento era coletada e subida ao
+  // Storage mas nunca persistida. Agora busca o log e salva no prestador.
+  const fotoDocumentoUrl = await buscarFotoUpload("foto_cadastro_documento");
 
   // Busca chave Pix do bot_logs (salvo em handleCadastroChavePix)
   const { data: pixLog } = await supabase
@@ -5689,6 +5708,7 @@ async function handleCadastroTermos(phone: string, message: string) {
     email,
     chave_pix: chavePix,
     selfie_url: selfieUrl,
+    foto_documento_url: fotoDocumentoUrl || null,
     foto_placa_url: fotoPlacaUrl,
     foto_veiculo_url: fotoVeiculoUrl,
     status: "pendente",
@@ -5763,7 +5783,11 @@ Possiveis causas:
           prestador_id: prestador.id,
           tipo: tipoVeiculo,
           placa: placaUpper,
-          foto_url: selfieUrl,
+          // BUG #3 (audit 1/Mai/2026): salvava selfieUrl como foto_url do
+          // veiculo. foto_url da tabela prestadores_veiculos eh do veiculo,
+          // nao do prestador. Trocado pra fotoVeiculoUrl com fallback pra
+          // foto da placa se a do veiculo nao subiu.
+          foto_url: fotoVeiculoUrl || fotoPlacaUrl || null,
           ativo: !placaDuplicada, // se duplicada, fica inativa ate admin validar
         },
       });
@@ -5777,6 +5801,7 @@ Possiveis causas:
         chavePix: chavePix,
         tipoVeiculo, placa,
         selfieUrl: selfieUrl || null,
+        fotoDocumentoUrl: fotoDocumentoUrl || null,
         fotoPlacaUrl: fotoPlacaUrl || null,
         fotoVeiculoUrl: fotoVeiculoUrl || null,
         dataAceite: dataHoraAceite,

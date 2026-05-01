@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { uploadFotoPrestadorBuffer } from "@/lib/storage-prestadores";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -92,15 +93,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Erro ao atualizar prestador: ${errUpdate.message}` }, { status: 500 });
     }
 
-    // Busca dados completos pra email de arquivamento
+    // Busca dados completos pra email de arquivamento.
+    // Audit 1/Mai/2026: corrigido typo "prestador_veiculos" -> "prestadores_veiculos"
+    // (estava puxando undefined silenciosamente, email saia sem tipo/placa).
     try {
       const { data: completo } = await supabase
         .from("prestadores")
-        .select("nome, telefone, cpf, email, chave_pix, prestador_veiculos(tipo, placa)")
+        .select("nome, telefone, cpf, email, chave_pix, prestadores_veiculos(tipo, placa)")
         .eq("id", prestador.id)
         .single();
       if (completo) {
-        const veic = (completo as any).prestador_veiculos?.[0] || {};
+        const veic = (completo as any).prestadores_veiculos?.[0] || {};
         const { enviarEmailCadastroPrestador } = await import("@/lib/email");
         await enviarEmailCadastroPrestador({
           nome: completo.nome,
@@ -130,27 +133,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// Audit 1/Mai/2026: refatorado pra usar uploadFotoPrestadorBuffer (centraliza logica)
+// e retornar PATH em vez de getPublicUrl (bucket esta privado — URL publica nao funciona).
+// Quem precisar exibir/anexar deve chamar getFotoPrestadorSignedUrl(path).
 async function uploadFile(file: File, phone: string, tipo: "selfie" | "placa" | "veiculo"): Promise<string | null> {
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const contentType = file.type || "image/jpeg";
-    let ext = "jpg";
-    if (contentType.includes("png")) ext = "png";
-    else if (contentType.includes("webp")) ext = "webp";
-
-    const path = `${phone}/${tipo}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage
-      .from("prestadores-docs")
-      .upload(path, buffer, { contentType, upsert: false });
-    if (error) {
-      console.error(`Erro upload ${tipo}:`, error.message);
-      return null;
-    }
-    const { data } = supabase.storage.from("prestadores-docs").getPublicUrl(path);
-    return data?.publicUrl || null;
-  } catch (e: any) {
-    console.error(`Excecao upload ${tipo}:`, e?.message);
-    return null;
-  }
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const contentType = file.type || "image/jpeg";
+  return uploadFotoPrestadorBuffer(buffer, contentType, phone, tipo);
 }

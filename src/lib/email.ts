@@ -59,6 +59,7 @@ export async function enviarEmailCadastroPrestador(dados: {
   tipoVeiculo: string;
   placa: string;
   selfieUrl?: string | null;
+  fotoDocumentoUrl?: string | null;
   fotoPlacaUrl?: string | null;
   fotoVeiculoUrl?: string | null;
   dataAceite?: string;
@@ -69,15 +70,20 @@ export async function enviarEmailCadastroPrestador(dados: {
     // pra suportar bucket privado. Antes de baixar pra anexar, gera signed URL
     // (TTL 7d). Compat: se vier URL legada (http*), getFotoPrestadorSignedUrl
     // retorna ela mesma sem tocar.
+    //
+    // Audit 1/Mai: foto_documento_url incluida (era coletada mas nao chegava
+    // no email — prova juridica do RG/CNH ficava de fora do arquivo).
     const { getFotoPrestadorSignedUrl } = await import("@/lib/storage-prestadores");
-    const [selfieSigned, placaSigned, veiculoSigned] = await Promise.all([
+    const [selfieSigned, documentoSigned, placaSigned, veiculoSigned] = await Promise.all([
       getFotoPrestadorSignedUrl(dados.selfieUrl || null),
+      getFotoPrestadorSignedUrl(dados.fotoDocumentoUrl || null),
       getFotoPrestadorSignedUrl(dados.fotoPlacaUrl || null),
       getFotoPrestadorSignedUrl(dados.fotoVeiculoUrl || null),
     ]);
 
     const anexos = (await Promise.all([
       baixarComoAnexo(selfieSigned, `selfie-${dados.telefone}.jpg`),
+      baixarComoAnexo(documentoSigned, `documento-${dados.telefone}.jpg`),
       baixarComoAnexo(placaSigned, `placa-${dados.telefone}.jpg`),
       baixarComoAnexo(veiculoSigned, `veiculo-${dados.telefone}.jpg`),
     ])).filter(Boolean) as Array<{ filename: string; content: Buffer }>;
@@ -97,10 +103,11 @@ ${tabela({
   "Data/Hora do aceite": dados.dataAceite || new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
 })}
 <p style="margin-top:20px;color:#666;font-size:13px;">
-As fotos (selfie com documento, placa, veiculo) estao anexadas neste email e tambem salvas no Supabase Storage.
+As fotos (selfie com documento, documento aberto, placa, veiculo) estao anexadas neste email e tambem salvas no Supabase Storage.
 </p>
-${dados.selfieUrl ? `<p style="font-size:12px;color:#999;">Links permanentes:<br>
+${dados.selfieUrl ? `<p style="font-size:12px;color:#999;">Paths internos (use signed URL pra acessar):<br>
 Selfie: ${dados.selfieUrl}<br>
+Documento: ${dados.fotoDocumentoUrl || "-"}<br>
 Placa: ${dados.fotoPlacaUrl || "-"}<br>
 Veiculo: ${dados.fotoVeiculoUrl || "-"}</p>` : ""}
 `;

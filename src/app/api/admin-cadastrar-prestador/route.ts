@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { requireAdminAuth } from "@/lib/admin-auth";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
+import { isPlacaValida, normalizarPlaca, validarChavePix } from "@/lib/validators-cadastro";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -44,16 +45,25 @@ export async function POST(req: NextRequest) {
     if (!email.includes("@") || !email.includes(".")) {
       return NextResponse.json({ error: "Email invalido" }, { status: 400 });
     }
-    if (chavePix.length < 5) {
-      return NextResponse.json({ error: "Chave Pix invalida" }, { status: 400 });
+    // Paridade com bot WhatsApp (audit 1/Mai/2026): valida formato real,
+    // nao so length. Antes "12345" passava como CPF/PIX e "ABC123" como placa.
+    const pixValido = validarChavePix(chavePix);
+    if (!pixValido) {
+      return NextResponse.json({
+        error: "Chave Pix invalida. Formatos aceitos: CPF (11 dig), CNPJ (14 dig), email, celular com DDI (+5511999999999) ou UUID.",
+      }, { status: 400 });
     }
     const tiposValidos = ["carro_comum", "utilitario", "hr", "caminhao_bau", "guincho", "moto_guincho"];
     if (!tiposValidos.includes(tipoVeiculo)) {
       return NextResponse.json({ error: "Tipo de veiculo invalido" }, { status: 400 });
     }
-    if (placa.length < 7) {
-      return NextResponse.json({ error: "Placa invalida" }, { status: 400 });
+    if (!isPlacaValida(placa)) {
+      return NextResponse.json({
+        error: "Placa invalida. Use formato ABC1234 (antigo) ou ABC1D23 (Mercosul).",
+      }, { status: 400 });
     }
+    const placaNormalizada = normalizarPlaca(placa);
+    const chavePixNormalizada = pixValido.valor;
 
     // Ja existe prestador com esse telefone?
     const { data: existe } = await supabase
@@ -120,7 +130,7 @@ export async function POST(req: NextRequest) {
         nome,
         cpf,
         email,
-        chave_pix: chavePix,
+        chave_pix: chavePixNormalizada,
         selfie_url: selfieUrl || null,
         foto_placa_url: fotoPlacaUrl || null,
         foto_veiculo_url: fotoVeiculoUrl || null,
@@ -149,7 +159,11 @@ export async function POST(req: NextRequest) {
       await supabase.from("prestadores_veiculos").insert({
         prestador_id: novoPrestador.id,
         tipo: tipoVeiculo,
-        placa,
+        placa: placaNormalizada,
+        // Audit 1/Mai/2026: foto_url do veiculo eh a foto do veiculo, nao da
+        // selfie. Aqui nao temos foto separada do veiculo, entao usa a do
+        // veiculo (que e o caso do admin: 3 fotos selfie/placa/veiculo).
+        foto_url: fotoVeiculoUrl || fotoPlacaUrl || null,
         ativo: true,
       });
     }
@@ -159,8 +173,8 @@ export async function POST(req: NextRequest) {
       try {
         const { enviarEmailCadastroPrestador } = await import("@/lib/email");
         await enviarEmailCadastroPrestador({
-          nome, telefone: telComDDI, cpf, email, chavePix,
-          tipoVeiculo, placa,
+          nome, telefone: telComDDI, cpf, email, chavePix: chavePixNormalizada,
+          tipoVeiculo, placa: placaNormalizada,
           selfieUrl, fotoPlacaUrl, fotoVeiculoUrl,
           dataAceite: agora,
           origem: "admin_manual",

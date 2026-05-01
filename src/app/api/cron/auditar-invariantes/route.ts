@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { isValidCronKey, isValidAdminKey } from "@/lib/admin-auth";
 import { notificarAdmins } from "@/lib/admin-notify";
-import { executarTodasInvariantes, type ResultadoInvariante } from "@/lib/invariantes";
+import { executarPlugin, classificar } from "@/lib/imuni/runner";
+import { pluginPegue } from "@/lib/imuni-pegue/invariantes";
+import type { ResultadoInvariante } from "@/lib/imuni/types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -25,8 +27,12 @@ export async function GET(req: NextRequest) {
   }
 
   const inicio = Date.now();
-  const resultados = await executarTodasInvariantes();
+  // Executa plugin Pegue via runner generico do core IMUNI.
+  // Quando outros plugins forem adicionados (ex: imuni-otimizi), basta
+  // trocar pra `executarPlugins([pluginPegue, pluginOutro])`.
+  const resultados: ResultadoInvariante[] = await executarPlugin(pluginPegue);
   const duracaoMs = Date.now() - inicio;
+  const stats = classificar(resultados);
 
   // Loga a execucao completa pra historico
   await supabase.from("bot_logs").insert({
@@ -39,9 +45,9 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const violacoesAlta = resultados.filter((r) => !r.ok && r.severidade === "alta");
-  const violacoesMedia = resultados.filter((r) => !r.ok && r.severidade === "media");
-  const erros = resultados.filter((r) => r.erro);
+  const violacoesAlta = stats.violacoes_alta;
+  const violacoesMedia = stats.violacoes_media;
+  const erros = stats.erros;
 
   // Alerta admin se houver violacoes ALTAS ou ERROS na execucao
   if (violacoesAlta.length > 0 || erros.length > 0) {

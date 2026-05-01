@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 //
 // Mock supabase-admin pra evitar erro de env var ausente em test environment.
 
-vi.mock("./supabase-admin", () => ({
+vi.mock("@/lib/supabase-admin", () => ({
   supabaseAdmin: {
     from: () => ({
       select: () => ({
@@ -39,11 +39,13 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
 
   it("modulo carrega sem erro de import", async () => {
     const mod = await import("./invariantes");
+
     expect(typeof mod.executarTodasInvariantes).toBe("function");
   });
 
   it("executarTodasInvariantes retorna array com 11 invariantes", async () => {
     const mod = await import("./invariantes");
+
     const r = await mod.executarTodasInvariantes();
     expect(Array.isArray(r)).toBe(true);
     expect(r.length).toBe(11);
@@ -51,6 +53,7 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
 
   it("cada resultado tem campos obrigatorios bem-formados", async () => {
     const mod = await import("./invariantes");
+
     const r = await mod.executarTodasInvariantes();
     for (const inv of r) {
       expect(typeof inv.nome).toBe("string");
@@ -68,6 +71,7 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
 
   it("severidades distribuem entre alta e media", async () => {
     const mod = await import("./invariantes");
+
     const r = await mod.executarTodasInvariantes();
     const altas = r.filter((i) => i.severidade === "alta").length;
     const medias = r.filter((i) => i.severidade === "media").length;
@@ -78,6 +82,7 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
 
   it("nomes sao unicos (INV-1 a INV-11)", async () => {
     const mod = await import("./invariantes");
+
     const r = await mod.executarTodasInvariantes();
     const nomes = r.map((i) => i.nome);
     const unicos = new Set(nomes);

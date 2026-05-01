@@ -1,36 +1,19 @@
-// Sistema de invariantes do Pegue — Camada 3 da defesa em profundidade.
+// IMUNI plugin: invariantes do dominio Pegue (corridas, repasse,
+// dispatch, etc). Roda no cron /api/cron/auditar-invariantes via
+// runner generico do core IMUNI.
 //
-// Cada invariante eh uma assercao sobre o ESTADO do banco que DEVE ser
-// verdadeira. Se for falsa, ha um bug latente OU uma situacao que precisa
-// atencao humana imediata.
+// Audit 1/Mai/2026 (diretiva Fabio): IMUNI eh produto reutilizavel
+// em multiplos negocios. Pegue eh apenas o primeiro plugin/cliente.
+// Pra adicionar invariantes de outro dominio (ex: Otimizi), criar
+// src/lib/imuni-{dominio}/ seguindo o mesmo padrao.
 //
-// Regra de ouro: invariantes sao SOBRE DADOS, nao sobre codigo. Pegam o
-// que linter/typecheck/teste unitario nao alcancam — bugs que so aparecem
-// com volume real, com tempo, com integracoes externas.
-//
-// Cada invariante retorna:
-//   - count: quantas linhas violam
-//   - amostra: exemplos pra admin investigar
-//   - severidade: "alta" (notifica admin imediato) | "media" (log) | "baixa"
-//
-// Audit 1/Mai/2026 (criado por Fabio diretiva): "o sistema auto-reparavel,
-// auto-ajustavel e anti-erro... isso esta mais dificil do que o proprio
-// sistema da pegue, essa eh sua missao".
+// Regra de ouro: invariantes sao SOBRE DADOS, nao sobre codigo.
+// Pegam o que linter/typecheck/teste unitario nao alcancam — bugs
+// que so aparecem com volume real, com tempo, com integracoes
+// externas.
 
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
-
-export type Severidade = "alta" | "media" | "baixa";
-
-export interface ResultadoInvariante {
-  nome: string;
-  descricao: string;
-  severidade: Severidade;
-  count: number;
-  amostra: any[]; // ate 5 exemplos
-  ok: boolean;    // true se count === 0
-  comoAgir: string;
-  erro?: string;
-}
+import type { ResultadoInvariante, PluginImuni } from "@/lib/imuni/types";
 
 const HORAS_24 = 24 * 60 * 60 * 1000;
 const HORAS_1 = 60 * 60 * 1000;
@@ -434,22 +417,30 @@ async function invCorridasPagaSemRegistroPagamento(): Promise<ResultadoInvariant
 }
 
 // ============================================================
-// EXECUTOR — roda todas as invariantes em paralelo
+// PLUGIN IMUNI — exporta o conjunto de invariantes deste dominio
+// no formato esperado pelo runner do core.
 // ============================================================
 
+export const pluginPegue: PluginImuni = {
+  dominio: "pegue",
+  invariantes: [
+    invCorridasConcluidasSemPagamento,
+    invPrestadoresAprovadosSemPix,
+    invPagamentosPagoSemTimestamp,
+    invDispatchZumbi,
+    invCorridasPagaSemProvaPagamento,
+    invTarefasAgendadasAtrasadas,
+    invOcorrenciasAbertasMuitoTempo,
+    invRepassesAsaasPendentes,
+    invCorridasPendentesMuitoTempo,
+    invPlacasDuplicadasAtivas,
+    invCorridasPagaSemRegistroPagamento,
+  ],
+};
+
+// Compat: helper que roda o plugin Pegue. Mantem assinatura antiga
+// pra nao quebrar callers existentes.
 export async function executarTodasInvariantes(): Promise<ResultadoInvariante[]> {
-  const resultados = await Promise.all([
-    invCorridasConcluidasSemPagamento(),
-    invPrestadoresAprovadosSemPix(),
-    invPagamentosPagoSemTimestamp(),
-    invDispatchZumbi(),
-    invCorridasPagaSemProvaPagamento(),
-    invTarefasAgendadasAtrasadas(),
-    invOcorrenciasAbertasMuitoTempo(),
-    invRepassesAsaasPendentes(),
-    invCorridasPendentesMuitoTempo(),
-    invPlacasDuplicadasAtivas(),
-    invCorridasPagaSemRegistroPagamento(),
-  ]);
-  return resultados;
+  const { executarPlugin } = await import("@/lib/imuni/runner");
+  return executarPlugin(pluginPegue);
 }

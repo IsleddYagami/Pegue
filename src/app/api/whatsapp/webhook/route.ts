@@ -1607,6 +1607,12 @@ async function handleEscolhaServico(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
 
   if (lower === "1" || lower.includes("pequeno") || lower.includes("frete")) {
+    // BUG #F1-1 (audit 1/Mai/2026): persistir tipo_servico em log pra
+    // salvarCorrida usar depois. Antes ficava hardcoded "frete" e quebrava
+    // relatorios de mudanca/guincho.
+    await supabase.from("bot_logs").insert({
+      payload: { tipo: "servico_escolhido", phone, servico: "frete" },
+    });
     await updateSession(phone, { step: "aguardando_localizacao" });
     await enviarTutorialLocalizacao(phone);
     return;
@@ -1615,6 +1621,9 @@ async function handleEscolhaServico(phone: string, message: string) {
   if (lower === "2" || lower.includes("mudanca") || lower.includes("mudança")) {
     // Default de MUDANCA eh HR (nao utilitario). Se depois cliente mandar lista pequena, pode
     // ajustar pra baixo (mas determinarMelhorVeiculo so SOBE - entao HR vira caminhao_bau se precisar).
+    await supabase.from("bot_logs").insert({
+      payload: { tipo: "servico_escolhido", phone, servico: "mudanca" },
+    });
     await updateSession(phone, {
       step: "aguardando_localizacao",
       veiculo_sugerido: "hr",
@@ -1646,6 +1655,9 @@ async function handleEscolhaServico(phone: string, message: string) {
       return;
     }
 
+    await supabase.from("bot_logs").insert({
+      payload: { tipo: "servico_escolhido", phone, servico: "guincho" },
+    });
     await updateSession(phone, { step: "guincho_categoria" as any });
     await sendToClient({ to: phone, message: MSG.guinchoMenu });
     return;
@@ -4282,6 +4294,10 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
     //  - origem_texto + destino_texto: vai DIRETO pra confirmacao de enderecos
     //    (igual frete). Cliente que mandou briefing completo nao re-pergunta.
     if (contexto?.servico === "guincho") {
+      // BUG #F1-1 (audit 1/Mai/2026): logar tipo_servico pra salvarCorrida usar.
+      await supabase.from("bot_logs").insert({
+        payload: { tipo: "servico_escolhido", phone, servico: "guincho" },
+      });
       const temVeiculo = !!contexto.veiculo_marca_modelo;
       const cat = temVeiculo ? detectarCategoriaVeiculo(contexto.veiculo_marca_modelo!) : null;
 
@@ -4341,6 +4357,15 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
     // e ir direto pra cotacao. Cliente que ja deu briefing completo nao precisa
     // ser perguntado de novo. Bug 29/Abr cliente real (914963096) que abandonou
     // por causa disso.
+    //
+    // BUG #F1-1 (audit 1/Mai/2026): aqui sabemos que eh frete ou mudanca, mas nao
+    // damos diferenca explicita. Inferimos pelo contexto.servico (mudanca/frete)
+    // se IA classificou; senao deixa pro handleEscolhaServico mais a frente.
+    if (contexto?.servico === "frete" || contexto?.servico === "mudanca") {
+      await supabase.from("bot_logs").insert({
+        payload: { tipo: "servico_escolhido", phone, servico: contexto.servico },
+      });
+    }
     if (contexto?.origem_texto && contexto?.destino_texto) {
       await sendToClient({
         to: phone,
@@ -7274,6 +7299,44 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
     const valorBruto = Number(session.valor_estimado || 0);
     const valorComDesconto = Math.max(0, valorBruto - creditoAnterior);
 
+    // BUG #F1-3 (audit 1/Mai/2026): bloqueio defensivo. Se valor_estimado vier
+    // 0/null por bug upstream (calculo falhou silencioso, edge case raro), nao
+    // criar corrida gratis. Notifica admin pra investigar e cliente eh
+    // escalado ao humano.
+    if (valorBruto <= 0) {
+      await supabase.from("bot_logs").insert({
+        payload: { debug: "salvar_corrida_valor_invalido", phone: session.phone, valor: valorBruto },
+      });
+      await notificarAdmin(
+        `🚨 *CORRIDA COM VALOR INVALIDO*`,
+        session.phone,
+        `Tentativa de salvar corrida com valor R$ ${valorBruto}.\n${contextoErro}\n\nNao foi salva. Investigar fluxo de cotacao.`
+      );
+      return null;
+    }
+
+    // BUG #F1-1 (audit 1/Mai/2026): tipo_servico era hardcoded "frete". Agora
+    // detecta com prioridade: log "servico_escolhido" mais recente -> heuristica
+    // por veiculo_sugerido -> default "frete".
+    let tipoServico: "frete" | "mudanca" | "guincho" = "frete";
+    const { data: logServico } = await supabase
+      .from("bot_logs")
+      .select("payload")
+      .filter("payload->>tipo", "eq", "servico_escolhido")
+      .filter("payload->>phone", "eq", session.phone)
+      .order("criado_em", { ascending: false })
+      .limit(1);
+    const servicoLogado = (logServico?.[0]?.payload as any)?.servico;
+    if (servicoLogado === "frete" || servicoLogado === "mudanca" || servicoLogado === "guincho") {
+      tipoServico = servicoLogado;
+    } else {
+      // Fallback heuristico por veiculo (cobrir sessoes legadas sem o log).
+      const veic = session.veiculo_sugerido || "";
+      if (veic === "guincho" || veic === "moto_guincho") tipoServico = "guincho";
+      else if (veic === "hr" || veic === "caminhao_bau") tipoServico = "mudanca";
+      else tipoServico = "frete";
+    }
+
     const { data: corrida, error: errCorrida } = await supabase
       .from("corridas")
       .insert({
@@ -7286,7 +7349,7 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
         destino_lat: session.destino_lat,
         destino_lng: session.destino_lng,
         distancia_km: session.distancia_km,
-        tipo_servico: "frete",
+        tipo_servico: tipoServico,
         // Fallback defensivo: se veiculo_sugerido estiver null por algum caminho (bug conhecido
         // em opcao de texto livre antes do fix), usa "utilitario" como default seguro.
         // Sem isso, tipo_veiculo fica NULL e quebra dispatch por tipo.
@@ -8505,7 +8568,9 @@ async function handleGuinchoDestino(phone: string, message: string) {
     return;
   }
 
-  // Sem coords precisas - cota com risco (mantem comportamento antigo, mas loga)
+  // BUG #F1-2 (audit 1/Mai/2026): antes cotava guincho mesmo sem coords. Resultado:
+  // distancia_km=0 -> so preco base. Cliente pagava menos do que devia E violava
+  // "JAMAIS COTAR SEM CERTEZA". Agora escala humano em vez de cotar com risco.
   await supabase.from("bot_logs").insert({
     payload: {
       tipo: "guincho_destino_sem_coords",
@@ -8515,16 +8580,22 @@ async function handleGuinchoDestino(phone: string, message: string) {
     },
   });
 
-  // Salva o que tem e segue pra cotacao mesmo sem coords precisas
   await updateSession(phone, {
+    step: "atendimento_humano",
     destino_endereco: destino,
     destino_lat: destLat,
     destino_lng: destLng,
-    distancia_km: (session.origem_lat && session.origem_lng && destLat && destLng)
-      ? calcularDistanciaKm(session.origem_lat, session.origem_lng, destLat, destLng)
-      : null,
   });
-  await cotarGuinchoEFinalizar(phone);
+  await sendToClient({
+    to: phone,
+    message: `Quase la! 🙌\n\nNao consegui localizar o destino *${destino}* no mapa pra calcular o valor com precisao.\n\nUm especialista da Pegue ja vai te chamar pra confirmar o endereco e fechar o guincho. So um momentinho! 🚗`,
+  });
+  await notificarAdmin(
+    `🚨 *GUINCHO SEM COORDS DE DESTINO — ESCALADO*`,
+    phone,
+    `Cliente pediu guincho mas geocoder nao achou destino:\n\n📍 Origem: ${session.origem_endereco || "?"}\n🏠 Destino: ${destino}\n\nValide o endereco e cote manualmente. Cliente esta em atendimento_humano.`
+  );
+  return;
 }
 
 // Cota guincho com base em session ja preenchida (origem + destino + coords +

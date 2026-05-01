@@ -1,0 +1,398 @@
+// Sistema de invariantes do Pegue — Camada 3 da defesa em profundidade.
+//
+// Cada invariante eh uma assercao sobre o ESTADO do banco que DEVE ser
+// verdadeira. Se for falsa, ha um bug latente OU uma situacao que precisa
+// atencao humana imediata.
+//
+// Regra de ouro: invariantes sao SOBRE DADOS, nao sobre codigo. Pegam o
+// que linter/typecheck/teste unitario nao alcancam — bugs que so aparecem
+// com volume real, com tempo, com integracoes externas.
+//
+// Cada invariante retorna:
+//   - count: quantas linhas violam
+//   - amostra: exemplos pra admin investigar
+//   - severidade: "alta" (notifica admin imediato) | "media" (log) | "baixa"
+//
+// Audit 1/Mai/2026 (criado por Fabio diretiva): "o sistema auto-reparavel,
+// auto-ajustavel e anti-erro... isso esta mais dificil do que o proprio
+// sistema da pegue, essa eh sua missao".
+
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
+
+export type Severidade = "alta" | "media" | "baixa";
+
+export interface ResultadoInvariante {
+  nome: string;
+  descricao: string;
+  severidade: Severidade;
+  count: number;
+  amostra: any[]; // ate 5 exemplos
+  ok: boolean;    // true se count === 0
+  comoAgir: string;
+  erro?: string;
+}
+
+const HORAS_24 = 24 * 60 * 60 * 1000;
+const HORAS_1 = 60 * 60 * 1000;
+
+function hAtras(horas: number): string {
+  return new Date(Date.now() - horas * 60 * 60 * 1000).toISOString();
+}
+
+// ============================================================
+// INVARIANTES — em ordem de severidade
+// ============================================================
+
+/**
+ * INV-1 (ALTA): Toda corrida marcada "concluida" deve ter pagamento aprovado.
+ * Sintoma: cliente recebeu servico mas pagamento nao foi liberado pro fretista.
+ * Causa potencial: webhook MP/Asaas perdido, repasse falhou silenciosamente.
+ */
+async function invCorridasConcluidasSemPagamento(): Promise<ResultadoInvariante> {
+  try {
+    const { data: corridas, error } = await supabase
+      .from("corridas")
+      .select("id, codigo, valor_final, entrega_em")
+      .eq("status", "concluida")
+      .gte("entrega_em", hAtras(24 * 30)); // ultimos 30d
+    if (error) throw error;
+
+    const ids = (corridas || []).map((c) => c.id);
+    if (ids.length === 0) {
+      return { nome: "INV-1", descricao: "corridas_concluidas_sem_pagamento", severidade: "alta", count: 0, amostra: [], ok: true, comoAgir: "" };
+    }
+
+    const { data: pagsPagas } = await supabase
+      .from("pagamentos")
+      .select("corrida_id, repasse_status")
+      .in("corrida_id", ids);
+
+    const idsComRepassePago = new Set(
+      (pagsPagas || [])
+        .filter((p: any) => p.repasse_status === "pago")
+        .map((p: any) => p.corrida_id),
+    );
+
+    const semPagamento = (corridas || []).filter((c) => !idsComRepassePago.has(c.id));
+
+    return {
+      nome: "INV-1",
+      descricao: "Corridas marcadas concluida nos ultimos 30d sem pagamento.repasse_status=pago",
+      severidade: "alta",
+      count: semPagamento.length,
+      amostra: semPagamento.slice(0, 5).map((c) => ({ id: c.id, codigo: c.codigo, valor: c.valor_final, entrega_em: c.entrega_em })),
+      ok: semPagamento.length === 0,
+      comoAgir: "Verificar /admin/financeiro. Pode ser webhook perdido OU repasse ainda em processamento (Asaas tem ate 2h pra liquidar). Se >2h, fazer PIX manual.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-1", descricao: "corridas_concluidas_sem_pagamento", severidade: "alta", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro ao executar invariante" };
+  }
+}
+
+/**
+ * INV-2 (ALTA): Prestadores aprovados+disponiveis devem ter chave_pix.
+ * Sintoma: dispatch envia frete, fretista aceita, completa, mas repasse trava
+ * porque sistema descobre na hora que nao tem chave PIX cadastrada.
+ */
+async function invPrestadoresAprovadosSemPix(): Promise<ResultadoInvariante> {
+  try {
+    const { data, error } = await supabase
+      .from("prestadores")
+      .select("id, nome, telefone")
+      .eq("status", "aprovado")
+      .eq("disponivel", true)
+      .or("chave_pix.is.null,chave_pix.eq.");
+    if (error) throw error;
+    return {
+      nome: "INV-2",
+      descricao: "Prestadores aprovados E disponiveis sem chave PIX cadastrada",
+      severidade: "alta",
+      count: (data || []).length,
+      amostra: (data || []).slice(0, 5).map((p) => ({ id: p.id, nome: p.nome, telefone_masked: p.telefone?.replace(/\d(?=\d{4})/g, "*") })),
+      ok: (data || []).length === 0,
+      comoAgir: "Pausar prestador (disponivel=false) ate cadastrar PIX. Senao primeiro frete dele vai travar repasse.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-2", descricao: "prestadores_aprovados_sem_pix", severidade: "alta", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro ao executar" };
+  }
+}
+
+/**
+ * INV-3 (ALTA): Pagamentos com repasse_status=pago devem ter pago_em.
+ * Sintoma: bug de schema (coluna errada). Foi exatamente o BUG #BATCH4-5.
+ * Detecta regressoes futuras desse tipo automaticamente.
+ */
+async function invPagamentosPagoSemTimestamp(): Promise<ResultadoInvariante> {
+  try {
+    const { data, error } = await supabase
+      .from("pagamentos")
+      .select("id, corrida_id, valor, criado_em")
+      .eq("repasse_status", "pago")
+      .is("pago_em", null);
+    if (error) throw error;
+    return {
+      nome: "INV-3",
+      descricao: "Pagamentos repasse_status=pago sem pago_em (regressao do BUG BATCH4-5)",
+      severidade: "alta",
+      count: (data || []).length,
+      amostra: (data || []).slice(0, 5),
+      ok: (data || []).length === 0,
+      comoAgir: "Algum endpoint admin esta atualizando coluna errada de novo. Procurar no codigo por 'repasse_status: pago' sem pago_em adjacente.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-3", descricao: "pagamentos_pago_sem_timestamp", severidade: "alta", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
+/**
+ * INV-4 (ALTA): Corridas com prestador_id atribuido nao devem ter dispatch_ativo=true.
+ * Sintoma: dispatch zumbi — fretista ja aceitou mas dispatch ainda esta aberto.
+ * Outro fretista pode "pegar" mesmo apos primeiro aceitar (race nao corrigido).
+ */
+async function invDispatchZumbi(): Promise<ResultadoInvariante> {
+  try {
+    const { data, error } = await supabase
+      .from("corridas")
+      .select("id, codigo, prestador_id, dispatch_iniciado_em")
+      .not("prestador_id", "is", null)
+      .eq("dispatch_ativo", true);
+    if (error) throw error;
+    return {
+      nome: "INV-4",
+      descricao: "Corridas com prestador atribuido mas dispatch_ativo=true (zumbi)",
+      severidade: "alta",
+      count: (data || []).length,
+      amostra: (data || []).slice(0, 5),
+      ok: (data || []).length === 0,
+      comoAgir: "Atomicidade do dispatch quebrada. Marcar dispatch_ativo=false manualmente nas IDs listadas e investigar tryAceitarDispatch.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-4", descricao: "dispatch_zumbi", severidade: "alta", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
+/**
+ * INV-5 (ALTA): Corridas em status "paga" devem ter asaas_payment_id ou mp ref.
+ * Sintoma: corrida marcada paga sem prova externa de pagamento — bug ou fraude.
+ */
+async function invCorridasPagaSemProvaPagamento(): Promise<ResultadoInvariante> {
+  try {
+    const { data, error } = await supabase
+      .from("corridas")
+      .select("id, codigo, valor_final, pago_em, asaas_payment_id")
+      .eq("status", "paga")
+      .is("asaas_payment_id", null)
+      .gte("pago_em", hAtras(24 * 7)); // ultimos 7d
+    if (error) throw error;
+    // Filtra: tambem nao tem registro em pagamentos (MP legacy)
+    const ids = (data || []).map((c) => c.id);
+    if (ids.length === 0) {
+      return { nome: "INV-5", descricao: "corridas_paga_sem_prova", severidade: "alta", count: 0, amostra: [], ok: true, comoAgir: "" };
+    }
+    const { data: pgts } = await supabase
+      .from("pagamentos")
+      .select("corrida_id")
+      .in("corrida_id", ids);
+    const idsComMp = new Set((pgts || []).map((p: any) => p.corrida_id));
+    const orfas = (data || []).filter((c) => !idsComMp.has(c.id));
+    return {
+      nome: "INV-5",
+      descricao: "Corridas em status=paga (ult 7d) sem asaas_payment_id E sem registro em pagamentos",
+      severidade: "alta",
+      count: orfas.length,
+      amostra: orfas.slice(0, 5),
+      ok: orfas.length === 0,
+      comoAgir: "Conferir manualmente. Se houver, pode ser bug de codigo OU tentativa de marcar pago sem PIX real (fraude).",
+    };
+  } catch (e: any) {
+    return { nome: "INV-5", descricao: "corridas_paga_sem_prova", severidade: "alta", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
+/**
+ * INV-6 (MEDIA): Tarefas agendadas atrasadas > 1h sem execucao podem indicar
+ * cron de tarefas-agendadas parado.
+ */
+async function invTarefasAgendadasAtrasadas(): Promise<ResultadoInvariante> {
+  try {
+    const { data, error } = await supabase
+      .from("tarefas_agendadas")
+      .select("id, tipo, executar_em, tentativas, erro")
+      .is("executado_em", null)
+      .lt("executar_em", hAtras(1))
+      .lt("tentativas", 3);
+    if (error) throw error;
+    return {
+      nome: "INV-6",
+      descricao: "Tarefas agendadas atrasadas > 1h sem execucao",
+      severidade: "media",
+      count: (data || []).length,
+      amostra: (data || []).slice(0, 5),
+      ok: (data || []).length === 0,
+      comoAgir: "Cron /api/cron/tarefas-agendadas pode estar parado. Verificar Vercel/cron-job.org.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-6", descricao: "tarefas_atrasadas", severidade: "media", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
+/**
+ * INV-7 (MEDIA): Ocorrencias abertas > 24h sem resolucao.
+ * Sintoma: admin esqueceu de tratar OU sistema falhou em fechar.
+ */
+async function invOcorrenciasAbertasMuitoTempo(): Promise<ResultadoInvariante> {
+  try {
+    const { data, error } = await supabase
+      .from("ocorrencias")
+      .select("id, tipo, criado_em, status")
+      .eq("status", "aberta")
+      .lt("criado_em", hAtras(24));
+    if (error) throw error;
+    return {
+      nome: "INV-7",
+      descricao: "Ocorrencias abertas ha mais de 24h",
+      severidade: "media",
+      count: (data || []).length,
+      amostra: (data || []).slice(0, 5),
+      ok: (data || []).length === 0,
+      comoAgir: "Resolver via /admin/operacao-real. Se for muito comum, aumentar timeout do cron ocorrencia_timeout_admin.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-7", descricao: "ocorrencias_abertas_24h", severidade: "media", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
+/**
+ * INV-8 (MEDIA): Logs asaas_repasse_iniciado sem TRANSFER_DONE/FAILED em 24h.
+ * Sintoma: repasse iniciado e Asaas nao confirmou — pode ter perdido webhook.
+ */
+async function invRepassesAsaasPendentes(): Promise<ResultadoInvariante> {
+  try {
+    const { data: iniciados } = await supabase
+      .from("bot_logs")
+      .select("id, payload, criado_em")
+      .filter("payload->>tipo", "eq", "asaas_repasse_iniciado")
+      .lt("criado_em", hAtras(24))
+      .limit(100);
+    if (!iniciados || iniciados.length === 0) {
+      return { nome: "INV-8", descricao: "asaas_repasses_sem_confirmacao", severidade: "media", count: 0, amostra: [], ok: true, comoAgir: "" };
+    }
+    const transferIds = iniciados.map((l) => (l.payload as any)?.transfer_id).filter(Boolean);
+    if (transferIds.length === 0) {
+      return { nome: "INV-8", descricao: "asaas_repasses_sem_confirmacao", severidade: "media", count: 0, amostra: [], ok: true, comoAgir: "" };
+    }
+    const { data: confirmacoes } = await supabase
+      .from("bot_logs")
+      .select("payload")
+      .or(`payload->>tipo.eq.webhook_asaas,payload->>tipo.eq.asaas_transfer_failed`);
+    const idsConfirmados = new Set(
+      (confirmacoes || [])
+        .map((l) => (l.payload as any)?.transfer_id)
+        .filter(Boolean),
+    );
+    const semConfirmacao = iniciados.filter(
+      (l) => !idsConfirmados.has((l.payload as any)?.transfer_id),
+    );
+    return {
+      nome: "INV-8",
+      descricao: "Repasses Asaas iniciados ha >24h sem TRANSFER_DONE nem FAILED",
+      severidade: "media",
+      count: semConfirmacao.length,
+      amostra: semConfirmacao.slice(0, 5).map((l) => ({
+        criado_em: l.criado_em,
+        transfer_id: (l.payload as any)?.transfer_id,
+        valor: (l.payload as any)?.valor,
+      })),
+      ok: semConfirmacao.length === 0,
+      comoAgir: "Verificar webhook Asaas configurado em https://www.asaas.com/integration/webhooks. Pode ter parado de chegar.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-8", descricao: "asaas_repasses_sem_confirmacao", severidade: "media", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
+/**
+ * INV-9 (MEDIA): Corridas em status=pendente ha mais de 24h.
+ * Sintoma: cliente nao pagou e ninguem cancelou. Sessao zumbi do cliente.
+ */
+async function invCorridasPendentesMuitoTempo(): Promise<ResultadoInvariante> {
+  try {
+    const { data, error } = await supabase
+      .from("corridas")
+      .select("id, codigo, criado_em, valor_estimado")
+      .eq("status", "pendente")
+      .lt("criado_em", hAtras(24));
+    if (error) throw error;
+    return {
+      nome: "INV-9",
+      descricao: "Corridas em status=pendente ha mais de 24h",
+      severidade: "media",
+      count: (data || []).length,
+      amostra: (data || []).slice(0, 5),
+      ok: (data || []).length === 0,
+      comoAgir: "Marcar como cancelada_admin no /admin. Cliente provavelmente desistiu sem responder.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-9", descricao: "corridas_pendentes_24h", severidade: "media", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
+/**
+ * INV-10 (MEDIA): Prestadores com placa duplicada AINDA disponiveis.
+ * Sintoma: anti-fraude do BUG #9 (auditoria 29/Abr) detectou e bloqueou
+ * auto-aprovacao, mas se admin nao reverter o bloqueio, prestador real pode
+ * ficar parado. Tambem pega caso novo de duplicidade.
+ */
+async function invPlacasDuplicadasAtivas(): Promise<ResultadoInvariante> {
+  try {
+    const { data: veiculos } = await supabase
+      .from("prestadores_veiculos")
+      .select("placa, prestador_id, prestadores!inner(disponivel, status)")
+      .eq("ativo", true);
+    if (!veiculos || veiculos.length === 0) {
+      return { nome: "INV-10", descricao: "placas_duplicadas_ativas", severidade: "media", count: 0, amostra: [], ok: true, comoAgir: "" };
+    }
+    const porPlaca: Record<string, any[]> = {};
+    for (const v of veiculos) {
+      const p = (v as any).prestadores;
+      if (p?.disponivel && p?.status === "aprovado") {
+        if (!porPlaca[v.placa]) porPlaca[v.placa] = [];
+        porPlaca[v.placa].push(v);
+      }
+    }
+    const duplicadas = Object.entries(porPlaca)
+      .filter(([_, lista]) => lista.length > 1)
+      .map(([placa, lista]) => ({ placa, qtd: lista.length, prestadores_ids: lista.map((l) => l.prestador_id) }));
+    return {
+      nome: "INV-10",
+      descricao: "Placas duplicadas em prestadores ATIVOS+disponiveis",
+      severidade: "media",
+      count: duplicadas.length,
+      amostra: duplicadas.slice(0, 5),
+      ok: duplicadas.length === 0,
+      comoAgir: "Verificar manualmente se eh mesmo dono cadastrado 2x ou tentativa de fraude. Pausar um dos prestadores ate validar.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-10", descricao: "placas_duplicadas_ativas", severidade: "media", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
+// ============================================================
+// EXECUTOR — roda todas as invariantes em paralelo
+// ============================================================
+
+export async function executarTodasInvariantes(): Promise<ResultadoInvariante[]> {
+  const resultados = await Promise.all([
+    invCorridasConcluidasSemPagamento(),
+    invPrestadoresAprovadosSemPix(),
+    invPagamentosPagoSemTimestamp(),
+    invDispatchZumbi(),
+    invCorridasPagaSemProvaPagamento(),
+    invTarefasAgendadasAtrasadas(),
+    invOcorrenciasAbertasMuitoTempo(),
+    invRepassesAsaasPendentes(),
+    invCorridasPendentesMuitoTempo(),
+    invPlacasDuplicadasAtivas(),
+  ]);
+  return resultados;
+}

@@ -20,11 +20,17 @@ export const maxDuration = 60;
 // IMPORTANTE: pra resiliencia maxima, baixar backups periodicamente pra HD
 // externo (Fabio pode acessar /admin pra baixar OU usar Supabase Studio).
 
+// BUG #BATCH6-4 (re-audit 1/Mai/2026): nomes de tabela corrigidos. Antes
+// tinha "prestador_veiculos" (singular) e "prestador_documentos" (singular)
+// — ambos NAO EXISTEM no schema. Backup falhava silenciosamente nessas
+// tabelas e os dados de veiculos cadastrados nunca eram backupeados.
+// Confirmado em todos os outros arquivos: "prestadores_veiculos" eh o
+// nome correto (plural). prestadores_documentos legado removido (nao
+// referenciado em nenhum lugar).
 const TABELAS = [
   "clientes",
   "prestadores",
-  "prestador_veiculos",
-  "prestador_documentos",
+  "prestadores_veiculos",
   "corridas",
   "pagamentos",
   "avaliacoes",
@@ -57,19 +63,34 @@ export async function GET(req: NextRequest) {
   const stats: Record<string, number> = {};
 
   // 1) Dump cada tabela
+  const tabelasQueFalharam: { tabela: string; erro: string }[] = [];
   for (const tabela of TABELAS) {
     try {
       const { data, error } = await supabase.from(tabela).select("*");
       if (error) {
         // Tabela pode nao existir, registra mas nao falha
         stats[tabela] = -1;
+        tabelasQueFalharam.push({ tabela, erro: error.message });
         continue;
       }
       backup[tabela] = data || [];
       stats[tabela] = (data || []).length;
-    } catch (e) {
+    } catch (e: any) {
       stats[tabela] = -1;
+      tabelasQueFalharam.push({ tabela, erro: e?.message || "exception" });
     }
+  }
+
+  // BUG #BATCH6-4 cont.: alerta admin se qualquer tabela falhar — antes era
+  // silencioso e backup ficava incompleto sem ninguem saber.
+  if (tabelasQueFalharam.length > 0) {
+    const { notificarAdmins } = await import("@/lib/admin-notify");
+    await notificarAdmins(
+      `🚨 *BACKUP SUPABASE INCOMPLETO* (${tabelasQueFalharam.length}/${TABELAS.length} tabelas falharam)`,
+      "sistema",
+      tabelasQueFalharam.map((t) => `- ${t.tabela}: ${t.erro}`).join("\n") +
+        "\n\n👉 Verifique se a tabela existe no Supabase OU corrija o nome em backup-supabase/route.ts. Backup ATUAL nao tem essas tabelas.",
+    );
   }
 
   // 2) Serializa pra JSON

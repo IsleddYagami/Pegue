@@ -61,7 +61,20 @@ export async function GET(req: NextRequest) {
 
   const totalDevedor = (pendentes || []).reduce((sum, p: any) => sum + (Number(p.valor) || 0), 0);
 
-  // 4) Decide alertar
+  // 4) Decide alertar.
+  // FIX 30/Abr (auditoria): so alerta se HOUVER repasses pendentes (totalDevedor>0)
+  // E saldo nao cobrir. Antes alertava mesmo sem ninguem pra pagar (falso positivo
+  // detectado em prod: saldo=0, devedor=0, alertou=true).
+  if ((qtdPendentes || 0) === 0 || totalDevedor <= 0) {
+    return NextResponse.json({
+      status: "ok",
+      saldo,
+      total_devedor: totalDevedor,
+      qtd_pendentes: qtdPendentes || 0,
+      motivo: "sem repasses pendentes — alerta nao aplicavel",
+    });
+  }
+
   const saldoSuficiente = saldo >= totalDevedor + SALDO_MINIMO_SEGURANCA_REAIS;
   if (saldoSuficiente) {
     return NextResponse.json({

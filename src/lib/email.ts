@@ -65,11 +65,21 @@ export async function enviarEmailCadastroPrestador(dados: {
   origem: "whatsapp" | "admin_manual" | "link_convite";
 }) {
   try {
-    // Anexa fotos se disponiveis (cada um pode retornar null - tolera falha)
+    // Refactor 1/Mai/2026: fotos agora sao salvas como PATH (nao URL publica)
+    // pra suportar bucket privado. Antes de baixar pra anexar, gera signed URL
+    // (TTL 7d). Compat: se vier URL legada (http*), getFotoPrestadorSignedUrl
+    // retorna ela mesma sem tocar.
+    const { getFotoPrestadorSignedUrl } = await import("@/lib/storage-prestadores");
+    const [selfieSigned, placaSigned, veiculoSigned] = await Promise.all([
+      getFotoPrestadorSignedUrl(dados.selfieUrl || null),
+      getFotoPrestadorSignedUrl(dados.fotoPlacaUrl || null),
+      getFotoPrestadorSignedUrl(dados.fotoVeiculoUrl || null),
+    ]);
+
     const anexos = (await Promise.all([
-      baixarComoAnexo(dados.selfieUrl, `selfie-${dados.telefone}.jpg`),
-      baixarComoAnexo(dados.fotoPlacaUrl, `placa-${dados.telefone}.jpg`),
-      baixarComoAnexo(dados.fotoVeiculoUrl, `veiculo-${dados.telefone}.jpg`),
+      baixarComoAnexo(selfieSigned, `selfie-${dados.telefone}.jpg`),
+      baixarComoAnexo(placaSigned, `placa-${dados.telefone}.jpg`),
+      baixarComoAnexo(veiculoSigned, `veiculo-${dados.telefone}.jpg`),
     ])).filter(Boolean) as Array<{ filename: string; content: Buffer }>;
 
     const corpo = `

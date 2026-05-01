@@ -71,6 +71,15 @@ async function testarUm(nome: string, endereco: string) {
 }
 
 export async function GET(req: NextRequest) {
+  // Endpoint admin-only — chama APIs pagas (Google Geocoder $0.005/call +
+  // OpenAI). Sem auth, atacante drena custo da conta. Auth adicionada em
+  // 1/Mai/2026 apos auditoria identificar o risco.
+  const { requireAdminAuth } = await import("@/lib/admin-auth");
+  const auth = await requireAdminAuth(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   const enderecoCustom = req.nextUrl.searchParams.get("endereco");
 
   const config = {

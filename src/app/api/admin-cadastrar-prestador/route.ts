@@ -185,28 +185,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Upload de File (do FormData) pro Supabase Storage
+// Upload de File (do FormData) pro Supabase Storage.
+// Retorna PATH interno (compat com refactor de seguranca 1/Mai). Consumidores
+// devem chamar getFotoPrestadorSignedUrl pra exibir/anexar.
 async function uploadFileToStorage(file: File, phone: string, tipo: "selfie" | "placa" | "veiculo"): Promise<string | null> {
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const contentType = file.type || "image/jpeg";
-    let ext = "jpg";
-    if (contentType.includes("png")) ext = "png";
-    else if (contentType.includes("webp")) ext = "webp";
-
-    const path = `${phone}/${tipo}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage
-      .from("prestadores-docs")
-      .upload(path, buffer, { contentType, upsert: false });
-    if (error) {
-      console.error(`Erro upload ${tipo}:`, error.message);
-      return null;
-    }
-    const { data } = supabase.storage.from("prestadores-docs").getPublicUrl(path);
-    return data?.publicUrl || null;
-  } catch (e: any) {
-    console.error(`Excecao upload ${tipo}:`, e?.message);
-    return null;
-  }
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const contentType = file.type || "image/jpeg";
+  const { uploadFotoPrestadorBuffer } = await import("@/lib/storage-prestadores");
+  return uploadFotoPrestadorBuffer(buffer, contentType, phone, tipo);
 }

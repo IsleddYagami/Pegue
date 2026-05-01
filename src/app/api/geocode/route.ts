@@ -1,12 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
+// BUG #BATCH5-3 (re-audit 1/Mai/2026): endpoint era publico sem rate limit.
+// Como faz proxy gratuito ao Nominatim (free service), atacante podia abusar
+// dele e queimar nossa quota IP-baseada do Nominatim. Agora 30 req/min/IP
+// (suficiente pra UI legitima do site, agressivo pra spam).
 export async function GET(req: NextRequest) {
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit({ chave: `geocode_pub:${ip}`, max: 30 });
+  if (!rl.permitido) {
+    return NextResponse.json(
+      { error: "Muitas tentativas. Aguarde 1 minuto." },
+      { status: 429 },
+    );
+  }
+
   const q = req.nextUrl.searchParams.get("q");
 
   if (!q) {
     return NextResponse.json({ error: "Informe ?q=endereco" }, { status: 400 });
+  }
+  if (q.length > 200) {
+    return NextResponse.json({ error: "Query muito longa" }, { status: 400 });
   }
 
   try {

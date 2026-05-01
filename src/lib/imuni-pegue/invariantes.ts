@@ -14,6 +14,13 @@
 
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import type { ResultadoInvariante, PluginImuni } from "@/lib/imuni/types";
+import {
+  invHeaderGeolocationPermitido,
+  invHeaderHsts,
+  invHeaderCspProducao,
+  invEnvVarsCriticas,
+  invAsaasEmProducao,
+} from "./infra-checks";
 
 const HORAS_24 = 24 * 60 * 60 * 1000;
 const HORAS_1 = 60 * 60 * 1000;
@@ -424,6 +431,7 @@ async function invCorridasPagaSemRegistroPagamento(): Promise<ResultadoInvariant
 export const pluginPegue: PluginImuni = {
   dominio: "pegue",
   invariantes: [
+    // === BANCO (estado de dados) ===
     invCorridasConcluidasSemPagamento,
     invPrestadoresAprovadosSemPix,
     invPagamentosPagoSemTimestamp,
@@ -435,6 +443,12 @@ export const pluginPegue: PluginImuni = {
     invCorridasPendentesMuitoTempo,
     invPlacasDuplicadasAtivas,
     invCorridasPagaSemRegistroPagamento,
+    // === INFRA (headers, env vars, configs externas) ===
+    invHeaderGeolocationPermitido,
+    invHeaderHsts,
+    invHeaderCspProducao,
+    invEnvVarsCriticas,
+    invAsaasEmProducao,
   ],
 };
 

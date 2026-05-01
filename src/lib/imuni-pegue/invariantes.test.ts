@@ -43,12 +43,12 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
     expect(typeof mod.executarTodasInvariantes).toBe("function");
   });
 
-  it("executarTodasInvariantes retorna array com 11 invariantes", async () => {
+  it("executarTodasInvariantes retorna array com 16 invariantes (banco + infra)", async () => {
     const mod = await import("./invariantes");
 
     const r = await mod.executarTodasInvariantes();
     expect(Array.isArray(r)).toBe(true);
-    expect(r.length).toBe(11);
+    expect(r.length).toBe(16);
   });
 
   it("cada resultado tem campos obrigatorios bem-formados", async () => {
@@ -80,7 +80,7 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
     expect(altas + medias).toBe(r.length);
   });
 
-  it("nomes sao unicos (INV-1 a INV-11)", async () => {
+  it("nomes sao unicos (INV-1 a INV-16)", async () => {
     const mod = await import("./invariantes");
 
     const r = await mod.executarTodasInvariantes();

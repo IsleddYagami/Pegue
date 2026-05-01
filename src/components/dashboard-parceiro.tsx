@@ -60,8 +60,8 @@ export function DashboardParceiro() {
     setErro("");
 
     const tel = telefone.replace(/\D/g, "");
-    if (tel.length < 10) {
-      setErro("Informe um telefone valido");
+    if (!/^\d{10,13}$/.test(tel)) {
+      setErro("Informe um telefone com DDD (ex: 11999998888)");
       return;
     }
 

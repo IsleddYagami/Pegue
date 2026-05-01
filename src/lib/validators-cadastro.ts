@@ -7,6 +7,28 @@
 //
 // Funcoes puras, sem dependencias. Testaveis via vitest.
 
+// === TELEFONE BRASILEIRO ===
+//
+// Aceita formatos:
+//  - 11 digitos sem DDI:    11999998888       (DDD + 9XXXXXXXX)
+//  - 12 digitos:            551133334444      (DDI + DDD + fixo 8 dig)
+//  - 13 digitos com DDI:    5511999998888     (DDI + DDD + celular 9XXXXXXXX)
+// Apos normalizacao, sempre retorna com DDI 55 (13 digitos pra celular,
+// 12 pra fixo).
+
+export function normalizarTelefoneBr(input: string): string | null {
+  const digits = (input || "").replace(/\D/g, "");
+  if (digits.length === 11) return `55${digits}`;          // ja tem DDD + 9XXX
+  if (digits.length === 13 && digits.startsWith("55")) return digits;
+  if (digits.length === 12 && digits.startsWith("55")) return digits; // fixo
+  if (digits.length === 10) return `55${digits}`;          // fixo sem DDI
+  return null;
+}
+
+export function isTelefoneBrValido(input: string): boolean {
+  return normalizarTelefoneBr(input) !== null;
+}
+
 // === PLACA BRASILEIRA ===
 //
 // Padroes aceitos:

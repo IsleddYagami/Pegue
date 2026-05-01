@@ -22,37 +22,38 @@ const noWeakLengthValidation = {
     },
   },
   create(context) {
+    // Inversao 1/Mai/2026: regra agora eh ALLOWLIST (so dispara em
+    // variaveis com nome conhecido de PII). Antes era blocklist (cada
+    // novo arquivo gerava 5+ falsos positivos em texto livre / arrays).
+    // Cobre exatamente os casos reais: telefone, CPF, placa, email, PIX.
+    const NOMES_PII = /^(telefone|tel|phone|fone|cpf|cnpj|placa|email|mail|pix|chavePix|chave_pix|chavepix)$/i;
+
     return {
       BinaryExpression(node) {
         if (node.operator !== "<" && node.operator !== "<=") return;
         const right = node.right;
         const left = node.left;
-        // Pattern: X.length < N onde N <= 10
         if (
           right?.type === "Literal" &&
           typeof right.value === "number" &&
-          right.value <= 10 &&
+          right.value <= 15 &&
           left?.type === "MemberExpression" &&
           left.property?.type === "Identifier" &&
           left.property.name === "length"
         ) {
-          // Skip casos OK: arrays cuja semantica eh contagem (ex: lista.length < 3)
-          // Heuristica: se objeto se chama tipo "lista", "items", "array", deixa.
+          // So dispara em PII conhecida.
           const obj = left.object;
           let nomeObj = "";
           if (obj?.type === "Identifier") nomeObj = obj.name;
           else if (obj?.type === "MemberExpression" && obj.property?.type === "Identifier") {
             nomeObj = obj.property.name;
           }
-          const nomesArrayOk = /^(lista|itens|items|array|results|resultados|fotos|provas|admins|prestadores|corridas|tabelas|partes|telefones|veiculos|tentativas|candidatos|exemplos|msgs|mensagens|palavras|numeros|ids|orfas|categorias|sessoes|veiculo|fretistas|alertados|ignorados|abertas|outros|sugestoes|comentarios|destinatarios|grupo|ranking|topicos|cores|amostras|despesas|pendentes|votos|opcoes|criticas|filhos|frutas|chaves|valores|registros)$/i;
-          if (nomeObj && nomesArrayOk.test(nomeObj)) return;
-          // Tambem aceita: variavel/membro com sufixo numerico (ex: tentativas2, prestadoresTeste)
-          if (nomeObj && /(?:lista|array|s|os|as)$/i.test(nomeObj) && nomeObj.length > 4) return;
+          if (!NOMES_PII.test(nomeObj)) return;
 
           context.report({
             node,
             messageId: "weak",
-            data: { var: nomeObj || "?", n: right.value },
+            data: { var: nomeObj, n: right.value },
           });
         }
       },

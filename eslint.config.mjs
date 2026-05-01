@@ -16,14 +16,9 @@ const eslintConfig = defineConfig([
       // os casos legados. JSON.parse era unico caso e foi fixado.
       "imuni/no-json-parse-without-try": "error",
 
-      // no-fetch-without-timeout: zerado em 1/Mai/2026 — agora trava build
-      // se alguem reintroduzir. Use lib/fetch-utils.ts (fetchComTimeout).
+      // Ambas zeradas em 1/Mai/2026 — qualquer regressao falha build.
       "imuni/no-fetch-without-timeout": "error",
-
-      // "warn" = divida tecnica visivel mas nao bloqueia build. Cada PR
-      // que tocar arquivo deve zerar warnings dele.
-      // Status (1/Mai/2026): no-weak-length-validation ~24 casos legados.
-      "imuni/no-weak-length-validation": "warn",
+      "imuni/no-weak-length-validation": "error",
 
       // any types: warn (nao bloqueia). Codebase legado tem ~50 any que
       // serao migrados gradualmente quando IMUNI Camada 1 evoluir pra

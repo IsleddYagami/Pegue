@@ -1075,7 +1075,7 @@ Boa sorte! 🎯`,
     return;
   }
 
-  let session = await getSession(phone);
+  const session = await getSession(phone);
 
   // Nova conversa, saudacao ou termo de servico direto
   if (!session || isSaudacao(message) || (!session && isInicioServico(message))) {
@@ -2424,7 +2424,7 @@ async function handleClarificacaoItens(phone: string, message: string) {
 
   // Fallback: IA nao respondeu - junta texto e segue com contagem simples
   const todoTexto = `${textoOriginal} ${message}`.trim();
-  let qtdItens = contarItensTexto(todoTexto) || 1;
+  const qtdItens = contarItensTexto(todoTexto) || 1;
   let veiculoSugerido = "utilitario";
   if (qtdItens >= 8) veiculoSugerido = "caminhao_bau";
   else if (qtdItens >= 3) veiculoSugerido = "hr";
@@ -3191,7 +3191,7 @@ async function calcularEEnviarOrcamento(phone: string, qtdAjudantes: number) {
   const precos = calcularPrecos(distanciaKm, veiculo, qtdAjudantes > 0, session.andar || 0, false, session.destino_endereco || "", session.data_agendada || null);
 
   const ajudanteExtra = qtdAjudantes === 2 ? (distanciaKm <= 10 ? 80 : 100) : 0;
-  let totalAntes = precos.padrao.total + ajudanteExtra;
+  const totalAntes = precos.padrao.total + ajudanteExtra;
 
   const { aplicarAjustes } = await import("@/lib/ajustes-precos");
   const qtdItensTotal = (session.descricao_carga || "").split(",").length;
@@ -8379,11 +8379,10 @@ async function handleIndicarTelefone(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session?.corrida_id) return;
 
-  // Limpa telefone
-  const tel = message.replace(/\D/g, "");
-  const telFormatado = tel.startsWith("55") ? tel : `55${tel}`;
-
-  if (tel.length < 10) {
+  // Normaliza telefone via helper canonico (validators-cadastro).
+  const { normalizarTelefoneBr } = await import("@/lib/validators-cadastro");
+  const telFormatado = normalizarTelefoneBr(message);
+  if (!telFormatado) {
     await sendToClient({ to: phone, message: "Numero invalido. Manda com DDD (ex: 11 95555-1234)" });
     return;
   }

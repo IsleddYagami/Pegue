@@ -21,10 +21,9 @@ export async function GET(req: NextRequest) {
       .from("bot_sessions")
       .select("phone, step, criado_em, atualizado_em, valor_estimado, descricao_carga, origem_endereco, destino_endereco");
 
-    // Filtra grupos e numeros invalidos (so aceita numeros 55...)
-    const todasSessoes = (sessoes || []).filter(s =>
-      s.phone.startsWith("55") && s.phone.length <= 15
-    );
+    // Filtra grupos e numeros invalidos (so aceita formato BR valido)
+    const { isValidBrPhone } = await import("@/lib/phone-utils");
+    const todasSessoes = (sessoes || []).filter(s => isValidBrPhone(s.phone));
     const sessoesHoje = todasSessoes.filter(s => new Date(s.criado_em) >= hoje);
     const sessoesSemana = todasSessoes.filter(s => new Date(s.criado_em) >= umaSemana);
     const sessoesMes = todasSessoes.filter(s => new Date(s.criado_em) >= umMes);

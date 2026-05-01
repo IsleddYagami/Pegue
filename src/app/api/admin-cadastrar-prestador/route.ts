@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { requireAdminAuth } from "@/lib/admin-auth";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
-import { isPlacaValida, normalizarPlaca, validarChavePix } from "@/lib/validators-cadastro";
+import { isPlacaValida, normalizarPlaca, validarChavePix, normalizarTelefoneBr } from "@/lib/validators-cadastro";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -34,10 +34,10 @@ export async function POST(req: NextRequest) {
     if (nome.length < 3) {
       return NextResponse.json({ error: "Nome invalido (minimo 3 caracteres)" }, { status: 400 });
     }
-    if (telefone.length < 10 || telefone.length > 13) {
-      return NextResponse.json({ error: "Telefone invalido" }, { status: 400 });
+    const telComDDI = normalizarTelefoneBr(telefone);
+    if (!telComDDI) {
+      return NextResponse.json({ error: "Telefone invalido. Formato: DDD + numero (ex: 11999998888)" }, { status: 400 });
     }
-    const telComDDI = telefone.startsWith("55") ? telefone : `55${telefone}`;
 
     if (cpf.length !== 11) {
       return NextResponse.json({ error: "CPF precisa ter 11 digitos" }, { status: 400 });

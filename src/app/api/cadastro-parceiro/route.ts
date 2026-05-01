@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { formatarTelefoneExibicao } from "@/lib/bot-utils";
 import { notificarAdmins } from "@/lib/admin-notify";
-import { isPlacaValida, normalizarPlaca } from "@/lib/validators-cadastro";
+import { isPlacaValida, normalizarPlaca, normalizarTelefoneBr } from "@/lib/validators-cadastro";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -55,11 +55,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Tipo de veiculo invalido" }, { status: 400 });
     }
 
-    const telLimpo = String(telefone).replace(/\D/g, "");
-    if (telLimpo.length < 10 || telLimpo.length > 13) {
-      return NextResponse.json({ error: "Telefone invalido" }, { status: 400 });
+    const telCompleto = normalizarTelefoneBr(String(telefone));
+    if (!telCompleto) {
+      return NextResponse.json({ error: "Telefone invalido. Use DDD + numero (ex: 11999998888)" }, { status: 400 });
     }
-    const telCompleto = telLimpo.startsWith("55") ? telLimpo : `55${telLimpo}`;
     const placaNormalizada = normalizarPlaca(placa);
 
     // Verifica se ja existe

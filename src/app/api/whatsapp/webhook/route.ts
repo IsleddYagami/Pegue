@@ -847,6 +847,54 @@ async function handleClienteMessage(
     return;
   }
 
+  // Comando ADMIN "DIAGNOSTICAR <texto>" — testa o que a IA atual extrairia
+  // de uma mensagem sem precisar fazer cotacao real. Util pra Fabio testar
+  // se uma mudanca no prompt funciona ANTES de aprovar/deployar.
+  // Ex: "diagnosticar oi tudo bem? queria fazer um carretinho"
+  if (lower.startsWith("diagnosticar ") && isAdminPhone(phone)) {
+    const texto = message.trim().replace(/^diagnosticar\s+/i, "");
+    if (texto.length < 5) {
+      await sendToClient({
+        to: phone,
+        message: "Use: *DIAGNOSTICAR <mensagem>*\n\nEx: _DIAGNOSTICAR oi, queria um frete de Osasco pra Lapa, sofa e geladeira_",
+      });
+      return;
+    }
+    const t0 = Date.now();
+    const ctx = await extrairContextoInicial(texto);
+    const ms = Date.now() - t0;
+    if (!ctx) {
+      await sendToClient({
+        to: phone,
+        message: `🔍 *Diagnostico:*\n\nMensagem: _"${texto.slice(0, 200)}"_\n\n❌ IA nao extraiu contexto (mensagem muito curta, saudacao pura, ou erro).\n\n⏱ ${ms}ms`,
+      });
+      return;
+    }
+    const linhas = [
+      `🔍 *Diagnostico da IA:*`,
+      `_"${texto.slice(0, 200)}"_`,
+      ``,
+      `🎯 Servico: *${ctx.servico || "—"}*`,
+      `📍 Origem: *${ctx.origem_texto || "—"}*`,
+      `🏠 Destino: *${ctx.destino_texto || "—"}*`,
+      `🚚 Veiculo: *${ctx.veiculo_sugerido || "—"}*`,
+      ctx.veiculo_marca_modelo ? `🚗 Marca/modelo: *${ctx.veiculo_marca_modelo}*` : null,
+      ctx.itens && ctx.itens.length > 0 ? `📦 Itens (${ctx.itens.length}): ${ctx.itens.slice(0, 6).join(", ")}` : null,
+      ctx.qtd_caixas ? `📦 Caixas: ${ctx.qtd_caixas}` : null,
+      ctx.qtd_sacolas ? `🛍 Sacolas: ${ctx.qtd_sacolas}` : null,
+      ctx.precisa_ajudante ? `🙋 Com ajudante` : null,
+      ctx.andar_origem ? `🏢 Andar origem: ${ctx.andar_origem}${ctx.tem_escada_origem ? " (escada)" : ""}` : null,
+      ctx.tem_elevador_destino ? `🛗 Destino com elevador` : null,
+      ctx.data_texto ? `📅 Data: ${ctx.data_texto}${ctx.periodo ? ` (${ctx.periodo})` : ""}` : null,
+      ``,
+      `🎚 Confianca: *${ctx.confianca}*`,
+      `⏱ ${ms}ms`,
+      ctx.observacao ? `💬 _${ctx.observacao}_` : null,
+    ].filter(Boolean).join("\n");
+    await sendToClient({ to: phone, message: linhas });
+    return;
+  }
+
   // Dashboard do fretista
   if (lower === "meu painel" || lower === "meus fretes" || lower === "meu dashboard" || lower === "meu score") {
     await handleDashboardFretista(phone);

@@ -194,18 +194,24 @@ Bom trabalho! 🚚✨`,
         return NextResponse.json({ status: "sem_external_reference" });
       }
 
-      // Marca pagamento como repasse pago (idempotente)
+      // BUG #F5-3 (audit 1/Mai/2026): trocado .like("corrida_id", "${ref}%")
+      // por .eq() — externalReference eh o UUID completo da corrida, like
+      // com % era frágil (poderia bater multiplos se prefixo UUID acidentalmente
+      // batesse).
+      // BUG #F5-4: adicionado .neq("repasse_status", "pago") pra evitar
+      // sobrescrever pago_em em webhooks duplicados. Idempotencia explicita.
       await supabase
         .from("pagamentos")
         .update({ repasse_status: "pago", pago_em: new Date().toISOString() })
         .eq("metodo", "asaas_pix")
-        .like("corrida_id", `${transfer.externalReference}%`);
+        .eq("corrida_id", transfer.externalReference)
+        .neq("repasse_status", "pago");
 
       return NextResponse.json({ status: "ok" });
     }
 
     if (evento === "TRANSFER_FAILED") {
-      // Asaas nao conseguiu fazer o PIX. Notifica admin pra acao manual.
+      // Asaas nao conseguiu fazer o PIX.
       await supabase.from("bot_logs").insert({
         payload: {
           tipo: "asaas_transfer_failed",
@@ -215,15 +221,27 @@ Bom trabalho! 🚚✨`,
         },
       });
 
+      // BUG #F5-5 (audit 1/Mai/2026): antes so logava. Mas se transferirPix
+      // tinha retornado status DONE otimista e depois o banco destino
+      // rejeitasse, pagamento ficava "pago" no nosso banco mas PIX nao saia.
+      // Agora reverte pra "pendente" e loga pra reconciliacao.
+      if (transfer?.externalReference) {
+        await supabase
+          .from("pagamentos")
+          .update({ repasse_status: "pendente", pago_em: null })
+          .eq("metodo", "asaas_pix")
+          .eq("corrida_id", transfer.externalReference);
+      }
+
       // notificarAdmin importado dinamicamente pra evitar circular dep
       const { notificarAdmins } = await import("@/lib/admin-notify");
       await notificarAdmins(
         `🚨 *ASAAS TRANSFER FAILED*`,
         "sistema",
-        `ID: ${transfer?.id}\nValor: R$ ${transfer?.value}\nRef: ${transfer?.externalReference}\n\n👉 Verificar Asaas + fazer PIX manual se necessario.`,
+        `ID: ${transfer?.id}\nValor: R$ ${transfer?.value}\nRef: ${transfer?.externalReference}\n\nStatus do pagamento revertido pra "pendente". 👉 Verificar Asaas + fazer PIX manual se necessario.`,
       );
 
-      return NextResponse.json({ status: "ok_failed_logged" });
+      return NextResponse.json({ status: "ok_failed_revertido" });
     }
 
     // Eventos nao tratados (ex: SUBSCRIPTION_CREATED) - 200 silencioso

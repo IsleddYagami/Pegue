@@ -193,19 +193,34 @@ async function handleAutoLiberaAposColeta(corridaId: string) {
 // Re-dispatch automatico apos timeout 10min sem aceite. Bug auditoria 29/Abr:
 // corrida ficava em limbo. Roda rodada 2 com novos fretistas (excluindo os que
 // rejeitaram). Apos rodada 2 sem aceite, ai sim escala humano.
+//
+// BUG #F3-2 (audit 1/Mai/2026): antes esta funcao era um STUB que so logava
+// "dispatch_redispatch_iniciado" e retornava sem fazer redispatch. Cliente
+// ficava em limbo (o cenario que o comment mesmo dizia que era pra evitar).
+// Agora chama reDispatchUrgente reconstruindo a session a partir da corrida.
 async function handleDispatchRedispatch(corridaId: string, _payload: any) {
   const { data: corrida } = await supabase
     .from("corridas")
-    .select("id, status, dispatch_ativo, prestador_id, dispatch_rodada, dispatch_prestadores")
+    .select(`
+      id, status, dispatch_ativo, prestador_id, dispatch_rodada,
+      dispatch_prestadores, origem_endereco, origem_lat, origem_lng,
+      destino_endereco, destino_lat, destino_lng, distancia_km,
+      tipo_veiculo, descricao_carga, periodo, data_agendada,
+      valor_estimado, valor_final, qtd_ajudantes, escada_origem,
+      andares_origem, clientes!inner(telefone)
+    `)
     .eq("id", corridaId)
     .single();
   if (!corrida) return;
   if (corrida.prestador_id) return; // ja foi aceito
-  if (corrida.status === "cancelada") return;
+  if (corrida.status === "cancelada" || corrida.status === "concluida") return;
 
   // So tenta rodada 2. Se ja foi rodada 2+, escala humano (deixa cron padrao
   // de timeout estendido lidar).
   if ((corrida.dispatch_rodada || 0) >= 2) return;
+
+  const clientePhone = (corrida.clientes as any)?.telefone;
+  if (!clientePhone) return;
 
   await supabase.from("bot_logs").insert({
     payload: {
@@ -215,6 +230,34 @@ async function handleDispatchRedispatch(corridaId: string, _payload: any) {
       prestadores_rodada1: corrida.dispatch_prestadores,
     },
   });
+
+  // Reconstroi session "fake" a partir da corrida pra alimentar reDispatchUrgente
+  // (que precisa de origem/destino/valor/etc pra remontar a mensagem).
+  const sessionFake: any = {
+    phone: clientePhone,
+    step: "aguardando_fretista",
+    origem_endereco: corrida.origem_endereco,
+    origem_lat: corrida.origem_lat,
+    origem_lng: corrida.origem_lng,
+    destino_endereco: corrida.destino_endereco,
+    destino_lat: corrida.destino_lat,
+    destino_lng: corrida.destino_lng,
+    distancia_km: corrida.distancia_km,
+    descricao_carga: corrida.descricao_carga,
+    veiculo_sugerido: corrida.tipo_veiculo,
+    foto_url: null,
+    data_agendada: corrida.periodo || corrida.data_agendada,
+    periodo: null,
+    plano_escolhido: null,
+    valor_estimado: corrida.valor_final || corrida.valor_estimado,
+    tem_escada: !!corrida.escada_origem,
+    andar: corrida.andares_origem || 0,
+    precisa_ajudante: (corrida.qtd_ajudantes || 0) > 0,
+    corrida_id: corridaId,
+  };
+
+  const { reDispatchUrgente } = await import("@/app/api/whatsapp/webhook/route");
+  await reDispatchUrgente(corridaId, sessionFake, clientePhone);
 }
 
 // 31s apos inicio do dispatch: se ninguem aceitou E tem contraoferta de fretista,

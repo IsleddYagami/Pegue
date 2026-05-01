@@ -5205,7 +5205,13 @@ async function notificarAdminComClaim(titulo: string, clientePhone: string, deta
 
 async function dispararParaFretistas(corridaId: string, session: BotSession, clientePhone: string) {
   try {
-    const isGuincho = (session.descricao_carga || "").toLowerCase().includes("guincho");
+    // BUG #F3-1 (audit 1/Mai/2026): antes detectava guincho via
+    // `descricao_carga.includes("guincho")`. Cliente que digitava "preciso
+    // de um guincho" na descricao de FRETE era classificado como guincho
+    // e dispatch ia pra guincheiros (errado). Agora usa veiculo_sugerido
+    // que eh setado nos caminhos certos (handleEscolhaServico,
+    // handleConfirmarContextoInicial, handleGuinchoCategoria).
+    const isGuincho = session.veiculo_sugerido === "guincho" || session.veiculo_sugerido === "moto_guincho";
 
     // Filtra prestadores pelo tipo de veiculo
     // Guincho: so prestadores com veiculo tipo "guincho"
@@ -8208,7 +8214,7 @@ async function handleIndicarTelefone(phone: string, message: string) {
 
 // === RE-DISPATCH URGENTE (PRIORIDADE IMEDIATA) ===
 
-async function reDispatchUrgente(corridaId: string, session: BotSession, clientePhone: string, excluirPhone?: string) {
+export async function reDispatchUrgente(corridaId: string, session: BotSession, clientePhone: string, excluirPhone?: string) {
   try {
     const { data: prestadores } = await supabase
       .from("prestadores")

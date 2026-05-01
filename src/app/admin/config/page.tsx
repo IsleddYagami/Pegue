@@ -99,24 +99,27 @@ export default function ConfigPage() {
     setPrecos({ ...precos, [field]: value });
   }
 
-  function InputField({ label, field, prefix, suffix }: { label: string; field: keyof TabelaPrecos; prefix?: string; suffix?: string }) {
-    return (
-      <div>
-        <label className="mb-1 block text-sm font-medium text-gray-600">{label}</label>
-        <div className="flex items-center gap-1">
-          {prefix && <span className="text-sm text-gray-400">{prefix}</span>}
-          <input
-            type="number"
-            step="0.01"
-            value={precos ? (precos[field] as number) : 0}
-            onChange={(e) => updateField(field, parseFloat(e.target.value) || 0)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#C9A84C] focus:outline-none"
-          />
-          {suffix && <span className="text-sm text-gray-400">{suffix}</span>}
-        </div>
+  // BUG legado caçado pelo lint react-compiler em 1/Mai/2026: InputField
+  // estava declarado DENTRO do componente AdminConfigPage. Cada render do
+  // pai criava nova instancia do componente filho — perda de estado em
+  // cada digitacao. Renomeado pra renderInputField (helper de render, nao
+  // componente), eliminando o problema sem refator estrutural.
+  const renderInputField = (label: string, field: keyof TabelaPrecos, opts?: { prefix?: string; suffix?: string }) => (
+    <div key={field}>
+      <label className="mb-1 block text-sm font-medium text-gray-600">{label}</label>
+      <div className="flex items-center gap-1">
+        {opts?.prefix && <span className="text-sm text-gray-400">{opts.prefix}</span>}
+        <input
+          type="number"
+          step="0.01"
+          value={precos ? (precos[field] as number) : 0}
+          onChange={(e) => updateField(field, parseFloat(e.target.value) || 0)}
+          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#C9A84C] focus:outline-none"
+        />
+        {opts?.suffix && <span className="text-sm text-gray-400">{opts.suffix}</span>}
       </div>
-    );
-  }
+    </div>
+  );
 
   if (loading) {
     return (
@@ -161,9 +164,9 @@ export default function ConfigPage() {
             <DollarSign size={18} className="text-[#C9A84C]" /> Preco Base
           </h3>
           <div className="mt-4 space-y-3">
-            <InputField label="Preco por km" field="preco_base_km" prefix="R$" />
-            <InputField label="Km minimo cobrado" field="km_minimo" suffix="km" />
-            <InputField label="Valor minimo da corrida" field="valor_minimo" prefix="R$" />
+            {renderInputField("Preco por km", "preco_base_km", { prefix: "R$" })}
+            {renderInputField("Km minimo cobrado", "km_minimo", { suffix: "km" })}
+            {renderInputField("Valor minimo da corrida", "valor_minimo", { prefix: "R$" })}
           </div>
         </div>
 
@@ -172,10 +175,10 @@ export default function ConfigPage() {
             <Truck size={18} className="text-[#C9A84C]" /> Multiplicadores de Veiculo
           </h3>
           <div className="mt-4 space-y-3">
-            <InputField label="Utilitario" field="mult_utilitario" suffix="x" />
-            <InputField label="Van" field="mult_van" suffix="x" />
-            <InputField label="Caminhao Bau" field="mult_caminhao_bau" suffix="x" />
-            <InputField label="Caminhao Grande" field="mult_caminhao_grande" suffix="x" />
+            {renderInputField("Utilitario", "mult_utilitario", { suffix: "x" })}
+            {renderInputField("Van", "mult_van", { suffix: "x" })}
+            {renderInputField("Caminhao Bau", "mult_caminhao_bau", { suffix: "x" })}
+            {renderInputField("Caminhao Grande", "mult_caminhao_grande", { suffix: "x" })}
           </div>
         </div>
 
@@ -184,9 +187,9 @@ export default function ConfigPage() {
             <Users size={18} className="text-[#C9A84C]" /> Adicionais
           </h3>
           <div className="mt-4 space-y-3">
-            <InputField label="Adicional por ajudante" field="adicional_ajudante" prefix="R$" />
-            <InputField label="Adicional por andar (escada)" field="adicional_andar_escada" prefix="R$" />
-            <InputField label="Multiplicador urgente" field="mult_urgente" suffix="x" />
+            {renderInputField("Adicional por ajudante", "adicional_ajudante", { prefix: "R$" })}
+            {renderInputField("Adicional por andar (escada)", "adicional_andar_escada", { prefix: "R$" })}
+            {renderInputField("Multiplicador urgente", "mult_urgente", { suffix: "x" })}
           </div>
         </div>
 
@@ -195,10 +198,10 @@ export default function ConfigPage() {
             <Clock size={18} className="text-[#C9A84C]" /> Planos e Comissao
           </h3>
           <div className="mt-4 space-y-3">
-            <InputField label="Multiplicador Economica" field="mult_economica" suffix="x" />
-            <InputField label="Multiplicador Padrao" field="mult_padrao" suffix="x" />
-            <InputField label="Multiplicador Premium" field="mult_premium" suffix="x" />
-            <InputField label="Comissao Pegue" field="comissao_percentual" suffix="%" />
+            {renderInputField("Multiplicador Economica", "mult_economica", { suffix: "x" })}
+            {renderInputField("Multiplicador Padrao", "mult_padrao", { suffix: "x" })}
+            {renderInputField("Multiplicador Premium", "mult_premium", { suffix: "x" })}
+            {renderInputField("Comissao Pegue", "comissao_percentual", { suffix: "%" })}
           </div>
         </div>
       </div>

@@ -1559,6 +1559,19 @@ Boa sorte! 🎯`,
       });
       break;
 
+    case "concluido":
+      // BUG #F1-RE1 (re-audit 1/Mai/2026): antes caia no default e cada
+      // mensagem pos-corrida disparava notificarAdmin "step_desconhecido"
+      // (falso positivo recorrente — cliente que mandava "obrigado!" depois
+      // de terminar). Agora trata como inicio de novo atendimento: reseta
+      // pra "inicio" e mostra opcao de iniciar nova cotacao.
+      await updateSession(phone, { step: "inicio" });
+      await sendToClient({
+        to: phone,
+        message: `Oi de novo! 😊\n\nQuer fazer uma nova cotacao? Manda *oi* que eu ja atendo!\n\nOu se preferir, escolha:\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`,
+      });
+      break;
+
     default: {
       // Step desconhecido: NAO reseta sessao silenciosamente (isso fazia cliente
       // perder contexto em bugs/migrations). Registra ocorrencia e notifica admin
@@ -8127,10 +8140,58 @@ async function handleCancelarConfirma(phone: string, message: string) {
       message: "⚠️ Seu fretista teve um imprevisto e nao podera realizar o servico.\n\n*Ja estamos providenciando outro fretista de confianca!*\nVoce sera notificado assim que confirmarmos. 😊",
     });
 
-    // Re-dispatch - busca novos fretistas (excluindo o que cancelou)
-    const sessionCliente = await getSession(clienteTel);
+    // BUG #F3-RE2 (re-audit 1/Mai/2026): antes, se a session do cliente
+    // tivesse expirado (24h), redispatch nao rolava e corrida ficava em
+    // limbo. Agora reconstroi session a partir da corrida (mesma tecnica
+    // usada no cron de redispatch). Garante que sempre tenta achar outro
+    // fretista quando o atual cancela.
+    let sessionCliente = await getSession(clienteTel);
+    if (!sessionCliente) {
+      const { data: corridaFull } = await supabase
+        .from("corridas")
+        .select(`
+          origem_endereco, origem_lat, origem_lng,
+          destino_endereco, destino_lat, destino_lng,
+          distancia_km, tipo_veiculo, descricao_carga,
+          periodo, data_agendada, valor_estimado, valor_final,
+          qtd_ajudantes, escada_origem, andares_origem
+        `)
+        .eq("id", corridaId)
+        .single();
+      if (corridaFull) {
+        sessionCliente = {
+          phone: clienteTel,
+          step: "aguardando_fretista",
+          origem_endereco: corridaFull.origem_endereco,
+          origem_lat: corridaFull.origem_lat,
+          origem_lng: corridaFull.origem_lng,
+          destino_endereco: corridaFull.destino_endereco,
+          destino_lat: corridaFull.destino_lat,
+          destino_lng: corridaFull.destino_lng,
+          distancia_km: corridaFull.distancia_km,
+          descricao_carga: corridaFull.descricao_carga,
+          veiculo_sugerido: corridaFull.tipo_veiculo,
+          foto_url: null,
+          data_agendada: corridaFull.periodo || corridaFull.data_agendada,
+          periodo: null,
+          plano_escolhido: null,
+          valor_estimado: corridaFull.valor_final || corridaFull.valor_estimado,
+          tem_escada: !!corridaFull.escada_origem,
+          andar: corridaFull.andares_origem || 0,
+          precisa_ajudante: (corridaFull.qtd_ajudantes || 0) > 0,
+          corrida_id: corridaId,
+        } as any;
+      }
+    }
     if (sessionCliente) {
       await reDispatchUrgente(corridaId, sessionCliente, clienteTel, phone);
+    } else {
+      // Sem dados pra refazer — escala humano
+      await notificarAdmin(
+        `🚨 *CANCELAMENTO SEM DADOS PRA REDISPATCH*`,
+        clienteTel,
+        `Fretista cancelou corrida ${corridaId} mas nao consegui montar redispatch (session expirou e corrida nao tem dados completos).`
+      );
     }
   }
 

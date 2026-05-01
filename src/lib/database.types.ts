@@ -8,7 +8,7 @@
 // prestadores_veiculos, etc).
 //
 // Gerado a partir de https://ztbhtayiufdckckhspoq.supabase.co
-// Em 2026-05-01T21:38:57.399Z
+// Em 2026-05-01T21:48:19.670Z
 
 export interface Database {
   public: {
@@ -877,81 +877,6 @@ export interface Database {
           motivo?: string | null;
           adicionado_em?: string | null;
           adicionado_por?: string | null;
-        };
-        Relationships: [];
-      };
-      prestador_documentos: {
-        Row: {
-          id: string;
-          prestador_id: string;
-          tipo: string;
-          documento_url: string;
-          validado: boolean;
-          validado_por: string;
-          validado_em: string;
-          criado_em: string;
-        };
-        Insert: {
-          id?: string | null;
-          prestador_id?: string | null;
-          tipo?: string | null;
-          documento_url?: string | null;
-          validado?: boolean | null;
-          validado_por?: string | null;
-          validado_em?: string | null;
-          criado_em?: string | null;
-        };
-        Update: {
-          id?: string | null;
-          prestador_id?: string | null;
-          tipo?: string | null;
-          documento_url?: string | null;
-          validado?: boolean | null;
-          validado_por?: string | null;
-          validado_em?: string | null;
-          criado_em?: string | null;
-        };
-        Relationships: [];
-      };
-      prestador_veiculos: {
-        Row: {
-          id: string;
-          prestador_id: string;
-          tipo: string;
-          marca: string;
-          modelo: string;
-          ano: number;
-          placa: string;
-          foto_url: string;
-          capacidade_kg: number;
-          ativo: boolean;
-          criado_em: string;
-        };
-        Insert: {
-          id?: string | null;
-          prestador_id?: string | null;
-          tipo?: string | null;
-          marca?: string | null;
-          modelo?: string | null;
-          ano?: number | null;
-          placa?: string | null;
-          foto_url?: string | null;
-          capacidade_kg?: number | null;
-          ativo?: boolean | null;
-          criado_em?: string | null;
-        };
-        Update: {
-          id?: string | null;
-          prestador_id?: string | null;
-          tipo?: string | null;
-          marca?: string | null;
-          modelo?: string | null;
-          ano?: number | null;
-          placa?: string | null;
-          foto_url?: string | null;
-          capacidade_kg?: number | null;
-          ativo?: boolean | null;
-          criado_em?: string | null;
         };
         Relationships: [];
       };

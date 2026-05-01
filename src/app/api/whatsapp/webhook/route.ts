@@ -3987,12 +3987,28 @@ async function handleFretistaDivergenciaFoto(phone: string, message: string, has
     return;
   }
 
-  // Salva foto_url na ocorrencia
+  // BUG #F6-1 (audit 1/Mai/2026): antes salvava URL temporaria do ChatPro
+  // (expira ~30d). Prova juridica da ocorrencia virava lixo apos um mes.
+  // Agora baixa pra Storage permanente e salva PATH interno em foto_url.
+  // Admin obtem signed URL via getProvaSignedUrl quando precisar exibir.
   if (ocorrenciaId) {
+    const { salvarFotoOcorrencia } = await import("@/lib/storage-provas");
+    const pathPersistente = await salvarFotoOcorrencia(imageUrl, ocorrenciaId);
+    const fotoFinal = pathPersistente || imageUrl; // fallback URL temporaria se upload falhar
     await supabase
       .from("ocorrencias")
-      .update({ foto_url: imageUrl })
+      .update({ foto_url: fotoFinal })
       .eq("id", ocorrenciaId);
+    if (!pathPersistente) {
+      // Upload falhou — log pra admin investigar (URL ChatPro vai expirar)
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "ocorrencia_foto_storage_falhou",
+          ocorrencia_id: ocorrenciaId,
+          chatpro_url_temp: imageUrl,
+        },
+      });
+    }
   }
 
   await updateSession(phone, { step: "fretista_divergencia_descricao" });
@@ -6786,7 +6802,7 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
 
     const { data: corrida } = await supabase
       .from("corridas")
-      .select("prestador_id, prestadores(telefone)")
+      .select("cliente_id, prestador_id, prestadores(telefone)")
       .eq("id", session.corrida_id)
       .single();
 
@@ -6795,16 +6811,43 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
       await sendToClient({ to: fretistaTel, message: MSG.fretistaProblemaNaEntrega });
     }
 
+    // BUG #F6-4 (audit 1/Mai/2026): antes so notificava admin + setava status
+    // problema. Sem ocorrencia formal, nao havia rastreio nem timeout pra
+    // resolucao. Agora cria ocorrencia + agenda timeout 15min admin (mesmo
+    // pipeline do fretista_divergencia).
+    const { safeInsert } = await import("@/lib/db-helpers");
+    const ocorrenciaInsert = await safeInsert<{ id: string }>({
+      tabela: "ocorrencias",
+      contexto: "reclamacao_cliente_entrega",
+      notificarAdminEmFalha: true,
+      dados: {
+        corrida_id: session.corrida_id,
+        prestador_id: corrida?.prestador_id || null,
+        cliente_id: corrida?.cliente_id || null,
+        tipo: "reclamacao_cliente_entrega",
+        status: "aberta",
+      },
+    });
+    const ocorrenciaId = ocorrenciaInsert.ok ? ocorrenciaInsert.data?.id : null;
+
     await notificarAdmin(
-      `🚨 *PROBLEMA NA ENTREGA*`,
+      `🚨 *RECLAMACAO DO CLIENTE NA ENTREGA*`,
       phone,
-      `Corrida: ${session.corrida_id}\nCliente reportou problema.\nPagamento retido automaticamente.`
+      `Corrida: ${session.corrida_id}\nOcorrencia: ${ocorrenciaId || "FALHA AO CRIAR"}\nCliente reportou problema na entrega.\nRepasse PIX retido automaticamente.\n\n👉 Ligar pro cliente pra entender. 15min pra resolver antes do auto-libera 50%.`
     );
 
     await supabase
       .from("corridas")
       .update({ status: "problema" })
       .eq("id", session.corrida_id);
+
+    // Agenda timeout 15min: se admin nao resolver, cron libera fretista + 50%
+    if (ocorrenciaId) {
+      await agendarTarefa("ocorrencia_timeout_admin", ocorrenciaId, 15 * 60 * 1000, {
+        fretista_phone: (corrida?.prestadores as any)?.telefone || null,
+        corrida_id: session.corrida_id,
+      });
+    }
   } else {
     await sendToClient({
       to: phone,

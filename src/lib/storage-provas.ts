@@ -17,7 +17,7 @@ import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 const BUCKET = "provas-digitais";
 const SIGNED_URL_TTL_SEGUNDOS = 60 * 60; // 1h
 
-export type TipoProva = "coleta" | "entrega";
+export type TipoProva = "coleta" | "entrega" | "ocorrencia";
 
 // Detecta se um valor em foto_url eh path interno (novo) ou URL completa
 // (legado, gravado antes da migration de seguranca).
@@ -113,4 +113,44 @@ export async function contarProvas(corridaId: string, tipo: TipoProva): Promise<
     .eq("corrida_id", corridaId)
     .eq("tipo", tipo);
   return count ?? 0;
+}
+
+// Helper pra salvar SO no Storage (sem registrar em provas_digitais).
+// Usado pra ocorrencias - foto vai pra coluna `ocorrencias.foto_url` direto
+// (a tabela ocorrencias ja tem registro proprio, nao precisa duplicar em
+// provas_digitais que eh focada em coleta/entrega).
+//
+// Audit 1/Mai/2026: BUG #F6-1 — antes salvava URL temporaria do ChatPro
+// (expira ~30d). Prova juridica das ocorrencias virava lixo apos um mes.
+export async function salvarFotoOcorrencia(
+  chatproUrl: string,
+  ocorrenciaId: string,
+): Promise<string | null> {
+  try {
+    const response = await fetch(chatproUrl);
+    if (!response.ok) {
+      console.error(`Erro baixando foto ocorrencia da ChatPro:`, response.status);
+      return null;
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    let ext = "jpg";
+    if (contentType.includes("png")) ext = "png";
+    else if (contentType.includes("webp")) ext = "webp";
+
+    // Path organizado: ocorrencias/{ocorrenciaId}-{timestamp}.{ext}
+    const path = `ocorrencias/${ocorrenciaId}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, buffer, { contentType, upsert: false });
+    if (uploadError) {
+      console.error(`Erro upload foto ocorrencia:`, uploadError.message);
+      return null;
+    }
+    return path; // PATH interno — caller usa getProvaSignedUrl pra exibir
+  } catch (e: any) {
+    console.error(`Excecao salvar foto ocorrencia:`, e?.message);
+    return null;
+  }
 }

@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
@@ -85,7 +86,7 @@ export default function OperacaoRealPage() {
     setLoading(true);
     setErro(null);
     try {
-      const r = await fetch(`/api/admin-operacao?key=${encodeURIComponent(adminKey)}&dias=${dias}`);
+      const r = await fetchComTimeout(`/api/admin-operacao?key=${encodeURIComponent(adminKey)}&dias=${dias}`);
       const data = await r.json();
       if (!r.ok) {
         setErro(data.error || "erro desconhecido");
@@ -111,7 +112,7 @@ export default function OperacaoRealPage() {
   }, [logado, autoRefresh, carregar]);
 
   async function executarAcao(acao: string, corrida_id: string, motivo?: string) {
-    const r = await fetch("/api/admin-operacao", {
+    const r = await fetchComTimeout("/api/admin-operacao", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: adminKey, acao, corrida_id, motivo }),
@@ -452,7 +453,7 @@ export default function OperacaoRealPage() {
                     <button
                       onClick={async () => {
                         if (!confirm(`ASSUMIR conversa com ${c.cliente.nome}?\n\nBot vai ficar CALADO. Você responde manualmente pelo WhatsApp da Pegue.\n\nTelefone do cliente: ${c.cliente.telefone}`)) return;
-                        const r = await fetch("/api/admin-operacao", {
+                        const r = await fetchComTimeout("/api/admin-operacao", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ key: adminKey, acao: "assumir_conversa", corrida_id: c.id, phone: c.cliente.telefone }),
@@ -469,7 +470,7 @@ export default function OperacaoRealPage() {
                     <button
                       onClick={async () => {
                         if (!confirm(`Devolver conversa pro BOT?\n\nCliente vai precisar mandar OI pra recomecar o fluxo.`)) return;
-                        const r = await fetch("/api/admin-operacao", {
+                        const r = await fetchComTimeout("/api/admin-operacao", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ key: adminKey, acao: "devolver_bot", corrida_id: c.id, phone: c.cliente.telefone }),

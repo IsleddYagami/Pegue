@@ -13,6 +13,8 @@
 // Caller depois reformata em string limpa e tenta geocodar novamente.
 // Custo: ~R$0,003 por interpretacao (gpt-4o-mini, low input/output).
 
+import { fetchComTimeout } from "@/lib/fetch-utils";
+
 export interface EnderecoEstruturado {
   rua: string | null;
   numero: string | null;
@@ -64,7 +66,7 @@ ${contextoCidade ? `- Contexto: cliente provavelmente esta em ${contextoCidade}.
 Responda SOMENTE o JSON, sem markdown, sem explicacao.`;
 
   try {
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    const r = await fetchComTimeout("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,

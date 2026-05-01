@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -26,7 +27,7 @@ async function gerarSimulacao() {
     sessionStorage.setItem("admin_key", senha);
   }
   try {
-    const res = await fetch(`/api/admin-gerar-simulacao?key=${encodeURIComponent(senha)}`);
+    const res = await fetchComTimeout(`/api/admin-gerar-simulacao?key=${encodeURIComponent(senha)}`);
     const data = await res.json();
     if (res.ok) {
       alert(`✅ ${data.mensagem}\n\nUtilitario: ${data.resumo.utilitario} · HR: ${data.resumo.hr}\nPreco medio Util: R$ ${data.resumo.precoMedioUtil}\nPreco medio HR: R$ ${data.resumo.precoMedioHR}`);
@@ -48,7 +49,7 @@ async function testarEmail() {
     sessionStorage.setItem("admin_key", senha);
   }
   try {
-    const res = await fetch(`/api/admin-testar-email?key=${encodeURIComponent(senha)}`);
+    const res = await fetchComTimeout(`/api/admin-testar-email?key=${encodeURIComponent(senha)}`);
     const data = await res.json();
     if (res.ok) {
       alert(`✅ ${data.mensagem}`);
@@ -72,7 +73,7 @@ async function reenviarEmailCadastro(phone: string, nome: string) {
     sessionStorage.setItem("admin_key", senha);
   }
   try {
-    const res = await fetch("/api/admin-reenviar-email-cadastro", {
+    const res = await fetchComTimeout("/api/admin-reenviar-email-cadastro", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: senha, phone }),
@@ -101,7 +102,7 @@ async function reenviarTermosAtualizados(phone: string, nome: string) {
   }
   const url = `/api/admin-enviar?key=${encodeURIComponent(senha)}&phone=${encodeURIComponent(phone)}&tipo=termos_atualizados`;
   try {
-    const res = await fetch(url);
+    const res = await fetchComTimeout(url);
     const data = await res.json();
     if (res.ok) {
       alert(`✅ Termos atualizados enviados pra ${nome}!\n\nO prestador recebera em instantes no WhatsApp.`);
@@ -129,7 +130,7 @@ export default function PrestadoresPage() {
         return;
       }
       try {
-        const res = await fetch(`/api/admin-prestadores?key=${encodeURIComponent(senha)}`);
+        const res = await fetchComTimeout(`/api/admin-prestadores?key=${encodeURIComponent(senha)}`);
         if (res.status === 401) {
           sessionStorage.removeItem("admin_key");
           setErro("Senha incorreta. Recarregue a pagina.");
@@ -155,7 +156,7 @@ export default function PrestadoresPage() {
     const senha = sessionStorage.getItem("admin_key") || "";
     if (!senha) return;
     try {
-      const res = await fetch(`/api/admin-prestadores?key=${encodeURIComponent(senha)}`, {
+      const res = await fetchComTimeout(`/api/admin-prestadores?key=${encodeURIComponent(senha)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, acao }),

@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -125,7 +126,7 @@ export default function SimuladorPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/admin-simular", {
+      const res = await fetchComTimeout("/api/admin-simular", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: senha, filtros: corpo }),

@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
@@ -67,7 +68,7 @@ export default function MotoristaTrackingPage() {
       setPosicao({ lat, lng });
       setGpsAtivo(true);
 
-      const r = await fetch("/api/rastreio", {
+      const r = await fetchComTimeout("/api/rastreio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, lat, lng, accuracy }),

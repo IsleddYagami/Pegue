@@ -16,14 +16,19 @@ const eslintConfig = defineConfig([
       // os casos legados. JSON.parse era unico caso e foi fixado.
       "imuni/no-json-parse-without-try": "error",
 
-      // "warn" = mostra divida tecnica sem bloquear build. Usado quando
-      // ainda ha N casos legados. Cada PR novo tem que zerar pelo menos
-      // os warnings que tocou. Quando chegar a 0, mudar pra "error".
-      // Status atual (1/Mai/2026):
-      //   no-fetch-without-timeout: ~41 casos (subindo um a um)
-      //   no-weak-length-validation: ~10 casos apos refinar whitelist
-      "imuni/no-fetch-without-timeout": "warn",
+      // no-fetch-without-timeout: zerado em 1/Mai/2026 — agora trava build
+      // se alguem reintroduzir. Use lib/fetch-utils.ts (fetchComTimeout).
+      "imuni/no-fetch-without-timeout": "error",
+
+      // "warn" = divida tecnica visivel mas nao bloqueia build. Cada PR
+      // que tocar arquivo deve zerar warnings dele.
+      // Status (1/Mai/2026): no-weak-length-validation ~24 casos legados.
       "imuni/no-weak-length-validation": "warn",
+
+      // any types: warn (nao bloqueia). Codebase legado tem ~50 any que
+      // serao migrados gradualmente quando IMUNI Camada 1 evoluir pra
+      // tipar nullability tambem (hoje eh non-null pragmatico).
+      "@typescript-eslint/no-explicit-any": "warn",
     },
   },
   // Override default ignores of eslint-config-next.

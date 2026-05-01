@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useEffect, useState } from "react";
 import { BookOpen, Check, X, FileText } from "lucide-react";
@@ -42,7 +43,7 @@ export default function AprendizadoPage() {
       return;
     }
     try {
-      const res = await fetch(`/api/admin-aprendizado?key=${encodeURIComponent(senha)}&status=${filtroStatus}`);
+      const res = await fetchComTimeout(`/api/admin-aprendizado?key=${encodeURIComponent(senha)}&status=${filtroStatus}`);
       if (res.status === 401) {
         sessionStorage.removeItem("admin_key");
         setErro("Senha incorreta. Recarregue.");
@@ -71,7 +72,7 @@ export default function AprendizadoPage() {
     if (!senha) return;
     const observacao = acao === "rejeitar" ? prompt("Motivo (opcional):") || undefined : undefined;
     try {
-      const res = await fetch(`/api/admin-aprendizado?key=${encodeURIComponent(senha)}`, {
+      const res = await fetchComTimeout(`/api/admin-aprendizado?key=${encodeURIComponent(senha)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, acao, observacao }),

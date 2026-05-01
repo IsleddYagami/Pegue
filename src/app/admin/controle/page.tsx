@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -15,7 +16,7 @@ export default function ControlePage() {
     setLoading(true);
     setErro("");
     const url = "/api/admin-config?key=" + encodeURIComponent(senha);
-    const r = await fetch(url);
+    const r = await fetchComTimeout(url);
     const text = await r.text();
     try {
       const data = JSON.parse(text);
@@ -33,7 +34,7 @@ export default function ControlePage() {
 
   async function toggle(chave: string, valorAtual: string) {
     const novo = valorAtual === "habilitado" ? "desabilitado" : "habilitado";
-    await fetch("/api/admin-config", {
+    await fetchComTimeout("/api/admin-config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: senha, chave, valor: novo }),

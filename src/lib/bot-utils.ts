@@ -1,6 +1,7 @@
 // Utilitarios do bot
 import { googleGeocode, googleReverseGeocode, googleGeocodeAtivo } from "./geocoder-google";
 import { calcularAdicionalFeriado } from "./feriados-br";
+import { fetchComTimeout } from "./fetch-utils";
 
 // Palavras reservadas que NUNCA devem ser aceitas como endereço.
 // Bug detectado em 25/Abr/2026: cliente digitou PRONTO pra fechar fotos e o
@@ -77,9 +78,10 @@ export async function reverseGeocodeBairroCidade(
   }
 
   try {
-    const response = await fetch(
+    const response = await fetchComTimeout(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
-      { headers: { "User-Agent": "Pegue-Bot/1.0" } }
+      { headers: { "User-Agent": "Pegue-Bot/1.0" } },
+      8000,
     );
     if (!response.ok) return "Localizacao recebida";
     const data = await response.json();
@@ -107,13 +109,14 @@ export async function reverseGeocode(
   }
 
   try {
-    const response = await fetch(
+    const response = await fetchComTimeout(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
       {
         headers: {
           "User-Agent": "Pegue-Bot/1.0",
         },
-      }
+      },
+      8000,
     );
 
     if (!response.ok) return "Localizacao recebida";
@@ -140,8 +143,10 @@ export async function buscaCep(cep: string): Promise<string | null> {
     const cepLimpo = cep.replace(/\D/g, "");
     if (cepLimpo.length !== 8) return null;
 
-    const response = await fetch(
-      `https://viacep.com.br/ws/${cepLimpo}/json/`
+    const response = await fetchComTimeout(
+      `https://viacep.com.br/ws/${cepLimpo}/json/`,
+      {},
+      8000,
     );
     if (!response.ok) return null;
 

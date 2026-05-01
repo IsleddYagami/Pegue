@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useEffect, useState } from "react";
 import { Save, DollarSign, Truck, Users, Clock, Loader2 } from "lucide-react";
@@ -31,7 +32,7 @@ export default function ConfigPage() {
         return;
       }
       try {
-        const res = await fetch(`/api/admin-tabela-precos?key=${encodeURIComponent(senha)}`);
+        const res = await fetchComTimeout(`/api/admin-tabela-precos?key=${encodeURIComponent(senha)}`);
         if (res.status === 401) {
           sessionStorage.removeItem("admin_key");
           setErro("Senha incorreta. Recarregue a pagina.");
@@ -59,7 +60,7 @@ export default function ConfigPage() {
     if (!senha) return;
     setSalvando(true);
     try {
-      const res = await fetch(`/api/admin-tabela-precos?key=${encodeURIComponent(senha)}`, {
+      const res = await fetchComTimeout(`/api/admin-tabela-precos?key=${encodeURIComponent(senha)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

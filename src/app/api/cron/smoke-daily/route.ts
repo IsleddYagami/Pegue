@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isValidCronKey } from "@/lib/admin-auth";
 import { notificarAdmins } from "@/lib/admin-notify";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
 
   // 1. Webhook responde 200 com payload valido
   results.push(await check("webhook_200_payload_valido", async () => {
-    const r = await fetch(webhookUrl, {
+    const r = await fetchComTimeout(webhookUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
 
   // 2. Webhook rejeita secret invalido (401)
   results.push(await check("webhook_401_secret_invalido", async () => {
-    const r = await fetch(`${BASE_URL}/api/whatsapp/webhook?secret=invalido`, {
+    const r = await fetchComTimeout(`${BASE_URL}/api/whatsapp/webhook?secret=invalido`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ Type: "received_message" }),
@@ -71,7 +72,7 @@ export async function GET(req: NextRequest) {
 
   // 3. Webhook ignora payload mal-formado (200, nao 500)
   results.push(await check("webhook_payload_malformado_200", async () => {
-    const r = await fetch(webhookUrl, {
+    const r = await fetchComTimeout(webhookUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({ foo: "bar" }),
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest) {
 
   // 4. Webhook ignora SQL injection sem quebrar
   results.push(await check("webhook_sql_injection_safe", async () => {
-    const r = await fetch(webhookUrl, {
+    const r = await fetchComTimeout(webhookUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -97,13 +98,13 @@ export async function GET(req: NextRequest) {
 
   // 5. Imagem tutorial localizacao acessivel (CDN ok)
   results.push(await check("cdn_tutorial_mp4_acessivel", async () => {
-    const r = await fetch(`${BASE_URL}/tutorial-localizacao.mp4`, { method: "HEAD" });
+    const r = await fetchComTimeout(`${BASE_URL}/tutorial-localizacao.mp4`, { method: "HEAD" });
     return { ok: r.status === 200, detail: r.status !== 200 ? `status=${r.status}` : undefined };
   }));
 
   // 6. Sentry endpoint configurado (Sentry tunnel route)
   results.push(await check("site_pagina_principal_carrega", async () => {
-    const r = await fetch(`${BASE_URL}/`, { method: "HEAD" });
+    const r = await fetchComTimeout(`${BASE_URL}/`, { method: "HEAD" });
     return { ok: r.status === 200 || r.status === 301 || r.status === 308, detail: r.status > 308 ? `status=${r.status}` : undefined };
   }));
 

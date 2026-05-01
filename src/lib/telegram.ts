@@ -13,6 +13,8 @@
 // 8. No Telegram, abre o grupo > 3 pontinhos > Notifications > Sound > escolhe
 //    som forte/longo + Importance: All Messages.
 
+import { fetchComTimeout } from "@/lib/fetch-utils";
+
 const TELEGRAM_API = "https://api.telegram.org";
 
 export interface TelegramSendOptions {
@@ -45,7 +47,7 @@ export async function sendTelegram(opts: TelegramSendOptions): Promise<number> {
   let enviados = 0;
   for (const chatId of chatIds) {
     try {
-      const r = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
+      const r = await fetchComTimeout(`${TELEGRAM_API}/bot${token}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useState } from "react";
 import {
@@ -66,7 +67,7 @@ export function DashboardParceiro() {
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/dashboard-parceiro`, {
+      const res = await fetchComTimeout(`/api/dashboard-parceiro`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: `55${tel}` }),
@@ -98,7 +99,7 @@ export function DashboardParceiro() {
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/dashboard-parceiro?phone=55${tel}&otp=${codigo}`);
+      const res = await fetchComTimeout(`/api/dashboard-parceiro?phone=55${tel}&otp=${codigo}`);
       const result = await res.json();
       if (res.ok && result.nome) {
         setData(result);

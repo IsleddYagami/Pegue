@@ -18,6 +18,8 @@
 //
 // Custo: ~R$0,003 por classificacao (gpt-4o-mini, low input/output).
 
+import { fetchComTimeout } from "@/lib/fetch-utils";
+
 export interface ItemClassificado {
   nome: string;
   qtd: number;
@@ -119,7 +121,7 @@ export async function classificarItensComIA(
   if (!textoLivre || textoLivre.trim().length < 3) return null;
 
   try {
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    const r = await fetchComTimeout("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,

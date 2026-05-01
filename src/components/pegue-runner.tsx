@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useEffect, useRef, useState, useCallback } from "react";
 
@@ -360,7 +361,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
 
   async function fetchRanking() {
     try {
-      const r = await fetch("/api/ranking");
+      const r = await fetchComTimeout("/api/ranking");
       const data = await r.json();
       setRanking(data);
     } catch {}
@@ -371,7 +372,7 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
     setSavingScore(true);
     const g = gameRef.current;
     try {
-      const res = await fetch("/api/ranking", {
+      const res = await fetchComTimeout("/api/ranking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nome: playerName.trim(), score: g.score, distancia: Math.floor(g.distance), entregas: g.deliveries }),

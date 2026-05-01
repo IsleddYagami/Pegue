@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -62,7 +63,7 @@ export default function NovoPrestadorPage() {
     }
 
     try {
-      const res = await fetch("/api/admin-cadastrar-prestador", {
+      const res = await fetchComTimeout("/api/admin-cadastrar-prestador", {
         method: "POST",
         body: formData,
       });

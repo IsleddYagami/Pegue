@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
@@ -70,7 +71,7 @@ function VeiculosContent() {
     setLoading(true);
     setErro("");
     try {
-      const r = await fetch(`/api/admin-prestador-veiculo?prestador_id=${prestadorId}&key=${encodeURIComponent(key)}`);
+      const r = await fetchComTimeout(`/api/admin-prestador-veiculo?prestador_id=${prestadorId}&key=${encodeURIComponent(key)}`);
       if (!r.ok) {
         setErro(`Erro: ${r.status}`);
         setLoading(false);
@@ -91,7 +92,7 @@ function VeiculosContent() {
     }
     setSalvando(true);
     try {
-      const r = await fetch("/api/admin-prestador-veiculo", {
+      const r = await fetchComTimeout("/api/admin-prestador-veiculo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,7 +126,7 @@ function VeiculosContent() {
   async function toggleVeiculo(id: string, ativoAtual: boolean) {
     const acao = ativoAtual ? "desativar" : "reativar";
     if (!confirm(`${acao[0].toUpperCase() + acao.slice(1)} esse veículo?`)) return;
-    const r = await fetch("/api/admin-prestador-veiculo", {
+    const r = await fetchComTimeout("/api/admin-prestador-veiculo", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: adminKey, veiculo_id: id, ativo: !ativoAtual }),
@@ -140,7 +141,7 @@ function VeiculosContent() {
 
   async function deletarVeiculo(id: string) {
     if (!confirm("Deletar permanentemente esse veículo? Esta ação não pode ser desfeita.")) return;
-    const r = await fetch(`/api/admin-prestador-veiculo?veiculo_id=${id}&key=${encodeURIComponent(adminKey)}`, {
+    const r = await fetchComTimeout(`/api/admin-prestador-veiculo?veiculo_id=${id}&key=${encodeURIComponent(adminKey)}`, {
       method: "DELETE",
     });
     if (!r.ok) {

@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
@@ -33,7 +34,7 @@ export default function CompletarCadastroPage() {
     formData.append("fotoVeiculo", fotoVeiculo);
 
     try {
-      const res = await fetch("/api/completar-cadastro", { method: "POST", body: formData });
+      const res = await fetchComTimeout("/api/completar-cadastro", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) {
         setErro(data.error || "Erro ao enviar");

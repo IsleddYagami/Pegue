@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useState } from "react";
 import { MessageCircle, CheckCircle, Loader2 } from "lucide-react";
@@ -38,7 +39,7 @@ export function FormularioParceiro() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/cadastro-parceiro", {
+      const res = await fetchComTimeout("/api/cadastro-parceiro", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),

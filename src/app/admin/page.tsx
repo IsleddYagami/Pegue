@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useState, useEffect } from "react";
 import {
@@ -43,7 +44,7 @@ export default function AdminPage() {
     setLoading(true);
     setErro("");
     try {
-      const r = await fetch(`/api/admin-dashboard?key=${chave}`);
+      const r = await fetchComTimeout(`/api/admin-dashboard?key=${chave}`);
       const result = await r.json();
       if (r.ok) {
         setData(result);
@@ -63,7 +64,7 @@ export default function AdminPage() {
 
   async function acaoPrestador(id: string, acao: "aprovar" | "rejeitar") {
     try {
-      await fetch("/api/admin-prestador", {
+      await fetchComTimeout("/api/admin-prestador", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: senha, prestadorId: id, acao }),
@@ -75,7 +76,7 @@ export default function AdminPage() {
   async function enviarLembrete(phone: string) {
     setEnviandoLembrete(phone);
     try {
-      await fetch("/api/enviar-lembrete", {
+      await fetchComTimeout("/api/enviar-lembrete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, key: senha }),

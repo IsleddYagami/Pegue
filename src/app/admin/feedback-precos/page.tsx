@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -96,7 +97,7 @@ export default function FeedbackPrecosPage() {
       return;
     }
     try {
-      const res = await fetch(`/api/admin-feedback-precos?key=${encodeURIComponent(senha)}`);
+      const res = await fetchComTimeout(`/api/admin-feedback-precos?key=${encodeURIComponent(senha)}`);
       if (res.status === 401) {
         sessionStorage.removeItem("admin_key");
         setErro("Senha incorreta. Recarregue a pagina.");
@@ -124,7 +125,7 @@ export default function FeedbackPrecosPage() {
     const senha = sessionStorage.getItem("admin_key") || getAdminKey();
     if (!senha) { setLoadingSugestoes(false); return; }
     try {
-      const res = await fetch(`/api/admin-sugestoes-ajuste?key=${encodeURIComponent(senha)}&minAvaliacoes=${min}`);
+      const res = await fetchComTimeout(`/api/admin-sugestoes-ajuste?key=${encodeURIComponent(senha)}&minAvaliacoes=${min}`);
       if (res.ok) {
         const data = await res.json();
         setSugestoes((data.sugestoes as Sugestao[]) || []);
@@ -160,7 +161,7 @@ export default function FeedbackPrecosPage() {
     const senha = sessionStorage.getItem("admin_key") || "";
     if (!senha) return;
     try {
-      const res = await fetch(`/api/admin-sugestoes-ajuste?key=${encodeURIComponent(senha)}`, {
+      const res = await fetchComTimeout(`/api/admin-sugestoes-ajuste?key=${encodeURIComponent(senha)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -191,7 +192,7 @@ export default function FeedbackPrecosPage() {
     const senha = sessionStorage.getItem("admin_key") || "";
     if (!senha) return;
     try {
-      const res = await fetch(`/api/admin-feedback-precos?key=${encodeURIComponent(senha)}`, {
+      const res = await fetchComTimeout(`/api/admin-feedback-precos?key=${encodeURIComponent(senha)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ acao: "toggle", id, ativo }),
@@ -220,7 +221,7 @@ export default function FeedbackPrecosPage() {
     const senha = sessionStorage.getItem("admin_key") || "";
     if (!senha) return;
     try {
-      const res = await fetch(`/api/admin-feedback-precos?key=${encodeURIComponent(senha)}`, {
+      const res = await fetchComTimeout(`/api/admin-feedback-precos?key=${encodeURIComponent(senha)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ acao: "criar_regra_de_feedback", id: fb.id }),
@@ -242,7 +243,7 @@ export default function FeedbackPrecosPage() {
     const senha = sessionStorage.getItem("admin_key") || "";
     if (!senha) return;
     try {
-      const res = await fetch(`/api/admin-feedback-precos?key=${encodeURIComponent(senha)}`, {
+      const res = await fetchComTimeout(`/api/admin-feedback-precos?key=${encodeURIComponent(senha)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ acao: "deletar", id }),

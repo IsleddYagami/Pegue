@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -46,7 +47,7 @@ export default function RevisaoPrecosPage() {
     setLoading(true);
     setErro("");
     try {
-      const r = await fetch(`/api/admin-revisao-precos?key=${encodeURIComponent(key)}`);
+      const r = await fetchComTimeout(`/api/admin-revisao-precos?key=${encodeURIComponent(key)}`);
       if (!r.ok) {
         setErro(`Erro: ${r.status} - verifique a chave admin`);
         setLoading(false);
@@ -62,7 +63,7 @@ export default function RevisaoPrecosPage() {
 
   async function aprovar(phone: string) {
     if (!confirm(`Aprovar cotação do cliente ${phone}? Cliente recebe o resumo pra confirmar.`)) return;
-    const r = await fetch("/api/admin-revisao-precos", {
+    const r = await fetchComTimeout("/api/admin-revisao-precos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, acao: "aprovar", key: adminKey }),
@@ -87,7 +88,7 @@ export default function RevisaoPrecosPage() {
       alert("Valor inválido");
       return;
     }
-    const r = await fetch("/api/admin-revisao-precos", {
+    const r = await fetchComTimeout("/api/admin-revisao-precos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, acao: "ajustar", valor_novo: valor }),
@@ -108,7 +109,7 @@ export default function RevisaoPrecosPage() {
     );
     if (motivo === null) return; // cancelou
     if (!confirm(`Rejeitar cotação do cliente ${phone}?`)) return;
-    const r = await fetch("/api/admin-revisao-precos", {
+    const r = await fetchComTimeout("/api/admin-revisao-precos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, acao: "rejeitar", motivo }),

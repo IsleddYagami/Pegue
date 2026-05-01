@@ -1,4 +1,5 @@
 "use client";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 import { useEffect, useState } from "react";
 import { DollarSign } from "lucide-react";
@@ -52,7 +53,7 @@ export default function FinanceiroPage() {
       return;
     }
     try {
-      const res = await fetch(`/api/admin-financeiro?key=${encodeURIComponent(senha)}`);
+      const res = await fetchComTimeout(`/api/admin-financeiro?key=${encodeURIComponent(senha)}`);
       if (res.status === 401) {
         sessionStorage.removeItem("admin_key");
         setErro("Senha incorreta. Recarregue a pagina.");
@@ -96,7 +97,7 @@ export default function FinanceiroPage() {
     const senha = sessionStorage.getItem("admin_key") || "";
     if (!senha) return;
     try {
-      const res = await fetch(`/api/admin-financeiro?key=${encodeURIComponent(senha)}`, {
+      const res = await fetchComTimeout(`/api/admin-financeiro?key=${encodeURIComponent(senha)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, acao: "aprovar_repasse" }),

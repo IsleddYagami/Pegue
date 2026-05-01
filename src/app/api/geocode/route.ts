@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
     // Tenta ViaCEP se parece CEP
     const cepClean = q.replace(/\D/g, "");
     if (cepClean.length === 8) {
-      const r = await fetch(`https://viacep.com.br/ws/${cepClean}/json/`);
+      const r = await fetchComTimeout(`https://viacep.com.br/ws/${cepClean}/json/`);
       const data = await r.json();
       if (!data.erro && data.localidade) {
         const query = `${data.logradouro || ""}, ${data.bairro || ""}, ${data.localidade}, ${data.uf}, Brasil`;
@@ -88,7 +89,7 @@ export async function GET(req: NextRequest) {
 
 async function buscarNominatim(query: string) {
   const encoded = encodeURIComponent(query);
-  const r = await fetch(
+  const r = await fetchComTimeout(
     `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=1&countrycodes=br`,
     {
       headers: {

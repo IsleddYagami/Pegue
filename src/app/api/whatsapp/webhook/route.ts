@@ -1097,13 +1097,34 @@ Boa sorte! 🎯`,
     // chars) E comeca com saudacao. Briefings longos sempre vao pra IA.
     const ehSaudacaoPura = isSaudacao(message) && message.trim().length < 30;
     if (!ehSaudacaoPura && message.trim().length >= 10) {
-      // Mostra "analisando" pra cliente nao achar que travou (IA leva 1-2s)
-      await sendToClient({
-        to: phone,
-        message: `Olá ${nome}! 😊 Aqui é a *Íris* da Pegue Recebi sua mensagem, ja estou analisando pra agilizar o atendimento...`,
+      // BUG #BATCH6-3 (re-audit 1/Mai/2026): rate limit em IA texto pra
+      // prevenir abuso. Cliente legitimo: 1-2 chamadas/sessao. Atacante
+      // que mande mensagens longas em rajada poderia gastar OpenAI ($0.001/call).
+      // Limite: 10 chamadas IA texto/hora por phone. Apos exceder, segue
+      // fluxo padrao (cliente nao percebe diferenca, soh perde shortcut IA).
+      const { checkRateLimit } = await import("@/lib/rate-limit");
+      const rlIa = await checkRateLimit({
+        chave: `ia_contexto:${phone}`,
+        max: 10,
+        janelaMinutos: 60,
       });
+      if (!rlIa.permitido) {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "ia_contexto_rate_limit_excedido",
+            phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+            contador: rlIa.contador,
+          },
+        });
+        // Skip IA - segue fluxo padrao abaixo
+      } else {
+        // Mostra "analisando" pra cliente nao achar que travou (IA leva 1-2s)
+        await sendToClient({
+          to: phone,
+          message: `Olá ${nome}! 😊 Aqui é a *Íris* da Pegue Recebi sua mensagem, ja estou analisando pra agilizar o atendimento...`,
+        });
 
-      const contexto = await extrairContextoInicial(message);
+        const contexto = await extrairContextoInicial(message);
 
       // Loga custo IA (gpt-4o-mini ~$0.001 por chamada). Cumpre regra
       // INFORMAR CUSTOS SEMPRE - admin pode somar via dashboard.
@@ -1163,15 +1184,16 @@ Boa sorte! 🎯`,
       // IA falhou ou voltou confianca baixa. Antes caia silenciosamente no fluxo
       // tradicional (saudacao + menu). Cliente perdia o briefing inteiro. Agora
       // logamos o motivo pra observabilidade.
-      await supabase.from("bot_logs").insert({
-        payload: {
-          tipo: "ia_contexto_falhou",
-          phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
-          motivo: !contexto ? "ia_retornou_null" : `confianca_${contexto.confianca}`,
-          msg_length: message.length,
-          mensagem_amostra: message.slice(0, 200),
-        },
-      });
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "ia_contexto_falhou",
+            phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+            motivo: !contexto ? "ia_retornou_null" : `confianca_${contexto.confianca}`,
+            msg_length: message.length,
+            mensagem_amostra: message.slice(0, 200),
+          },
+        });
+      } // fecha else do rate limit IA
     }
 
     // Se digitou termo de servico direto (frete, guincho, carreto, mudanca)

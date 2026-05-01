@@ -10,7 +10,8 @@
     "smoke": "node scripts/smoke-test.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "gen-types": "node scripts/gerar-types-supabase.mjs"
+    "gen-types": "node scripts/gerar-types-supabase.mjs",
+    "setup-hooks": "git config core.hooksPath tools/git-hooks && echo '✓ IMUNI hooks instalados (git ja vai rodar pre-commit)'"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

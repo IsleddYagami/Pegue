@@ -1,0 +1,59 @@
+#!/bin/sh
+# IMUNI pre-commit hook — Camada 2 da defesa em profundidade.
+#
+# Instalar uma vez: npm run setup-hooks
+# Bypass de emergencia: git commit --no-verify (use com parcimonia)
+#
+# Estrategia:
+#   - Lint roda APENAS em arquivos staged (.ts/.tsx) pra nao quebrar
+#     com debt legado
+#   - Typecheck roda full (rapido em projetos medios e pega tudo)
+#   - Tests rodam full (vitest tambem rapido com cache)
+
+set -e
+
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+echo "${CYAN}🛡️  IMUNI pre-commit verificando...${NC}"
+
+cd "$(git rev-parse --show-toplevel)"
+
+# Lista arquivos staged TS/TSX pra lint focado.
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx)$' | grep -v '^tools/' || true)
+
+# 1. Lint — apenas arquivos modificados
+if [ -n "$STAGED_FILES" ]; then
+  echo "${CYAN}→ ESLint nos arquivos staged ($(echo "$STAGED_FILES" | wc -l | tr -d ' ') arq)...${NC}"
+  if ! echo "$STAGED_FILES" | xargs npx eslint > /tmp/imuni-lint.log 2>&1; then
+    echo "${RED}✗ ESLint falhou:${NC}"
+    cat /tmp/imuni-lint.log | tail -30
+    echo ""
+    echo "${RED}Bypass de emergencia: git commit --no-verify${NC}"
+    exit 1
+  fi
+fi
+
+# 2. Typecheck — full (catches erros entre arquivos)
+echo "${CYAN}→ Typecheck (Supabase types + TS)...${NC}"
+if ! npx tsc --noEmit > /tmp/imuni-tsc.log 2>&1; then
+  echo "${RED}✗ Typecheck falhou:${NC}"
+  cat /tmp/imuni-tsc.log | tail -30
+  echo ""
+  echo "${RED}Bypass de emergencia: git commit --no-verify${NC}"
+  exit 1
+fi
+
+# 3. Tests — full
+echo "${CYAN}→ Tests (vitest)...${NC}"
+if ! npx vitest run > /tmp/imuni-tests.log 2>&1; then
+  echo "${RED}✗ Tests falharam:${NC}"
+  cat /tmp/imuni-tests.log | tail -30
+  echo ""
+  echo "${RED}Bypass de emergencia: git commit --no-verify${NC}"
+  exit 1
+fi
+
+echo "${GREEN}✓ IMUNI pre-commit OK — commit liberado${NC}"

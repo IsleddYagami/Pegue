@@ -8095,7 +8095,28 @@ async function handleCancelarQual(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session?.plano_escolhido) return;
 
-  const ids: string[] = JSON.parse(session.plano_escolhido);
+  // BUG #BATCH9-2 (caçado pelo lint IMUNI no-json-parse-without-try, 1/Mai/2026):
+  // mesmo bug de handleIndicarQual (BUG #BATCH4-4) — JSON.parse cru sem
+  // try/catch crashava o handler se plano_escolhido tivesse valor invalido.
+  // Lint custom flagrou regressao da mesma classe.
+  let ids: string[] = [];
+  try {
+    const parsed = JSON.parse(session.plano_escolhido);
+    if (Array.isArray(parsed) && parsed.every((x) => typeof x === "string")) {
+      ids = parsed;
+    }
+  } catch {
+    // ids fica []
+  }
+  if (ids.length === 0) {
+    await updateSession(phone, { step: "inicio" });
+    await sendToClient({
+      to: phone,
+      message: "Algo deu errado ao listar seus fretes. Manda *CANCELAR* de novo pra recomecar.",
+    });
+    return;
+  }
+
   const num = parseInt(message.trim());
 
   if (isNaN(num) || num < 1 || num > ids.length) {

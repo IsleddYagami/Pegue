@@ -113,14 +113,35 @@ export async function POST(req: NextRequest) {
       // Gera PIN 4 digitos pra confirmacao de entrega (cliente entrega ao
       // fretista no destino — anti-fraude). Marca corrida como paga.
       const pinEntrega = gerarPinEntrega();
+      const agoraIso = new Date().toISOString();
       await supabase
         .from("corridas")
         .update({
           status: "paga",
-          pago_em: new Date().toISOString(),
+          pago_em: agoraIso,
           pin_entrega: pinEntrega,
+          asaas_payment_id: payment.id, // garante rastro mesmo se ja tinha
         })
         .eq("id", corridaId);
+
+      // BUG CRITICO #BATCH8-1 (descoberto 1/Mai/2026): webhook Asaas tambem
+      // nao criava registro em `pagamentos` (mesmo bug do webhook MP).
+      // Garante rastreabilidade completa pra auditoria fiscal e estorno.
+      // Tambem complementa o asaas_payment_id que ja eh salvo na corrida.
+      const { safeInsert: siPgtoAsaas } = await import("@/lib/db-helpers");
+      await siPgtoAsaas({
+        tabela: "pagamentos",
+        contexto: "asaas_webhook_pagamento_aprovado",
+        notificarAdminEmFalha: true,
+        dados: {
+          corrida_id: corridaId,
+          valor: payment.value,
+          metodo: "asaas_checkout", // PIX ou cartao via Asaas Checkout
+          status: "aprovado",
+          repasse_status: "pendente",
+          pago_em: agoraIso,
+        },
+      });
 
       const clienteTel = (corrida.clientes as any)?.telefone;
       const prestador = corrida.prestadores as any;

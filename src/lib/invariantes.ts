@@ -377,6 +377,62 @@ async function invPlacasDuplicadasAtivas(): Promise<ResultadoInvariante> {
   }
 }
 
+/**
+ * INV-11 (ALTA — descoberto 1/Mai/2026 com Fabio):
+ * TODA corrida com pago_em != null deve ter registro em `pagamentos`.
+ *
+ * Bug historico catastrofico: webhooks MP e Asaas marcavam corrida como
+ * paga mas NAO criavam registro em pagamentos. Cliente pagava de verdade
+ * (cartao da Jackeline R$1 em 27/Abr foi confirmado pelo MP), corrida
+ * marcava como paga, mas o sistema nao tinha rastro do pagamento real.
+ * Auditoria fiscal impossivel, estorno impossivel. Detectado pela INV-1
+ * mas INV-11 cobre especificamente o cenario "pago_em sem prova".
+ *
+ * Diferenca pro INV-1: INV-1 busca CONCLUIDAS sem repasse pago. INV-11
+ * busca QUALQUER status com pago_em sem prova de pagamento (pega bug
+ * desde o instante que pago_em eh setado, antes mesmo de concluir).
+ */
+async function invCorridasPagaSemRegistroPagamento(): Promise<ResultadoInvariante> {
+  try {
+    const { data: corridas, error } = await supabase
+      .from("corridas")
+      .select("id, codigo, valor_final, pago_em, asaas_payment_id, status")
+      .not("pago_em", "is", null)
+      .gte("pago_em", hAtras(24 * 60)); // ultimos 60 dias
+    if (error) throw error;
+    if (!corridas || corridas.length === 0) {
+      return { nome: "INV-11", descricao: "corridas_paga_sem_registro_pagamento", severidade: "alta", count: 0, amostra: [], ok: true, comoAgir: "" };
+    }
+
+    const ids = corridas.map((c) => c.id);
+    const { data: pgtsExistentes } = await supabase
+      .from("pagamentos")
+      .select("corrida_id")
+      .in("corrida_id", ids);
+    const idsComPagamento = new Set((pgtsExistentes || []).map((p: any) => p.corrida_id));
+
+    const orfas = corridas.filter((c) => {
+      // OK se tem registro em pagamentos OU asaas_payment_id (Asaas guarda
+      // rastro tambem na coluna direta da corrida)
+      const temRegistro = idsComPagamento.has(c.id);
+      const temAsaasId = !!c.asaas_payment_id;
+      return !temRegistro && !temAsaasId;
+    });
+
+    return {
+      nome: "INV-11",
+      descricao: "Corridas com pago_em != null mas SEM registro em pagamentos E SEM asaas_payment_id (rastro de pagamento perdido)",
+      severidade: "alta",
+      count: orfas.length,
+      amostra: orfas.slice(0, 5).map((c) => ({ id: c.id, codigo: c.codigo, valor: c.valor_final, pago_em: c.pago_em, status: c.status })),
+      ok: orfas.length === 0,
+      comoAgir: "Pagamento real ocorreu (pago_em setado) mas sumiu do banco. Verificar bot_logs (tipo=webhook_mercadopago ou webhook_asaas) pra recuperar dados. Se confirmado pagamento, criar registro retroativo em pagamentos.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-11", descricao: "corridas_paga_sem_registro_pagamento", severidade: "alta", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
 // ============================================================
 // EXECUTOR — roda todas as invariantes em paralelo
 // ============================================================
@@ -393,6 +449,7 @@ export async function executarTodasInvariantes(): Promise<ResultadoInvariante[]>
     invRepassesAsaasPendentes(),
     invCorridasPendentesMuitoTempo(),
     invPlacasDuplicadasAtivas(),
+    invCorridasPagaSemRegistroPagamento(),
   ]);
   return resultados;
 }

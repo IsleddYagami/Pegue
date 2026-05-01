@@ -197,13 +197,37 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ status: "ignorado_status_terminal" });
         }
 
+        const agora = new Date().toISOString();
         await supabase
           .from("corridas")
           .update({
             status: "paga",
-            pago_em: new Date().toISOString(),
+            pago_em: agora,
           })
           .eq("id", corridaId);
+
+        // BUG CRITICO #BATCH8-1 (descoberto 1/Mai/2026 via INV-1): webhook MP
+        // marcava corrida como paga mas NAO criava registro em `pagamentos`.
+        // Resultado: cliente real pagava com cartao via MP, fretista era
+        // notificado que tinha pagamento, mas o sistema NAO TINHA RASTRO do
+        // pagamento. Auditoria fiscal impossivel. Caso historico: corrida
+        // PGMOHSDCDR (R$1, Jackeline cartao 27/Abr) detectada pelo cron de
+        // invariantes — pagamento real ocorreu mas sumiu do banco.
+        // Agora cria registro com payment_id MP em metodo pra rastreio total.
+        const { safeInsert: siPgto } = await import("@/lib/db-helpers");
+        await siPgto({
+          tabela: "pagamentos",
+          contexto: "mp_webhook_pagamento_aprovado",
+          notificarAdminEmFalha: true,
+          dados: {
+            corrida_id: corridaId,
+            valor: pgto.valor,
+            metodo: `mp_${pgto.metodo || "desconhecido"}`,
+            status: "aprovado",
+            repasse_status: "pendente",
+            pago_em: agora,
+          },
+        });
 
         const clienteTel = (corrida.clientes as any)?.telefone;
         const prestador = corrida.prestadores as any;

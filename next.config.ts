@@ -35,8 +35,14 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   // Referrer minimo entre origens
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  // Bloqueia features sensiveis por padrao
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // Bloqueia features sensiveis por padrao.
+  // BUG #BATCH7-1 (re-audit 1/Mai/2026): geolocation=() bloqueava
+  // rastreio do motorista em /rastrear/motorista/[token] que usa
+  // navigator.geolocation pra reportar GPS ao backend. Rastreio em
+  // tempo real estava QUEBRADO. Agora geolocation=(self) permite
+  // a propria origem chamar GPS (motorista no nosso site), mantendo
+  // bloqueado pra terceiros embutidos (iframes, etc).
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" },
   // Content Security Policy — whitelist explicita de origens
   { key: "Content-Security-Policy", value: cspParts.join("; ") },
 ];

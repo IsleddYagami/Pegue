@@ -814,6 +814,39 @@ async function handleClienteMessage(
 
   const lower = message.toLowerCase().trim();
 
+  // Comando ADMIN "SALDO" — consulta saldo Asaas via WhatsApp.
+  // Util pra Fabio/Jackeline checarem saldo sem abrir /admin.
+  if (lower === "saldo" && isAdminPhone(phone)) {
+    const { consultarSaldoAsaas, asaasStatus } = await import("@/lib/asaas");
+    const status = asaasStatus();
+    if (!status.configured) {
+      await sendToClient({
+        to: phone,
+        message: "⚠️ Asaas nao configurado (env vars ausentes).",
+      });
+      return;
+    }
+    const r = await consultarSaldoAsaas();
+    if (!r.ok) {
+      await sendToClient({
+        to: phone,
+        message: `❌ Erro consultando saldo Asaas:\n${JSON.stringify(r.erro || {}).slice(0, 300)}`,
+      });
+      return;
+    }
+    const { count: pendentes } = await supabase
+      .from("pagamentos")
+      .select("*", { count: "exact", head: true })
+      .eq("repasse_status", "pendente");
+    const saldo = r.saldo || 0;
+    const corPlano = saldo < 50 ? "🔴" : saldo < 200 ? "🟡" : "🟢";
+    await sendToClient({
+      to: phone,
+      message: `${corPlano} *Saldo Asaas (${status.api_key_tipo}):*\n\n💵 R$ ${saldo.toFixed(2)}\n📋 Repasses pendentes: ${pendentes || 0}\n\n${saldo < 50 ? "⚠️ Saldo baixo — risco de bloquear repasses." : "Saldo OK"}`,
+    });
+    return;
+  }
+
   // Dashboard do fretista
   if (lower === "meu painel" || lower === "meus fretes" || lower === "meu dashboard" || lower === "meu score") {
     await handleDashboardFretista(phone);

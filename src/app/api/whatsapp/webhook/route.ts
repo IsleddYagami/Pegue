@@ -8281,7 +8281,27 @@ async function handleIndicarQual(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session?.plano_escolhido) return;
 
-  const ids: string[] = JSON.parse(session.plano_escolhido);
+  // BUG #BATCH4-4 (re-audit 1/Mai/2026): JSON.parse direto crashava se
+  // plano_escolhido tivesse valor nao-JSON (ex: bug que setou a string).
+  // Agora try/catch + fallback que reseta a sessao.
+  let ids: string[] = [];
+  try {
+    const parsed = JSON.parse(session.plano_escolhido);
+    if (Array.isArray(parsed) && parsed.every((x) => typeof x === "string")) {
+      ids = parsed;
+    }
+  } catch {
+    // ignore — ids fica []
+  }
+  if (ids.length === 0) {
+    await updateSession(phone, { step: "inicio" });
+    await sendToClient({
+      to: phone,
+      message: "Algo deu errado com sua selecao. Manda *INDICAR* de novo pra reabrir a lista.",
+    });
+    return;
+  }
+
   const num = parseInt(message.trim());
 
   if (isNaN(num) || num < 1 || num > ids.length) {

@@ -20,6 +20,23 @@ export const maxDuration = 60;
 
 const DIAS_RETENCAO = 30;
 
+// BUG #BATCH4-2 (re-audit 1/Mai/2026): tipos com valor juridico/contabil
+// que NUNCA devem ser apagados — necessarios em caso de processo, auditoria
+// fiscal ou disputa apos meses do evento. Lista revisar antes de adicionar
+// novos tipos criticos (regra de armazenamento INEGOCIAVEL).
+const TIPOS_PRESERVADOS = [
+  "aceite_termos",                  // prova juridica de aceite contratual
+  "pin_entrega_validado",           // prova de conclusao de servico
+  "pin_entrega_max_tentativas",     // prova de fraude tentada
+  "webhook_asaas",                  // historico de eventos financeiros Asaas
+  "asaas_repasse_iniciado",         // historico fiscal de repasse PIX
+  "asaas_transfer_failed",          // ledger de falha financeira
+  "asaas_pagamento_em_corrida_terminada", // disputa pagamento
+  "placa_duplicada_detectada",      // anti-fraude
+  "credito_corrida_anterior_aplicado", // ledger de credito
+  "avaliacao_consolidada_ok",       // historico de NPS
+];
+
 export async function GET(req: NextRequest) {
   const key = req.nextUrl.searchParams.get("key");
   if (!isValidCronKey(key)) {
@@ -33,10 +50,14 @@ export async function GET(req: NextRequest) {
     .from("bot_logs")
     .select("id", { count: "exact", head: true });
 
+  // Lista IN como string (PostgREST format): "(tipo1,tipo2,...)"
+  const tiposPreservadosCsv = `(${TIPOS_PRESERVADOS.join(",")})`;
+
   const { error, count: removidos } = await supabase
     .from("bot_logs")
     .delete({ count: "exact" })
-    .lt("criado_em", cutoff);
+    .lt("criado_em", cutoff)
+    .not("payload->>tipo", "in", tiposPreservadosCsv);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -50,6 +71,7 @@ export async function GET(req: NextRequest) {
       removidos: removidos ?? 0,
       cutoff,
       retencao_dias: DIAS_RETENCAO,
+      tipos_preservados: TIPOS_PRESERVADOS,
     },
   });
 

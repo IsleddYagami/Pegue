@@ -1,14 +1,140 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
+import { sendToClient } from "@/lib/chatpro";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
+// BUG #BATCH5-2 (re-audit 1/Mai/2026): mesma vuln do dashboard-cliente —
+// expunha faturamento, despesas pessoais, regioes, historico de fretes
+// pra qualquer um que tivesse o phone do fretista. Brute force trivial.
+// Agora exige OTP via WhatsApp (mesmo padrao do dashboard-cliente).
+
+const OTP_TTL_MS = 10 * 60 * 1000;
+
+function gerarOtp(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit({ chave: `dashpar_otp:${ip}`, max: 3 });
+  if (!rl.permitido) {
+    return NextResponse.json(
+      { error: "Muitas tentativas. Aguarde 1 minuto." },
+      { status: 429 },
+    );
+  }
+
+  let body: any = null;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "body invalido" }, { status: 400 });
+  }
+
+  const phoneRaw = (body?.phone || "").toString().replace(/\D/g, "");
+  if (phoneRaw.length < 12 || phoneRaw.length > 13) {
+    return NextResponse.json({ error: "telefone invalido" }, { status: 400 });
+  }
+
+  const { data: prestador } = await supabase
+    .from("prestadores")
+    .select("id, telefone")
+    .eq("telefone", phoneRaw)
+    .maybeSingle();
+
+  if (prestador?.telefone) {
+    const otp = gerarOtp();
+    const expiraEm = new Date(Date.now() + OTP_TTL_MS).toISOString();
+
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "dashboard_parceiro_otp",
+        phone: phoneRaw,
+        otp,
+        expira_em: expiraEm,
+        tentativas: 0,
+        ip_solicitante: ip.replace(/\d+$/, "x"),
+      },
+    });
+
+    await sendToClient({
+      to: phoneRaw,
+      message: `🔐 *Codigo de acesso ao seu painel de parceiro:*\n\n*${otp}*\n\nVale por 10 minutos. Se nao foi voce, ignore essa mensagem.`,
+    });
+  }
+
+  return NextResponse.json({
+    status: "ok",
+    mensagem: "Se esse telefone tiver cadastro de parceiro, um codigo foi enviado pelo WhatsApp.",
+  });
+}
+
 export async function GET(req: NextRequest) {
-  const phone = req.nextUrl.searchParams.get("phone");
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit({ chave: `dashpar_get:${ip}`, max: 10 });
+  if (!rl.permitido) {
+    return NextResponse.json(
+      { error: "Muitas tentativas. Aguarde 1 minuto." },
+      { status: 429 },
+    );
+  }
+
+  const phone = req.nextUrl.searchParams.get("phone")?.replace(/\D/g, "") || "";
+  const otp = req.nextUrl.searchParams.get("otp")?.replace(/\D/g, "") || "";
 
   if (!phone) {
     return NextResponse.json({ error: "Informe o telefone" }, { status: 400 });
   }
+  if (!otp || otp.length !== 6) {
+    return NextResponse.json({ error: "codigo de acesso obrigatorio" }, { status: 401 });
+  }
+
+  // Valida OTP
+  const { data: logsOtp } = await supabase
+    .from("bot_logs")
+    .select("id, payload, criado_em")
+    .filter("payload->>tipo", "eq", "dashboard_parceiro_otp")
+    .filter("payload->>phone", "eq", phone)
+    .order("criado_em", { ascending: false })
+    .limit(1);
+
+  if (!logsOtp || logsOtp.length === 0) {
+    return NextResponse.json({ error: "codigo invalido ou expirado" }, { status: 401 });
+  }
+
+  const logRow = logsOtp[0];
+  const payload = logRow.payload as any;
+
+  if (payload.expira_em && new Date(payload.expira_em) < new Date()) {
+    return NextResponse.json({ error: "codigo expirado" }, { status: 401 });
+  }
+  if (payload.consumido_em) {
+    return NextResponse.json({ error: "codigo ja foi usado" }, { status: 401 });
+  }
+  const tentativas = Number(payload.tentativas || 0);
+  if (tentativas >= 3) {
+    return NextResponse.json({ error: "muitas tentativas erradas" }, { status: 401 });
+  }
+  if (payload.otp !== otp) {
+    await supabase
+      .from("bot_logs")
+      .update({ payload: { ...payload, tentativas: tentativas + 1 } })
+      .eq("id", logRow.id);
+    return NextResponse.json({ error: "codigo incorreto" }, { status: 401 });
+  }
+  // OTP valido — marca como consumido (single-use)
+  await supabase
+    .from("bot_logs")
+    .update({
+      payload: {
+        ...payload,
+        consumido_em: new Date().toISOString(),
+        consumido_ip: ip.replace(/\d+$/, "x"),
+      },
+    })
+    .eq("id", logRow.id);
 
   // Busca prestador
   const { data: prestador } = await supabase

@@ -31,14 +31,18 @@ interface ClienteDashboard {
 
 export function DashboardCliente() {
   const [telefone, setTelefone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpEnviado, setOtpEnviado] = useState(false);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
   const [data, setData] = useState<ClienteDashboard | null>(null);
 
-  const handleBuscar = async (e: React.FormEvent) => {
+  // Etapa 1: solicita OTP via WhatsApp.
+  // Audit 1/Mai/2026: antes esse endpoint expunha dados pessoais sem auth.
+  // Agora cliente recebe codigo no WhatsApp e digita pra acessar.
+  const handleSolicitarOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro("");
-    setData(null);
 
     const tel = telefone.replace(/\D/g, "");
     if (tel.length < 10) {
@@ -48,12 +52,45 @@ export function DashboardCliente() {
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/dashboard-cliente?phone=55${tel}`);
+      const res = await fetch(`/api/dashboard-cliente`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: `55${tel}` }),
+      });
+      if (res.status === 429) {
+        setErro("Muitas tentativas. Aguarde 1 minuto.");
+      } else if (res.ok) {
+        setOtpEnviado(true);
+      } else {
+        setErro("Telefone invalido.");
+      }
+    } catch {
+      setErro("Erro de conexao.");
+    }
+    setLoading(false);
+  };
+
+  // Etapa 2: cliente digita codigo recebido. Valida + carrega dashboard.
+  const handleValidarOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro("");
+    setData(null);
+
+    const tel = telefone.replace(/\D/g, "");
+    const codigo = otp.replace(/\D/g, "");
+    if (codigo.length !== 6) {
+      setErro("Codigo deve ter 6 digitos");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/dashboard-cliente?phone=55${tel}&otp=${codigo}`);
       const result = await res.json();
       if (res.ok && result.nome) {
         setData(result);
       } else {
-        setErro(result.error || "Cliente nao encontrado.");
+        setErro(result.error || "Codigo incorreto");
       }
     } catch {
       setErro("Erro de conexao.");
@@ -76,23 +113,55 @@ export function DashboardCliente() {
   };
 
   if (!data) {
+    if (!otpEnviado) {
+      return (
+        <form onSubmit={handleSolicitarOtp} className="mx-auto max-w-md space-y-4">
+          <p className="text-center text-gray-400">
+            Digite seu telefone — vamos te enviar um codigo pelo WhatsApp pra liberar seu historico.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={telefone}
+              onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+              className="flex-1 rounded-lg border border-[#C9A84C]/30 bg-[#0A0A0A] px-4 py-3 text-white placeholder-gray-500 focus:border-[#C9A84C] focus:outline-none"
+              placeholder="11999999999"
+            />
+            <button type="submit" disabled={loading} className="flex items-center gap-2 rounded-lg bg-[#C9A84C] px-6 py-3 font-bold text-[#000000] transition-all hover:scale-[1.02] disabled:opacity-50">
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
+            </button>
+          </div>
+          {erro && <p className="text-center text-sm text-red-400">{erro}</p>}
+        </form>
+      );
+    }
+
     return (
-      <form onSubmit={handleBuscar} className="mx-auto max-w-md space-y-4">
+      <form onSubmit={handleValidarOtp} className="mx-auto max-w-md space-y-4">
         <p className="text-center text-gray-400">
-          Digite seu telefone pra ver seu historico
+          Mandamos um codigo de 6 digitos pro seu WhatsApp. Cole aqui pra acessar.
         </p>
         <div className="flex gap-2">
           <input
             type="text"
-            value={telefone}
-            onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))}
-            className="flex-1 rounded-lg border border-[#C9A84C]/30 bg-[#0A0A0A] px-4 py-3 text-white placeholder-gray-500 focus:border-[#C9A84C] focus:outline-none"
-            placeholder="11999999999"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            className="flex-1 rounded-lg border border-[#C9A84C]/30 bg-[#0A0A0A] px-4 py-3 text-center text-2xl tracking-widest text-white placeholder-gray-500 focus:border-[#C9A84C] focus:outline-none"
+            placeholder="000000"
+            inputMode="numeric"
+            autoFocus
           />
           <button type="submit" disabled={loading} className="flex items-center gap-2 rounded-lg bg-[#C9A84C] px-6 py-3 font-bold text-[#000000] transition-all hover:scale-[1.02] disabled:opacity-50">
-            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle className="h-5 w-5" />}
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => { setOtpEnviado(false); setOtp(""); setErro(""); }}
+          className="w-full text-center text-sm text-gray-500 underline hover:text-gray-300"
+        >
+          Trocar telefone
+        </button>
         {erro && <p className="text-center text-sm text-red-400">{erro}</p>}
       </form>
     );

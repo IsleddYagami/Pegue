@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { requireAdminAuth } from "@/lib/admin-auth";
+import { consultarSaldoAsaas, asaasStatus } from "@/lib/asaas";
 
 export const dynamic = "force-dynamic";
 
@@ -10,19 +11,38 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
-  const { data, error } = await supabase
-    .from("pagamentos")
-    .select(
-      "id, corrida_id, valor, metodo, status, repasse_status, pago_em, criado_em, corrida:corridas(codigo, valor_pegue, valor_prestador, prestador:prestadores(nome))"
-    )
-    .order("criado_em", { ascending: false })
-    .limit(20);
+  // Consulta saldo Asaas em paralelo com pagamentos pra nao bloquear.
+  // Falha silenciosa: se Asaas indisponivel, retorna saldo=null.
+  const [pagamentosRes, saldoRes] = await Promise.allSettled([
+    supabase
+      .from("pagamentos")
+      .select(
+        "id, corrida_id, valor, metodo, status, repasse_status, pago_em, criado_em, corrida:corridas(codigo, valor_pegue, valor_prestador, prestador:prestadores(nome))"
+      )
+      .order("criado_em", { ascending: false })
+      .limit(20),
+    consultarSaldoAsaas(),
+  ]);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (pagamentosRes.status === "rejected" || pagamentosRes.value.error) {
+    const errMsg = pagamentosRes.status === "rejected"
+      ? pagamentosRes.reason?.message
+      : pagamentosRes.value.error?.message;
+    return NextResponse.json({ error: errMsg }, { status: 500 });
   }
 
-  return NextResponse.json(data || []);
+  const status = asaasStatus();
+  const asaasInfo = {
+    configured: status.configured,
+    ambiente: status.api_key_tipo,
+    saldo: saldoRes.status === "fulfilled" && saldoRes.value.ok ? saldoRes.value.saldo : null,
+    saldo_erro: saldoRes.status === "fulfilled" && !saldoRes.value.ok ? "consulta_falhou" : null,
+  };
+
+  return NextResponse.json({
+    pagamentos: pagamentosRes.value.data || [],
+    asaas: asaasInfo,
+  });
 }
 
 // Aprova repasse manual: marca pagamento como repasse_status="pago"

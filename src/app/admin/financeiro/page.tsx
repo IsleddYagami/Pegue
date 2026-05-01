@@ -31,8 +31,16 @@ function getAdminKey(): string | null {
   return senha;
 }
 
+type AsaasInfo = {
+  configured: boolean;
+  ambiente: string;
+  saldo: number | null;
+  saldo_erro: string | null;
+};
+
 export default function FinanceiroPage() {
   const [pagamentos, setPagamentos] = useState<PagamentoComCorrida[]>([]);
+  const [asaasInfo, setAsaasInfo] = useState<AsaasInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -57,7 +65,13 @@ export default function FinanceiroPage() {
         return;
       }
       const data = await res.json();
-      setPagamentos(data as PagamentoComCorrida[]);
+      // Compat: API antiga retornava array direto, nova retorna { pagamentos, asaas }
+      if (Array.isArray(data)) {
+        setPagamentos(data as PagamentoComCorrida[]);
+      } else {
+        setPagamentos((data.pagamentos as PagamentoComCorrida[]) || []);
+        setAsaasInfo(data.asaas || null);
+      }
     } catch {
       setErro("Erro de conexao");
     }
@@ -119,6 +133,34 @@ export default function FinanceiroPage() {
     <div>
       <h1 className="text-2xl font-extrabold text-[#0A0A0A]">Financeiro</h1>
       <p className="text-sm text-gray-400">Pagamentos, comissoes e repasses</p>
+
+      {/* Card de saldo Asaas (destaque, com aviso se baixo) */}
+      {asaasInfo && asaasInfo.configured && (
+        <div className={`mt-4 rounded-2xl p-5 shadow-sm flex items-center justify-between ${
+          asaasInfo.saldo !== null && asaasInfo.saldo < 50 ? "bg-red-50 border-2 border-red-300" : "bg-blue-50"
+        }`}>
+          <div>
+            <p className="text-xs font-semibold uppercase text-gray-500">Saldo Asaas ({asaasInfo.ambiente})</p>
+            <p className={`mt-1 text-3xl font-extrabold ${
+              asaasInfo.saldo !== null && asaasInfo.saldo < 50 ? "text-red-700" : "text-blue-700"
+            }`}>
+              {asaasInfo.saldo !== null
+                ? `R$ ${asaasInfo.saldo.toFixed(2)}`
+                : asaasInfo.saldo_erro
+                  ? "❓ erro consulta"
+                  : "—"}
+            </p>
+            {asaasInfo.saldo !== null && asaasInfo.saldo < 50 && (
+              <p className="mt-1 text-xs text-red-700 font-semibold">
+                ⚠️ Saldo baixo! Risco de bloquear repasses.
+              </p>
+            )}
+          </div>
+          <div className="text-right text-xs text-gray-500">
+            {asaasInfo.ambiente === "producao" ? "💵 Ambiente PRODUCAO" : "🧪 Ambiente SANDBOX"}
+          </div>
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3">
         <div className="rounded-2xl bg-white p-5 shadow-sm">

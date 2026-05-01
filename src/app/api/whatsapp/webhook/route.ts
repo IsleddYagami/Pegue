@@ -8483,28 +8483,14 @@ export async function reDispatchUrgente(corridaId: string, session: BotSession, 
 }
 
 // === LEMBRETE PROGRESSIVO (2h/1h/40min) ===
-// Nota: Este sistema funciona via API /api/enviar-lembrete que pode ser chamada
-// por um cron job externo. Os lembretes sao agendados quando o frete e confirmado.
-
-async function agendarLembretes(corridaId: string, fretistaTel: string, clienteTel: string, dataAgendada: string) {
-  // Salva na corrida que lembretes foram agendados
-  await supabase
-    .from("corridas")
-    .update({ urgencia: "lembrete_agendado" })
-    .eq("id", corridaId);
-
-  // Os lembretes serao disparados pela API /api/enviar-lembrete via cron
-  // Aqui so registramos no log pra rastreabilidade
-  await supabase.from("bot_logs").insert({
-    payload: {
-      tipo: "lembrete_agendado",
-      corrida_id: corridaId,
-      fretista: fretistaTel,
-      cliente: clienteTel,
-      data: dataAgendada,
-    },
-  });
-}
+// O cron /api/lembrete-fretista (configurado em cron-job.org) busca corridas
+// com status in (aceita, paga) E urgencia null/lembrete_agendado, e dispara
+// os 3 lembretes progressivos pro fretista.
+//
+// BUG #BATCH7-3 (re-audit 1/Mai/2026): havia uma funcao agendarLembretes
+// aqui que era DEAD CODE (declarada mas nunca chamada). Ela apenas setava
+// urgencia="lembrete_agendado", mas o cron ja aceita urgencia=null como
+// "ainda nao alertado". Funcao removida pra evitar confusao.
 
 // === GUINCHO HANDLERS ===
 

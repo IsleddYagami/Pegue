@@ -83,6 +83,11 @@ export default function FeedbackPrecosPage() {
   const [aba, setAba] = useState<"feedbacks" | "sugestoes" | "regras">("feedbacks");
   const [minAval, setMinAval] = useState(3);
 
+  // Filtros da aba "Feedbacks"
+  const [filtroVeiculo, setFiltroVeiculo] = useState<string>("todos");
+  const [filtroGap, setFiltroGap] = useState<"todos" | "alto" | "baixo" | "ok">("todos");
+  const [filtroBusca, setFiltroBusca] = useState<string>("");
+
   async function loadData() {
     const senha = getAdminKey();
     if (!senha) {
@@ -328,8 +333,72 @@ export default function FeedbackPrecosPage() {
             </p>
           </div>
         ) : (
-          <div className="mt-4 space-y-3">
-            {feedbacks.map(f => {
+          <>
+            {/* Filtros */}
+            <div className="mt-4 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
+              <input
+                type="text"
+                placeholder="Buscar por avaliador, rota, item..."
+                value={filtroBusca}
+                onChange={(e) => setFiltroBusca(e.target.value)}
+                className="flex-1 min-w-[200px] rounded border border-gray-200 px-3 py-1.5 text-sm"
+              />
+              <select
+                value={filtroVeiculo}
+                onChange={(e) => setFiltroVeiculo(e.target.value)}
+                className="rounded border border-gray-200 px-2 py-1.5 text-sm"
+              >
+                <option value="todos">Todos veiculos</option>
+                <option value="carro_comum">Carro comum</option>
+                <option value="utilitario">Utilitario</option>
+                <option value="hr">HR</option>
+                <option value="caminhao_bau">Caminhao Bau</option>
+                <option value="guincho">Guincho</option>
+              </select>
+              <select
+                value={filtroGap}
+                onChange={(e) => setFiltroGap(e.target.value as any)}
+                className="rounded border border-gray-200 px-2 py-1.5 text-sm"
+              >
+                <option value="todos">Todos gaps</option>
+                <option value="alto">Pegue cobra MENOS (gap +5%)</option>
+                <option value="baixo">Pegue cobra MAIS (gap -5%)</option>
+                <option value="ok">Gap ok (+/- 5%)</option>
+              </select>
+              {(filtroBusca || filtroVeiculo !== "todos" || filtroGap !== "todos") && (
+                <button
+                  onClick={() => { setFiltroBusca(""); setFiltroVeiculo("todos"); setFiltroGap("todos"); }}
+                  className="text-xs text-gray-500 hover:text-[#C9A84C]"
+                >
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+            <div className="space-y-3">
+            {feedbacks
+              .filter((f) => {
+                // Filtro veiculo
+                if (filtroVeiculo !== "todos" && f.veiculo !== filtroVeiculo) return false;
+                // Filtro gap
+                const gap = f.gap_percentual || 0;
+                if (filtroGap === "alto" && gap < 5) return false;
+                if (filtroGap === "baixo" && gap > -5) return false;
+                if (filtroGap === "ok" && Math.abs(gap) >= 5) return false;
+                // Filtro busca (nome avaliador, origem, destino, itens)
+                if (filtroBusca.trim()) {
+                  const q = filtroBusca.toLowerCase();
+                  const hay = [
+                    f.fretista_nome || "",
+                    f.fretista_phone || "",
+                    f.origem || "",
+                    f.destino || "",
+                    f.itens || "",
+                  ].join(" ").toLowerCase();
+                  if (!hay.includes(q)) return false;
+                }
+                return true;
+              })
+              .map(f => {
               const gap = f.gap_percentual || 0;
               const corGap = gap > 10 ? "text-orange-600" : gap < -10 ? "text-blue-600" : "text-green-600";
               const IconeGap = gap > 5 ? TrendingUp : gap < -5 ? TrendingDown : Minus;
@@ -371,7 +440,8 @@ export default function FeedbackPrecosPage() {
                 </div>
               );
             })}
-          </div>
+            </div>
+          </>
         )
       ) : aba === "sugestoes" ? (
         <div>

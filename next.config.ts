@@ -3,8 +3,29 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 // Headers de seguranca padrao OWASP. Aplicam em TODAS as rotas pra
 // reduzir superficie de ataque (XSS, clickjacking, MITM, info leak).
-// CSP omitido pra nao quebrar Stripe/Asaas/ChatPro (tunneling) — adicionar
-// depois em quando whitelist completa for conhecida.
+//
+// CSP whitelist (atualizado 30/Abr/2026 apos integracao Asaas producao):
+//   - 'self' (proprio dominio)
+//   - Supabase: *.supabase.co (REST + Storage + Realtime)
+//   - Asaas: *.asaas.com (cobranca / checkout)
+//   - Sentry: *.sentry.io + *.ingest.sentry.io (telemetria erros)
+//   - ChatPro: v5.chatpro.com.br (WhatsApp send/receive)
+//   - OpenAI: api.openai.com (Vision + IA contexto)
+//   - Google: maps.google.com + maps.googleapis.com (geocoder)
+//   - Vercel insights: *.vercel-insights.com (analytics nativo)
+const cspParts = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-insights.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://images.pexels.com https://maps.googleapis.com https://maps.gstatic.com",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.asaas.com https://*.sentry.io https://*.ingest.sentry.io https://api.openai.com https://maps.googleapis.com https://*.vercel-insights.com https://v5.chatpro.com.br",
+  "frame-src 'self' https://*.asaas.com",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+];
+
 const securityHeaders = [
   // Forca HTTPS em todos os subdominios por 1 ano (HSTS)
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" },
@@ -16,6 +37,8 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Bloqueia features sensiveis por padrao
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // Content Security Policy — whitelist explicita de origens
+  { key: "Content-Security-Policy", value: cspParts.join("; ") },
 ];
 
 const nextConfig: NextConfig = {

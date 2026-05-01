@@ -99,18 +99,10 @@ export async function sendImage({ to, url, caption, instance }: SendImageOptions
   return response.json();
 }
 
-// Formata numero para padrao ChatPro (apenas digitos com DDI)
-export function formatPhone(phone: string): string {
-  return phone.replace(/\D/g, "");
-}
-
-// Valida formato de telefone brasileiro: 55 + DDD (2) + 8 ou 9 digitos.
-// Total 12 ou 13 digitos. Filtra @lid (LinkedID anonimo do WhatsApp), IDs de
-// grupo (120363...), e qualquer outro JID que nao seja contato BR real.
-export function isValidBrPhone(phone: string | null | undefined): boolean {
-  if (!phone) return false;
-  return /^55\d{2}\d{8,9}$/.test(phone);
-}
+// Re-exporta de phone-utils (movido em 30/Abr/2026 pra ficar testavel
+// isoladamente sem precisar mockar Supabase). Callers existentes
+// continuam funcionando.
+export { formatPhone, isValidBrPhone } from "@/lib/phone-utils";
 
 // === Helpers que resolvem instance via session do destinatario ===
 // Cada contato (cliente, prestador) conversa por um numero ChatPro. A session

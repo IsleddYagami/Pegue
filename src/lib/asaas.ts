@@ -261,6 +261,26 @@ export function validarWebhookAsaas(headers: Headers): boolean {
   return received === expected;
 }
 
+// =========================================================================
+// SALDO DA CONTA (pra alertar quando saldo baixo bloqueia repasses)
+// =========================================================================
+
+export interface AsaasBalance {
+  totalBalance: number;          // saldo total (incl. pendente de liquidacao)
+  // Asaas tambem pode retornar: balance (disponivel), pix etc
+  // mas a API estavel eh /finance/balance retornando totalBalance.
+}
+
+// Consulta saldo atual da conta Asaas. Util pra cron alertar admin
+// quando saldo zerar e tiver repasses pendentes pra fretista.
+//
+// Endpoint: GET /finance/balance — retorna { totalBalance: number }
+export async function consultarSaldoAsaas(): Promise<{ ok: boolean; saldo?: number; erro?: any }> {
+  const r = await asaasFetch<AsaasBalance>("GET", "/finance/balance");
+  if (!r.ok) return { ok: false, erro: r.erro };
+  return { ok: true, saldo: r.data?.totalBalance ?? 0 };
+}
+
 // Helper exposto pra debug/health-check
 export function asaasStatus() {
   return {

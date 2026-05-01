@@ -86,6 +86,29 @@ export async function POST(req: NextRequest) {
       if (corrida.status === "paga" || corrida.status === "concluida") {
         return NextResponse.json({ status: "ja_processado" });
       }
+      // BUG #F2-3 (audit 1/Mai/2026): antes corrida cancelada virava paga
+      // se webhook chegasse depois (cliente cancelou e Asaas processou tarde).
+      // Agora bloqueia status terminais (cancelada/expirada/recusada) e
+      // notifica admin pra reembolsar manualmente se necessario.
+      const statusBloqueadores = ["cancelada", "cancelada_admin", "expirada", "recusada", "atribuida_outra"];
+      if (statusBloqueadores.includes(corrida.status)) {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "asaas_pagamento_em_corrida_terminada",
+            corrida_id: corridaId,
+            status_atual: corrida.status,
+            asaas_payment_id: payment.id,
+            valor: payment.value,
+          },
+        });
+        const { notificarAdmins } = await import("@/lib/admin-notify");
+        await notificarAdmins(
+          `🚨 *PAGAMENTO RECEBIDO EM CORRIDA ${corrida.status.toUpperCase()}*`,
+          "sistema",
+          `Corrida ${corridaId} esta com status "${corrida.status}" mas Asaas reportou pagamento.\n\nID Asaas: ${payment.id}\nValor: R$ ${payment.value}\n\n👉 Reembolsar manualmente no Asaas se confirmado pagamento.`
+        );
+        return NextResponse.json({ status: "ignorado_status_terminal", status_corrida: corrida.status });
+      }
 
       // Gera PIN 4 digitos pra confirmacao de entrega (cliente entrega ao
       // fretista no destino — anti-fraude). Marca corrida como paga.

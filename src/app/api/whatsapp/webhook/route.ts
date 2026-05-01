@@ -7143,10 +7143,23 @@ async function notificarResultadoDispatch(
         const nomeCliente = clientePagto?.nome || "Cliente";
         const emailCliente = clientePagto?.email || undefined;
 
-        // 1) Cria/obtem cliente Asaas (idempotente via telefone)
-        // CPF: usa do cadastro se tiver, senao placeholder valido pra teste.
-        // TODO producao: coletar CPF do cliente no fluxo do bot ANTES da cobranca.
-        const cpfCliente = (clientePagto as any)?.cpf || "12345678909";
+        // BUG #F2-1 (audit 1/Mai/2026): valida valor antes de chamar Asaas.
+        // Se valor_final/valor_estimado vier 0 (bug upstream raro), nao criar
+        // cobranca grátis na conta. Notifica admin pra investigar.
+        if (valorPagto <= 0) {
+          await supabase.from("bot_logs").insert({
+            payload: { tipo: "asaas_cobranca_valor_invalido", corrida_id: corridaId, valor: valorPagto },
+          });
+          throw new Error(`Valor de cobranca invalido (R$ ${valorPagto}) — corrida ${corridaId}`);
+        }
+
+        // 1) Cria/obtem cliente Asaas (idempotente via telefone).
+        // BUG #F2-2 (audit 1/Mai/2026): antes mandava CPF placeholder
+        // "12345678909" se o cliente nao tinha cadastro com CPF. Em producao,
+        // isso vinculava cobrancas a um CPF falso comum (problema fiscal +
+        // tracking errado). Agora: se nao tem CPF, manda undefined e Asaas
+        // pede pro cliente preencher na tela do checkout antes de pagar.
+        const cpfCliente = (clientePagto as any)?.cpf || undefined;
         const clienteResult = await criarOuObterCliente({
           nome: nomeCliente,
           telefone: clientePhone,

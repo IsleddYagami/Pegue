@@ -206,9 +206,12 @@ export async function POST(req: NextRequest) {
   }
 
   if (acao === "marcar_repasse_pago") {
+    // BUG #BATCH4-5 (re-audit 1/Mai/2026): coluna correta eh `pago_em`,
+    // nao `repasse_pago_em` (que nao existe no schema). Antes update
+    // silencioso ignorava o timestamp.
     const { error } = await supabase
       .from("pagamentos")
-      .update({ repasse_status: "pago", repasse_pago_em: new Date().toISOString() })
+      .update({ repasse_status: "pago", pago_em: new Date().toISOString() })
       .eq("corrida_id", corrida_id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });

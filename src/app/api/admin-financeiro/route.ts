@@ -58,11 +58,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "parametros invalidos" }, { status: 400 });
   }
 
+  // BUG #BATCH4-5 (re-audit 1/Mai/2026): coluna correta eh `pago_em`. O codigo
+  // antigo escrevia em `repasse_pago_em` que nao existe no schema — Supabase
+  // ignora silenciosamente, repasse_status virava "pago" mas o timestamp
+  // ficava NULL. Conferido em types.ts e webhook Asaas que usam pago_em.
   const { error } = await supabase
     .from("pagamentos")
     .update({
       repasse_status: "pago",
-      repasse_pago_em: new Date().toISOString(),
+      pago_em: new Date().toISOString(),
     })
     .eq("id", id);
 

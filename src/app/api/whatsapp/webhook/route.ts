@@ -7254,9 +7254,15 @@ async function notificarResultadoDispatch(
           .select("descricao_carga, valor_final, valor_estimado")
           .eq("id", corridaId)
           .single();
+        // BUG #BATCH9-1 (descoberto via Camada 1 / Supabase types em
+        // 1/Mai/2026): codigo selecionava "cpf" da tabela `clientes` mas
+        // essa coluna NAO EXISTE no schema. Selecao silenciosa retornava
+        // undefined, fallback usava placeholder. Como Asaas pede CPF no
+        // checkout direto pelo cliente (BUG #F2-2 fixado), nao precisamos
+        // do CPF aqui de qualquer forma. Removido pra alinhar com schema real.
         const { data: clientePagto } = await supabase
           .from("clientes")
-          .select("nome, email, cpf")
+          .select("nome, email")
           .eq("telefone", clientePhone)
           .single();
 
@@ -7279,9 +7285,10 @@ async function notificarResultadoDispatch(
         // BUG #F2-2 (audit 1/Mai/2026): antes mandava CPF placeholder
         // "12345678909" se o cliente nao tinha cadastro com CPF. Em producao,
         // isso vinculava cobrancas a um CPF falso comum (problema fiscal +
-        // tracking errado). Agora: se nao tem CPF, manda undefined e Asaas
-        // pede pro cliente preencher na tela do checkout antes de pagar.
-        const cpfCliente = (clientePagto as any)?.cpf || undefined;
+        // tracking errado). Agora: nao mandamos CPF — Asaas pede pro cliente
+        // preencher na tela do checkout antes de pagar.
+        // BUG #BATCH9-1: clientes nao tem coluna cpf no schema mesmo.
+        const cpfCliente = undefined;
         const clienteResult = await criarOuObterCliente({
           nome: nomeCliente,
           telefone: clientePhone,
@@ -7419,7 +7426,7 @@ async function salvarCorrida(session: BotSession): Promise<string | null> {
     // Agora o credito so eh marcado como aplicado APOS sucesso do insert.
     let creditoAnterior = 0;
     let corridaAnteriorId: string | null = null;
-    let logCreditoIdParaAplicar: string | null = null;
+    let logCreditoIdParaAplicar: number | null = null;
     let logCreditoPayload: any = null;
     const { data: logCredito } = await supabase
       .from("bot_logs")

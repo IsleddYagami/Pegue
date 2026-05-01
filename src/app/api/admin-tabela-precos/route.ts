@@ -60,9 +60,12 @@ export async function POST(req: NextRequest) {
     if (campos[k] !== undefined) update[k] = campos[k];
   }
 
+  // Cast intencional: `update` eh montado dinamicamente via whitelist de
+  // campos. Tipos do Supabase exigem shape exato; aqui o whitelist garante
+  // que nao vai ter campo invalido. Cast pra any preserva validacao runtime.
   const { error } = await supabase
     .from("tabela_precos")
-    .update(update)
+    .update(update as any)
     .eq("id", id);
 
   if (error) {

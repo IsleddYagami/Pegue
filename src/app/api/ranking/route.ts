@@ -43,7 +43,10 @@ export async function POST(req: NextRequest) {
     };
     if (entregas !== undefined) insertData.entregas = Math.floor(entregas);
 
-    const { error: insertError } = await supabase.from("ranking_pegue_runner").insert(insertData);
+    // Cast intencional: insertData eh montado com campo opcional (entregas)
+    // que pode ou nao existir no schema. Logica abaixo trata erro de
+    // coluna inexistente.
+    const { error: insertError } = await supabase.from("ranking_pegue_runner").insert(insertData as any);
 
     // Se falhar por causa da coluna entregas, tenta sem ela
     if (insertError && insertError.message?.includes("entregas")) {

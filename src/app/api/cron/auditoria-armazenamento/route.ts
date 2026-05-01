@@ -98,8 +98,10 @@ export async function GET(req: NextRequest) {
 
   for (const regra of REGRAS) {
     const inicio = new Date(agora - regra.janela_dias * 24 * 3600_000).toISOString();
+    // Iteracao dinamica sobre tabelas — cast intencional. Validacao real
+    // eh feita pela existencia da tabela (regra.tabela) no array REGRAS.
     const { count, error: errCount } = await supabase
-      .from(regra.tabela)
+      .from(regra.tabela as any)
       .select("*", { count: "exact", head: true })
       .gte("criado_em", inicio);
 

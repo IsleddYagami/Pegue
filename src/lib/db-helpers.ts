@@ -32,9 +32,11 @@ export async function safeInsert<T = any>(
 ): Promise<SafeInsertResult<T>> {
   const { tabela, dados, contexto, notificarAdminEmFalha } = options;
 
+  // Cast intencional: helper generico — recebe nome de tabela em string.
+  // Validacao de schema fica por conta do error.code retornado em runtime.
   const { data, error } = await supabase
-    .from(tabela)
-    .insert(dados)
+    .from(tabela as any)
+    .insert(dados as any)
     .select()
     .single();
 
@@ -83,7 +85,8 @@ export async function safeUpdate(options: {
 }): Promise<{ ok: boolean; error?: string; affected?: number }> {
   const { tabela, match, dados, contexto } = options;
 
-  let query: any = supabase.from(tabela).update(dados);
+  // Cast intencional (helper generico) — mesma justificativa de safeInsert.
+  let query: any = supabase.from(tabela as any).update(dados as any);
   for (const [k, v] of Object.entries(match)) {
     query = query.eq(k, v);
   }

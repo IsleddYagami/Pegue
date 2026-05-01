@@ -162,7 +162,9 @@ export async function createSession(
     atualizado_em: new Date().toISOString(),
   };
 
-  await supabase.from("bot_sessions").upsert(session, { onConflict: "phone" });
+  // session eh Record<string, any> dinamico (alguns campos sao seteados
+  // condicionalmente). Cast intencional pra Camada 1 dos types.
+  await supabase.from("bot_sessions").upsert(session as any, { onConflict: "phone" });
 
   return session as unknown as BotSession;
 }

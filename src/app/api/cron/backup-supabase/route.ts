@@ -66,7 +66,9 @@ export async function GET(req: NextRequest) {
   const tabelasQueFalharam: { tabela: string; erro: string }[] = [];
   for (const tabela of TABELAS) {
     try {
-      const { data, error } = await supabase.from(tabela).select("*");
+      // Iteracao dinamica — cast intencional. Cada nome em TABELAS eh
+      // validado em runtime pelo error.message (tabela inexistente loga).
+      const { data, error } = await supabase.from(tabela as any).select("*");
       if (error) {
         // Tabela pode nao existir, registra mas nao falha
         stats[tabela] = -1;

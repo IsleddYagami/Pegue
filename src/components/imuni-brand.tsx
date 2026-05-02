@@ -7,88 +7,131 @@
 // IMPORTANTE: nao reproduzir manualmente a logo em outro lugar.
 // Sempre importar daqui pra preservar consistencia visual da marca.
 //
-// Criado em 2/Mai/2026 apos aprovacao final da identidade visual
-// (Fabio + Iori + filho de 7 anos como QA de legibilidade).
+// Versao 2 (2/Mai/2026): refinamento aprovado por Fabio com chanfros
+// diagonais entre M/N e os "i" laterais — separa as 5 letras (i·M·U·N·i)
+// dando respiracao e legibilidade. Em tamanhos micro (favicon 16/32px)
+// usar `ImuniCompacto` que omite os chanfros pra nao virar ruido.
 
 import { type CSSProperties } from "react";
 
-const VIEWBOX_WORDMARK = "0 0 689 295";
-const VIEWBOX_SIMBOLO = "0 0 295 100";
+// Todas as 3 variantes compartilham o mesmo viewBox 0 0 476 208.
+const VIEWBOX = "0 0 476 208";
+
+type SvgProps = {
+  className?: string;
+  style?: CSSProperties;
+  title?: string;
+};
 
 /**
- * Wordmark "iMUNi" — logo principal da IMUNI.
+ * Wordmark "iMUNi" — versao PRINCIPAL com chanfros diagonais.
+ *
+ * USO PADRAO: dashboard, site, papelaria, redes sociais, apresentacoes,
+ * cartoes — qualquer coisa exibida acima de ~80px de altura.
  *
  * - currentColor: herda do CSS pai (text-white, text-[#C9A84C], etc)
  * - paths inline: nada de fetch, funciona sem rede
  *
  * @example
  * <ImuniWordmark className="text-[#C9A84C] h-12" />
- * <ImuniWordmark className="text-white h-8" />
  */
-export function ImuniWordmark({
-  className,
-  style,
-  title = "IMUNI",
-}: {
-  className?: string;
-  style?: CSSProperties;
-  title?: string;
-}) {
+export function ImuniWordmark({ className, style, title = "IMUNI" }: SvgProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox={VIEWBOX_WORDMARK}
+      viewBox={VIEWBOX}
       role="img"
       aria-label={title}
       className={className}
       style={style}
+      fill="currentColor"
     >
       <title>{title}</title>
-      <g fill="currentColor" fillRule="nonzero">
-        <path d="M 78 277.27 L 72 277.9 L 11 278.01 L 5.12 276 L 2.25 272 L 1.51 266 L 1.55 105 L 3 100.29 L 6 97.49 L 12 96.6 L 76 96.85 L 80.29 98 L 83.22 102 L 83.92 111 L 83.76 268 L 82.11 274 Z" />
-        <path d="M 45 81.49 L 39 81.31 L 30 79.26 L 25 77.06 L 17 71.29 L 12 65.45 L 7.6 58 L 5.33 52 L 3.85 43 L 4.12 37 L 5.73 29 L 10.66 19 L 15.26 13 L 19 9.47 L 25 5.57 L 32 2.82 L 41 0.62 L 48 1.51 L 58 4.86 L 64.73 9 L 70 13.5 L 75 19.09 L 78 24.14 L 80.39 31 L 82.02 40 L 81.27 49 L 79.19 56 L 76.32 62 L 71 69.12 L 66 73.75 L 60 77.66 L 53 80.36 Z" />
-        <path d="M 600.4 266 L 598 269.47 L 593 271.88 L 581 272.13 L 575 270.28 L 500 210.58 L 498.94 212 L 497.59 230 L 494.48 242 L 490.31 252 L 483 263.72 L 472.8 274 L 463 280.48 L 449 286.22 L 434 289.17 L 402 292.22 L 341 292.46 L 308 290.23 L 290 286.62 L 281 283.46 L 272 279.02 L 263 272.39 L 255.59 264 L 249.92 255 L 246.74 248 L 242.97 235 L 241.54 228 L 240.18 211 L 239 209.96 L 183 258.28 L 176 261.87 L 172 262.25 L 168 261.6 L 162 258.35 L 143 243 L 89 196.88 L 88.36 193 L 88.44 99 L 89 97.86 L 91 97.31 L 114 97.34 L 118 98.26 L 176 147 L 179 147.81 L 182.87 146 L 236.21 99 L 241 97.23 L 246 93.56 L 251 92.49 L 311 92.25 L 318 93.48 L 321 96.18 L 322.3 101 L 322.4 184 L 323.8 195 L 325.66 201 L 329 206.82 L 332.6 211 L 341 216.6 L 353 220.39 L 370 221.06 L 383 220.23 L 391 218.35 L 396 216.08 L 400.58 213 L 405.47 208 L 410.36 199 L 413.18 185 L 413.21 102 L 413.74 98 L 415.54 95 L 419 92.72 L 425 91.9 L 484 91.77 L 493 92.63 L 496 94.21 L 500 98.82 L 593.86 172 L 599 177.25 L 600.52 181 L 600.89 187 Z" />
-        <path d="M 681 277.15 L 674 277.9 L 613 277.97 L 608 276.12 L 604.94 272 L 604.21 266 L 604.24 105 L 605.92 100 L 609 97.38 L 615 96.6 L 679 96.86 L 683 98 L 685.92 102 L 686.7 111 L 686.56 267 L 686.11 271 L 684.82 274 Z" />
-        <path d="M 648 81.47 L 641 81.2 L 633 79.37 L 627.62 77 L 620 71.53 L 614.43 65 L 609.86 57 L 608.08 52 L 606.6 43 L 606.84 37 L 608.46 29 L 612.76 20 L 618 13 L 622 9.26 L 628 5.46 L 635 2.74 L 644 0.62 L 650 1.34 L 660 4.54 L 667 8.67 L 673 13.74 L 678.42 20 L 681.13 25 L 683.36 32 L 684.7 40 L 683.96 49 L 682.3 55 L 679.05 62 L 673.84 69 L 669 73.53 L 663 77.54 L 656 80.29 Z" />
-      </g>
+      {/* Anticorpo esquerdo (ponto sobre o "i" da esquerda) */}
+      <path d="M 24.00 0.00 L 16.00 3.00 L 7.00 11.00 L 2.00 23.00 L 2.00 33.00 L 6.00 43.00 L 12.00 50.00 L 21.00 55.00 L 32.00 56.00 L 33.00 55.00 L 39.00 54.00 L 48.00 48.00 L 53.00 41.00 L 53.00 39.00 L 55.00 36.00 L 56.00 25.00 L 55.00 24.00 L 55.00 21.00 L 53.00 15.00 L 44.00 5.00 L 33.00 0.00 Z" />
+      {/* Anticorpo direito (ponto sobre o "i" da direita) */}
+      <path d="M 442.00 2.00 L 433.00 5.00 L 424.00 13.00 L 419.00 25.00 L 419.00 35.00 L 422.00 44.00 L 428.00 52.00 L 436.00 57.00 L 448.00 59.00 L 449.00 58.00 L 453.00 58.00 L 459.00 56.00 L 467.00 49.00 L 471.00 43.00 L 473.00 37.00 L 473.00 24.00 L 470.00 16.00 L 467.00 12.00 L 460.00 6.00 L 450.00 2.00 Z" />
+      {/* M central */}
+      <path d="M 156.00 66.00 L 154.00 68.00 L 154.00 166.00 L 155.00 167.00 L 155.00 170.00 L 158.00 179.00 L 166.00 191.00 L 175.00 198.00 L 181.00 201.00 L 187.00 203.00 L 190.00 203.00 L 191.00 204.00 L 195.00 204.00 L 201.00 206.00 L 209.00 206.00 L 210.00 205.00 L 209.00 68.00 L 207.00 66.00 L 204.00 65.00 L 163.00 65.00 L 162.00 66.00 Z" />
+      {/* U central */}
+      <path d="M 331.00 65.00 L 280.00 65.00 L 278.00 66.00 L 276.00 69.00 L 276.00 206.00 L 284.00 206.00 L 285.00 205.00 L 296.00 204.00 L 312.00 198.00 L 322.00 190.00 L 328.00 182.00 L 331.00 176.00 L 334.00 167.00 L 334.00 164.00 L 335.00 163.00 L 335.00 68.00 Z" />
+      {/* N central (com chanfro pra "i" direito) */}
+      <path d="M 340.00 66.00 L 340.00 139.00 L 351.00 147.00 L 356.00 152.00 L 358.00 152.00 L 373.00 165.00 L 377.00 166.00 L 382.00 171.00 L 412.00 195.00 L 412.00 114.00 Z" />
+      {/* "i" esquerdo — coluna guardia */}
+      <path d="M 2.00 69.00 L 0.00 72.00 L 0.00 192.00 L 1.00 194.00 L 5.00 197.00 L 52.00 197.00 L 56.00 195.00 L 56.00 191.00 L 57.00 190.00 L 57.00 181.00 L 56.00 180.00 L 56.00 152.00 L 57.00 151.00 L 57.00 69.00 L 26.00 69.00 L 25.00 68.00 L 18.00 68.00 L 17.00 69.00 Z" />
+      {/* Curva da base — escudo invisivel abracando MUN */}
+      <path d="M 62.00 69.00 L 62.00 154.00 L 96.00 183.00 L 100.00 185.00 L 107.00 185.00 L 113.00 181.00 L 121.00 173.00 L 122.00 173.00 L 149.00 149.00 L 149.00 70.00 L 110.00 105.00 L 106.00 105.00 L 82.00 84.00 L 70.00 75.00 L 64.00 69.00 Z" />
+      {/* "i" direito — coluna guardia */}
+      <path d="M 420.00 72.00 L 418.00 73.00 L 417.00 75.00 L 417.00 198.00 L 421.00 202.00 L 471.00 202.00 L 475.00 197.00 L 475.00 75.00 L 472.00 72.00 Z" />
+      {/* Conexao da base entre "i"s laterais e MUN central */}
+      <path d="M 215.00 148.00 L 215.00 206.00 L 216.00 207.00 L 270.00 207.00 L 271.00 206.00 L 271.00 148.00 L 270.00 148.00 L 264.00 154.00 L 260.00 156.00 L 251.00 157.00 L 250.00 158.00 L 235.00 158.00 L 234.00 157.00 L 229.00 157.00 L 220.00 153.00 Z" />
     </svg>
   );
 }
 
 /**
- * Simbolo isolado IMUNI — apenas os 2 pontos circulares.
+ * Wordmark "iMUNi" — versao COMPACTA sem chanfros (formas fundidas).
  *
- * Marca standalone reduzida ao essencial. Use como favicon, app icon,
- * watermark, marca d'agua, indicador de presenca da IMUNI quando o
- * espaco nao comporta o wordmark inteiro.
+ * USO ESPECIFICO: micro-aplicacoes onde os chanfros virariam ruido
+ * pixelado — favicon 16/32px, badges pequenos, indicadores de UI
+ * muito reduzidos.
+ *
+ * Mantem todos os elementos da marca (anticorpos + colunas + MUN
+ * abracado) porem sem os cortes diagonais.
  *
  * @example
- * <ImuniSimbolo className="text-[#C9A84C] h-6" />
+ * <ImuniCompacto className="text-[#C9A84C] h-4" />
  */
-export function ImuniSimbolo({
-  className,
-  style,
-  title = "IMUNI",
-}: {
-  className?: string;
-  style?: CSSProperties;
-  title?: string;
-}) {
+export function ImuniCompacto({ className, style, title = "IMUNI" }: SvgProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox={VIEWBOX_SIMBOLO}
+      viewBox={VIEWBOX}
       role="img"
       aria-label={title}
       className={className}
       style={style}
+      fill="currentColor"
     >
       <title>{title}</title>
-      <g fill="currentColor" fillRule="nonzero">
-        {/* 2 pontos: anticorpos vigiando */}
-        <circle cx="40" cy="50" r="40" />
-        <circle cx="255" cy="50" r="40" />
-      </g>
+      <path d="M 25.00 0.00 L 24.00 2.00 L 19.00 3.00 L 14.00 6.00 L 8.00 12.00 L 3.00 24.00 L 3.00 34.00 L 7.00 44.00 L 13.00 51.00 L 22.00 56.00 L 33.00 57.00 L 34.00 56.00 L 40.00 55.00 L 49.00 49.00 L 54.00 42.00 L 54.00 40.00 L 56.00 37.00 L 57.00 26.00 L 56.00 25.00 L 56.00 22.00 L 54.00 16.00 L 45.00 6.00 L 37.00 2.00 L 35.00 2.00 L 34.00 0.00 Z" />
+      <path d="M 443.00 3.00 L 434.00 6.00 L 425.00 14.00 L 420.00 26.00 L 420.00 36.00 L 423.00 45.00 L 429.00 53.00 L 437.00 58.00 L 449.00 60.00 L 450.00 59.00 L 454.00 59.00 L 460.00 57.00 L 468.00 50.00 L 472.00 44.00 L 474.00 38.00 L 474.00 25.00 L 471.00 17.00 L 468.00 13.00 L 461.00 7.00 L 451.00 3.00 Z" />
+      <path d="M 157.00 67.00 L 155.00 69.00 L 155.00 167.00 L 156.00 168.00 L 156.00 171.00 L 159.00 180.00 L 167.00 192.00 L 176.00 199.00 L 182.00 202.00 L 188.00 204.00 L 191.00 204.00 L 192.00 205.00 L 196.00 205.00 L 202.00 207.00 L 210.00 207.00 L 211.00 206.00 L 210.00 69.00 L 208.00 67.00 L 205.00 66.00 L 164.00 66.00 L 163.00 67.00 Z" />
+      <path d="M 332.00 66.00 L 281.00 66.00 L 279.00 67.00 L 277.00 70.00 L 277.00 207.00 L 285.00 207.00 L 286.00 206.00 L 297.00 205.00 L 313.00 199.00 L 323.00 191.00 L 329.00 183.00 L 332.00 177.00 L 335.00 168.00 L 335.00 165.00 L 336.00 164.00 L 336.00 69.00 Z" />
+      <path d="M 341.00 67.00 L 341.00 140.00 L 352.00 148.00 L 357.00 153.00 L 359.00 153.00 L 374.00 166.00 L 378.00 167.00 L 383.00 172.00 L 405.00 189.00 L 408.00 192.00 L 408.00 205.00 L 424.00 205.00 L 425.00 203.00 L 472.00 203.00 L 475.00 200.00 L 475.00 75.00 L 473.00 73.00 L 425.00 73.00 L 424.00 72.00 L 424.00 67.00 L 408.00 67.00 L 408.00 109.00 L 405.00 110.00 Z" />
+      <path d="M 0.00 73.00 L 0.00 193.00 L 1.00 193.00 L 4.00 197.00 L 6.00 198.00 L 52.00 198.00 L 53.00 199.00 L 67.00 199.00 L 67.00 161.00 L 68.00 160.00 L 97.00 184.00 L 101.00 186.00 L 108.00 186.00 L 114.00 182.00 L 122.00 174.00 L 123.00 174.00 L 150.00 150.00 L 150.00 71.00 L 111.00 106.00 L 107.00 106.00 L 104.00 104.00 L 83.00 85.00 L 71.00 76.00 L 67.00 72.00 L 67.00 70.00 L 27.00 70.00 L 26.00 69.00 L 19.00 69.00 L 18.00 70.00 L 3.00 70.00 L 2.00 72.00 Z" />
+      <path d="M 216.00 149.00 L 216.00 207.00 L 272.00 207.00 L 272.00 149.00 L 271.00 149.00 L 265.00 155.00 L 261.00 157.00 L 252.00 158.00 L 251.00 159.00 L 236.00 159.00 L 235.00 158.00 L 230.00 158.00 L 221.00 154.00 Z" />
+    </svg>
+  );
+}
+
+/**
+ * Simbolo isolado IMUNI — apenas os 2 anticorpos (pontos circulares).
+ *
+ * Marca standalone reduzida ao essencial. Use como favicon micro,
+ * watermark, marca d'agua, indicador de presenca da IMUNI quando o
+ * espaco nao comporta nenhuma forma textual.
+ *
+ * Mantem o mesmo viewBox do wordmark pra alinhar perfeitamente
+ * quando colado lado a lado.
+ *
+ * @example
+ * <ImuniSimbolo className="text-[#C9A84C] h-3" />
+ */
+export function ImuniSimbolo({ className, style, title = "IMUNI" }: SvgProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox={VIEWBOX}
+      role="img"
+      aria-label={title}
+      className={className}
+      style={style}
+      fill="currentColor"
+    >
+      <title>{title}</title>
+      <path d="M 24.00 0.00 L 16.00 3.00 L 7.00 11.00 L 2.00 23.00 L 2.00 33.00 L 6.00 43.00 L 12.00 50.00 L 21.00 55.00 L 32.00 56.00 L 33.00 55.00 L 39.00 54.00 L 48.00 48.00 L 53.00 41.00 L 53.00 39.00 L 55.00 36.00 L 56.00 25.00 L 55.00 24.00 L 55.00 21.00 L 53.00 15.00 L 44.00 5.00 L 33.00 0.00 Z" />
+      <path d="M 442.00 2.00 L 433.00 5.00 L 424.00 13.00 L 419.00 25.00 L 419.00 35.00 L 422.00 44.00 L 428.00 52.00 L 436.00 57.00 L 448.00 59.00 L 449.00 58.00 L 453.00 58.00 L 459.00 56.00 L 467.00 49.00 L 471.00 43.00 L 473.00 37.00 L 473.00 24.00 L 470.00 16.00 L 467.00 12.00 L 460.00 6.00 L 450.00 2.00 Z" />
     </svg>
   );
 }

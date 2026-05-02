@@ -424,6 +424,70 @@ async function invCorridasPagaSemRegistroPagamento(): Promise<ResultadoInvariant
 }
 
 /**
+ * INV-19 (MEDIA — descoberto 2/Mai/2026, audit fluxo cadastro):
+ * Sessoes de cadastro de prestador abandonadas ha mais de 7 dias.
+ *
+ * Sintoma: bot_sessions com step iniciando com "cadastro_" sem
+ * atualizacao recente — fretista comecou cadastro e abandonou. Acumula
+ * indefinidamente, polui dashboard de operacao e ocupa espaco.
+ *
+ * Tratamento sugerido: cron de limpeza (proxima rodada) que deleta
+ * sessoes >7d em step de cadastro. Por enquanto, IMUNI alerta volume.
+ */
+async function invSessoesCadastroAbandonadas(): Promise<ResultadoInvariante> {
+  try {
+    const { data, error } = await supabase
+      .from("bot_sessions")
+      .select("phone, step, atualizado_em")
+      .like("step", "cadastro_%")
+      .lt("atualizado_em", hAtras(24 * 7));
+    if (error) throw error;
+    return {
+      nome: "INV-19",
+      descricao: "Sessoes de cadastro de prestador abandonadas (>7 dias sem atividade)",
+      severidade: "media",
+      count: (data || []).length,
+      amostra: (data || []).slice(0, 5).map((s) => ({ phone_masked: s.phone?.replace(/\d(?=\d{4})/g, "*"), step: s.step, atualizado_em: s.atualizado_em })),
+      ok: (data || []).length === 0,
+      comoAgir: "Cron de limpeza de bot_sessions abandonadas em cadastro nao foi implementado ainda. Por enquanto: limpar manualmente via SQL `DELETE FROM bot_sessions WHERE step LIKE 'cadastro_%' AND atualizado_em < NOW() - INTERVAL '7 days'`.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-19", descricao: "sessoes_cadastro_abandonadas", severidade: "media", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
+/**
+ * INV-20 (ALTA — descoberto 2/Mai/2026, audit fluxo pedido de frete):
+ * Cobrancas Asaas duplicadas no mesmo corrida_id (bot_logs com tipo
+ * asaas_cobranca_duplicada_evitada nao deve existir, mas se existe sao
+ * casos onde a guarda PEGOU).
+ *
+ * O alerta dispara so quando a guarda foi acionada (sintoma de race que
+ * a IMUNI esta cacando). Volume zero = saudavel.
+ */
+async function invCobrancasDuplicadasEvitadas(): Promise<ResultadoInvariante> {
+  try {
+    const { data, error } = await supabase
+      .from("bot_logs")
+      .select("payload, criado_em")
+      .filter("payload->>tipo", "eq", "asaas_cobranca_duplicada_evitada")
+      .gte("criado_em", hAtras(24 * 7));
+    if (error) throw error;
+    return {
+      nome: "INV-20",
+      descricao: "Tentativas de cobranca duplicada evitadas pela guarda (ult 7d) — sinal de race condition no fluxo",
+      severidade: "media",
+      count: (data || []).length,
+      amostra: (data || []).slice(0, 5).map((l: any) => ({ corrida_id: l.payload?.corrida_id, payment_id: l.payload?.payment_id_existente })),
+      ok: (data || []).length === 0,
+      comoAgir: "A guarda esta funcionando — duplicidade foi evitada. Se volume eh alto (>5/dia), investigar trigger upstream que esta disparando 2x: pode ser double-click do cliente, retry de cron ou webhook duplicado.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-20", descricao: "cobrancas_duplicadas_evitadas", severidade: "media", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
+/**
  * INV-18 (ALTA — descoberto 2/Mai/2026):
  * Corridas canceladas ha >1h com asaas_payment_id presente mas SEM
  * registro de estorno em bot_logs.
@@ -545,6 +609,8 @@ export const pluginPegue: PluginImuni = {
     invCorridasPagaSemRegistroPagamento,
     invClaimsAdminPendentesMuitoTempo,
     invCorridasCanceladasSemEstorno,
+    invSessoesCadastroAbandonadas,
+    invCobrancasDuplicadasEvitadas,
     // === INFRA (headers, env vars, configs externas) ===
     invHeaderGeolocationPermitido,
     invHeaderHsts,

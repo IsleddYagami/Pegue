@@ -5632,11 +5632,36 @@ async function handleCadastroNome(phone: string, message: string) {
 }
 
 async function handleCadastroCpf(phone: string, message: string) {
-  const cpf = message.replace(/\D/g, "");
-  if (cpf.length !== 11) {
-    await sendToClient({ to: phone, message: "CPF precisa ter 11 dígitos. Tenta de novo 😊" });
+  // Audit 2/Mai/2026: antes aceitava qualquer string com 11 digitos —
+  // "11111111111" passava. Agora valida digito verificador (algoritmo
+  // Receita Federal). Tambem checa duplicacao preventiva pra UX
+  // melhor (descobre na hora, nao no final do cadastro).
+  const { isCpfValido, normalizarCpf } = await import("@/lib/validators-cadastro");
+  const cpf = normalizarCpf(message);
+  if (!isCpfValido(cpf)) {
+    await sendToClient({
+      to: phone,
+      message: "Esse CPF não é válido. Confere o número e tenta de novo, por favor 😊",
+    });
     return;
   }
+
+  // Pre-check duplicacao: melhor avisar agora do que travar no final
+  const { data: jaExiste } = await supabase
+    .from("prestadores")
+    .select("id, status")
+    .eq("cpf", cpf)
+    .maybeSingle();
+  if (jaExiste) {
+    await sendToClient({
+      to: phone,
+      message:
+        `Esse CPF já está cadastrado no nosso sistema. ` +
+        `Se você esqueceu o número de contato cadastrado, fala comigo aqui que eu ajudo.`,
+    });
+    return;
+  }
+
   await updateSession(phone, { step: "cadastro_email", destino_endereco: cpf });
   await sendToClient({ to: phone, message: MSG.cadastroEmail });
 }
@@ -7298,6 +7323,35 @@ async function notificarResultadoDispatch(
       // 1 link unico que abre checkout com as 2 opcoes - mais simples que MP.
       // Substitui Mercado Pago (que nao tinha API de PIX out pro repasse final).
       try {
+        // GUARDA ANTI-COBRANCA-DUPLICADA (audit 2/Mai/2026): se essa corrida
+        // ja tem asaas_payment_id setado, NAO criar de novo. Cenario: cliente
+        // ou fretista aciona o trigger 2x rapido (race) ou retry de cron.
+        // Sem essa guarda, sistema poderia criar 2 cobrancas Asaas no mesmo
+        // corrida_id — cliente recebe 2 PIX, paga 1, sistema fica confuso.
+        const { data: corridaJaCobrada } = await supabase
+          .from("corridas")
+          .select("asaas_payment_id")
+          .eq("id", corridaId)
+          .maybeSingle();
+        if (corridaJaCobrada?.asaas_payment_id) {
+          await supabase.from("bot_logs").insert({
+            payload: {
+              tipo: "asaas_cobranca_duplicada_evitada",
+              corrida_id: corridaId,
+              payment_id_existente: corridaJaCobrada.asaas_payment_id,
+              tentativa_em: new Date().toISOString(),
+            },
+          });
+          // Avisa cliente (UX: nao deixa ele perdido sem entender por que nao chegou novo PIX)
+          await sendToClient({
+            to: clientePhone,
+            message:
+              `O PIX dessa corrida já foi gerado anteriormente. ` +
+              `Confere seu WhatsApp acima ou me chama aqui que reenvio.`,
+          });
+          return;
+        }
+
         const { criarOuObterCliente, criarCobranca } = await import("@/lib/asaas");
 
         const { data: corridaPagto } = await supabase

@@ -126,3 +126,49 @@ export function validarChavePix(input: string): PixValido | null {
 export function isChavePixValida(input: string): boolean {
   return validarChavePix(input) !== null;
 }
+
+// === CPF (com validacao de digito verificador) ===
+//
+// Audit 2/Mai/2026: cadastro de prestador aceitava qualquer string com
+// 11 digitos como CPF — "11111111111" passava. Risco anti-fraude real:
+// fretista poderia se cadastrar com CPF invalido pra dificultar
+// identificacao em caso de problema com cliente.
+//
+// Algoritmo oficial Receita Federal:
+//   - Soma ponderada dos 9 primeiros digitos (pesos 10-2)
+//   - Resto da divisao por 11 da o 1o digito verificador
+//   - Repete pra 10 primeiros (pesos 11-2) -> 2o digito verificador
+//   - Rejeita CPFs com todos digitos iguais (000... a 999...)
+//
+// Funcao puramente matematica, sem chamada externa.
+
+export function normalizarCpf(input: string): string {
+  return (input || "").replace(/\D/g, "");
+}
+
+export function isCpfValido(input: string): boolean {
+  const cpf = normalizarCpf(input);
+  if (cpf.length !== 11) return false;
+  // Rejeita 11 digitos iguais (000... a 999...) — invalidos por convencao
+  if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+  // 1o digito verificador
+  let soma = 0;
+  for (let i = 0; i < 9; i++) {
+    soma += parseInt(cpf[i], 10) * (10 - i);
+  }
+  let d1 = (soma * 10) % 11;
+  if (d1 === 10) d1 = 0;
+  if (d1 !== parseInt(cpf[9], 10)) return false;
+
+  // 2o digito verificador
+  soma = 0;
+  for (let i = 0; i < 10; i++) {
+    soma += parseInt(cpf[i], 10) * (11 - i);
+  }
+  let d2 = (soma * 10) % 11;
+  if (d2 === 10) d2 = 0;
+  if (d2 !== parseInt(cpf[10], 10)) return false;
+
+  return true;
+}

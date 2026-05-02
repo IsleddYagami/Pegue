@@ -33,6 +33,10 @@ export interface ContextoExtraido {
   veiculo_sugerido: string | null; // "utilitario" | "hr" | "caminhao_bau" | "carro_comum"
   confianca: "alta" | "media" | "baixa";
   observacao: string | null;
+  // Audit 2/Mai/2026: itens proibidos detectados (animais vivos, drogas,
+  // armas, bebes, etc). Caller decide como tratar (geralmente recusar +
+  // mensagem amiga). Vazio/undefined = OK.
+  itens_proibidos_detectados?: { categoria: string; termo: string }[];
 }
 
 function ehSomenteSaudacao(texto: string): boolean {
@@ -163,6 +167,22 @@ Responda SOMENTE o JSON.`,
       !contexto.destino_texto
     ) {
       return null;
+    }
+
+    // (audit 2/Mai/2026) Filtro de itens proibidos: animais vivos, drogas,
+    // armas, bebes/criancas, explosivos, material biologico. Sinaliza no
+    // contexto pra caller decidir como tratar (recusar com mensagem amiga
+    // + log + escalar admin se necessario).
+    const { detectarItensProibidos } = await import("./itens-proibidos");
+    const proibidos = detectarItensProibidos({
+      textoLivre: texto,
+      itens: contexto.itens,
+    });
+    if (proibidos.length > 0) {
+      contexto.itens_proibidos_detectados = proibidos.map((p) => ({
+        categoria: p.categoria,
+        termo: p.termo,
+      }));
     }
 
     return contexto;

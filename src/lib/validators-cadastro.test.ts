@@ -4,6 +4,8 @@ import {
   normalizarPlaca,
   validarChavePix,
   isChavePixValida,
+  isCpfValido,
+  normalizarCpf,
 } from "./validators-cadastro";
 
 // Audit 1/Mai/2026: regressao pros bugs encontrados na auditoria silenciosa
@@ -159,5 +161,64 @@ describe("isChavePixValida — wrapper boolean", () => {
   it("delega a validarChavePix corretamente", () => {
     expect(isChavePixValida("12345678901")).toBe(true);
     expect(isChavePixValida("invalido")).toBe(false);
+  });
+});
+
+describe("isCpfValido — algoritmo oficial Receita Federal", () => {
+  // Audit 2/Mai/2026: cadastro aceitava qualquer string com 11 digitos
+  // como CPF. Risco anti-fraude. Esses CPFs validos sao gerados via
+  // algoritmo de digito verificador — todos passam na Receita.
+  it("aceita CPFs validos conhecidos", () => {
+    expect(isCpfValido("11144477735")).toBe(true);
+    expect(isCpfValido("52998224725")).toBe(true);
+    expect(isCpfValido("39053344705")).toBe(true);
+  });
+
+  it("aceita CPF com mascara (pontuacao normalizada)", () => {
+    expect(isCpfValido("111.444.777-35")).toBe(true);
+    expect(isCpfValido("529.982.247-25")).toBe(true);
+  });
+
+  it("rejeita CPF com todos digitos iguais (000... a 999...)", () => {
+    expect(isCpfValido("00000000000")).toBe(false);
+    expect(isCpfValido("11111111111")).toBe(false);
+    expect(isCpfValido("22222222222")).toBe(false);
+    expect(isCpfValido("99999999999")).toBe(false);
+  });
+
+  it("rejeita CPF com tamanho errado", () => {
+    expect(isCpfValido("123456789")).toBe(false);    // 9 digitos
+    expect(isCpfValido("123456789012")).toBe(false); // 12 digitos
+    expect(isCpfValido("")).toBe(false);
+    expect(isCpfValido("abc")).toBe(false);
+  });
+
+  it("rejeita CPF com 1o digito verificador errado", () => {
+    // 11144477735 eh valido. Trocar o 3 do penultimo lugar quebra checksum:
+    expect(isCpfValido("11144477745")).toBe(false);
+  });
+
+  it("rejeita CPF com 2o digito verificador errado", () => {
+    // Mudar so o ultimo digito quebra o segundo dv:
+    expect(isCpfValido("11144477736")).toBe(false);
+  });
+
+  it("rejeita strings que parecem CPF mas falham no checksum", () => {
+    expect(isCpfValido("12345678901")).toBe(false); // sequencial, dv2 errado
+    expect(isCpfValido("11223344556")).toBe(false); // sequencias dobradas
+    expect(isCpfValido("99988877700")).toBe(false); // termina em 00 mas dv errado
+  });
+
+  it("normalizarCpf remove pontuacao e mantem digitos", () => {
+    expect(normalizarCpf("111.444.777-35")).toBe("11144477735");
+    expect(normalizarCpf("529 982 247 25")).toBe("52998224725");
+    expect(normalizarCpf("abc")).toBe("");
+  });
+
+  it("rejeita null/undefined sem quebrar", () => {
+    // @ts-expect-error — testando robustez contra input invalido
+    expect(isCpfValido(null)).toBe(false);
+    // @ts-expect-error — testando robustez contra input invalido
+    expect(isCpfValido(undefined)).toBe(false);
   });
 });

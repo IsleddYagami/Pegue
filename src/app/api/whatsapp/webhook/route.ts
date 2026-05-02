@@ -6926,20 +6926,45 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
     // problema. Sem ocorrencia formal, nao havia rastreio nem timeout pra
     // resolucao. Agora cria ocorrencia + agenda timeout 15min admin (mesmo
     // pipeline do fretista_divergencia).
-    const { safeInsert } = await import("@/lib/db-helpers");
-    const ocorrenciaInsert = await safeInsert<{ id: string }>({
-      tabela: "ocorrencias",
-      contexto: "reclamacao_cliente_entrega",
-      notificarAdminEmFalha: true,
-      dados: {
-        corrida_id: session.corrida_id,
-        prestador_id: corrida?.prestador_id || null,
-        cliente_id: corrida?.cliente_id || null,
-        tipo: "reclamacao_cliente_entrega",
-        status: "aberta",
-      },
-    });
-    const ocorrenciaId = ocorrenciaInsert.ok ? ocorrenciaInsert.data?.id : null;
+    //
+    // GUARDA ANTI-SPAM (audit 2/Mai/2026): cliente nao pode abrir varias
+    // reclamacoes pra mesma corrida — antes podia mandar "2 = NAO" 10x e
+    // criava 10 ocorrencias, inundando admin. Se ja existe reclamacao
+    // aberta pra essa corrida, reusa a existente em vez de criar nova.
+    const { data: ocorrenciaExistente } = await supabase
+      .from("ocorrencias")
+      .select("id")
+      .eq("corrida_id", session.corrida_id)
+      .eq("tipo", "reclamacao_cliente_entrega")
+      .in("status", ["aberta", "em_andamento"])
+      .maybeSingle();
+
+    let ocorrenciaId: string | null;
+    if (ocorrenciaExistente) {
+      ocorrenciaId = ocorrenciaExistente.id;
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "reclamacao_duplicada_evitada",
+          corrida_id: session.corrida_id,
+          ocorrencia_existente: ocorrenciaId,
+        },
+      });
+    } else {
+      const { safeInsert } = await import("@/lib/db-helpers");
+      const ocorrenciaInsert = await safeInsert<{ id: string }>({
+        tabela: "ocorrencias",
+        contexto: "reclamacao_cliente_entrega",
+        notificarAdminEmFalha: true,
+        dados: {
+          corrida_id: session.corrida_id,
+          prestador_id: corrida?.prestador_id || null,
+          cliente_id: corrida?.cliente_id || null,
+          tipo: "reclamacao_cliente_entrega",
+          status: "aberta",
+        },
+      });
+      ocorrenciaId = ocorrenciaInsert.ok ? ocorrenciaInsert.data?.id || null : null;
+    }
 
     await notificarAdmin(
       `🚨 *RECLAMACAO DO CLIENTE NA ENTREGA*`,

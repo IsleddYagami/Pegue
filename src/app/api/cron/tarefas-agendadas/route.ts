@@ -470,6 +470,25 @@ async function handleOcorrenciaTimeoutAdmin(ocorrenciaId: string, payload: any) 
       message: `✅ *Você está liberado do local.*\n\nJá se passaram 15 minutos sem resolução da ocorrência. Pode seguir com sua rotina normal.\n\n💵 *Reembolso de R$ ${valorReembolso} (50% do frete)* será processado pela equipe Pegue em até 1 dia útil.\n\nObrigado pelo profissionalismo! 🙏`,
     });
   }
+
+  // Notifica cliente que a ocorrencia foi tratada (audit 2/Mai/2026):
+  // antes cliente abria reclamacao e ficava no escuro. Agora recebe
+  // confirmacao + proximo passo (admin vai entrar em contato pra
+  // alinhar reembolso/proxima corrida).
+  const clientePhone = cliente.telefone;
+  if (clientePhone) {
+    try {
+      await sendToClient({
+        to: clientePhone,
+        message:
+          `Recebi sua ocorrência da corrida *${corrida?.codigo || "-"}*. ` +
+          `A equipe Pegue vai entrar em contato em breve pra resolver. ` +
+          `Obrigado pela paciência. 🙏`,
+      });
+    } catch {
+      // Best effort
+    }
+  }
 }
 
 async function montarResumoCorrida(corridaId: string): Promise<string> {

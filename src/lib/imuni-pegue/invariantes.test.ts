@@ -43,15 +43,15 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
     expect(typeof mod.executarTodasInvariantes).toBe("function");
   });
 
-  it("executarTodasInvariantes retorna array com 20 invariantes (banco + infra)", async () => {
+  it("executarTodasInvariantes retorna array com 21 invariantes (banco + infra)", async () => {
     // Cresce conforme novos invariantes sao adicionados. Atualizado em
-    // 2/Mai/2026 (audit cadastro+frete) — INV-19: sessoes cadastro
-    // abandonadas; INV-20: cobrancas duplicadas evitadas.
+    // 2/Mai/2026 (audit cobranca+reclamacao) — INV-21: ocorrencias
+    // abertas ha >7d (SLA escalado).
     const mod = await import("./invariantes");
 
     const r = await mod.executarTodasInvariantes();
     expect(Array.isArray(r)).toBe(true);
-    expect(r.length).toBe(20);
+    expect(r.length).toBe(21);
   });
 
   it("cada resultado tem campos obrigatorios bem-formados", async () => {
@@ -83,7 +83,7 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
     expect(altas + medias).toBe(r.length);
   });
 
-  it("nomes sao unicos (INV-1 a INV-20)", async () => {
+  it("nomes sao unicos (INV-1 a INV-21)", async () => {
     const mod = await import("./invariantes");
 
     const r = await mod.executarTodasInvariantes();

@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       // Idempotencia: se corrida ja foi marcada paga, retorna OK silencioso
       const { data: corrida } = await supabase
         .from("corridas")
-        .select("status, prestadores!prestador_id(nome, telefone), clientes(nome, telefone)")
+        .select("status, valor_final, valor_estimado, prestadores!prestador_id(nome, telefone), clientes(nome, telefone)")
         .eq("id", corridaId)
         .single();
 
@@ -85,6 +85,37 @@ export async function POST(req: NextRequest) {
       }
       if (corrida.status === "paga" || corrida.status === "concluida") {
         return NextResponse.json({ status: "ja_processado" });
+      }
+
+      // VALIDACAO DE VALOR (audit 2/Mai/2026): cliente NAO pode pagar valor
+      // diferente do esperado. Antes: pagamento de R$ 1 numa cobranca de
+      // R$ 80 marcava corrida como paga -> fretista era acionado, sistema
+      // tentava repasse maior que o que foi pago -> prejuizo direto pra Pegue.
+      // Tolerancia: R$ 0.01 pra arredondamento de centavos.
+      const valorEsperado = Number(corrida.valor_final ?? corrida.valor_estimado ?? 0);
+      const valorPago = Number(payment.value ?? 0);
+      const TOLERANCIA = 0.01;
+      if (valorEsperado > 0 && valorPago + TOLERANCIA < valorEsperado) {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "asaas_pagamento_valor_divergente",
+            corrida_id: corridaId,
+            valor_esperado: valorEsperado,
+            valor_pago: valorPago,
+            asaas_payment_id: payment.id,
+          },
+        });
+        const { notificarAdmins } = await import("@/lib/admin-notify");
+        await notificarAdmins(
+          `🚨 *PAGAMENTO COM VALOR DIVERGENTE*`,
+          "sistema",
+          `Corrida ${corridaId}\nEsperado: R$ ${valorEsperado.toFixed(2)}\nPago: R$ ${valorPago.toFixed(2)}\n\n👉 Investigar tentativa de fraude OU bug no calculo de valor. Reembolsar/cobrar diferenca manualmente no Asaas.`,
+        );
+        return NextResponse.json({
+          status: "ignorado_valor_divergente",
+          esperado: valorEsperado,
+          pago: valorPago,
+        });
       }
       // BUG #F2-3 (audit 1/Mai/2026): antes corrida cancelada virava paga
       // se webhook chegasse depois (cliente cancelou e Asaas processou tarde).
@@ -265,7 +296,88 @@ Bom trabalho! 🚚✨`,
       return NextResponse.json({ status: "ok_failed_revertido" });
     }
 
-    // Eventos nao tratados (ex: SUBSCRIPTION_CREATED) - 200 silencioso
+    // === PAYMENT_REFUNDED (audit 2/Mai/2026) ===
+    // Asaas processou estorno (que pode ter sido iniciado via API por nos
+    // — vide cancelar_corrida — ou via painel Asaas pelo proprio admin).
+    // Sintoma se ignorado: cliente recebe estorno mas corrida fica "paga"
+    // no nosso banco -> sistema acionaria repasse pro fretista de dinheiro
+    // que nao existe mais. Prejuizo direto.
+    if (evento === "PAYMENT_REFUNDED") {
+      if (!payment?.externalReference) {
+        return NextResponse.json({ status: "refunded_sem_external_reference" });
+      }
+      const corridaIdRef = payment.externalReference;
+
+      // Marca corrida como estornada — sem mexer se ja foi mexida
+      const { data: corridaRef } = await supabase
+        .from("corridas")
+        .select("status, codigo, clientes(telefone)")
+        .eq("id", corridaIdRef)
+        .single();
+
+      if (!corridaRef) {
+        return NextResponse.json({ status: "refunded_corrida_nao_encontrada" });
+      }
+
+      // Atualiza pagamentos pra status='estornado', se existir
+      await supabase
+        .from("pagamentos")
+        .update({ status: "estornado", repasse_status: "cancelado" })
+        .eq("corrida_id", corridaIdRef);
+
+      // Atualiza corrida: vira 'estornada' a menos que ja estivesse cancelada
+      // (cancelamento eh fluxo nosso que ja chamou refund — corrida ja eh
+      // 'cancelada' nesse caso, mantem). Se chegou aqui sem ter sido
+      // cancelada, foi estorno via painel Asaas direto -> marca estornada.
+      if (!["cancelada", "cancelada_admin", "estornada"].includes(corridaRef.status)) {
+        await supabase
+          .from("corridas")
+          .update({
+            status: "estornada",
+            cancelado_em: new Date().toISOString(),
+            motivo_cancelamento: "Estorno processado pelo Asaas",
+          })
+          .eq("id", corridaIdRef);
+      }
+
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "asaas_payment_refunded",
+          corrida_id: corridaIdRef,
+          codigo: corridaRef.codigo,
+          asaas_payment_id: payment.id,
+          valor: payment.value,
+          status_anterior: corridaRef.status,
+        },
+      });
+
+      // Notifica cliente do estorno (caso ainda nao tenha sido notificado
+      // pelo cancelar_corrida — esse caminho cobre estorno feito pelo painel)
+      const clienteTel = (corridaRef.clientes as { telefone?: string } | null)?.telefone;
+      if (clienteTel) {
+        try {
+          await sendToClient({
+            to: clienteTel,
+            message:
+              `Estorno da corrida *${corridaRef.codigo}* processado. ` +
+              `O valor de R$ ${Number(payment.value || 0).toFixed(2)} retorna pra sua conta em ate 1 dia util.`,
+          });
+        } catch {
+          // Best effort
+        }
+      }
+
+      const { notificarAdmins } = await import("@/lib/admin-notify");
+      await notificarAdmins(
+        `💸 *ESTORNO PROCESSADO*`,
+        "sistema",
+        `Corrida ${corridaRef.codigo}\nValor: R$ ${Number(payment.value || 0).toFixed(2)}\nStatus anterior: ${corridaRef.status}\n\nCorrida marcada como estornada. Repasse cancelado.`,
+      );
+
+      return NextResponse.json({ status: "ok_refunded_processado" });
+    }
+
+    // Eventos nao tratados (ex: SUBSCRIPTION_CREATED, PAYMENT_OVERDUE) - 200 silencioso
     return NextResponse.json({ status: "evento_ignorado", event: evento });
   } catch (error: any) {
     console.error("Erro webhook Asaas:", error?.message);

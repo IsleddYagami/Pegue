@@ -424,6 +424,38 @@ async function invCorridasPagaSemRegistroPagamento(): Promise<ResultadoInvariant
 }
 
 /**
+ * INV-21 (ALTA — descoberto 2/Mai/2026, audit cobranca+reclamacao):
+ * Ocorrencias abertas ha mais de 7 dias sem resolucao.
+ *
+ * Sintoma: cliente abriu reclamacao, admin nao tratou, sistema deixou
+ * passar. Pior caso: cliente abandona Pegue + posta review negativa.
+ *
+ * Diferente do INV-7 (>24h aviso geral) — esse eh ESCALACAO: passou da
+ * tolerancia, requer intervencao humana imediata. Severidade alta.
+ */
+async function invOcorrenciasAbertasSlaEscalado(): Promise<ResultadoInvariante> {
+  try {
+    const { data, error } = await supabase
+      .from("ocorrencias")
+      .select("id, tipo, criado_em, status, corrida_id")
+      .in("status", ["aberta", "em_atendimento"])
+      .lt("criado_em", hAtras(24 * 7));
+    if (error) throw error;
+    return {
+      nome: "INV-21",
+      descricao: "Ocorrencias abertas ha MAIS DE 7 DIAS sem resolucao (SLA estourado, escalacao critica)",
+      severidade: "alta",
+      count: (data || []).length,
+      amostra: (data || []).slice(0, 5),
+      ok: (data || []).length === 0,
+      comoAgir: "Resolver imediatamente via /admin/operacao-real. Se >5 casos, processo de resolucao esta degradado — investigar fluxo admin.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-21", descricao: "ocorrencias_sla_escalado", severidade: "alta", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
+/**
  * INV-19 (MEDIA — descoberto 2/Mai/2026, audit fluxo cadastro):
  * Sessoes de cadastro de prestador abandonadas ha mais de 7 dias.
  *
@@ -611,6 +643,7 @@ export const pluginPegue: PluginImuni = {
     invCorridasCanceladasSemEstorno,
     invSessoesCadastroAbandonadas,
     invCobrancasDuplicadasEvitadas,
+    invOcorrenciasAbertasSlaEscalado,
     // === INFRA (headers, env vars, configs externas) ===
     invHeaderGeolocationPermitido,
     invHeaderHsts,

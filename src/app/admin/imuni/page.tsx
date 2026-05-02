@@ -45,7 +45,7 @@ interface ImuniData {
     semanaAtual: number;
     semanaAnterior: number;
     delta_pct: number;
-    rumo: "melhor" | "pior" | "igual";
+    rumo: "melhor" | "pior" | "igual" | "sem_dados";
   };
   top_5_invariantes_violantes_30d: { nome: string; ocorrencias: number; severidade: "alta" | "media" | "baixa" }[];
   heatmap: { dia_semana: number[]; hora: number[] };
@@ -360,42 +360,71 @@ export default function ImuniDashboard() {
               <Heart className="h-5 w-5 text-pink-400" /> Esta semana eu...
             </h2>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <Stat icone="🛡️" valor={data.metricas.execucoes_ultimos_30d} label="patrulhas (30d)" cor="text-blue-300" />
+              <Stat
+                icone="🛡️"
+                valor={data.metricas.execucoes_ultimos_30d}
+                label={data.metricas.execucoes_ultimos_30d === 1 ? "patrulha (30d)" : "patrulhas (30d)"}
+                cor="text-blue-300"
+              />
               <Stat icone="✅" valor={data.aovivo.saudaveis} label={`de ${data.aovivo.total} sentinelas saudáveis`} cor="text-green-300" />
-              <Stat icone="🔴" valor={data.aovivo.violacoes_alta} label="ameaças críticas agora" cor={data.aovivo.violacoes_alta > 0 ? "text-red-300" : "text-gray-500"} />
-              <Stat icone="🟡" valor={data.aovivo.violacoes_media} label="sintomas leves" cor={data.aovivo.violacoes_media > 0 ? "text-yellow-300" : "text-gray-500"} />
+              <Stat
+                icone="🔴"
+                valor={data.aovivo.violacoes_alta}
+                label={data.aovivo.violacoes_alta === 1 ? "ameaça crítica agora" : "ameaças críticas agora"}
+                cor={data.aovivo.violacoes_alta > 0 ? "text-red-300" : "text-gray-500"}
+              />
+              <Stat
+                icone="🟡"
+                valor={data.aovivo.violacoes_media}
+                label={data.aovivo.violacoes_media === 1 ? "sintoma leve" : "sintomas leves"}
+                cor={data.aovivo.violacoes_media > 0 ? "text-yellow-300" : "text-gray-500"}
+              />
             </div>
 
-            {/* Tendencia humanizada */}
-            <div className="mt-6 rounded-xl bg-black/40 p-4">
-              <div className="flex items-center gap-3">
-                {data.tendencia_semanal.rumo === "melhor" ? (
-                  <span className="text-3xl">📈</span>
-                ) : data.tendencia_semanal.rumo === "pior" ? (
-                  <span className="text-3xl">📉</span>
-                ) : (
-                  <span className="text-3xl">➡️</span>
-                )}
-                <div className="flex-1">
-                  <p className="text-sm font-semibold">
-                    {data.tendencia_semanal.rumo === "melhor" && (
-                      <span className="text-green-300">O corpo está se fortalecendo</span>
-                    )}
-                    {data.tendencia_semanal.rumo === "pior" && (
-                      <span className="text-red-300">Saúde piorou esta semana</span>
-                    )}
-                    {data.tendencia_semanal.rumo === "igual" && (
-                      <span className="text-gray-300">Saúde estável</span>
-                    )}
-                  </p>
+            {/* Tendencia humanizada — silencia quando volume historico
+                eh insuficiente pra comparacao honesta */}
+            {data.tendencia_semanal.rumo !== "sem_dados" && (
+              <div className="mt-6 rounded-xl bg-black/40 p-4">
+                <div className="flex items-center gap-3">
+                  {data.tendencia_semanal.rumo === "melhor" ? (
+                    <span className="text-3xl">📈</span>
+                  ) : data.tendencia_semanal.rumo === "pior" ? (
+                    <span className="text-3xl">📉</span>
+                  ) : (
+                    <span className="text-3xl">➡️</span>
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">
+                      {data.tendencia_semanal.rumo === "melhor" && (
+                        <span className="text-green-300">O corpo está se fortalecendo</span>
+                      )}
+                      {data.tendencia_semanal.rumo === "pior" && (
+                        <span className="text-red-300">Saúde piorou esta semana</span>
+                      )}
+                      {data.tendencia_semanal.rumo === "igual" && (
+                        <span className="text-gray-300">Saúde estável</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Esta semana: {data.tendencia_semanal.semanaAtual} {data.tendencia_semanal.semanaAtual === 1 ? "sintoma" : "sintomas"} ·
+                      {" "}semana passada: {data.tendencia_semanal.semanaAnterior} ·
+                      {" "}variação {data.tendencia_semanal.delta_pct > 0 ? "+" : ""}{data.tendencia_semanal.delta_pct}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {data.tendencia_semanal.rumo === "sem_dados" && (
+              <div className="mt-6 rounded-xl border border-gray-800 bg-black/20 p-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl text-gray-500">📊</span>
                   <p className="text-xs text-gray-500">
-                    Esta semana: {data.tendencia_semanal.semanaAtual} sintomas ·
-                    {" "}semana passada: {data.tendencia_semanal.semanaAnterior} ·
-                    {" "}variação {data.tendencia_semanal.delta_pct > 0 ? "+" : ""}{data.tendencia_semanal.delta_pct}%
+                    Ainda preciso de mais patrulhas (pelo menos 2 por semana, em 2 semanas seguidas)
+                    pra te dizer se a saúde está melhorando ou piorando com honestidade.
                   </p>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* === ÁREAS DO CORPO === */}

@@ -170,12 +170,17 @@ export function topInvariantesViolantes(
 /**
  * Compara semana atual (ultimos 7d) com semana anterior (8-14d atras).
  * Retorna delta percentual de violacoes (negativo = melhorou).
+ *
+ * NOVO (2/Mai/2026 — irmao do fix do calcularScore): rumo eh "sem_dados"
+ * quando ainda nao ha amostras suficientes em AMBAS as semanas pra fazer
+ * comparacao confiavel. Antes: 1 violacao em historico raso virava
+ * "+100% PIOR" mesmo com sistema saudavel agora — falso alarme.
  */
 export function tendenciaSemanal(execucoes: ExecucaoHistorica[]): {
   semanaAtual: number;
   semanaAnterior: number;
   delta_pct: number;
-  rumo: "melhor" | "pior" | "igual";
+  rumo: "melhor" | "pior" | "igual" | "sem_dados";
 } {
   const agora = Date.now();
   const dia = 24 * 60 * 60 * 1000;
@@ -187,8 +192,26 @@ export function tendenciaSemanal(execucoes: ExecucaoHistorica[]): {
     }
     return total;
   }
+  function execucoesNaJanela(inicio: number, fim: number): number {
+    let total = 0;
+    for (const e of execucoes) {
+      const t = new Date(e.criado_em).getTime();
+      if (t >= inicio && t < fim) total++;
+    }
+    return total;
+  }
   const semanaAtual = violacoesNaJanela(agora - 7 * dia, agora);
   const semanaAnterior = violacoesNaJanela(agora - 14 * dia, agora - 7 * dia);
+  const execAtual = execucoesNaJanela(agora - 7 * dia, agora);
+  const execAnterior = execucoesNaJanela(agora - 14 * dia, agora - 7 * dia);
+
+  // Volume insuficiente: precisa pelo menos 2 patrulhas em AMBAS semanas
+  // pra comparar com honestidade. Senao, "sem_dados" — UI nao grita
+  // tendencia falsa.
+  if (execAtual < 2 || execAnterior < 2) {
+    return { semanaAtual, semanaAnterior, delta_pct: 0, rumo: "sem_dados" };
+  }
+
   const delta = semanaAnterior === 0
     ? (semanaAtual === 0 ? 0 : 100)
     : ((semanaAtual - semanaAnterior) / semanaAnterior) * 100;

@@ -8,7 +8,7 @@
 // Esses testes blindam contra regressoes da fórmula.
 
 import { describe, it, expect } from "vitest";
-import { calcularScore, type ExecucaoHistorica, type SumarioAoVivo } from "./analytics";
+import { calcularScore, tendenciaSemanal, type ExecucaoHistorica, type SumarioAoVivo } from "./analytics";
 
 const sentinela = (ok: boolean, severidade: "alta" | "media" | "baixa" = "alta") => ({
   nome: "INV-X",
@@ -126,5 +126,70 @@ describe("calcularScore — versao 2 (ao vivo + historico ponderado)", () => {
     const oks = [true, true, false, true, true, true, true]; // 6/7 = 85.7%
     const score = calcularScore([], aovivo(oks));
     expect(Number.isInteger(score)).toBe(true);
+  });
+});
+
+describe("tendenciaSemanal — silencia quando dados sao insuficientes", () => {
+  const ts = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000).toISOString();
+
+  it("CASO REAL DO BUG: 1 patrulha total nao deve gritar 'PIOROU +100%'", () => {
+    // Cenario que aparecia no print do Fabio:
+    //   "Esta semana: 1 sintomas · semana passada: 0 · variação +100% — PIOROU"
+    // Com so 1 patrulha em 30d, comparacao eh estatisticamente desonesta.
+    const t = tendenciaSemanal([exec(ts(1), Array(15).fill(true).concat([false]))]);
+    expect(t.rumo).toBe("sem_dados");
+    expect(t.delta_pct).toBe(0);
+  });
+
+  it("sem nenhuma execucao: sem_dados (nao gera tendencia ficticia)", () => {
+    const t = tendenciaSemanal([]);
+    expect(t.rumo).toBe("sem_dados");
+  });
+
+  it("apenas 1 execucao em cada semana: sem_dados (precisa >=2)", () => {
+    const t = tendenciaSemanal([
+      exec(ts(2), [true]),                     // semana atual: 1 exec
+      exec(ts(8 * 24), [true]),                // semana anterior: 1 exec
+    ]);
+    expect(t.rumo).toBe("sem_dados");
+  });
+
+  it("volume suficiente, melhora real: rumo='melhor'", () => {
+    const exs: ExecucaoHistorica[] = [
+      exec(ts(1), Array(16).fill(true)),
+      exec(ts(24), Array(16).fill(true)),
+      exec(ts(48), Array(16).fill(true)),
+      exec(ts(8 * 24), Array(13).fill(true).concat(Array(3).fill(false))),
+      exec(ts(9 * 24), Array(13).fill(true).concat(Array(3).fill(false))),
+      exec(ts(10 * 24), Array(13).fill(true).concat(Array(3).fill(false))),
+    ];
+    const t = tendenciaSemanal(exs);
+    expect(t.rumo).toBe("melhor");
+    expect(t.delta_pct).toBeLessThan(0);
+  });
+
+  it("volume suficiente, piora real: rumo='pior'", () => {
+    const exs: ExecucaoHistorica[] = [
+      exec(ts(1), Array(13).fill(true).concat(Array(3).fill(false))),
+      exec(ts(24), Array(13).fill(true).concat(Array(3).fill(false))),
+      exec(ts(48), Array(13).fill(true).concat(Array(3).fill(false))),
+      exec(ts(8 * 24), Array(16).fill(true)),
+      exec(ts(9 * 24), Array(16).fill(true)),
+      exec(ts(10 * 24), Array(16).fill(true)),
+    ];
+    const t = tendenciaSemanal(exs);
+    expect(t.rumo).toBe("pior");
+  });
+
+  it("volume suficiente, estavel: rumo='igual'", () => {
+    const exs: ExecucaoHistorica[] = [
+      exec(ts(1), Array(16).fill(true)),
+      exec(ts(24), Array(16).fill(true)),
+      exec(ts(8 * 24), Array(16).fill(true)),
+      exec(ts(9 * 24), Array(16).fill(true)),
+    ];
+    const t = tendenciaSemanal(exs);
+    expect(t.rumo).toBe("igual");
+    expect(t.delta_pct).toBe(0);
   });
 });

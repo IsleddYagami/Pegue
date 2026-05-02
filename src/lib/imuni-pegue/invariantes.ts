@@ -424,6 +424,70 @@ async function invCorridasPagaSemRegistroPagamento(): Promise<ResultadoInvariant
 }
 
 /**
+ * INV-18 (ALTA — descoberto 2/Mai/2026):
+ * Corridas canceladas ha >1h com asaas_payment_id presente mas SEM
+ * registro de estorno em bot_logs.
+ *
+ * Sintoma: cliente pagou, admin cancelou, mas o sistema nao estornou
+ * (ou estorno falhou silenciosamente). Cliente fica sem servico E sem
+ * dinheiro. Catastrofe legal (CDC art 18) e de reputacao.
+ *
+ * Implementacao via dois SELECTs:
+ *   1. Lista corridas com status=cancelada nas ultimas 30d com
+ *      asaas_payment_id != null;
+ *   2. Lista bot_logs tipo=corrida_cancelada_admin com estorno_status
+ *      em ('executado','bloqueado_repasse_pago') no mesmo periodo;
+ *   3. Diff: corridas que cancelaram ha mais de 1h E nao tem log de
+ *      estorno tratado = orfas.
+ */
+async function invCorridasCanceladasSemEstorno(): Promise<ResultadoInvariante> {
+  try {
+    const desde30d = hAtras(24 * 30);
+    const { data: corridas } = await supabase
+      .from("corridas")
+      .select("id, codigo, valor_final, cancelado_em, asaas_payment_id")
+      .eq("status", "cancelada")
+      .not("asaas_payment_id", "is", null)
+      .lt("cancelado_em", hAtras(1))
+      .gte("cancelado_em", desde30d);
+    if (!corridas || corridas.length === 0) {
+      return { nome: "INV-18", descricao: "corridas_canceladas_sem_estorno", severidade: "alta", count: 0, amostra: [], ok: true, comoAgir: "" };
+    }
+
+    const ids = corridas.map((c) => c.id);
+    const { data: logs } = await supabase
+      .from("bot_logs")
+      .select("payload")
+      .filter("payload->>tipo", "eq", "corrida_cancelada_admin")
+      .gte("criado_em", desde30d);
+    const tratadas = new Set<string>();
+    for (const l of logs || []) {
+      const p: any = l.payload;
+      const status = p?.estorno_status;
+      if (
+        p?.corrida_id &&
+        (status === "executado" || status === "bloqueado_repasse_pago")
+      ) {
+        tratadas.add(p.corrida_id);
+      }
+    }
+
+    const orfas = corridas.filter((c) => !tratadas.has(c.id));
+    return {
+      nome: "INV-18",
+      descricao: "Corridas canceladas (>1h, ult 30d) com pagamento Asaas mas SEM registro de estorno tratado em bot_logs",
+      severidade: "alta",
+      count: orfas.length,
+      amostra: orfas.slice(0, 5).map((c) => ({ id: c.id, codigo: c.codigo, valor: c.valor_final, cancelado_em: c.cancelado_em, asaas_payment_id: c.asaas_payment_id })),
+      ok: orfas.length === 0,
+      comoAgir: "Corrida cancelada mas estorno nao foi processado. Conferir manualmente no painel Asaas (POST /payments/{id}/refund). Se ja estornado por fora, criar log com tipo=corrida_cancelada_admin + estorno_status=executado pra silenciar invariante.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-18", descricao: "corridas_canceladas_sem_estorno", severidade: "alta", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
+/**
  * INV-17 (MEDIA — descoberto 2/Mai/2026):
  * Alertas admin com claim pendente ha mais de 24h.
  *
@@ -480,6 +544,7 @@ export const pluginPegue: PluginImuni = {
     invPlacasDuplicadasAtivas,
     invCorridasPagaSemRegistroPagamento,
     invClaimsAdminPendentesMuitoTempo,
+    invCorridasCanceladasSemEstorno,
     // === INFRA (headers, env vars, configs externas) ===
     invHeaderGeolocationPermitido,
     invHeaderHsts,

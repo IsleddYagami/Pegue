@@ -193,6 +193,37 @@ export async function getPagamento(paymentId: string): Promise<{ ok: boolean; pa
   return { ok: true, pagamento: r.data };
 }
 
+/**
+ * Estorna uma cobranca confirmada — devolve o valor pro cliente.
+ *
+ * Asaas API: POST /payments/{id}/refund
+ *
+ * Retorno do Asaas inclui status do estorno: REFUND_REQUESTED, REFUNDED,
+ * etc. Em PIX o estorno costuma cair em ate 1 dia util.
+ *
+ * USE COM CUIDADO: chame so quando tiver certeza que cliente nao vai
+ * receber o servico (corrida cancelada antes de coleta). Se servico ja
+ * foi prestado, eh disputa, nao estorno automatico.
+ *
+ * (audit 2/Mai/2026): cancelamento pos-pagamento NAO estornava — cliente
+ * pagava e admin so marcava status='cancelada' sem devolver dinheiro.
+ * Bug critico de UX e legal (CDC art 18).
+ */
+export async function estornarCobranca(paymentId: string, motivo?: string): Promise<{
+  ok: boolean;
+  estorno?: { id: string; status: string; refundedValue?: number };
+  erro?: any;
+}> {
+  if (!paymentId) return { ok: false, erro: { motivo: "payment_id_vazio" } };
+  const r = await asaasFetch<{ id: string; status: string; refundedValue?: number }>(
+    "POST",
+    `/payments/${paymentId}/refund`,
+    motivo ? { description: motivo } : undefined,
+  );
+  if (!r.ok) return { ok: false, erro: r.erro };
+  return { ok: true, estorno: r.data };
+}
+
 // =========================================================================
 // TRANSFERENCIAS (envio - Pegue paga fretista via PIX)
 // =========================================================================

@@ -6752,6 +6752,48 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
             `Fretista: ${nomePrestador} (${formatarTelefoneExibicao(fretistaTel)})\n💰 Valor: R$ ${valorPrestador}\nCorrida: ${session.corrida_id}\n\n👉 Pedir chave PIX e fazer transferencia manual.`,
           );
         } else {
+          // GUARDA ANTI-DUPLICAÇÃO (audit 2/Mai/2026): verifica se ja existe
+          // pagamento com repasse_status='pago' pra essa corrida. Se sim,
+          // alguem ja transferiu — NAO mandar de novo, so notificar fretista.
+          // Cenario: webhook duplicado, double-click do cliente, retry
+          // de tarefa agendada, etc. Sem essa guarda, fretista recebia 2x
+          // (PERDA REAL pra Pegue).
+          const { data: pgExistente } = await supabase
+            .from("pagamentos")
+            .select("id, valor, repasse_status, pago_em")
+            .eq("corrida_id", session.corrida_id)
+            .eq("repasse_status", "pago")
+            .maybeSingle();
+          if (pgExistente) {
+            await supabase.from("bot_logs").insert({
+              payload: {
+                tipo: "asaas_repasse_duplicado_evitado",
+                corrida_id: session.corrida_id,
+                valor_existente: pgExistente.valor,
+                pago_em: pgExistente.pago_em,
+                tentativa_em: new Date().toISOString(),
+              },
+            });
+            await sendToClient({
+              to: fretistaTel,
+              message: `✅ Pagamento da corrida ja foi enviado anteriormente. Se nao tiver chegado, fala comigo.`,
+            });
+            return NextResponse.json({ status: "repasse_duplicado_evitado" });
+          }
+
+          // Log PRE-tentativa (rastreabilidade de timeout): se a chamada Asaas
+          // for feita mas a resposta nao chegar (rede caiu), esse log permite
+          // saber QUE tentamos. Cron INV-8 ja detecta tentativas sem confirmacao.
+          await supabase.from("bot_logs").insert({
+            payload: {
+              tipo: "asaas_repasse_tentativa_iniciada",
+              corrida_id: session.corrida_id,
+              valor: valorPrestador,
+              chave_tipo: prestadorPix.chave_pix.includes("@") ? "email" : "outra",
+              iniciado_em: new Date().toISOString(),
+            },
+          });
+
           // Tenta repasse Asaas
           const { transferirPix } = await import("@/lib/asaas");
           const r = await transferirPix({

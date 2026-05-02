@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { requireAdminAuth } from "@/lib/admin-auth";
+import { estornarCobranca } from "@/lib/asaas";
+import { sendToClient } from "@/lib/chatpro";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -193,6 +195,56 @@ export async function POST(req: NextRequest) {
   if (!corrida_id) return NextResponse.json({ error: "corrida_id obrigatorio" }, { status: 400 });
 
   if (acao === "cancelar_corrida") {
+    // (audit 2/Mai/2026): cancelamento agora dispara estorno automatico
+    // quando ha pagamento confirmado e servico AINDA NAO foi prestado
+    // (status != 'concluida' E repasse ainda nao executado).
+    //
+    // Cenarios:
+    //   1. Sem pagamento: cancela direto.
+    //   2. Pago + servico nao prestado: estorna via Asaas + notifica cliente.
+    //   3. Pago + repasse ja feito: NAO estorna (servico prestado, eh disputa);
+    //      admin precisa resolver manualmente. Marca cancelada mas sinaliza.
+    const { data: corrida } = await supabase
+      .from("corridas")
+      .select("id, codigo, status, asaas_payment_id, valor_final, cliente_id, clientes(telefone)")
+      .eq("id", corrida_id)
+      .single();
+    if (!corrida) {
+      return NextResponse.json({ error: "corrida nao encontrada" }, { status: 404 });
+    }
+    const clienteTelefone = (corrida.clientes as { telefone?: string } | null)?.telefone || null;
+
+    // Verifica se ha pagamento e se repasse ja foi executado
+    const { data: pagamento } = await supabase
+      .from("pagamentos")
+      .select("id, repasse_status, pago_em")
+      .eq("corrida_id", corrida_id)
+      .maybeSingle();
+    const repasseJaPago = pagamento?.repasse_status === "pago";
+
+    let estornoStatus: "nao_aplicavel" | "executado" | "falhou" | "bloqueado_repasse_pago" = "nao_aplicavel";
+    let estornoErro: any = null;
+
+    if (corrida.asaas_payment_id) {
+      if (repasseJaPago) {
+        // Servico foi prestado e fretista ja recebeu — nao podemos estornar
+        // automaticamente. Sinaliza pra admin tratar manualmente.
+        estornoStatus = "bloqueado_repasse_pago";
+      } else {
+        const r = await estornarCobranca(
+          corrida.asaas_payment_id,
+          body.motivo || "Cancelamento administrativo",
+        );
+        if (r.ok) {
+          estornoStatus = "executado";
+        } else {
+          estornoStatus = "falhou";
+          estornoErro = r.erro;
+        }
+      }
+    }
+
+    // Marca corrida como cancelada
     const { error } = await supabase
       .from("corridas")
       .update({
@@ -202,7 +254,42 @@ export async function POST(req: NextRequest) {
       })
       .eq("id", corrida_id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true });
+
+    // Loga operacao pra auditoria
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "corrida_cancelada_admin",
+        corrida_id,
+        codigo: corrida.codigo,
+        valor: corrida.valor_final,
+        asaas_payment_id: corrida.asaas_payment_id,
+        estorno_status: estornoStatus,
+        estorno_erro: estornoErro,
+        motivo: body.motivo || null,
+      },
+    });
+
+    // Notifica cliente quando estorno foi executado (boa pratica de
+    // transparencia + reduz reclamacao). Best effort — nao quebra fluxo.
+    if (estornoStatus === "executado" && clienteTelefone) {
+      try {
+        await sendToClient({
+          to: clienteTelefone as string,
+          message:
+            `Sua corrida *${corrida.codigo}* foi cancelada e o estorno do PIX foi solicitado ao banco. ` +
+            `Valor R$ ${Number(corrida.valor_final || 0).toFixed(2)} retorna em ate 1 dia util. ` +
+            `Qualquer duvida me chama aqui.`,
+        });
+      } catch {
+        // Falha de notificacao nao deve abortar — estorno ja foi feito.
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      estorno_status: estornoStatus,
+      ...(estornoErro ? { estorno_erro: estornoErro } : {}),
+    });
   }
 
   if (acao === "marcar_repasse_pago") {

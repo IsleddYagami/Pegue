@@ -33,22 +33,51 @@ export interface ExecucaoHistorica {
 }
 
 /**
- * Score 0-100. Pondera:
- *   - 70% saude atual (% invariantes saudaveis na ultima execucao)
- *   - 20% saude ultimos 7d (% execucoes sem violacao alta)
- *   - 10% saude ultimos 30d (idem)
- *
- * Punicao extra pra violacao ALTA recente (-15 se < 24h).
+ * Sumario "ao vivo" — formato canonico que o dashboard ja calcula a cada
+ * abertura da tela. Usado pra calibrar o score real (em vez de depender
+ * SO do que tem no bot_logs, que pode estar atrasado/incompleto).
  */
-export function calcularScore(execucoes: ExecucaoHistorica[]): number {
-  if (execucoes.length === 0) return 50; // sem dados, neutro
+export interface SumarioAoVivo {
+  sumario: { nome: string; severidade: Severidade; ok: boolean }[];
+}
 
-  const ultima = execucoes[0];
-  const sumario = ultima.payload.sumario || [];
-  const totalUltima = ultima.payload.total || sumario.length || 1;
-  const saudaveisUltima = sumario.filter((s) => s.ok).length;
-  const pctAtual = (saudaveisUltima / totalUltima) * 100;
+/**
+ * Score 0-100 da saude atual do sistema.
+ *
+ * Filosofia (audit 2/Mai/2026 com Fabio): score deve refletir COMO O
+ * SISTEMA ESTA AGORA, com peso secundario pra historico recente. Versao
+ * antiga punia injustamente porque:
+ *   1. Lia "estado atual" do bot_logs (sempre atrasado por 1+ patrulha).
+ *   2. Com pouco historico, 1 falso positivo amplificava em 30% da nota.
+ *   3. Resultado: dashboard gritava CRITICO 48/100 com TODOS os 16
+ *      sentinelas saudaveis ao vivo.
+ *
+ * Versao nova:
+ *   - 80% estado AO VIVO (preferencialmente; cai pra ultima do bot_logs
+ *     se ao vivo nao for fornecido).
+ *   - 15% saude ultimos 7d (% execucoes sem violacao alta) — so conta
+ *     se >=3 execucoes na janela. Senao redistribui pro estado atual.
+ *   - 5%  saude ultimos 30d (idem) — so conta se >=5 execucoes.
+ *   - Penalidade -10 se ao vivo tem violacao ALTA aberta (era -15).
+ *   - Bonus +5 se ao vivo 100% limpo E historico (>=3 exec) tambem 100%.
+ */
+export function calcularScore(
+  execucoes: ExecucaoHistorica[],
+  aoVivo?: SumarioAoVivo,
+): number {
+  // Sem dados nem estado ao vivo: neutro
+  if (execucoes.length === 0 && !aoVivo) return 50;
 
+  // === Estado AO VIVO (preferencial) ===
+  // Se nao foi passado, cai pra ultima execucao do bot_logs.
+  const sumarioAtual = aoVivo
+    ? aoVivo.sumario
+    : execucoes[0]?.payload.sumario || [];
+  const totalAtual = sumarioAtual.length || 1;
+  const saudaveisAtual = sumarioAtual.filter((s) => s.ok).length;
+  const pctAtual = (saudaveisAtual / totalAtual) * 100;
+
+  // === Janelas historicas ===
   const agora = Date.now();
   const dia = 24 * 60 * 60 * 1000;
   const ultimos7d = execucoes.filter(
@@ -65,16 +94,34 @@ export function calcularScore(execucoes: ExecucaoHistorica[]): number {
     ).length;
     return (limpas / arr.length) * 100;
   }
-  const pct7d = pctSemViolacaoAlta(ultimos7d);
-  const pct30d = pctSemViolacaoAlta(ultimos30d);
 
-  let score = pctAtual * 0.7 + pct7d * 0.2 + pct30d * 0.1;
+  // Ponderacao adaptativa: so aplica 7d/30d se janela tiver volume minimo.
+  // Senao redistribui peso pro estado atual (mais confiavel).
+  let pesoAtual = 0.8;
+  let peso7d = 0;
+  let peso30d = 0;
+  if (ultimos7d.length >= 3) peso7d = 0.15;
+  if (ultimos30d.length >= 5) peso30d = 0.05;
+  pesoAtual = 1 - peso7d - peso30d;
 
-  // Penalidade: violacao ALTA aberta agora
-  const temAltaAgora = sumario.some((s) => !s.ok && s.severidade === "alta");
-  if (temAltaAgora) score = Math.max(0, score - 15);
+  const pct7d = peso7d > 0 ? pctSemViolacaoAlta(ultimos7d) : 0;
+  const pct30d = peso30d > 0 ? pctSemViolacaoAlta(ultimos30d) : 0;
 
-  return Math.round(score);
+  let score = pctAtual * pesoAtual + pct7d * peso7d + pct30d * peso30d;
+
+  // Penalidade reduzida (-10 em vez de -15): violacao ALTA aberta AGORA.
+  // Aplica so se a fonte do pctAtual indica realmente ameaca atual viva.
+  const temAltaAgora = sumarioAtual.some((s) => !s.ok && s.severidade === "alta");
+  if (temAltaAgora) score = Math.max(0, score - 10);
+
+  // Bonus de confianca: ao vivo limpo E historico solido tambem limpo.
+  const historicoLimpo =
+    ultimos7d.length >= 3 &&
+    pctSemViolacaoAlta(ultimos7d) === 100 &&
+    pctSemViolacaoAlta(ultimos30d) === 100;
+  if (pctAtual === 100 && historicoLimpo) score = Math.min(100, score + 5);
+
+  return Math.round(Math.max(0, Math.min(100, score)));
 }
 
 /**

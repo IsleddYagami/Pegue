@@ -67,24 +67,28 @@ const CAMADAS_HUMANAS = [
 ];
 
 function statusVisual(score: number): { emoji: string; label: string; cor: string; bgGrad: string; mensagem: string } {
+  // Cores de fundo agora MUITO mais sutis: dashboard preto preserva
+  // identidade da marca, status entra como faixa discreta no topo
+  // (pinta uns ~10% da viewport top, fade pra preto). Ameacas reais
+  // continuam visiveis nos cards proprios (cor concentrada, nao difusa).
   if (score >= 90) return {
     emoji: "💚", label: "SAUDÁVEL", cor: "text-green-300",
-    bgGrad: "from-green-900/30 via-green-800/10 to-transparent",
+    bgGrad: "from-green-900/15 via-transparent to-transparent",
     mensagem: "Imunidade ótima. Pode dormir tranquilo."
   };
   if (score >= 70) return {
     emoji: "💛", label: "ATENÇÃO", cor: "text-yellow-300",
-    bgGrad: "from-yellow-900/30 via-yellow-800/10 to-transparent",
+    bgGrad: "from-yellow-900/15 via-transparent to-transparent",
     mensagem: "Imunidade boa, alguns sintomas pra observar."
   };
   if (score >= 50) return {
     emoji: "🧡", label: "FRAGILIZADO", cor: "text-orange-300",
-    bgGrad: "from-orange-900/30 via-orange-800/10 to-transparent",
+    bgGrad: "from-orange-900/15 via-transparent to-transparent",
     mensagem: "Sinais de fragilidade. Investigar."
   };
   return {
     emoji: "❤️‍🩹", label: "CRÍTICO", cor: "text-red-300",
-    bgGrad: "from-red-900/40 via-red-800/15 to-transparent",
+    bgGrad: "from-red-900/20 via-transparent to-transparent",
     mensagem: "Estado crítico. Ajuda humana agora."
   };
 }

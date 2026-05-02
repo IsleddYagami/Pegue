@@ -55,8 +55,17 @@ export async function GET(req: NextRequest) {
     sumario: e.payload.sumario || [],
   }));
 
-  // 3) Analytics agregadas via core IMUNI
-  const score = calcularScore(execucoes);
+  // 3) Analytics agregadas via core IMUNI.
+  // Passa o estado AO VIVO (resultados que acabaram de rodar) pra que
+  // o score reflita a verdade atual, nao a ultima execucao do cron.
+  const aoVivoSumario = {
+    sumario: resultados.map((r) => ({
+      nome: r.nome,
+      severidade: r.severidade,
+      ok: r.ok,
+    })),
+  };
+  const score = calcularScore(execucoes, aoVivoSumario);
   const ultIncidenteAlta = tempoDesdeUltimoIncidente(execucoes, "alta");
   const ultIncidenteMedia = tempoDesdeUltimoIncidente(execucoes, "media");
   const top5 = topInvariantesViolantes(execucoes, 5);

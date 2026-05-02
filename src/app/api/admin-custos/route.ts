@@ -34,7 +34,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  type Linha = { criado_em: string; payload: any };
+  // Tipo estrito do payload de custo IA — esperado em bot_logs com
+  // tipo='custo_estimado_ia'. Campos opcionais sao tolerados (todo
+  // acesso via `?? defaults`) pra resistir a logs de versao antiga.
+  type PayloadCustoIA = {
+    tipo?: string;
+    custo_usd_estimado?: number | string | null;
+    servico?: string | null;
+    modelo?: string | null;
+    [k: string]: unknown;
+  };
+  type Linha = { criado_em: string; payload: PayloadCustoIA | null };
   const linhas = (data || []) as Linha[];
 
   function agregar(desde: string) {
@@ -44,9 +54,9 @@ export async function GET(req: NextRequest) {
     const porModelo: Record<string, { custo: number; chamadas: number }> = {};
     for (const l of linhas) {
       if (l.criado_em < desde) continue;
-      const custo = Number(l.payload?.custo_usd_estimado || 0);
-      const servico = String(l.payload?.servico || "desconhecido");
-      const modelo = String(l.payload?.modelo || "desconhecido");
+      const custo = Number(l.payload?.custo_usd_estimado ?? 0);
+      const servico = String(l.payload?.servico ?? "desconhecido");
+      const modelo = String(l.payload?.modelo ?? "desconhecido");
       total += custo;
       chamadas++;
       if (!porServico[servico]) porServico[servico] = { custo: 0, chamadas: 0 };

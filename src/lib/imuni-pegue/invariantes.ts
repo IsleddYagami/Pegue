@@ -423,6 +423,42 @@ async function invCorridasPagaSemRegistroPagamento(): Promise<ResultadoInvariant
   }
 }
 
+/**
+ * INV-17 (MEDIA — descoberto 2/Mai/2026):
+ * Alertas admin com claim pendente ha mais de 24h.
+ *
+ * Sintoma: tabela alertas_admin_pendentes acumula claims que nenhum admin
+ * assumiu via "OK XXXX". Causas possiveis:
+ *   - Codigo nao chegou ao admin (WhatsApp falhou) — todo o sistema fica
+ *     com alerta sem dono;
+ *   - Admin viu mas esqueceu;
+ *   - Webhook ChatPro com filtro descartando a resposta do admin.
+ *
+ * Cron expira esses naturalmente, mas se acumular eh sinal de canal de
+ * alerta degradado.
+ */
+async function invClaimsAdminPendentesMuitoTempo(): Promise<ResultadoInvariante> {
+  try {
+    const { data, error } = await supabase
+      .from("alertas_admin_pendentes")
+      .select("id, codigo, titulo, criado_em")
+      .eq("status", "pendente")
+      .lt("criado_em", hAtras(24));
+    if (error) throw error;
+    return {
+      nome: "INV-17",
+      descricao: "Alertas admin com claim pendente ha >24h (canal de alerta possivelmente degradado)",
+      severidade: "media",
+      count: (data || []).length,
+      amostra: (data || []).slice(0, 5).map((a) => ({ codigo: a.codigo, titulo: a.titulo, criado_em: a.criado_em })),
+      ok: (data || []).length === 0,
+      comoAgir: "Verificar se admins receberam alertas via WhatsApp/Telegram. Investigar instancia ChatPro do admin. Marcar claims antigos como expirado manualmente se confirmado descarte.",
+    };
+  } catch (e: any) {
+    return { nome: "INV-17", descricao: "claims_admin_pendentes_24h", severidade: "media", count: 0, amostra: [], ok: false, erro: e?.message, comoAgir: "Erro" };
+  }
+}
+
 // ============================================================
 // PLUGIN IMUNI — exporta o conjunto de invariantes deste dominio
 // no formato esperado pelo runner do core.
@@ -443,6 +479,7 @@ export const pluginPegue: PluginImuni = {
     invCorridasPendentesMuitoTempo,
     invPlacasDuplicadasAtivas,
     invCorridasPagaSemRegistroPagamento,
+    invClaimsAdminPendentesMuitoTempo,
     // === INFRA (headers, env vars, configs externas) ===
     invHeaderGeolocationPermitido,
     invHeaderHsts,

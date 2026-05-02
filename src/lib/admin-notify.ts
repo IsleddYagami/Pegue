@@ -5,6 +5,10 @@ import { sendMessage } from "@/lib/chatpro";
 import { getAdminPhones } from "@/lib/admin-auth";
 import { sendTelegram } from "@/lib/telegram";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
+import { gerarCodigoClaim } from "@/lib/admin-claim-token";
+
+// Re-exporta pra manter compat de quem importa de admin-notify
+export { ALPHABET_CLAIM, CLAIM_LENGTH, gerarCodigoClaim } from "@/lib/admin-claim-token";
 
 // Notifica TODOS os admins configurados — WhatsApp E Telegram (em paralelo).
 // Telegram permite som customizado/alta prioridade (configurar no app).
@@ -67,12 +71,10 @@ export async function notificarAdmins(
 //
 // Use em alertas que CHAMAM acao (escalacao humana, dispatch falhou,
 // dispute, etc), nao em alertas informativos (logs, metricas).
-const ALPHABET_CLAIM = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // sem 0/O/1/I/L
-function gerarCodigoClaim(): string {
-  let s = "";
-  for (let i = 0; i < 4; i++) s += ALPHABET_CLAIM[Math.floor(Math.random() * ALPHABET_CLAIM.length)];
-  return s;
-}
+//
+// SEGURANCA (audit 2/Mai/2026): codigo gerado por gerarCodigoClaim() em
+// admin-claim-token.ts — modulo puro com crypto.randomBytes (CSPRNG).
+// Versao antiga (Math.random + 4 chars) era previsivel e brute-forceavel.
 
 export async function notificarAdminsComClaim(
   titulo: string,

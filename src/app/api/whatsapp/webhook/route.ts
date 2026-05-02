@@ -334,7 +334,9 @@ export async function POST(req: NextRequest) {
     // assumido. Cliente vai pra step=atendimento_humano (bot silencia).
     // ========================================================
     if (isAdminPhone(phoneNumber)) {
-      const matchOk = /^\s*ok\s+([a-z0-9]{4})\s*$/i.exec((message || "").trim());
+      // Aceita 4 chars (legado) OU 6 chars (CLAIM_LENGTH novo, criptograficamente
+      // seguro). Backward-compat ate codigos antigos no banco expirarem.
+      const matchOk = /^\s*ok\s+([a-z0-9]{4,6})\s*$/i.exec((message || "").trim());
       if (matchOk) {
         const codigo = matchOk[1].toUpperCase();
         const { data: claim } = await supabase
@@ -3982,6 +3984,13 @@ async function handleFretistaDivergenciaTipo(phone: string, message: string) {
 
   // safeInsert: garante que ocorrencia eh efetivamente registrada.
   // Antes silenciava erros (regra de armazenamento inegociavel violada).
+  //
+  // TRADEOFF (audit 2/Mai/2026): pattern select-select-insert nao eh
+  // atomico — se prestador ou corrida forem deletados entre os SELECTs
+  // e o INSERT, FK constraint pega e safeInsert notifica admin pra
+  // intervencao manual. Risco real baixo (recursos raramente deletados
+  // durante webhook). Migrar pra RPC atomica eh trabalho de proxima
+  // rodada quando volume justificar.
   const { safeInsert } = await import("@/lib/db-helpers");
   const insertResult = await safeInsert<{ id: string }>({
     tabela: "ocorrencias",

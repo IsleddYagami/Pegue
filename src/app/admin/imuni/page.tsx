@@ -5,7 +5,8 @@ import Link from "next/link";
 import { fetchComTimeout } from "@/lib/fetch-utils";
 import {
   Shield, AlertCircle, CheckCircle, Activity, Clock,
-  ArrowLeft, RefreshCw, Loader2, TrendingUp, Eye,
+  ArrowLeft, RefreshCw, Loader2, TrendingUp, TrendingDown,
+  Eye, Database, Server, Zap, Calendar,
 } from "lucide-react";
 
 interface InvarianteResult {
@@ -22,6 +23,11 @@ interface InvarianteResult {
 interface ImuniData {
   plugin: string;
   timestamp: string;
+  score: number;
+  tempo_desde_ult_incidente: {
+    alta: { horas: number; data: string } | null;
+    media: { horas: number; data: string } | null;
+  };
   aovivo: {
     total: number;
     saudaveis: number;
@@ -30,12 +36,37 @@ interface ImuniData {
     erros: number;
     detalhes: InvarianteResult[];
   };
-  historico: { criado_em: string; total: number; violacoes: number; duracao_ms: number; sumario: any[] }[];
-  metricas: {
-    execucoes_ultimos_30d: number;
-    violacoes_por_invariante_ultimos_14_runs: Record<string, number>;
+  saude_por_categoria: {
+    banco: { saudaveis: number; total: number; pct: number };
+    infra: { saudaveis: number; total: number; pct: number };
   };
+  tendencia_semanal: {
+    semanaAtual: number;
+    semanaAnterior: number;
+    delta_pct: number;
+    rumo: "melhor" | "pior" | "igual";
+  };
+  top_5_invariantes_violantes_30d: { nome: string; ocorrencias: number; severidade: "alta" | "media" | "baixa" }[];
+  heatmap: { dia_semana: number[]; hora: number[] };
+  historico: { criado_em: string; total: number; violacoes: number; duracao_ms: number; sumario: any[] }[];
+  metricas: { execucoes_ultimos_30d: number; execucoes_ultimos_90d: number };
   camadas: { id: string; nome: string; status: string }[];
+}
+
+const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+
+function formatarTempoLimpo(horas: number | null): string {
+  if (horas === null) return "Nunca teve";
+  if (horas < 1) return "Menos de 1h";
+  if (horas < 24) return `${horas}h limpo`;
+  const dias = Math.floor(horas / 24);
+  return `${dias} dia${dias > 1 ? "s" : ""} limpo`;
+}
+
+function corPorScore(score: number): { bg: string; text: string; border: string; label: string } {
+  if (score >= 90) return { bg: "bg-green-900/20", text: "text-green-300", border: "border-green-700/40", label: "EXCELENTE" };
+  if (score >= 70) return { bg: "bg-yellow-900/20", text: "text-yellow-300", border: "border-yellow-700/40", label: "ATENCAO" };
+  return { bg: "bg-red-900/20", text: "text-red-300", border: "border-red-700/40", label: "CRITICO" };
 }
 
 export default function ImuniDashboard() {
@@ -74,7 +105,6 @@ export default function ImuniDashboard() {
     if (typeof window === "undefined") return;
     const stored = sessionStorage.getItem("admin_key");
     if (!stored) return;
-    // Defer setState pra fora do effect sincrono (lint react-compiler).
     queueMicrotask(() => {
       setAdminKey(stored);
       carregar(stored);
@@ -97,9 +127,7 @@ export default function ImuniDashboard() {
           <h1 className="text-center text-2xl font-bold text-white">IMUNI Dashboard</h1>
           <p className="text-center text-sm text-gray-400">Saude do meta-sistema</p>
           <input
-            type="password"
-            placeholder="Senha admin"
-            value={keyInput}
+            type="password" placeholder="Senha admin" value={keyInput}
             onChange={(e) => setKeyInput(e.target.value)}
             className="w-full rounded-lg border border-gray-700 bg-black px-4 py-3 text-white"
             autoFocus
@@ -131,7 +159,9 @@ export default function ImuniDashboard() {
 
   const violacoesAlta = data.aovivo.detalhes.filter((i) => !i.ok && i.severidade === "alta");
   const violacoesMedia = data.aovivo.detalhes.filter((i) => !i.ok && i.severidade === "media");
-  const ok = data.aovivo.detalhes.filter((i) => i.ok);
+  const cor = corPorScore(data.score);
+  const maxHeatmapDia = Math.max(...data.heatmap.dia_semana, 1);
+  const maxHeatmapHora = Math.max(...data.heatmap.hora, 1);
 
   return (
     <div className="min-h-screen bg-[#000] text-white">
@@ -158,12 +188,37 @@ export default function ImuniDashboard() {
           </div>
         </div>
 
-        {/* Cards de status */}
+        {/* === SCORE PRINCIPAL === */}
+        <div className={`mb-8 rounded-3xl border-2 ${cor.border} ${cor.bg} p-8`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-400">Score de saude</p>
+              <p className={`text-7xl font-extrabold ${cor.text}`}>{data.score}</p>
+              <p className={`text-sm font-bold ${cor.text}`}>{cor.label}</p>
+            </div>
+            <div className="text-right">
+              <div className="mb-2">
+                <p className="text-xs text-gray-500">Sem violacao ALTA</p>
+                <p className="text-xl font-bold text-green-300">
+                  {formatarTempoLimpo(data.tempo_desde_ult_incidente.alta?.horas ?? null)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Sem violacao MEDIA</p>
+                <p className="text-lg font-semibold text-yellow-300">
+                  {formatarTempoLimpo(data.tempo_desde_ult_incidente.media?.horas ?? null)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* === CARDS === */}
         <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
           <div className="rounded-2xl border border-green-700/30 bg-green-900/10 p-5">
             <CheckCircle className="mb-2 h-6 w-6 text-green-400" />
             <p className="text-3xl font-extrabold text-green-300">{data.aovivo.saudaveis}</p>
-            <p className="text-xs text-gray-400">Invariantes saudaveis</p>
+            <p className="text-xs text-gray-400">de {data.aovivo.total} saudaveis</p>
           </div>
           <div className={`rounded-2xl border p-5 ${data.aovivo.violacoes_alta > 0 ? "border-red-700/40 bg-red-900/15" : "border-gray-700/30 bg-gray-900/10"}`}>
             <AlertCircle className={`mb-2 h-6 w-6 ${data.aovivo.violacoes_alta > 0 ? "text-red-400" : "text-gray-500"}`} />
@@ -175,7 +230,7 @@ export default function ImuniDashboard() {
           <div className="rounded-2xl border border-yellow-700/30 bg-yellow-900/10 p-5">
             <AlertCircle className="mb-2 h-6 w-6 text-yellow-400" />
             <p className="text-3xl font-extrabold text-yellow-300">{data.aovivo.violacoes_media}</p>
-            <p className="text-xs text-gray-400">Violacoes medias</p>
+            <p className="text-xs text-gray-400">Medias</p>
           </div>
           <div className="rounded-2xl border border-blue-700/30 bg-blue-900/10 p-5">
             <Activity className="mb-2 h-6 w-6 text-blue-400" />
@@ -184,7 +239,167 @@ export default function ImuniDashboard() {
           </div>
         </div>
 
-        {/* Violacoes ALTAS detalhadas */}
+        {/* === SAUDE POR CATEGORIA === */}
+        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+            <div className="mb-3 flex items-center gap-2">
+              <Database className="h-5 w-5 text-[#C9A84C]" />
+              <h3 className="font-bold">Banco de dados</h3>
+              <span className="ml-auto text-2xl font-extrabold">
+                <span className={data.saude_por_categoria.banco.pct === 100 ? "text-green-300" : "text-yellow-300"}>
+                  {data.saude_por_categoria.banco.pct}%
+                </span>
+              </span>
+            </div>
+            <p className="text-sm text-gray-500">
+              {data.saude_por_categoria.banco.saudaveis}/{data.saude_por_categoria.banco.total} invariantes saudaveis
+            </p>
+            <p className="mt-2 text-xs text-gray-600">
+              Estado de corridas, pagamentos, repasse, dispatch, prestadores.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+            <div className="mb-3 flex items-center gap-2">
+              <Server className="h-5 w-5 text-[#C9A84C]" />
+              <h3 className="font-bold">Infraestrutura</h3>
+              <span className="ml-auto text-2xl font-extrabold">
+                <span className={data.saude_por_categoria.infra.pct === 100 ? "text-green-300" : "text-yellow-300"}>
+                  {data.saude_por_categoria.infra.pct}%
+                </span>
+              </span>
+            </div>
+            <p className="text-sm text-gray-500">
+              {data.saude_por_categoria.infra.saudaveis}/{data.saude_por_categoria.infra.total} invariantes saudaveis
+            </p>
+            <p className="mt-2 text-xs text-gray-600">
+              Headers HTTP, env vars, Asaas em producao, CSP, geolocation.
+            </p>
+          </div>
+        </div>
+
+        {/* === TENDENCIA === */}
+        <div className="mb-8 rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+          <div className="mb-3 flex items-center gap-2">
+            {data.tendencia_semanal.rumo === "melhor" ? (
+              <TrendingDown className="h-5 w-5 text-green-400" />
+            ) : data.tendencia_semanal.rumo === "pior" ? (
+              <TrendingUp className="h-5 w-5 text-red-400" />
+            ) : (
+              <Activity className="h-5 w-5 text-gray-400" />
+            )}
+            <h3 className="font-bold">Tendencia semanal</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-xs text-gray-500">Semana passada</p>
+              <p className="text-3xl font-extrabold text-gray-400">{data.tendencia_semanal.semanaAnterior}</p>
+              <p className="text-xs text-gray-600">violacoes</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Esta semana</p>
+              <p className={`text-3xl font-extrabold ${
+                data.tendencia_semanal.rumo === "melhor" ? "text-green-300" :
+                data.tendencia_semanal.rumo === "pior" ? "text-red-300" : "text-gray-400"
+              }`}>{data.tendencia_semanal.semanaAtual}</p>
+              <p className="text-xs text-gray-600">violacoes</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Delta</p>
+              <p className={`text-3xl font-extrabold ${
+                data.tendencia_semanal.rumo === "melhor" ? "text-green-300" :
+                data.tendencia_semanal.rumo === "pior" ? "text-red-300" : "text-gray-400"
+              }`}>
+                {data.tendencia_semanal.delta_pct > 0 ? "+" : ""}{data.tendencia_semanal.delta_pct}%
+              </p>
+              <p className="text-xs text-gray-600">{
+                data.tendencia_semanal.rumo === "melhor" ? "↓ melhorando" :
+                data.tendencia_semanal.rumo === "pior" ? "↑ piorando" : "estavel"
+              }</p>
+            </div>
+          </div>
+        </div>
+
+        {/* === TOP 5 RECORRENTES === */}
+        {data.top_5_invariantes_violantes_30d.length > 0 && (
+          <div className="mb-8 rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Zap className="h-5 w-5 text-[#C9A84C]" />
+              <h3 className="font-bold">Top 5 invariantes que mais violaram (ult 30d)</h3>
+            </div>
+            <div className="space-y-2">
+              {data.top_5_invariantes_violantes_30d.map((inv, i) => {
+                const max = data.top_5_invariantes_violantes_30d[0].ocorrencias;
+                const pct = max > 0 ? (inv.ocorrencias / max) * 100 : 0;
+                return (
+                  <div key={inv.nome} className="flex items-center gap-3">
+                    <span className="w-6 text-center font-mono text-xs text-gray-500">#{i + 1}</span>
+                    <span className={`rounded px-2 py-0.5 text-xs font-bold ${
+                      inv.severidade === "alta" ? "bg-red-700/30 text-red-300" : "bg-yellow-700/30 text-yellow-300"
+                    }`}>{inv.nome}</span>
+                    <div className="relative h-6 flex-1 rounded bg-black/40">
+                      <div className={`absolute left-0 top-0 h-full rounded ${
+                        inv.severidade === "alta" ? "bg-red-700/50" : "bg-yellow-700/50"
+                      }`} style={{ width: `${pct}%` }} />
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs">
+                        {inv.ocorrencias} ocorrencia{inv.ocorrencias > 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* === HEATMAP DIA DA SEMANA === */}
+        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-[#C9A84C]" />
+              <h3 className="font-bold">Violacoes por dia da semana</h3>
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {data.heatmap.dia_semana.map((v, i) => {
+                const intensidade = maxHeatmapDia > 0 ? v / maxHeatmapDia : 0;
+                return (
+                  <div key={i} className="text-center">
+                    <div
+                      className="mb-1 h-12 rounded"
+                      style={{ backgroundColor: `rgba(239, 68, 68, ${0.15 + intensidade * 0.7})` }}
+                      title={`${v} violacoes`}
+                    />
+                    <p className="text-xs text-gray-500">{DIAS_SEMANA[i]}</p>
+                    <p className="text-xs font-bold">{v}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Clock className="h-5 w-5 text-[#C9A84C]" />
+              <h3 className="font-bold">Violacoes por hora do dia</h3>
+            </div>
+            <div className="grid grid-cols-12 gap-0.5">
+              {data.heatmap.hora.map((v, i) => {
+                const intensidade = maxHeatmapHora > 0 ? v / maxHeatmapHora : 0;
+                return (
+                  <div
+                    key={i}
+                    className="h-8 rounded"
+                    style={{ backgroundColor: `rgba(239, 68, 68, ${0.15 + intensidade * 0.7})` }}
+                    title={`${i}h: ${v} violacoes`}
+                  />
+                );
+              })}
+            </div>
+            <div className="mt-1 flex justify-between text-xs text-gray-500">
+              <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
+            </div>
+          </div>
+        </div>
+
+        {/* === VIOLACOES ATIVAS === */}
         {violacoesAlta.length > 0 && (
           <div className="mb-8 rounded-2xl border-2 border-red-700/40 bg-red-900/10 p-6">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-red-300">
@@ -214,8 +429,6 @@ export default function ImuniDashboard() {
             </div>
           </div>
         )}
-
-        {/* Violacoes medias */}
         {violacoesMedia.length > 0 && (
           <div className="mb-8 rounded-2xl border border-yellow-700/30 bg-yellow-900/10 p-6">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-yellow-300">
@@ -233,7 +446,7 @@ export default function ImuniDashboard() {
           </div>
         )}
 
-        {/* Camadas IMUNI */}
+        {/* === CAMADAS === */}
         <div className="mb-8 rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
           <h2 className="mb-4 text-lg font-bold">Camadas de defesa em profundidade</h2>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -247,7 +460,7 @@ export default function ImuniDashboard() {
           </div>
         </div>
 
-        {/* Lista completa das invariantes */}
+        {/* === LISTA TODAS INVARIANTES === */}
         <div className="mb-8 rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">
             <Eye className="h-5 w-5" /> Todas as {data.aovivo.total} invariantes ativas
@@ -268,10 +481,10 @@ export default function ImuniDashboard() {
           </div>
         </div>
 
-        {/* Historico */}
+        {/* === HISTORICO === */}
         <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">
-            <Clock className="h-5 w-5" /> Historico (ultimas {data.historico.length} execucoes)
+            <Clock className="h-5 w-5" /> Historico ({data.historico.length} ultimas execucoes)
           </h2>
           <div className="space-y-1">
             {data.historico.length === 0 && (
@@ -294,7 +507,7 @@ export default function ImuniDashboard() {
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-600">
-          Ultima atualizacao: {new Date(data.timestamp).toLocaleString("pt-BR")} · IMUNI v0.1.0
+          Ultima atualizacao: {new Date(data.timestamp).toLocaleString("pt-BR")} · IMUNI v0.2.0 · {data.metricas.execucoes_ultimos_90d} execucoes em 90d
         </p>
       </div>
     </div>

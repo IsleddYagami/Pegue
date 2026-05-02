@@ -3,6 +3,15 @@ import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { requireAdminAuth } from "@/lib/admin-auth";
 import { executarPlugin, classificar } from "@/lib/imuni/runner";
 import { pluginPegue } from "@/lib/imuni-pegue/invariantes";
+import {
+  calcularScore,
+  tempoDesdeUltimoIncidente,
+  topInvariantesViolantes,
+  tendenciaSemanal,
+  heatmapPorDiaSemana,
+  heatmapPorHora,
+  type ExecucaoHistorica,
+} from "@/lib/imuni/analytics";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 90;
@@ -23,50 +32,68 @@ export async function GET(req: NextRequest) {
   const resultados = await executarPlugin(pluginPegue);
   const stats = classificar(resultados);
 
-  // 2) Historico (ultimas 14 execucoes do cron)
-  const { data: historico } = await supabase
+  // 2) Historico (ultimos 90d pra calcular score, tendencia, heatmap)
+  const dias90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: historicoCru } = await supabase
     .from("bot_logs")
     .select("payload, criado_em")
     .filter("payload->>tipo", "eq", "auditoria_invariantes_executada")
+    .gte("criado_em", dias90)
     .order("criado_em", { ascending: false })
-    .limit(14);
+    .limit(500);
 
-  const historicoSimplificado = (historico || []).map((l: any) => {
-    const p = l.payload || {};
-    return {
-      criado_em: l.criado_em,
-      total: p.total || 0,
-      violacoes: p.violacoes || 0,
-      duracao_ms: p.duracao_ms || 0,
-      sumario: p.sumario || [],
-    };
+  const execucoes: ExecucaoHistorica[] = (historicoCru || []).map((l: any) => ({
+    criado_em: l.criado_em,
+    payload: l.payload || {},
+  }));
+
+  const historicoSimplificado = execucoes.slice(0, 14).map((e) => ({
+    criado_em: e.criado_em,
+    total: e.payload.total || 0,
+    violacoes: e.payload.violacoes || 0,
+    duracao_ms: e.payload.duracao_ms || 0,
+    sumario: e.payload.sumario || [],
+  }));
+
+  // 3) Analytics agregadas via core IMUNI
+  const score = calcularScore(execucoes);
+  const ultIncidenteAlta = tempoDesdeUltimoIncidente(execucoes, "alta");
+  const ultIncidenteMedia = tempoDesdeUltimoIncidente(execucoes, "media");
+  const top5 = topInvariantesViolantes(execucoes, 5);
+  const tendencia = tendenciaSemanal(execucoes);
+  const heatmapDia = heatmapPorDiaSemana(execucoes);
+  const heatmapHora = heatmapPorHora(execucoes);
+
+  // 4) Saude por categoria. Inferida pelo prefixo do nome:
+  //    INV-1 a INV-11 = banco; INV-12 a INV-16 = infra.
+  const detalhes = stats; // ja calculado
+  const banco = resultados.filter((r) => {
+    const num = parseInt(r.nome.replace("INV-", ""));
+    return num >= 1 && num <= 11;
+  });
+  const infra = resultados.filter((r) => {
+    const num = parseInt(r.nome.replace("INV-", ""));
+    return num >= 12;
   });
 
-  // 3) Estatisticas agregadas (ultimos 30d)
-  const dias30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const { count: totalExecucoes30d } = await supabase
-    .from("bot_logs")
-    .select("id", { count: "exact", head: true })
-    .filter("payload->>tipo", "eq", "auditoria_invariantes_executada")
-    .gte("criado_em", dias30);
-
-  // 4) Conta quantas vezes uma invariante foi violada nos ultimos 30d
-  // (proxy de "quanto IMUNI esta trabalhando")
-  const violacoesPorInvariante: Record<string, number> = {};
-  for (const ex of historico || []) {
-    const sumario: any[] = ((ex.payload as any)?.sumario as any[]) || [];
-    for (const item of sumario) {
-      if (!item.ok) {
-        violacoesPorInvariante[item.nome] = (violacoesPorInvariante[item.nome] || 0) + 1;
-      }
-    }
+  function scoreCategoria(arr: typeof resultados): { saudaveis: number; total: number; pct: number } {
+    const total = arr.length || 1;
+    const saudaveis = arr.filter((r) => r.ok).length;
+    return { saudaveis, total: arr.length, pct: Math.round((saudaveis / total) * 100) };
   }
 
   return NextResponse.json({
     plugin: pluginPegue.dominio,
     timestamp: new Date().toISOString(),
 
-    // ao vivo
+    // === SAUDE GERAL ===
+    score,
+    tempo_desde_ult_incidente: {
+      alta: ultIncidenteAlta,
+      media: ultIncidenteMedia,
+    },
+
+    // === AO VIVO ===
     aovivo: {
       total: resultados.length,
       saudaveis: stats.saudaveis,
@@ -76,16 +103,34 @@ export async function GET(req: NextRequest) {
       detalhes: resultados,
     },
 
-    // historico
-    historico: historicoSimplificado,
-
-    // metricas
-    metricas: {
-      execucoes_ultimos_30d: totalExecucoes30d ?? 0,
-      violacoes_por_invariante_ultimos_14_runs: violacoesPorInvariante,
+    // === SAUDE POR CATEGORIA ===
+    saude_por_categoria: {
+      banco: scoreCategoria(banco),
+      infra: scoreCategoria(infra),
     },
 
-    // status das camadas
+    // === TENDENCIA ===
+    tendencia_semanal: tendencia,
+
+    // === RECORRENCIA ===
+    top_5_invariantes_violantes_30d: top5,
+
+    // === HEATMAPS ===
+    heatmap: {
+      dia_semana: heatmapDia, // [domingo, segunda, ..., sabado]
+      hora: heatmapHora,      // [0h, 1h, ..., 23h]
+    },
+
+    // === HISTORICO ===
+    historico: historicoSimplificado,
+    metricas: {
+      execucoes_ultimos_30d: execucoes.filter(
+        (e) => Date.now() - new Date(e.criado_em).getTime() < 30 * 24 * 60 * 60 * 1000,
+      ).length,
+      execucoes_ultimos_90d: execucoes.length,
+    },
+
+    // === CAMADAS ===
     camadas: [
       { id: "1", nome: "Supabase types", status: "ativa" },
       { id: "1B", nome: "ESLint plugin (3 regras)", status: "ativa" },

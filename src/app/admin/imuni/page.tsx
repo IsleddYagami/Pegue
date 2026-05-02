@@ -547,8 +547,7 @@ export default function ImuniDashboard() {
                 <span className="text-6xl">🌿</span>
                 <h2 className="mt-2 text-2xl font-bold text-green-300">Sistema imune</h2>
                 <p className="mt-3 max-w-xl mx-auto text-base italic text-gray-300">
-                  &ldquo;Varri o corpo todo — {data.aovivo.total} sentinelas em {data.aovivo.total} áreas
-                  críticas. Nenhuma ameaça, nenhum sintoma. Pode dormir tranquilo.&rdquo;
+                  &ldquo;{`Varri o corpo todo. ${data.aovivo.total} sentinelas vigiando todas as áreas críticas — nenhuma ameaça, nenhum sintoma. Pode dormir tranquilo.`}&rdquo;
                 </p>
                 <p className="mt-3 text-xs text-gray-500">
                   — IMUNI · {tempoRelativo(data.timestamp, agora)}

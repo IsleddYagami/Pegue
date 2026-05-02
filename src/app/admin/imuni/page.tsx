@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { fetchComTimeout } from "@/lib/fetch-utils";
 import {
-  Shield, AlertCircle, CheckCircle, Activity, Clock,
+  AlertCircle, CheckCircle, Activity, Clock,
   ArrowLeft, RefreshCw, Loader2, TrendingUp, TrendingDown,
   Eye, Heart, Wrench, Calendar,
 } from "lucide-react";
+import { ImuniWordmark, ImuniSimbolo } from "@/components/imuni-brand";
 
 interface InvarianteResult {
   nome: string;
@@ -151,14 +152,10 @@ export default function ImuniDashboard() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#000] via-[#001a14] to-[#000] p-4">
         <form onSubmit={handleLogin} className="w-full max-w-md space-y-4 rounded-2xl border border-[#C9A84C]/30 bg-[#0A0A0A]/80 p-8 backdrop-blur">
-          <div className="relative mx-auto h-16 w-16">
-            <Shield className="h-16 w-16 text-[#C9A84C]" />
-            <span className="absolute inset-0 flex animate-pulse items-center justify-center">
-              <span className="text-2xl">🛡️</span>
-            </span>
+          <div className="mx-auto flex h-20 items-center justify-center">
+            <ImuniWordmark className="h-full text-[#C9A84C]" />
           </div>
-          <h1 className="text-center text-3xl font-bold text-white">IMUNI</h1>
-          <p className="text-center text-sm text-gray-400">Sistema imunológico do seu sistema</p>
+          <p className="text-center text-sm text-gray-400">Sistema imunológico autônomo</p>
           <input
             type="password" placeholder="Senha admin" value={keyInput}
             onChange={(e) => setKeyInput(e.target.value)}
@@ -232,28 +229,25 @@ export default function ImuniDashboard() {
             </div>
           </div>
 
-          {/* Identidade IMUNI */}
-          <div className="mb-8 flex items-start gap-4">
-            <div className="relative shrink-0">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#C9A84C]/15">
-                <Shield className="h-8 w-8 text-[#C9A84C]" />
+          {/* Identidade IMUNI — wordmark oficial + indicador ativo */}
+          <div className="mb-8">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="relative">
+                <ImuniWordmark className="h-12 text-[#C9A84C]" />
+                <span className="absolute -right-3 -top-1 flex h-3 w-3">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500" />
+                </span>
               </div>
-              <span className="absolute -bottom-1 -right-1 flex h-4 w-4">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex h-4 w-4 rounded-full bg-green-500" />
-              </span>
             </div>
-            <div className="flex-1">
-              <h1 className="text-4xl font-extrabold tracking-tight">IMUNI</h1>
-              <p className="text-base text-gray-300">
-                Sou a guardiã do sistema <span className="font-semibold text-[#C9A84C]">{dominioCapitalizado}</span>.
-                Cuido da saúde dele 24h por dia, sem dormir.
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                Última verificação: {new Date(data.timestamp).toLocaleString("pt-BR")} ·
-                {" "}rodei {data.metricas.execucoes_ultimos_90d} patrulhas em 90 dias
-              </p>
-            </div>
+            <p className="text-base text-gray-300">
+              Sou a guardiã do sistema <span className="font-semibold text-[#C9A84C]">{dominioCapitalizado}</span>.
+              Cuido da saúde dele 24h por dia, sem dormir.
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Última verificação: {new Date(data.timestamp).toLocaleString("pt-BR")} ·
+              {" "}rodei {data.metricas.execucoes_ultimos_90d} patrulhas em 90 dias
+            </p>
           </div>
 
           {/* === BOLETIM DE SAÚDE — bloco principal === */}
@@ -603,9 +597,10 @@ export default function ImuniDashboard() {
             </div>
           </div>
 
-          <p className="mt-8 text-center text-xs text-gray-600">
-            IMUNI v0.3.0 · sistema imunológico autônomo · plugin <span className="text-[#C9A84C]">{data.plugin}</span>
-          </p>
+          <div className="mt-8 flex items-center justify-center gap-2 text-xs text-gray-600">
+            <ImuniSimbolo className="h-3 text-gray-600" />
+            <span>v0.3.0 · sistema imunológico autônomo · plugin <span className="text-[#C9A84C]">{data.plugin}</span></span>
+          </div>
         </div>
       </div>
     </div>

@@ -97,6 +97,45 @@ function formatarTempoLimpo(horas: number | null): { texto: string; cor: string 
   return { texto: `${dias} dias`, cor: "text-green-300" };
 }
 
+/**
+ * Tempo relativo humanizado tipo "há 12s", "há 3min", "há 2h".
+ * Atualiza naturalmente quando o componente re-renderiza com novo `agora`.
+ */
+function tempoRelativo(timestamp: string | undefined, agora: number): string {
+  if (!timestamp) return "—";
+  const ms = agora - new Date(timestamp).getTime();
+  if (ms < 0) return "agora";
+  const seg = Math.floor(ms / 1000);
+  if (seg < 5) return "agora mesmo";
+  if (seg < 60) return `há ${seg}s`;
+  const min = Math.floor(seg / 60);
+  if (min < 60) return `há ${min}min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h}h${min % 60 > 0 ? ` ${min % 60}min` : ""}`;
+  const d = Math.floor(h / 24);
+  return `há ${d} dia${d > 1 ? "s" : ""}`;
+}
+
+/**
+ * Countdown ate a proxima patrulha (cron diario 04:00 madrugada).
+ * "em 3h12m" ou "em 14min" — formato compacto.
+ */
+function countdownProximaPatrulha(agora: number): string {
+  const d = new Date(agora);
+  const proxima = new Date(agora);
+  proxima.setHours(4, 0, 0, 0);
+  if (d.getHours() >= 4) {
+    proxima.setDate(proxima.getDate() + 1);
+  }
+  const ms = proxima.getTime() - agora;
+  if (ms <= 0) return "agora";
+  const totalMin = Math.floor(ms / (60 * 1000));
+  const h = Math.floor(totalMin / 60);
+  const min = totalMin % 60;
+  if (h === 0) return `em ${min}min`;
+  return `em ${h}h${min > 0 ? `${min}m` : ""}`;
+}
+
 export default function ImuniDashboard() {
   const [data, setData] = useState<ImuniData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -104,6 +143,13 @@ export default function ImuniDashboard() {
   const [adminKey, setAdminKey] = useState<string | null>(null);
   const [keyInput, setKeyInput] = useState("");
   const [modoTecnico, setModoTecnico] = useState(false);
+  // Tick de 1s pra recalcular tempo relativo + countdown sem refetch
+  const [agora, setAgora] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setAgora(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const carregar = useCallback(async (key: string) => {
     setLoading(true);
@@ -150,8 +196,8 @@ export default function ImuniDashboard() {
 
   if (!adminKey) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#000] via-[#001a14] to-[#000] p-4">
-        <form onSubmit={handleLogin} className="w-full max-w-md space-y-4 rounded-2xl border border-[#C9A84C]/30 bg-[#0A0A0A]/80 p-8 backdrop-blur">
+      <div className="flex min-h-screen items-center justify-center bg-[#050505] p-4">
+        <form onSubmit={handleLogin} className="w-full max-w-md space-y-4 rounded-2xl border border-[#C9A84C]/30 bg-[#0B0B0C]/90 p-8 backdrop-blur">
           <div className="mx-auto flex h-20 items-center justify-center">
             <ImuniWordmark className="h-full text-[#C9A84C]" />
           </div>
@@ -173,7 +219,7 @@ export default function ImuniDashboard() {
 
   if (loading && !data) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#000]">
+      <div className="flex min-h-screen items-center justify-center bg-[#050505]">
         <div className="text-center">
           <Loader2 className="mx-auto h-12 w-12 animate-spin text-[#C9A84C]" />
           <p className="mt-4 text-sm text-gray-400">Examinando o corpo...</p>
@@ -184,7 +230,7 @@ export default function ImuniDashboard() {
 
   if (!data) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#000] p-4">
+      <div className="flex min-h-screen items-center justify-center bg-[#050505] p-4">
         <p className="text-red-400">{erro || "Sem dados"}</p>
       </div>
     );
@@ -200,7 +246,7 @@ export default function ImuniDashboard() {
   const dominioCapitalizado = data.plugin.charAt(0).toUpperCase() + data.plugin.slice(1);
 
   return (
-    <div className="min-h-screen bg-[#000] text-white">
+    <div className="min-h-screen bg-[#050505] text-white">
       <div className={`bg-gradient-to-b ${status.bgGrad} pb-12`}>
         <div className="mx-auto max-w-6xl p-6">
 
@@ -229,12 +275,14 @@ export default function ImuniDashboard() {
             </div>
           </div>
 
-          {/* Identidade IMUNI — wordmark oficial + indicador ativo */}
+          {/* Identidade IMUNI — wordmark oficial + indicador ativo + heartbeat sutil */}
           <div className="mb-8">
             <div className="mb-3 flex items-center gap-3">
               <div className="relative">
-                <ImuniWordmark className="h-12 text-[#C9A84C]" />
-                <span className="absolute -right-3 -top-1 flex h-3 w-3">
+                {/* Glow dourado pulsando atras do wordmark — sistema vivo */}
+                <span className="imuni-heartbeat pointer-events-none absolute -inset-4 rounded-full bg-[#C9A84C]/15 blur-2xl" />
+                <ImuniWordmark className="relative h-12 text-[#C9A84C]" />
+                <span className="absolute -right-3 -top-1 flex h-3 w-3" title="Sistema ativo">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
                   <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500" />
                 </span>
@@ -244,14 +292,29 @@ export default function ImuniDashboard() {
               Sou a guardiã do sistema <span className="font-semibold text-[#C9A84C]">{dominioCapitalizado}</span>.
               Cuido da saúde dele 24h por dia, sem dormir.
             </p>
-            <p className="mt-1 text-xs text-gray-500">
-              Última verificação: {new Date(data.timestamp).toLocaleString("pt-BR")} ·
-              {" "}rodei {data.metricas.execucoes_ultimos_90d} patrulhas em 90 dias
-            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+              <span title={new Date(data.timestamp).toLocaleString("pt-BR")}>
+                <span className="text-gray-600">Última patrulha:</span>{" "}
+                <span className="text-gray-300">{tempoRelativo(data.timestamp, agora)}</span>
+              </span>
+              <span className="text-gray-700">·</span>
+              <span>
+                <span className="text-gray-600">Próxima patrulha automática:</span>{" "}
+                <span className="text-[#C9A84C]">{countdownProximaPatrulha(agora)}</span>
+              </span>
+              <span className="text-gray-700">·</span>
+              <span>
+                <span className="text-gray-300">{data.metricas.execucoes_ultimos_90d}</span>{" "}
+                <span className="text-gray-600">patrulhas em 90 dias</span>
+              </span>
+            </div>
           </div>
 
           {/* === BOLETIM DE SAÚDE — bloco principal === */}
-          <div className="mb-6 rounded-3xl border-2 border-[#C9A84C]/30 bg-gradient-to-br from-[#0A0A0A] to-[#000] p-8">
+          <div className="relative mb-6 overflow-hidden rounded-3xl border-2 border-[#C9A84C]/30 bg-[#050505] p-8">
+            {/* Glow dourado sutil — luxo discreto, sistema vivo */}
+            <div className="pointer-events-none absolute -right-32 -top-32 h-64 w-64 rounded-full bg-[#C9A84C]/10 blur-3xl" />
+            <div className="pointer-events-none absolute -left-24 -bottom-24 h-48 w-48 rounded-full bg-[#C9A84C]/5 blur-3xl" />
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               {/* Score gigante */}
               <div className="md:col-span-2">
@@ -288,7 +351,7 @@ export default function ImuniDashboard() {
           </div>
 
           {/* === O QUE EU FIZ ESTA SEMANA === */}
-          <div className="mb-6 rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+          <div className="mb-6 rounded-2xl border border-[#C9A84C]/20 bg-[#0B0B0C] p-6">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">
               <Heart className="h-5 w-5 text-pink-400" /> Esta semana eu...
             </h2>
@@ -356,7 +419,7 @@ export default function ImuniDashboard() {
           </div>
 
           {/* === MEU SISTEMA IMUNOLÓGICO === */}
-          <div className="mb-6 rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+          <div className="mb-6 rounded-2xl border border-[#C9A84C]/20 bg-[#0B0B0C] p-6">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">
               🦠 Minhas defesas ativas
             </h2>
@@ -443,18 +506,34 @@ export default function ImuniDashboard() {
           )}
 
           {violacoesAlta.length === 0 && violacoesMedia.length === 0 && (
-            <div className="mb-6 rounded-2xl border-2 border-green-700/30 bg-green-900/10 p-8 text-center">
-              <span className="text-6xl">🌿</span>
-              <h2 className="mt-2 text-2xl font-bold text-green-300">Tudo limpo</h2>
-              <p className="mt-2 text-gray-400">
-                Nenhuma ameaça nem sintoma detectado agora. Sistema em equilíbrio.
-              </p>
+            <div className="relative mb-6 overflow-hidden rounded-2xl border-2 border-green-700/30 bg-[#050505] p-8 text-center">
+              {/* Glow verde sutil — sinal vital saudavel */}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-green-900/20 via-transparent to-transparent" />
+              <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-green-500/10 blur-3xl" />
+              <div className="relative">
+                <span className="text-6xl">🌿</span>
+                <h2 className="mt-2 text-2xl font-bold text-green-300">Sistema imune</h2>
+                <p className="mt-3 max-w-xl mx-auto text-base italic text-gray-300">
+                  &ldquo;Varri o corpo todo — {data.aovivo.total} sentinelas em {data.aovivo.total} áreas
+                  críticas. Nenhuma ameaça, nenhum sintoma. Pode dormir tranquilo.&rdquo;
+                </p>
+                <p className="mt-3 text-xs text-gray-500">
+                  — IMUNI · {tempoRelativo(data.timestamp, agora)}
+                </p>
+                <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-green-700/40 bg-green-900/20 px-4 py-1.5 text-xs text-green-300">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                  </span>
+                  Vigilancia ativa · proxima patrulha {countdownProximaPatrulha(agora)}
+                </div>
+              </div>
             </div>
           )}
 
           {/* === PADRÕES === */}
           {data.top_5_invariantes_violantes_30d.length > 0 && (
-            <div className="mb-6 rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+            <div className="mb-6 rounded-2xl border border-[#C9A84C]/20 bg-[#0B0B0C] p-6">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">
                 🔬 Áreas que mais adoeceram (últimos 30 dias)
               </h2>
@@ -490,7 +569,7 @@ export default function ImuniDashboard() {
           {/* === HEATMAPS === */}
           {(data.heatmap.dia_semana.some((v) => v > 0) || data.heatmap.hora.some((v) => v > 0)) && (
             <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+              <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0B0B0C] p-6">
                 <h3 className="mb-3 flex items-center gap-2 text-base font-bold">
                   <Calendar className="h-4 w-4 text-[#C9A84C]" />
                   Quando o corpo mais adoece (dia da semana)
@@ -511,7 +590,7 @@ export default function ImuniDashboard() {
                   })}
                 </div>
               </div>
-              <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+              <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0B0B0C] p-6">
                 <h3 className="mb-3 flex items-center gap-2 text-base font-bold">
                   <Clock className="h-4 w-4 text-[#C9A84C]" />
                   Quando o corpo mais adoece (hora do dia)
@@ -538,7 +617,7 @@ export default function ImuniDashboard() {
 
           {/* === MODO TECNICO: detalhes invariantes === */}
           {modoTecnico && (
-            <div className="mb-6 rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+            <div className="mb-6 rounded-2xl border border-[#C9A84C]/20 bg-[#0B0B0C] p-6">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">
                 <Eye className="h-5 w-5" /> Todas as {data.aovivo.total} sentinelas (modo técnico)
               </h2>
@@ -560,7 +639,7 @@ export default function ImuniDashboard() {
           )}
 
           {/* === HISTÓRICO DE PATRULHAS === */}
-          <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+          <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0B0B0C] p-6">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">
               📋 Diário de patrulhas
             </h2>
@@ -626,7 +705,7 @@ function AreaCorpo({
   const cor = pct === 100 ? "text-green-300" : pct >= 70 ? "text-yellow-300" : "text-red-300";
   const bg = pct === 100 ? "bg-green-700/40" : pct >= 70 ? "bg-yellow-700/40" : "bg-red-700/40";
   return (
-    <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+    <div className="rounded-2xl border border-[#C9A84C]/20 bg-[#0B0B0C] p-6">
       <div className="mb-3 flex items-center gap-3">
         <span className="text-3xl">{icone}</span>
         <div className="flex-1">

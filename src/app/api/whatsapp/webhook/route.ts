@@ -827,17 +827,31 @@ async function handleClienteMessage(
 
   // BUG #ATENDIMENTO-ATROPELO (5/Mai/2026): GATE GLOBAL pra cliente em
   // atendimento_humano. Se admin assumiu (FromMe / painel / claim), bot fica
-  // 100% calado pra esse cliente em QUALQUER caminho — comandos, saudacao,
-  // agradecimento, foto, video, audio. Soh registra a msg pra rastreabilidade.
+  // calado em QUALQUER caminho — comandos, saudacao, foto, video, audio.
   // Bot volta quando admin enviar VOLTA IRIS pelo whatsapp da Pegue.
-  // Caso real 5/Mai: cliente 5511953731463 estava com Jack (Pegue 2). Cliente
-  // mandou "obrigado" → bot mandou MSG.obrigado → atropelou Jack. Mandou "oi" →
-  // recriou sessao em aguardando_servico → menu de novo. Bug em CADA comando.
-  // Excecao: comandos admin (saldo, diagnosticar) ainda passam — Fabio/Jack
+  //
+  // EXCECAO 1 (5/Mai/2026 — pedido Fabio): se cliente em atendimento_humano
+  // manda "obrigado/valeu/agradecido", bot agradece de volta com cortesia
+  // (MSG.obrigado, 1 mensagem curta) MAS NAO sai do atendimento_humano —
+  // sessao continua, admin segue dono. E so reciprocidade humana, nao
+  // tentativa de iniciar fluxo. Sem isso, cliente fica sem nenhuma resposta
+  // a um agradecimento, parece grosseria.
+  //
+  // EXCECAO 2: comandos admin (saldo, diagnosticar) ainda passam — Fabio/Jack
   // raramente sao "cliente em atendimento humano" pelos proprios numeros.
   if (!isAdminPhone(phone)) {
     const sessaoAtual = await getSession(phone);
     if (sessaoAtual?.step === "atendimento_humano") {
+      if (isAgradecimento(message)) {
+        await sendToClient({ to: phone, message: MSG.obrigado });
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "agradecimento_em_atendimento_humano",
+            phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+          },
+        });
+        return;
+      }
       await supabase.from("bot_logs").insert({
         payload: {
           tipo: "msg_em_atendimento_humano",

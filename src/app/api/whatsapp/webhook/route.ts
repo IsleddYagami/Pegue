@@ -55,7 +55,7 @@ import { uploadFotoPrestador } from "@/lib/storage-prestadores";
 import { gerarSimulacao, formatarMensagemSimulacao, nomeVeiculo as nomeVeiculoAval, type SimulacaoAvaliacao } from "@/lib/simulacao-avaliacao";
 import { criteriosMediaDaSimulacao, invalidarCacheAjustes } from "@/lib/ajustes-precos";
 import { isAdminPhone, isPhoneTeste, getAdminPhones } from "@/lib/admin-auth";
-import { notificarAdmins, notificarAdminsComClaim } from "@/lib/admin-notify";
+import { notificarAdmins, notificarAdminsComClaim, notificarAssuncaoAtendimento } from "@/lib/admin-notify";
 import { extrairContextoInicial, formatarConfirmacaoContexto, type ContextoExtraido } from "@/lib/extrair-contexto";
 import { detectarLinkGoogleMaps, resolverGoogleMapsLink } from "@/lib/google-maps-link";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -222,9 +222,14 @@ export async function POST(req: NextRequest) {
         const agora = new Date().toISOString();
         const { data: sessaoExistente } = await supabase
           .from("bot_sessions")
-          .select("phone")
+          .select("phone, step")
           .eq("phone", destinatario)
           .maybeSingle();
+
+        // Detecta se ja era atendimento humano antes (pra nao notificar 2x).
+        // Cliente novo OU sessao em qualquer step != atendimento_humano = primeira assuncao.
+        const eraJaAtendimentoHumano = sessaoExistente?.step === "atendimento_humano";
+        const ehPrimeiraAssuncao = !ehVoltaBot && !eraJaAtendimentoHumano;
 
         if (sessaoExistente) {
           await supabase
@@ -248,8 +253,23 @@ export async function POST(req: NextRequest) {
           payload: {
             tipo: ehVoltaBot ? "humano_devolveu_bot" : "humano_assumiu_atendimento",
             cliente_masked: destinatario.replace(/\d(?=\d{4})/g, "*"),
+            instance,
+            primeira_assuncao: ehPrimeiraAssuncao,
           },
         });
+
+        // BUG #ATENDIMENTO-DUPLO (5/Mai/2026): quando admin escrevia direto pelo
+        // WhatsApp da Pegue, o OUTRO admin nao era avisado. Resultado: 2 admins
+        // atendendo o mesmo cliente em paralelo, pelos 2 numeros (Pegue 1 + Pegue 2).
+        // Cliente real 5511953731463 hoje teve a Jack atendendo pelo Pegue 2 e
+        // Fabio escreveu pelo Pegue 1 sem saber, gerando atendimento duplicado.
+        // Fix: notifica todos os DEMAIS admins quando alguem assume.
+        if (ehPrimeiraAssuncao) {
+          // Fire-and-forget: nao bloqueia resposta do webhook (ChatPro aguarda 200).
+          // Se notificacao falhar, ja registramos no bot_logs acima.
+          notificarAssuncaoAtendimento(destinatario, instance, "fromme_whatsapp")
+            .catch((e) => console.error("notificarAssuncaoAtendimento falhou:", e?.message));
+        }
       }
       return NextResponse.json({ status: "fromme_handled" });
     }
@@ -804,6 +824,33 @@ async function handleClienteMessage(
       .update({ nome: pushName })
       .eq("telefone", phone);
   }
+
+  // BUG #ATENDIMENTO-ATROPELO (5/Mai/2026): GATE GLOBAL pra cliente em
+  // atendimento_humano. Se admin assumiu (FromMe / painel / claim), bot fica
+  // 100% calado pra esse cliente em QUALQUER caminho — comandos, saudacao,
+  // agradecimento, foto, video, audio. Soh registra a msg pra rastreabilidade.
+  // Bot volta quando admin enviar VOLTA IRIS pelo whatsapp da Pegue.
+  // Caso real 5/Mai: cliente 5511953731463 estava com Jack (Pegue 2). Cliente
+  // mandou "obrigado" → bot mandou MSG.obrigado → atropelou Jack. Mandou "oi" →
+  // recriou sessao em aguardando_servico → menu de novo. Bug em CADA comando.
+  // Excecao: comandos admin (saldo, diagnosticar) ainda passam — Fabio/Jack
+  // raramente sao "cliente em atendimento humano" pelos proprios numeros.
+  if (!isAdminPhone(phone)) {
+    const sessaoAtual = await getSession(phone);
+    if (sessaoAtual?.step === "atendimento_humano") {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "msg_em_atendimento_humano",
+          phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+          msg_length: message.length,
+          tem_midia: hasMedia,
+          via: "gate_inicial",
+        },
+      });
+      return;
+    }
+  }
+
   if (isAtendente(message)) {
     await handleAtendente(phone);
     return;
@@ -1079,8 +1126,18 @@ Boa sorte! 🎯`,
 
   const session = await getSession(phone);
 
-  // Nova conversa, saudacao ou termo de servico direto
-  if (!session || isSaudacao(message) || (!session && isInicioServico(message))) {
+  // BUG #ATENDIMENTO-ATROPELO (5/Mai/2026): se cliente esta em atendimento_humano
+  // (admin assumiu via FromMe / painel / claim), bot NAO pode recriar sessao por
+  // saudacao. Caso real: Jack atendia cliente 5511953731463 pelo Pegue 2 em
+  // atendimento_humano. Cliente mandou "oi" pelo Pegue 1, webhook entrava neste
+  // bloco, fazia createSession (upsert -> sobrescrevia step pra "inicio"),
+  // mandava saudacao + menu, atropelava a Jack. Bot voltava a responder em
+  // paralelo. Solucao: se ja em atendimento_humano, vai DIRETO pro switch (que
+  // tem case 'atendimento_humano' silencioso). Bot fica calado ate VOLTA IRIS.
+  const emAtendimentoHumano = session?.step === "atendimento_humano";
+
+  // Nova conversa, saudacao ou termo de servico direto - SO se NAO esta em atendimento humano
+  if (!emAtendimentoHumano && (!session || isSaudacao(message) || (!session && isInicioServico(message)))) {
     await createSession(phone, instance);
     await updateSession(phone, { step: "aguardando_servico" });
 

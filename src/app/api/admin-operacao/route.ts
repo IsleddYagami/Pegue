@@ -3,6 +3,7 @@ import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { requireAdminAuth } from "@/lib/admin-auth";
 import { estornarCobranca } from "@/lib/asaas";
 import { sendToClient } from "@/lib/chatpro";
+import { notificarAssuncaoAtendimento } from "@/lib/admin-notify";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -309,12 +310,37 @@ export async function POST(req: NextRequest) {
   if (acao === "assumir_conversa") {
     const phone = (body as any).phone;
     if (!phone) return NextResponse.json({ error: "phone obrigatorio" }, { status: 400 });
+
+    // Detecta estado anterior pra evitar notificar re-assuncao do mesmo admin.
+    // Tambem captura instance pra mensagem "assumido pelo Pegue X".
+    const { data: sessaoAntes } = await supabase
+      .from("bot_sessions")
+      .select("step, instance_chatpro")
+      .eq("phone", phone)
+      .maybeSingle();
+
+    const eraJaAtendimentoHumano = sessaoAntes?.step === "atendimento_humano";
+    // Body opcional pode passar instance (operador escolhe pelo painel qual numero
+    // da Pegue vai usar pra responder). Default = instance da sessao atual.
+    const instanceBody = (body as any).instance;
+    const instance: 1 | 2 = instanceBody === 2 ? 2 : instanceBody === 1 ? 1 :
+      sessaoAntes?.instance_chatpro === 2 ? 2 : 1;
+
     const { error } = await supabase
       .from("bot_sessions")
       .update({ step: "atendimento_humano", atualizado_em: new Date().toISOString() })
       .eq("phone", phone);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true });
+
+    // BUG #ATENDIMENTO-DUPLO (5/Mai/2026): notifica os DEMAIS admins que esta
+    // conversa foi assumida pelo painel /admin. Antes nao avisava — gerava
+    // atendimento duplo quando 2 admins tinham o painel aberto.
+    if (!eraJaAtendimentoHumano) {
+      notificarAssuncaoAtendimento(phone, instance, "painel_admin")
+        .catch((e) => console.error("notificarAssuncaoAtendimento (painel) falhou:", e?.message));
+    }
+
+    return NextResponse.json({ ok: true, primeira_assuncao: !eraJaAtendimentoHumano });
   }
 
   // Devolve conversa pro bot: seta sessao em "inicio" (cliente manda OI de novo)

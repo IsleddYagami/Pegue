@@ -108,3 +108,95 @@ export async function notificarAdminsComClaim(
   const enviados = await notificarAdmins(titulo, clientePhone, detalhesComClaim);
   return { enviados, codigo };
 }
+
+// ============================================================
+// Notifica os DEMAIS admins quando um deles assume atendimento humano
+// de um cliente (via FromMe pelo whatsapp da Pegue, painel /admin, ou
+// claim "OK XXXX"). Evita atendimento duplicado: 2 admins falando com
+// o mesmo cliente em paralelo pelos 2 numeros da Pegue.
+//
+// Mapeamento opcional (env vars):
+//   PEGUE_INSTANCE_1_ADMIN_PHONE = phone do admin operador do Pegue 1
+//   PEGUE_INSTANCE_2_ADMIN_PHONE = phone do admin operador do Pegue 2
+//   PEGUE_INSTANCE_1_NAME / PEGUE_INSTANCE_2_NAME = apelido humano (ex: "Fabio")
+// Se mapeado, NAO notifica o proprio operador (evita spam pra ele mesmo).
+// Se nao mapeado, notifica TODOS — quem assumiu sabe que e ele mesmo.
+// ============================================================
+export async function notificarAssuncaoAtendimento(
+  clientePhone: string,
+  instance: 1 | 2,
+  origem: "fromme_whatsapp" | "painel_admin" | "claim_codigo",
+): Promise<number> {
+  const phones = getAdminPhones();
+  if (phones.length === 0) return 0;
+
+  const operadorPhone = instance === 1
+    ? (process.env.PEGUE_INSTANCE_1_ADMIN_PHONE || "").trim()
+    : (process.env.PEGUE_INSTANCE_2_ADMIN_PHONE || "").trim();
+
+  const apelido = instance === 1
+    ? (process.env.PEGUE_INSTANCE_1_NAME || "Pegue 1").trim()
+    : (process.env.PEGUE_INSTANCE_2_NAME || "Pegue 2").trim();
+
+  // Filtra: nao notifica o proprio operador (se mapeado).
+  // Outros admins (incluindo nao-mapeados) recebem.
+  const destinatarios = operadorPhone
+    ? phones.filter((p) => p !== operadorPhone)
+    : phones;
+
+  if (destinatarios.length === 0) {
+    // So tem o proprio operador na lista — sem ninguem pra notificar.
+    return 0;
+  }
+
+  const clienteFmt = formatarParaExibicao(clientePhone);
+  const fonte = origem === "fromme_whatsapp"
+    ? "(escreveu pelo WhatsApp da Pegue)"
+    : origem === "painel_admin"
+      ? "(via painel /admin)"
+      : "(via claim OK XXXX)";
+
+  const corpo = `👤 *Atendimento humano assumido*\n\nCliente: ${clienteFmt}\nAssumido por: *${apelido}* ${fonte}\n\nO bot ja foi pausado. *NAO responda* pelo outro numero — coordene com quem assumiu.\n\nQuando terminar, envie *VOLTA IRIS* pro cliente.`;
+
+  let enviados = 0;
+  for (const phone of destinatarios) {
+    let entregue = false;
+    try {
+      await sendMessage({ to: phone, message: corpo, instance: 1 });
+      entregue = true;
+    } catch {
+      try {
+        await sendMessage({ to: phone, message: corpo, instance: 2 });
+        entregue = true;
+      } catch (e: any) {
+        console.error(`notificarAssuncaoAtendimento: falha ${phone}: ${e?.message}`);
+      }
+    }
+    if (entregue) enviados++;
+  }
+
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "assuncao_atendimento_notificada",
+      cliente_masked: clientePhone.replace(/\d(?=\d{4})/g, "*"),
+      instance,
+      origem,
+      destinatarios_notificados: enviados,
+    },
+  });
+
+  return enviados;
+}
+
+// Helper local pra exibicao limpa de phone BR. NAO importa formatarTelefoneExibicao
+// de bot-utils pra evitar ciclo (bot-utils -> outras libs -> admin-notify).
+function formatarParaExibicao(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 13 && digits.startsWith("55")) {
+    return `(${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`;
+  }
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+  return phone;
+}

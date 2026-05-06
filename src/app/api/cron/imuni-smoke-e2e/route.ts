@@ -242,6 +242,42 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // STEP 4: Valida BUG D fix — cliente foi registrado em `clientes` no 1o contato
+  const t4 = Date.now();
+  const { data: clienteSmoke } = await supabase
+    .from("clientes")
+    .select("id, telefone, nome, ativo")
+    .eq("telefone", SMOKE_PHONE)
+    .maybeSingle();
+  steps.push({
+    step: "4_cliente_registrado",
+    ok: !!clienteSmoke?.id,
+    esperado: "cliente registrado em `clientes` apos saudacao (BUG D fix)",
+    obtido: clienteSmoke ? `id=${clienteSmoke.id.slice(0, 8)}, ativo=${clienteSmoke.ativo}` : "(nao encontrado)",
+    duracao_ms: Date.now() - t4,
+    erro: !clienteSmoke ? "cliente nao foi inserido em `clientes` — BUG D regrediu" : undefined,
+  });
+
+  // STEP 5: Valida BUG C fix — mensagens registradas em conversas_whatsapp
+  const t5 = Date.now();
+  const { count: msgsConversas } = await supabase
+    .from("conversas_whatsapp")
+    .select("id", { count: "exact", head: true })
+    .eq("telefone", SMOKE_PHONE);
+  // Esperado >=3 (3 msgs in: oi, 1, lat/lng) + algumas msgs out (resposta do bot)
+  // Conservador: >=3 garante que pelo menos as msgs IN foram registradas.
+  const minEsperado = 3;
+  steps.push({
+    step: "5_conversas_whatsapp_populada",
+    ok: (msgsConversas || 0) >= minEsperado,
+    esperado: `>=${minEsperado} msgs em conversas_whatsapp (BUG C fix)`,
+    obtido: `${msgsConversas || 0} msgs encontradas`,
+    duracao_ms: Date.now() - t5,
+    erro: (msgsConversas || 0) < minEsperado
+      ? "conversas_whatsapp nao populada apos 3 msgs do cliente — BUG C regrediu"
+      : undefined,
+  });
+
   // Cleanup pos-teste (independente de sucesso/falha)
   await limparPhoneSmoke();
 

@@ -24,6 +24,7 @@ import {
 import {
   invWatchdogCronAuditoria,
   invSelfTestAlertadorRecente,
+  invWatchdogSmokeE2E,
 } from "./meta-checks";
 import {
   invValorPagoDivergeDaCorrida,
@@ -721,6 +722,8 @@ export const COBERTURA_INVARIANTES: Record<string, { categoria: "banco" | "infra
   "INV-43": { categoria: "banco", alvo: "prestadores (score)", descricao_curta: "score <3.5 ainda ativo" },
   "INV-44": { categoria: "banco", alvo: "prestadores (reclamacoes)", descricao_curta: "taxa reclamacoes >=20%" },
   "INV-45": { categoria: "banco", alvo: "corridas (canceladas pos-aceite)", descricao_curta: "fretista cancelou >=3x na semana" },
+  // META — Estagio 3 IMUNI (Onda 6 — 6/Mai/2026): IMUNI vigia o smoke E2E
+  "INV-46": { categoria: "meta", alvo: "cron imuni-smoke-e2e", descricao_curta: "smoke E2E rodou ok ultimas 8h" },
 };
 
 // === TABELAS CRITICAS DO DOMINIO PEGUE ===
@@ -772,6 +775,7 @@ export const pluginPegue: PluginImuni = {
     // === META (IMUNI vigiando IMUNI) ===
     invWatchdogCronAuditoria,
     invSelfTestAlertadorRecente,
+    invWatchdogSmokeE2E,
     // === FLUXO DE VENDA (cota -> cobra -> executa -> repassa) ===
     invValorPagoDivergeDaCorrida,
     invCotacaoVsValorFinalDivergente,

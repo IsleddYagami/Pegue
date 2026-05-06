@@ -41,30 +41,32 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
     expect(typeof mod.executarTodasInvariantes).toBe("function");
   });
 
-  it("executarTodasInvariantes retorna 45 invariantes (cliente + prestador cobertos)", async () => {
+  it("executarTodasInvariantes retorna 46 invariantes (estagio 3 IMUNI ativado)", async () => {
     // 4/Mai (Onda 2): INV-24 a 27 — fluxo de venda
     // 5/Mai (Onda 3): INV-28 a 31 — fluxo de atendimento (porta entrada)
     // 5/Mai (Onda 4a): INV-32 a 35 — fluxo de execucao parte 1 (cotacao → pagamento)
     // 6/Mai (Onda 4b): INV-36 a 40 — fluxo de execucao parte 2 (dispatch → entrega → avaliacao)
-    // 6/Mai (Onda 5): INV-41 a 45 — fluxo do prestador (cadastro → ativo → qualidade)
+    // 6/Mai (Onda 5): INV-41 a 45 — fluxo do prestador
+    // 6/Mai (Onda 6): INV-46 — meta estagio 3 (smoke E2E watchdog)
+    //   + cron imuni-smoke-e2e ativando o ESTAGIO 3 da IMUNI (executor de testes)
     const mod = await import("./invariantes");
 
     const r = await mod.executarTodasInvariantes();
     expect(Array.isArray(r)).toBe(true);
-    expect(r.length).toBe(45);
+    expect(r.length).toBe(46);
   });
 
-  it("plugin tem categoria META com 2 invariantes (INV-22, INV-23)", async () => {
-    // Adicionado 4/Mai/2026 — Onda 1 IMUNI. Garante que META existe
-    // como categoria distinta de banco/infra.
+  it("plugin tem categoria META com 3 invariantes (INV-22, INV-23, INV-46)", async () => {
+    // Onda 1 IMUNI (4/Mai): INV-22 (watchdog cron) + INV-23 (self-test alertador)
+    // Onda 6 IMUNI (6/Mai): INV-46 (watchdog smoke E2E — Estagio 3)
     const mod = await import("./invariantes");
 
     const r = await mod.executarTodasInvariantes();
     const meta = r.filter((inv) =>
       mod.COBERTURA_INVARIANTES[inv.nome]?.categoria === "meta",
     );
-    expect(meta.length).toBe(2);
-    expect(meta.map((i) => i.nome).sort()).toEqual(["INV-22", "INV-23"]);
+    expect(meta.length).toBe(3);
+    expect(meta.map((i) => i.nome).sort()).toEqual(["INV-22", "INV-23", "INV-46"]);
   });
 
   it("toda invariante registrada tem entrada em COBERTURA_INVARIANTES", async () => {

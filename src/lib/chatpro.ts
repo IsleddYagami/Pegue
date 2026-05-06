@@ -143,12 +143,43 @@ async function resolveInstanceByPhone(phone: string, fallback: 1 | 2 = 1): Promi
 // Use esta funcao em vez de sendMessage quando enviar pra cliente/prestador (nao-admin)
 export async function sendToClient(opts: { to: string; message: string; fallbackInstance?: 1 | 2 }) {
   const instance = await resolveInstanceByPhone(opts.to, opts.fallbackInstance ?? 1);
-  return sendMessage({ to: opts.to, message: opts.message, instance });
+  const result = await sendMessage({ to: opts.to, message: opts.message, instance });
+  // BUG #C (5/Mai/2026): registra mensagem enviada em conversas_whatsapp
+  // pra historico canonico. Best-effort — nao trava resposta se falhar.
+  void registrarConversaSafe(opts.to, "out", opts.message, "text", null, instance);
+  return result;
 }
 
 export async function sendImageToClient(opts: { to: string; url: string; caption?: string; fallbackInstance?: 1 | 2 }) {
   const instance = await resolveInstanceByPhone(opts.to, opts.fallbackInstance ?? 1);
-  return sendImage({ to: opts.to, url: opts.url, caption: opts.caption, instance });
+  const result = await sendImage({ to: opts.to, url: opts.url, caption: opts.caption, instance });
+  void registrarConversaSafe(opts.to, "out", opts.caption || "[image]", "image", opts.url, instance);
+  return result;
+}
+
+// Helper local pra evitar dependencia ciclica em registrar-conversa.
+// Best-effort: nunca trava o fluxo de envio.
+async function registrarConversaSafe(
+  telefone: string,
+  direcao: "in" | "out",
+  conteudo: string,
+  tipo: "text" | "image" | "audio" | "video" | "document" | "location",
+  midia_url: string | null,
+  instance: 1 | 2,
+): Promise<void> {
+  try {
+    const { registrarConversa } = await import("@/lib/registrar-conversa");
+    await registrarConversa({
+      telefone,
+      direcao,
+      conteudo,
+      tipo,
+      midia_url,
+      metadata: { instance },
+    });
+  } catch {
+    // Silencio absoluto. Falha de log nao bloqueia envio de msg.
+  }
 }
 
 // Invalida o cache de instance pra um phone (usar apos mudar instance_chatpro na session)

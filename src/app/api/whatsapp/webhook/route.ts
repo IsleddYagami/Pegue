@@ -56,6 +56,7 @@ import { gerarSimulacao, formatarMensagemSimulacao, nomeVeiculo as nomeVeiculoAv
 import { criteriosMediaDaSimulacao, invalidarCacheAjustes } from "@/lib/ajustes-precos";
 import { isAdminPhone, isPhoneTeste, getAdminPhones } from "@/lib/admin-auth";
 import { notificarAdmins, notificarAdminsComClaim, notificarAssuncaoAtendimento } from "@/lib/admin-notify";
+import { registrarConversa, type TipoConversa } from "@/lib/registrar-conversa";
 import { extrairContextoInicial, formatarConfirmacaoContexto, type ContextoExtraido } from "@/lib/extrair-contexto";
 import { detectarLinkGoogleMaps, resolverGoogleMapsLink } from "@/lib/google-maps-link";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -303,6 +304,27 @@ export async function POST(req: NextRequest) {
         },
       });
       return NextResponse.json({ status: "ignored_invalid_phone" });
+    }
+
+    // BUG #C (5/Mai/2026): conversas_whatsapp ficava sempre vazia. Registra
+    // mensagem recebida pra historico canonico (LGPD/auditoria).
+    // Best-effort: registrarConversa nao bloqueia se falhar.
+    {
+      let tipoConversa: TipoConversa = "text";
+      if (eventType.toLowerCase().includes("image")) tipoConversa = "image";
+      else if (eventType.toLowerCase().includes("audio")) tipoConversa = "audio";
+      else if (eventType.toLowerCase().includes("video")) tipoConversa = "video";
+      else if (eventType.toLowerCase().includes("location")) tipoConversa = "location";
+      else if (eventType.toLowerCase().includes("document")) tipoConversa = "document";
+
+      await registrarConversa({
+        telefone: phoneNumber,
+        direcao: "in",
+        conteudo: message || (tipoConversa === "location" ? `lat=${lat},lng=${lng}` : `[${tipoConversa}]`),
+        tipo: tipoConversa,
+        midia_url: imageUrl,
+        metadata: { instance, push_name: pushName, event_type: eventType },
+      });
     }
 
     // ========================================================
@@ -1155,7 +1177,23 @@ Boa sorte! 🎯`,
     await createSession(phone, instance);
     await updateSession(phone, { step: "aguardando_servico" });
 
-    const primeiroNome = pushName ? pushName.split(" ")[0] : "";
+    // BUG #D (5/Mai/2026): cliente nao era registrado em `clientes` ate
+    // confirmar cotacao (salvarCorrida). Casos reais 5511953731463 e
+    // 5519983355000: conversaram >50 msgs cada, NUNCA salvou cliente —
+    // entao nao era detectado como recorrente, INV-29 falsamente alerta
+    // perda de historico, feature "retorno cliente" nao funcionaria.
+    // Fix: upsert atomico em `clientes` no PRIMEIRO contato (saudacao).
+    // Idempotente — se ja existe, atualiza nome quando PushName chegar.
+    const primeiroNomeBruto = pushName ? pushName.split(" ")[0] : "";
+    const nomeCliente = primeiroNomeBruto && primeiroNomeBruto.length > 1 ? pushName : null;
+    await supabase
+      .from("clientes")
+      .upsert(
+        { telefone: phone, ativo: true, ...(nomeCliente ? { nome: nomeCliente } : {}) },
+        { onConflict: "telefone", ignoreDuplicates: false },
+      );
+
+    const primeiroNome = primeiroNomeBruto;
     const nome = primeiroNome || "voce";
 
     // NOVO: tenta extrair contexto da mensagem inicial via IA.

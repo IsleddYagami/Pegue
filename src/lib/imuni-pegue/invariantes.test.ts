@@ -41,21 +41,16 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
     expect(typeof mod.executarTodasInvariantes).toBe("function");
   });
 
-  it("executarTodasInvariantes retorna 35 invariantes (banco + infra + meta + fluxo venda + atendimento + execucao)", async () => {
-    // Cresce conforme novos invariantes sao adicionados.
-    // 4/Mai/2026 (Onda 2 IMUNI) — INV-24 a INV-27 atacam fluxo de
-    //   venda: cota -> cobra -> executa -> repassa.
-    // 5/Mai/2026 (Onda 3 IMUNI) — INV-28 a INV-31 atacam fluxo de
-    //   atendimento (porta de entrada): bot atropelo, conversas perdidas,
-    //   cliente preso, escalation falhada.
-    // 5/Mai/2026 (Onda 4a IMUNI) — INV-32 a INV-35 atacam fluxo de
-    //   execucao (cotacao → entrega): valor absurdo, cobranca sem
-    //   pagamento, paga sem fretista, aceita sem conclusao.
+  it("executarTodasInvariantes retorna 40 invariantes (todos estagios do fluxo cliente cobertos)", async () => {
+    // 4/Mai (Onda 2): INV-24 a 27 — fluxo de venda
+    // 5/Mai (Onda 3): INV-28 a 31 — fluxo de atendimento (porta entrada)
+    // 5/Mai (Onda 4a): INV-32 a 35 — fluxo de execucao parte 1 (cotacao → pagamento)
+    // 6/Mai (Onda 4b): INV-36 a 40 — fluxo de execucao parte 2 (dispatch → entrega → avaliacao)
     const mod = await import("./invariantes");
 
     const r = await mod.executarTodasInvariantes();
     expect(Array.isArray(r)).toBe(true);
-    expect(r.length).toBe(35);
+    expect(r.length).toBe(40);
   });
 
   it("plugin tem categoria META com 2 invariantes (INV-22, INV-23)", async () => {

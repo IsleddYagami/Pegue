@@ -1196,6 +1196,50 @@ Boa sorte! 🎯`,
     const primeiroNome = primeiroNomeBruto;
     const nome = primeiroNome || "voce";
 
+    // FEATURE RETORNO CLIENTE (5/Mai/2026 — pedido Fabio): se cliente
+    // ja contratou antes (>=1 corrida concluida), pergunta intencao
+    // ANTES de mostrar menu de cotacao. Cliente recorrente pode estar
+    // voltando pra tirar duvida, nao pra cotar — atropelar com menu
+    // ignora isso.
+    //
+    // Decisoes (Fabio default ou minha sugestao):
+    //   - Criterio "recorrente" = ESTRITO: >=1 corrida com status=concluida
+    //   - Opcao "tirar duvida" = A: escala humano direto (notificarAdminsComClaim)
+    //
+    // So aplica em SAUDACAO PURA. Se cliente ja chega com briefing rico
+    // ("queria sofa pra Lapa") = claramente cotacao, segue fluxo IA normal.
+    const ehSaudacaoPuraCheck = isSaudacao(message) && message.trim().length < 30;
+    if (ehSaudacaoPuraCheck) {
+      const { data: clienteRetornou } = await supabase
+        .from("clientes")
+        .select("id")
+        .eq("telefone", phone)
+        .maybeSingle();
+      if (clienteRetornou?.id) {
+        const { count: corridasConcluidas } = await supabase
+          .from("corridas")
+          .select("id", { count: "exact", head: true })
+          .eq("cliente_id", clienteRetornou.id)
+          .eq("status", "concluida");
+        if ((corridasConcluidas || 0) >= 1) {
+          // Cliente recorrente. Pergunta intencao.
+          await updateSession(phone, { step: "aguardando_intencao_retorno" });
+          await sendToClient({
+            to: phone,
+            message: `Oi *${nome}*! 💛 Que bom te ver de volta na Pegue 🚚\n\nO que voce precisa hoje?\n*1*️⃣ Nova cotacao\n*2*️⃣ Tirar duvida com a gente`,
+          });
+          await supabase.from("bot_logs").insert({
+            payload: {
+              tipo: "cliente_retorno_intencao_perguntada",
+              phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+              corridas_anteriores: corridasConcluidas,
+            },
+          });
+          return;
+        }
+      }
+    }
+
     // NOVO: tenta extrair contexto da mensagem inicial via IA.
     // Se cliente ja chega falando "quero sofa pra barra funda", pulamos etapas.
     // Se IA nao detectou ou confianca baixa, cai no fluxo tradicional abaixo.
@@ -1353,6 +1397,10 @@ Boa sorte! 🎯`,
   switch (session.step) {
     case "aguardando_servico":
       await handleEscolhaServico(phone, message);
+      break;
+
+    case "aguardando_intencao_retorno":
+      await handleIntencaoRetorno(phone, message, pushName);
       break;
 
     case "aguardando_localizacao":
@@ -1746,6 +1794,69 @@ async function enviarTutorialLocalizacao(phone: string, textoFallback?: string) 
   } catch {
     await sendToClient({ to: phone, message: caption });
   }
+}
+
+// FEATURE RETORNO CLIENTE (5/Mai/2026 pedido Fabio):
+// Cliente recorrente recebeu pergunta "1 nova cotacao / 2 tirar duvida".
+// Esta funcao trata a resposta dele.
+async function handleIntencaoRetorno(phone: string, message: string, pushName: string) {
+  const lower = message.toLowerCase().trim();
+  const escolheuCotacao =
+    lower === "1" || lower === "1️⃣" ||
+    lower.includes("cotacao") || lower.includes("cotação") ||
+    lower.includes("nova cot") || lower.includes("orcamento") || lower.includes("orçamento");
+  const escolheuDuvida =
+    lower === "2" || lower === "2️⃣" ||
+    lower.includes("duvida") || lower.includes("dúvida") ||
+    lower.includes("tirar duvida") || lower.includes("tirar dúvida") ||
+    lower.includes("falar com") || lower.includes("atendente");
+
+  if (escolheuCotacao) {
+    // Vai pro fluxo padrao de cotacao
+    await updateSession(phone, { step: "aguardando_servico" });
+    const primeiroNome = pushName ? pushName.split(" ")[0] : "voce";
+    await sendToClient({
+      to: phone,
+      message: `Beleza ${primeiroNome}! 🚚\n\nO que voce precisa? *(digite o numero)*\n\n*1*️⃣ Pequenos Fretes\n*2*️⃣ Mudanca completa\n*3*️⃣ Guincho\n*4*️⃣ Duvidas frequentes`,
+    });
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "cliente_retorno_escolheu",
+        phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+        intencao: "cotacao",
+      },
+    });
+    return;
+  }
+
+  if (escolheuDuvida) {
+    // Decisao A: escala humano direto + claim pra admin assumir.
+    // Bot fica calado ate VOLTA IRIS.
+    await updateSession(phone, { step: "atendimento_humano" });
+    await sendToClient({
+      to: phone,
+      message: "💛 Pode mandar sua duvida! Um especialista da Pegue ja vai te responder pessoalmente. Aguarda alguns minutos.",
+    });
+    await notificarAdminsComClaim(
+      "💬 *DUVIDA — CLIENTE RECORRENTE*",
+      phone,
+      `Cliente que ja fez frete antes voltou querendo tirar duvida (nao cotar). Atendimento humano necessario.\n\nPhone: +${phone}\nLink: https://wa.me/${phone}`,
+    );
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "cliente_retorno_escolheu",
+        phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+        intencao: "duvida",
+      },
+    });
+    return;
+  }
+
+  // Nao reconheceu — pede pra escolher 1 ou 2 de novo
+  await sendToClient({
+    to: phone,
+    message: "Nao entendi 🤔\n\nDigite *1* pra nova cotacao ou *2* pra tirar duvida com a gente.",
+  });
 }
 
 // STEP 0: Escolha do servico

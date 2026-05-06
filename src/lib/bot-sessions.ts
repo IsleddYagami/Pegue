@@ -74,7 +74,8 @@ export type BotStep =
   | "fretista_indicar_qual"
   | "fretista_indicar_telefone"
   | "concluido"
-  | "atendimento_humano";
+  | "atendimento_humano"
+  | "aguardando_intencao_retorno";
 
 export interface BotSession {
   phone: string;

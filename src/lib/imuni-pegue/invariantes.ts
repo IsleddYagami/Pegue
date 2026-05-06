@@ -58,6 +58,12 @@ import {
   invPrestadorAltaTaxaReclamacao,
   invPrestadorCancelamentosRepetidos,
 } from "./prestador-checks";
+import {
+  invClusterPresoMesmoStep,
+  invPicoOrigemNaoIdentificada,
+  invIaVisionFalhandoMuito,
+  invDefaultStepDesconhecido,
+} from "./anomalia-checks";
 
 const HORAS_24 = 24 * 60 * 60 * 1000;
 const HORAS_1 = 60 * 60 * 1000;
@@ -724,6 +730,11 @@ export const COBERTURA_INVARIANTES: Record<string, { categoria: "banco" | "infra
   "INV-45": { categoria: "banco", alvo: "corridas (canceladas pos-aceite)", descricao_curta: "fretista cancelou >=3x na semana" },
   // META — Estagio 3 IMUNI (Onda 6 — 6/Mai/2026): IMUNI vigia o smoke E2E
   "INV-46": { categoria: "meta", alvo: "cron imuni-smoke-e2e", descricao_curta: "smoke E2E rodou ok ultimas 8h" },
+  // ANOMALIAS (Onda 8 — 6/Mai/2026): deteccao de desvio de padrao normal
+  "INV-47": { categoria: "banco", alvo: "bot_sessions (cluster)", descricao_curta: "cluster preso no mesmo step (regressao?)" },
+  "INV-48": { categoria: "banco", alvo: "bot_logs (geocoder)", descricao_curta: "pico anormal de origem_nao_identificada" },
+  "INV-49": { categoria: "banco", alvo: "bot_logs (vision)", descricao_curta: "IA Vision com taxa de falha alta" },
+  "INV-50": { categoria: "banco", alvo: "bot_logs (handlers)", descricao_curta: "muitas mensagens em step_desconhecido" },
 };
 
 // === TABELAS CRITICAS DO DOMINIO PEGUE ===
@@ -803,6 +814,11 @@ export const pluginPegue: PluginImuni = {
     invPrestadorScoreBaixoAtivo,
     invPrestadorAltaTaxaReclamacao,
     invPrestadorCancelamentosRepetidos,
+    // === ANOMALIAS (deteccao de desvio de padrao — Onda 8 6/Mai/2026) ===
+    invClusterPresoMesmoStep,
+    invPicoOrigemNaoIdentificada,
+    invIaVisionFalhandoMuito,
+    invDefaultStepDesconhecido,
   ],
 };
 

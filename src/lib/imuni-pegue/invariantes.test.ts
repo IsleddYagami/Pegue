@@ -41,19 +41,19 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
     expect(typeof mod.executarTodasInvariantes).toBe("function");
   });
 
-  it("executarTodasInvariantes retorna 46 invariantes (estagio 3 IMUNI ativado)", async () => {
+  it("executarTodasInvariantes retorna 50 invariantes (cobertura completa)", async () => {
     // 4/Mai (Onda 2): INV-24 a 27 — fluxo de venda
-    // 5/Mai (Onda 3): INV-28 a 31 — fluxo de atendimento (porta entrada)
-    // 5/Mai (Onda 4a): INV-32 a 35 — fluxo de execucao parte 1 (cotacao → pagamento)
-    // 6/Mai (Onda 4b): INV-36 a 40 — fluxo de execucao parte 2 (dispatch → entrega → avaliacao)
+    // 5/Mai (Onda 3): INV-28 a 31 — fluxo de atendimento
+    // 5/Mai (Onda 4a): INV-32 a 35 — fluxo de execucao P1 (cotacao → pagamento)
+    // 6/Mai (Onda 4b): INV-36 a 40 — fluxo de execucao P2 (dispatch → entrega)
     // 6/Mai (Onda 5): INV-41 a 45 — fluxo do prestador
     // 6/Mai (Onda 6): INV-46 — meta estagio 3 (smoke E2E watchdog)
-    //   + cron imuni-smoke-e2e ativando o ESTAGIO 3 da IMUNI (executor de testes)
+    // 6/Mai (Onda 8): INV-47 a 50 — deteccao de anomalia (cluster, pico, IA, fallback)
     const mod = await import("./invariantes");
 
     const r = await mod.executarTodasInvariantes();
     expect(Array.isArray(r)).toBe(true);
-    expect(r.length).toBe(46);
+    expect(r.length).toBe(50);
   });
 
   it("plugin tem categoria META com 3 invariantes (INV-22, INV-23, INV-46)", async () => {

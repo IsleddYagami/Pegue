@@ -37,6 +37,12 @@ import {
   invClientePresoEmColeta,
   invOrigemNaoIdentificadaSemEscalation,
 } from "./atendimento-checks";
+import {
+  invCorridaValorAbsurdo,
+  invCorridaPendenteSemPagamento,
+  invPagaSemDispatchAceito,
+  invAceitaSemConclusao,
+} from "./fluxo-execucao-checks";
 
 const HORAS_24 = 24 * 60 * 60 * 1000;
 const HORAS_1 = 60 * 60 * 1000;
@@ -684,6 +690,11 @@ export const COBERTURA_INVARIANTES: Record<string, { categoria: "banco" | "infra
   "INV-29": { categoria: "banco", alvo: "bot_sessions + conversas_whatsapp", descricao_curta: "historico de conversa nao salvo" },
   "INV-30": { categoria: "banco", alvo: "bot_sessions", descricao_curta: "cliente preso em coleta de dados >30min" },
   "INV-31": { categoria: "banco", alvo: "bot_logs + bot_sessions", descricao_curta: "origem_nao_identificada >=2x sem escalar humano" },
+  // FLUXO DE EXECUCAO (Onda 4a — 5/Mai/2026): cotacao -> entrega
+  "INV-32": { categoria: "banco", alvo: "corridas (valor_estimado)", descricao_curta: "corrida cobrada com valor absurdo" },
+  "INV-33": { categoria: "banco", alvo: "corridas + Asaas", descricao_curta: "cobranca gerada >24h sem pagamento" },
+  "INV-34": { categoria: "banco", alvo: "corridas (status=paga + prestador)", descricao_curta: "cliente pagou >5min sem fretista aceitar" },
+  "INV-35": { categoria: "banco", alvo: "corridas (status=aceita)", descricao_curta: "frete em andamento eterno >2h" },
 };
 
 // === TABELAS CRITICAS DO DOMINIO PEGUE ===
@@ -745,6 +756,11 @@ export const pluginPegue: PluginImuni = {
     invConversasWhatsappVazia,
     invClientePresoEmColeta,
     invOrigemNaoIdentificadaSemEscalation,
+    // === FLUXO DE EXECUCAO (cotacao → entrega — Onda 4a 5/Mai/2026) ===
+    invCorridaValorAbsurdo,
+    invCorridaPendenteSemPagamento,
+    invPagaSemDispatchAceito,
+    invAceitaSemConclusao,
   ],
 };
 

@@ -41,19 +41,21 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
     expect(typeof mod.executarTodasInvariantes).toBe("function");
   });
 
-  it("executarTodasInvariantes retorna 31 invariantes (banco + infra + meta + fluxo + atendimento)", async () => {
+  it("executarTodasInvariantes retorna 35 invariantes (banco + infra + meta + fluxo venda + atendimento + execucao)", async () => {
     // Cresce conforme novos invariantes sao adicionados.
     // 4/Mai/2026 (Onda 2 IMUNI) — INV-24 a INV-27 atacam fluxo de
     //   venda: cota -> cobra -> executa -> repassa.
     // 5/Mai/2026 (Onda 3 IMUNI) — INV-28 a INV-31 atacam fluxo de
     //   atendimento (porta de entrada): bot atropelo, conversas perdidas,
-    //   cliente preso, escalation falhada. Disparado pelos bugs reais
-    //   dos clientes 5511953731463 e 5519983355000.
+    //   cliente preso, escalation falhada.
+    // 5/Mai/2026 (Onda 4a IMUNI) — INV-32 a INV-35 atacam fluxo de
+    //   execucao (cotacao → entrega): valor absurdo, cobranca sem
+    //   pagamento, paga sem fretista, aceita sem conclusao.
     const mod = await import("./invariantes");
 
     const r = await mod.executarTodasInvariantes();
     expect(Array.isArray(r)).toBe(true);
-    expect(r.length).toBe(31);
+    expect(r.length).toBe(35);
   });
 
   it("plugin tem categoria META com 2 invariantes (INV-22, INV-23)", async () => {

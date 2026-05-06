@@ -34,19 +34,26 @@ const digits = phoneArg.replace(/\D/g, "");
 const phone = digits.length === 11 ? "55" + digits : digits;
 
 const instance = instanceArg === 2 ? 2 : 1;
-const CHATPRO_INSTANCE = instance === 2
-  ? process.env.CHATPRO_INSTANCE_2
-  : process.env.CHATPRO_INSTANCE;
-const CHATPRO_TOKEN = instance === 2
-  ? process.env.CHATPRO_TOKEN_2
-  : process.env.CHATPRO_TOKEN;
-
-if (!CHATPRO_INSTANCE || !CHATPRO_TOKEN) {
-  console.error(`ChatPro instance=${instance} nao configurada (env vars CHATPRO_INSTANCE${instance === 2 ? "_2" : ""} / CHATPRO_TOKEN${instance === 2 ? "_2" : ""})`);
-  process.exit(1);
+// Instance 1 usa CHATPRO_ENDPOINT (URL completa) + CHATPRO_TOKEN
+// Instance 2 usa CHATPRO_INSTANCE_2 (so o ID, montamos URL) + CHATPRO_TOKEN_2
+let endpoint;
+let token;
+if (instance === 2) {
+  const inst2 = process.env.CHATPRO_INSTANCE_2;
+  token = process.env.CHATPRO_TOKEN_2;
+  if (!inst2 || !token) {
+    console.error("Pegue 2 nao configurado (CHATPRO_INSTANCE_2 / CHATPRO_TOKEN_2)");
+    process.exit(1);
+  }
+  endpoint = `https://v5.chatpro.com.br/${inst2}`;
+} else {
+  endpoint = process.env.CHATPRO_ENDPOINT;
+  token = process.env.CHATPRO_TOKEN;
+  if (!endpoint || !token) {
+    console.error("Pegue 1 nao configurado (CHATPRO_ENDPOINT / CHATPRO_TOKEN)");
+    process.exit(1);
+  }
 }
-
-const endpoint = `https://v5.chatpro.com.br/${CHATPRO_INSTANCE}`;
 
 console.log(`\n→ Enviando pra ${phone} via Pegue ${instance}`);
 console.log(`  Mensagem (${messageArg.length} chars):`);
@@ -55,7 +62,7 @@ console.log("");
 
 const r = await fetch(`${endpoint}/api/v1/send_message`, {
   method: "POST",
-  headers: { "Content-Type": "application/json", Authorization: CHATPRO_TOKEN },
+  headers: { "Content-Type": "application/json", Authorization: token },
   body: JSON.stringify({ number: phone, message: messageArg }),
 });
 

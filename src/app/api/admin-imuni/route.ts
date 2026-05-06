@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { requireAdminAuth } from "@/lib/admin-auth";
 import { executarPlugin, classificar } from "@/lib/imuni/runner";
-import { pluginPegue } from "@/lib/imuni-pegue/invariantes";
+import {
+  pluginPegue,
+  COBERTURA_INVARIANTES,
+  TABELAS_CRITICAS_PEGUE,
+} from "@/lib/imuni-pegue/invariantes";
 import {
   calcularScore,
   tempoDesdeUltimoIncidente,
@@ -10,6 +14,8 @@ import {
   tendenciaSemanal,
   heatmapPorDiaSemana,
   heatmapPorHora,
+  historicoDeteccoesPorSentinela,
+  coverageMap,
   type ExecucaoHistorica,
 } from "@/lib/imuni/analytics";
 
@@ -73,23 +79,34 @@ export async function GET(req: NextRequest) {
   const heatmapDia = heatmapPorDiaSemana(execucoes);
   const heatmapHora = heatmapPorHora(execucoes);
 
-  // 4) Saude por categoria. Inferida pelo prefixo do nome:
-  //    INV-1 a INV-11 = banco; INV-12 a INV-16 = infra.
-  const detalhes = stats; // ja calculado
-  const banco = resultados.filter((r) => {
-    const num = parseInt(r.nome.replace("INV-", ""));
-    return num >= 1 && num <= 11;
-  });
-  const infra = resultados.filter((r) => {
-    const num = parseInt(r.nome.replace("INV-", ""));
-    return num >= 12;
-  });
+  // 4) Saude por categoria. Antes era inferida por prefixo numerico
+  //    (INV-1..11=banco, 12+=infra), o que quebrou quando META entrou
+  //    (INV-22 e INV-23 caiam errado em INFRA). Agora usa o mapa
+  //    COBERTURA_INVARIANTES como fonte de verdade.
+  const banco = resultados.filter((r) => COBERTURA_INVARIANTES[r.nome]?.categoria === "banco");
+  const infra = resultados.filter((r) => COBERTURA_INVARIANTES[r.nome]?.categoria === "infra");
+  const meta = resultados.filter((r) => COBERTURA_INVARIANTES[r.nome]?.categoria === "meta");
 
   function scoreCategoria(arr: typeof resultados): { saudaveis: number; total: number; pct: number } {
     const total = arr.length || 1;
     const saudaveis = arr.filter((r) => r.ok).length;
     return { saudaveis, total: arr.length, pct: Math.round((saudaveis / total) * 100) };
   }
+
+  // 5) Historico real de deteccoes por sentinela (ult 90d) — prova que
+  //    cada sentinela ja pegou bug de verdade alguma vez. Junta com
+  //    metadata de cobertura pra UI saber descricao curta.
+  const historicoDeteccoes = historicoDeteccoesPorSentinela(execucoes);
+  const deteccoesEnriquecidas = Object.entries(historicoDeteccoes).map(([nome, d]) => ({
+    nome,
+    ...d,
+    descricao_curta: COBERTURA_INVARIANTES[nome]?.descricao_curta || "",
+    alvo: COBERTURA_INVARIANTES[nome]?.alvo || "",
+  }));
+
+  // 6) Coverage map — quais tabelas criticas estao cobertas por algum
+  //    invariante e quais sao gap.
+  const coverage = coverageMap(TABELAS_CRITICAS_PEGUE, COBERTURA_INVARIANTES);
 
   return NextResponse.json({
     plugin: pluginPegue.dominio,
@@ -116,7 +133,14 @@ export async function GET(req: NextRequest) {
     saude_por_categoria: {
       banco: scoreCategoria(banco),
       infra: scoreCategoria(infra),
+      meta: scoreCategoria(meta),
     },
+
+    // === HISTORICO REAL DE DETECCOES (prova de funcionamento) ===
+    historico_deteccoes_por_sentinela: deteccoesEnriquecidas,
+
+    // === COVERAGE MAP (gaps de cobertura) ===
+    coverage_map: coverage,
 
     // === TENDENCIA ===
     tendencia_semanal: tendencia,
@@ -140,13 +164,15 @@ export async function GET(req: NextRequest) {
     },
 
     // === CAMADAS ===
+    // Numero de sentinelas dinamico (acompanha plugin), nao mais hardcoded.
     camadas: [
       { id: "1", nome: "Supabase types", status: "ativa" },
       { id: "1B", nome: "ESLint plugin (3 regras)", status: "ativa" },
-      { id: "2", nome: "Testes regressivos (450)", status: "ativa" },
-      { id: "3", nome: "Cron invariantes (16)", status: "ativa" },
+      { id: "2", nome: "Testes regressivos", status: "ativa" },
+      { id: "3", nome: `Cron invariantes (${pluginPegue.invariantes.length} sentinelas)`, status: "ativa" },
       { id: "4", nome: "Pre-commit hook", status: "ativa" },
       { id: "5", nome: "Sentry + alertas WhatsApp", status: "ativa" },
+      { id: "6", nome: "META — IMUNI vigia IMUNI (watchdog + self-test)", status: "ativa" },
     ],
   });
 }

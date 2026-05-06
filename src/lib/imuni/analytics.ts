@@ -251,3 +251,76 @@ export function heatmapPorHora(execucoes: ExecucaoHistorica[]): number[] {
 export function totalExecucoes(execucoes: ExecucaoHistorica[]): number {
   return execucoes.length;
 }
+
+/**
+ * Historico real de deteccoes por sentinela.
+ *
+ * Adicionado 4/Mai/2026 (Onda 1 IMUNI) — proposta "provas reais e nao
+ * maquiagem". Mostra pra cada sentinela: quantas vezes detectou bug
+ * em prod historicamente E quando foi a ultima deteccao concreta. Sem
+ * isso, dashboard vira fe ("ela vigia") em vez de prova ("ela ja pegou
+ * bug X em DD/MM").
+ *
+ * Implementacao: percorre execucoes (cada uma eh uma rodada do cron),
+ * varre o sumario, conta cada vez que `ok=false` (deteccao real). Para
+ * cada nome, guarda a primeira ocorrencia encontrada (execucoes vem
+ * ordenadas desc, entao essa eh a MAIS RECENTE).
+ *
+ * Retorna mapa nome -> { total_deteccoes, ultima_deteccao_em, severidade }.
+ * Sentinelas que nunca detectaram nada NAO aparecem (nao queremos ruido
+ * "0 vezes" na UI — seriam todas inicialmente).
+ */
+export function historicoDeteccoesPorSentinela(
+  execucoes: ExecucaoHistorica[],
+): Record<string, { total_deteccoes: number; ultima_deteccao_em: string; severidade: Severidade }> {
+  const mapa: Record<string, { total_deteccoes: number; ultima_deteccao_em: string; severidade: Severidade }> = {};
+  for (const e of execucoes) {
+    for (const s of e.payload.sumario || []) {
+      if (!s.ok) {
+        if (!mapa[s.nome]) {
+          // Primeira vez que vejo esse nome — execucoes vem ordenadas desc,
+          // logo esta eh a deteccao mais recente.
+          mapa[s.nome] = {
+            total_deteccoes: 1,
+            ultima_deteccao_em: e.criado_em,
+            severidade: s.severidade,
+          };
+        } else {
+          mapa[s.nome].total_deteccoes++;
+        }
+      }
+    }
+  }
+  return mapa;
+}
+
+/**
+ * Coverage map: cruza lista de tabelas/superficies criticas com
+ * dicionario de cobertura por invariante.
+ *
+ * Adicionado 4/Mai/2026 (Onda 1 IMUNI). Mostra de cara quais tabelas
+ * criticas ESTAO cobertas por algum invariante e quais NAO ESTAO. Gap
+ * de cobertura eh sinal pra adicionar invariante.
+ *
+ * `cobertura[nomeInvariante] = { categoria, alvo, descricao_curta }`.
+ * O `alvo` pode listar 1 ou mais tabelas separadas por " + " (ex:
+ * "corridas + pagamentos") ou ser uma superficie logica (ex:
+ * "headers HTTP / CSP"). Funcao usa heuristica de substring pra
+ * detectar match (case-insensitive).
+ *
+ * Retorna lista ordenada: tabelas cobertas primeiro, gaps depois.
+ */
+export function coverageMap(
+  tabelasCriticas: string[],
+  cobertura: Record<string, { categoria: string; alvo: string; descricao_curta: string }>,
+): { tabela: string; cobertaPor: string[]; coberta: boolean }[] {
+  const entradas = Object.entries(cobertura);
+  const resultado = tabelasCriticas.map((tabela) => {
+    const cobertaPor = entradas
+      .filter(([_, info]) => info.alvo.toLowerCase().includes(tabela.toLowerCase()))
+      .map(([nome]) => nome);
+    return { tabela, cobertaPor, coberta: cobertaPor.length > 0 };
+  });
+  // Gaps primeiro pra chamar atencao na UI
+  return resultado.sort((a, b) => Number(a.coberta) - Number(b.coberta));
+}

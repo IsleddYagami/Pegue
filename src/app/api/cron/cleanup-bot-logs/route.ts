@@ -35,6 +35,13 @@ const TIPOS_PRESERVADOS = [
   "placa_duplicada_detectada",      // anti-fraude
   "credito_corrida_anterior_aplicado", // ledger de credito
   "avaliacao_consolidada_ok",       // historico de NPS
+  // === IMUNI: provas reais de funcionamento ===
+  // Adicionado 4/Mai/2026 (Onda 1 IMUNI): historico de execucao do
+  // cron de invariantes eh prova de que IMUNI rodou. Sem ele, dashboard
+  // "ultima deteccao real por sentinela" mente apos 30d. Eh tambem o que
+  // o INV-22 (watchdog cron-alive) usa como fonte de verdade.
+  "auditoria_invariantes_executada",
+  "imuni_self_test_alertador",      // canario do INV-23 (self-test alertador)
 ];
 
 export async function GET(req: NextRequest) {

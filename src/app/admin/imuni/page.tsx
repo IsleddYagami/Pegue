@@ -40,7 +40,18 @@ interface ImuniData {
   saude_por_categoria: {
     banco: { saudaveis: number; total: number; pct: number };
     infra: { saudaveis: number; total: number; pct: number };
+    meta: { saudaveis: number; total: number; pct: number };
   };
+  // Adicionado 4/Mai/2026 — Onda 1 IMUNI
+  historico_deteccoes_por_sentinela: {
+    nome: string;
+    total_deteccoes: number;
+    ultima_deteccao_em: string;
+    severidade: "alta" | "media" | "baixa";
+    descricao_curta: string;
+    alvo: string;
+  }[];
+  coverage_map: { tabela: string; cobertaPor: string[]; coberta: boolean }[];
   tendencia_semanal: {
     semanaAtual: number;
     semanaAnterior: number;
@@ -428,7 +439,7 @@ export default function ImuniDashboard() {
           </div>
 
           {/* === ÁREAS DO CORPO === */}
-          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
             <AreaCorpo
               icone="🫀"
               nome="Sistema circulatório"
@@ -449,6 +460,113 @@ export default function ImuniDashboard() {
               total={data.saude_por_categoria.infra.total}
               modoTecnico={modoTecnico}
             />
+            {/* Adicionada 4/Mai/2026 (Onda 1 IMUNI). Categoria META =
+                IMUNI vigiando IMUNI: cron-alive, self-test alertador.
+                Sem isso, IMUNI poderia estar morta sem ninguem perceber. */}
+            <AreaCorpo
+              icone="🛡️"
+              nome="Sistema imunitário"
+              descricao_humana="Eu mesma — vigio se eu continuo viva e meus alertas chegam"
+              descricao_tec="META: watchdog cron-alive (INV-22) + self-test alertador (INV-23)"
+              pct={data.saude_por_categoria.meta?.pct ?? 0}
+              saudaveis={data.saude_por_categoria.meta?.saudaveis ?? 0}
+              total={data.saude_por_categoria.meta?.total ?? 0}
+              modoTecnico={modoTecnico}
+            />
+          </div>
+
+          {/* === PROVAS REAIS DE FUNCIONAMENTO === */}
+          {/* Adicionado 4/Mai/2026 (Onda 1 IMUNI). Mostra que cada
+              sentinela ja detectou bug REAL em prod alguma vez —
+              transforma "tem 23 sentinelas vigiando" (fe) em "INV-X
+              detectou bug em DD/MM" (prova). */}
+          <div className="mb-6 rounded-2xl border border-[#C9A84C]/20 bg-[#0B0B0C] p-6">
+            <h2 className="mb-2 flex items-center gap-2 text-lg font-bold">
+              🩺 Provas reais — sentinelas que ja salvaram o sistema
+            </h2>
+            <p className="mb-4 text-xs text-gray-500">
+              Cada linha aqui eh uma vez que uma sentinela detectou um bug de verdade
+              (ultimos 90 dias). Sentinelas que nunca detectaram nada nao aparecem —
+              isso eh prova de que as outras camadas {`(`}testes, anticorpos{`)`} ja seguraram antes.
+            </p>
+            {data.historico_deteccoes_por_sentinela.length === 0 ? (
+              <div className="rounded-xl border border-green-700/30 bg-green-900/10 p-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🌿</span>
+                  <p className="text-sm text-gray-300">
+                    Nenhuma sentinela precisou disparar nos ultimos 90 dias.
+                    {" "}<span className="text-gray-500">{`(`}corpo saudavel — mas estou vigiando 24h{`)`}.</span>
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {data.historico_deteccoes_por_sentinela
+                  .sort((a, b) => new Date(b.ultima_deteccao_em).getTime() - new Date(a.ultima_deteccao_em).getTime())
+                  .map((d) => (
+                    <div key={d.nome} className="flex flex-wrap items-center gap-3 rounded-lg bg-black/40 p-3">
+                      <span className="text-lg">{d.severidade === "alta" ? "🔴" : "🟡"}</span>
+                      {modoTecnico && (
+                        <span className="rounded bg-gray-800 px-2 py-0.5 font-mono text-xs text-gray-400">
+                          {d.nome}
+                        </span>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-200">{d.descricao_curta || d.nome}</p>
+                        {modoTecnico && d.alvo && (
+                          <p className="text-xs text-gray-600">alvo: {d.alvo}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-[#C9A84C]">
+                          {d.total_deteccoes}× {d.total_deteccoes === 1 ? "vez" : "vezes"}
+                        </p>
+                        <p className="text-xs text-gray-500" title={new Date(d.ultima_deteccao_em).toLocaleString("pt-BR")}>
+                          ultima: {tempoRelativo(d.ultima_deteccao_em, agora)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+
+          {/* === COVERAGE MAP === */}
+          {/* Adicionado 4/Mai/2026 (Onda 1 IMUNI). Cruza tabelas criticas
+              do dominio com sentinelas que as cobrem. Gaps {`=`} candidatos
+              a invariante nova. */}
+          <div className="mb-6 rounded-2xl border border-[#C9A84C]/20 bg-[#0B0B0C] p-6">
+            <h2 className="mb-2 flex items-center gap-2 text-lg font-bold">
+              🗺️ Mapa de cobertura — tabelas criticas vs sentinelas
+            </h2>
+            <p className="mb-4 text-xs text-gray-500">
+              Cada tabela critica do sistema deveria ter pelo menos 1 sentinela vigiando.
+              Tabelas em vermelho sao GAPS de cobertura — candidatas a invariante nova.
+            </p>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              {data.coverage_map.map((c) => (
+                <div
+                  key={c.tabela}
+                  className={`flex items-start gap-3 rounded-lg p-3 ${
+                    c.coberta ? "bg-black/40" : "border border-red-700/30 bg-red-900/10"
+                  }`}
+                >
+                  <span className="text-lg">{c.coberta ? "✅" : "🔴"}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-mono text-sm ${c.coberta ? "text-gray-200" : "text-red-300"}`}>
+                      {c.tabela}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {c.coberta ? (
+                        <>coberta por {c.cobertaPor.join(", ")}</>
+                      ) : (
+                        <span className="text-red-400">sem sentinela vigiando — gap</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* === MEU SISTEMA IMUNOLÓGICO === */}

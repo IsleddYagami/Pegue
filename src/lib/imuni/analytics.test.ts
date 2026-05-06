@@ -8,7 +8,14 @@
 // Esses testes blindam contra regressoes da fórmula.
 
 import { describe, it, expect } from "vitest";
-import { calcularScore, tendenciaSemanal, type ExecucaoHistorica, type SumarioAoVivo } from "./analytics";
+import {
+  calcularScore,
+  tendenciaSemanal,
+  historicoDeteccoesPorSentinela,
+  coverageMap,
+  type ExecucaoHistorica,
+  type SumarioAoVivo,
+} from "./analytics";
 
 const sentinela = (ok: boolean, severidade: "alta" | "media" | "baixa" = "alta") => ({
   nome: "INV-X",
@@ -191,5 +198,115 @@ describe("tendenciaSemanal — silencia quando dados sao insuficientes", () => {
     const t = tendenciaSemanal(exs);
     expect(t.rumo).toBe("igual");
     expect(t.delta_pct).toBe(0);
+  });
+});
+
+// === ONDA 1 IMUNI (4/Mai/2026) ===
+// Testes das duas funcoes novas de "provas reais" — historico de
+// deteccoes e coverage map. Garantem que dashboard nao mente.
+
+describe("historicoDeteccoesPorSentinela — prova de funcionamento", () => {
+  const ts = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000).toISOString();
+
+  function execComDetalhe(
+    quandoH: number,
+    sumario: { nome: string; ok: boolean; severidade: "alta" | "media" | "baixa" }[],
+  ): ExecucaoHistorica {
+    return {
+      criado_em: ts(quandoH),
+      payload: { sumario: sumario.map((s) => ({ ...s, count: s.ok ? 0 : 1 })) },
+    };
+  }
+
+  it("sem execucoes: mapa vazio", () => {
+    const r = historicoDeteccoesPorSentinela([]);
+    expect(r).toEqual({});
+  });
+
+  it("execucoes todas limpas: mapa vazio (nao polui com '0 deteccoes')", () => {
+    const exs = [
+      execComDetalhe(1, [{ nome: "INV-1", ok: true, severidade: "alta" }]),
+      execComDetalhe(24, [{ nome: "INV-1", ok: true, severidade: "alta" }]),
+    ];
+    const r = historicoDeteccoesPorSentinela(exs);
+    expect(r).toEqual({});
+  });
+
+  it("INV-X detectou bug em 2 patrulhas: total=2, ultima eh a mais recente", () => {
+    // execucoes vem ordenadas DESC do banco — 1h atras, depois 24h atras
+    const exs = [
+      execComDetalhe(1, [{ nome: "INV-X", ok: false, severidade: "alta" }]),
+      execComDetalhe(24, [{ nome: "INV-X", ok: false, severidade: "alta" }]),
+      execComDetalhe(48, [{ nome: "INV-X", ok: true, severidade: "alta" }]),
+    ];
+    const r = historicoDeteccoesPorSentinela(exs);
+    expect(r["INV-X"].total_deteccoes).toBe(2);
+    // A primeira ocorrencia encontrada (varre desc) eh a mais recente
+    expect(new Date(r["INV-X"].ultima_deteccao_em).getTime()).toBeGreaterThan(
+      Date.now() - 2 * 60 * 60 * 1000,
+    );
+    expect(r["INV-X"].severidade).toBe("alta");
+  });
+
+  it("varias sentinelas misturadas: agrupa corretamente", () => {
+    const exs = [
+      execComDetalhe(1, [
+        { nome: "INV-A", ok: false, severidade: "alta" },
+        { nome: "INV-B", ok: true, severidade: "media" },
+      ]),
+      execComDetalhe(24, [
+        { nome: "INV-A", ok: false, severidade: "alta" },
+        { nome: "INV-B", ok: false, severidade: "media" },
+      ]),
+    ];
+    const r = historicoDeteccoesPorSentinela(exs);
+    expect(r["INV-A"].total_deteccoes).toBe(2);
+    expect(r["INV-B"].total_deteccoes).toBe(1);
+    expect(r["INV-B"].severidade).toBe("media");
+  });
+});
+
+describe("coverageMap — gaps de cobertura", () => {
+  const cobertura = {
+    "INV-1": { categoria: "banco", alvo: "corridas + pagamentos", descricao_curta: "concluidas sem pagamento" },
+    "INV-2": { categoria: "banco", alvo: "prestadores", descricao_curta: "sem PIX" },
+    "INV-12": { categoria: "infra", alvo: "headers HTTP / Permissions-Policy", descricao_curta: "geo bloqueada" },
+  };
+
+  it("tabela com cobertura: marca como coberta e lista qual sentinela", () => {
+    const r = coverageMap(["corridas"], cobertura);
+    expect(r[0].coberta).toBe(true);
+    expect(r[0].cobertaPor).toContain("INV-1");
+  });
+
+  it("tabela SEM cobertura: marca como gap (red flag)", () => {
+    const r = coverageMap(["clientes"], cobertura);
+    expect(r[0].coberta).toBe(false);
+    expect(r[0].cobertaPor).toEqual([]);
+  });
+
+  it("uma tabela coberta por 2 invariantes diferentes", () => {
+    const cobertura2 = {
+      ...cobertura,
+      "INV-3": { categoria: "banco", alvo: "pagamentos", descricao_curta: "outra coisa" },
+    };
+    const r = coverageMap(["pagamentos"], cobertura2);
+    expect(r[0].cobertaPor.sort()).toEqual(["INV-1", "INV-3"]);
+  });
+
+  it("ordena com gaps primeiro (chamar atencao na UI)", () => {
+    const r = coverageMap(["corridas", "clientes"], cobertura);
+    // gap "clientes" vem primeiro
+    expect(r[0].tabela).toBe("clientes");
+    expect(r[0].coberta).toBe(false);
+    expect(r[1].coberta).toBe(true);
+  });
+
+  it("case-insensitive (case do alvo nao importa)", () => {
+    const cob = {
+      "INV-X": { categoria: "banco", alvo: "CORRIDAS", descricao_curta: "..." },
+    };
+    const r = coverageMap(["corridas"], cob);
+    expect(r[0].coberta).toBe(true);
   });
 });

@@ -130,7 +130,7 @@ export async function notificarAssuncaoAtendimento(
   const phones = getAdminPhones();
   if (phones.length === 0) return 0;
 
-  const operadorPhone = instance === 1
+  const operadorPhoneRaw = instance === 1
     ? (process.env.PEGUE_INSTANCE_1_ADMIN_PHONE || "").trim()
     : (process.env.PEGUE_INSTANCE_2_ADMIN_PHONE || "").trim();
 
@@ -138,10 +138,17 @@ export async function notificarAssuncaoAtendimento(
     ? (process.env.PEGUE_INSTANCE_1_NAME || "Pegue 1").trim()
     : (process.env.PEGUE_INSTANCE_2_NAME || "Pegue 2").trim();
 
+  // Comparacao ROBUSTA por digitos finais — admin pode estar configurado com
+  // ou sem DDI 55. Ex: ADMIN_PHONES="5511972429605" e
+  // PEGUE_INSTANCE_1_ADMIN_PHONE="11972429605" devem casar (e nao casavam
+  // antes — operador recebia notificacao de si mesmo).
+  const normalizar = (p: string) => p.replace(/\D/g, "").replace(/^55/, "");
+  const operadorNorm = normalizar(operadorPhoneRaw);
+
   // Filtra: nao notifica o proprio operador (se mapeado).
   // Outros admins (incluindo nao-mapeados) recebem.
-  const destinatarios = operadorPhone
-    ? phones.filter((p) => p !== operadorPhone)
+  const destinatarios = operadorNorm
+    ? phones.filter((p) => normalizar(p) !== operadorNorm)
     : phones;
 
   if (destinatarios.length === 0) {

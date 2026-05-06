@@ -50,6 +50,13 @@ import {
   invEntregaSemProvaDigital,
   invConcluidaSemAvaliacao,
 } from "./fluxo-execucao2-checks";
+import {
+  invPrestadorAprovacaoTravada,
+  invPrestadorSemOfertas,
+  invPrestadorScoreBaixoAtivo,
+  invPrestadorAltaTaxaReclamacao,
+  invPrestadorCancelamentosRepetidos,
+} from "./prestador-checks";
 
 const HORAS_24 = 24 * 60 * 60 * 1000;
 const HORAS_1 = 60 * 60 * 1000;
@@ -708,6 +715,12 @@ export const COBERTURA_INVARIANTES: Record<string, { categoria: "banco" | "infra
   "INV-38": { categoria: "banco", alvo: "corridas + rastreio_localizacoes", descricao_curta: "GPS parado >15min em frete em andamento" },
   "INV-39": { categoria: "banco", alvo: "corridas + provas_digitais", descricao_curta: "entrega concluida sem foto de prova" },
   "INV-40": { categoria: "banco", alvo: "corridas + avaliacoes", descricao_curta: "concluida >24h sem avaliacao do cliente" },
+  // FLUXO DO PRESTADOR (Onda 5 — 6/Mai/2026): cadastro -> aprovacao -> ativo -> qualidade
+  "INV-41": { categoria: "banco", alvo: "prestadores (status=pendente)", descricao_curta: "aprovacao travada >5d" },
+  "INV-42": { categoria: "banco", alvo: "prestadores + corridas", descricao_curta: "prestador disponivel sem ofertas >7d" },
+  "INV-43": { categoria: "banco", alvo: "prestadores (score)", descricao_curta: "score <3.5 ainda ativo" },
+  "INV-44": { categoria: "banco", alvo: "prestadores (reclamacoes)", descricao_curta: "taxa reclamacoes >=20%" },
+  "INV-45": { categoria: "banco", alvo: "corridas (canceladas pos-aceite)", descricao_curta: "fretista cancelou >=3x na semana" },
 };
 
 // === TABELAS CRITICAS DO DOMINIO PEGUE ===
@@ -780,6 +793,12 @@ export const pluginPegue: PluginImuni = {
     invRastreioGpsParado,
     invEntregaSemProvaDigital,
     invConcluidaSemAvaliacao,
+    // === FLUXO DO PRESTADOR (cadastro → aprovacao → ativo → qualidade — Onda 5 6/Mai/2026) ===
+    invPrestadorAprovacaoTravada,
+    invPrestadorSemOfertas,
+    invPrestadorScoreBaixoAtivo,
+    invPrestadorAltaTaxaReclamacao,
+    invPrestadorCancelamentosRepetidos,
   ],
 };
 

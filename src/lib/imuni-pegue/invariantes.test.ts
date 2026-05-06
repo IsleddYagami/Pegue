@@ -6,31 +6,29 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 //
 // Mock supabase-admin pra evitar erro de env var ausente em test environment.
 
-vi.mock("@/lib/supabase-admin", () => ({
-  supabaseAdmin: {
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          gte: () => ({ data: [], error: null }),
-          is: () => ({ data: [], error: null }),
-          lt: () => ({ data: [], error: null }),
-          or: () => ({ data: [], error: null }),
-        }),
-        is: () => ({
-          lt: () => ({ data: [], error: null }),
-        }),
-        not: () => ({
-          eq: () => ({ data: [], error: null }),
-        }),
-        filter: () => ({
-          lt: () => ({ limit: () => ({ data: [], error: null }) }),
-        }),
-        or: () => ({ data: [], error: null }),
-      }),
-      insert: () => ({ data: null, error: null }),
-    }),
-  },
-}));
+// Mock chain do Supabase. Cada metodo retorna `chain` (mesmo objeto)
+// pra suportar qualquer ordem de chamada. Terminal sao `data`/`error`
+// — funcionam como `await` quando .then eh acessado.
+//
+// Estendido em 4/Mai/2026 (Onda 1 IMUNI) pra cobrir `.order().limit()`
+// usado em INV-22 (watchdog) e INV-23 (self-test).
+vi.mock("@/lib/supabase-admin", () => {
+  const empty = { data: [], error: null };
+  // Make a chainable that resolves to empty
+  const chain: any = new Proxy(empty, {
+    get(target: any, prop: string) {
+      if (prop === "data" || prop === "error" || prop === "then") {
+        return target[prop];
+      }
+      return () => chain;
+    },
+  });
+  return {
+    supabaseAdmin: {
+      from: () => chain,
+    },
+  };
+});
 
 describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
   beforeEach(() => {
@@ -43,15 +41,55 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
     expect(typeof mod.executarTodasInvariantes).toBe("function");
   });
 
-  it("executarTodasInvariantes retorna array com 21 invariantes (banco + infra)", async () => {
-    // Cresce conforme novos invariantes sao adicionados. Atualizado em
-    // 2/Mai/2026 (audit cobranca+reclamacao) — INV-21: ocorrencias
-    // abertas ha >7d (SLA escalado).
+  it("executarTodasInvariantes retorna 31 invariantes (banco + infra + meta + fluxo + atendimento)", async () => {
+    // Cresce conforme novos invariantes sao adicionados.
+    // 4/Mai/2026 (Onda 2 IMUNI) — INV-24 a INV-27 atacam fluxo de
+    //   venda: cota -> cobra -> executa -> repassa.
+    // 5/Mai/2026 (Onda 3 IMUNI) — INV-28 a INV-31 atacam fluxo de
+    //   atendimento (porta de entrada): bot atropelo, conversas perdidas,
+    //   cliente preso, escalation falhada. Disparado pelos bugs reais
+    //   dos clientes 5511953731463 e 5519983355000.
     const mod = await import("./invariantes");
 
     const r = await mod.executarTodasInvariantes();
     expect(Array.isArray(r)).toBe(true);
-    expect(r.length).toBe(21);
+    expect(r.length).toBe(31);
+  });
+
+  it("plugin tem categoria META com 2 invariantes (INV-22, INV-23)", async () => {
+    // Adicionado 4/Mai/2026 — Onda 1 IMUNI. Garante que META existe
+    // como categoria distinta de banco/infra.
+    const mod = await import("./invariantes");
+
+    const r = await mod.executarTodasInvariantes();
+    const meta = r.filter((inv) =>
+      mod.COBERTURA_INVARIANTES[inv.nome]?.categoria === "meta",
+    );
+    expect(meta.length).toBe(2);
+    expect(meta.map((i) => i.nome).sort()).toEqual(["INV-22", "INV-23"]);
+  });
+
+  it("toda invariante registrada tem entrada em COBERTURA_INVARIANTES", async () => {
+    // Cada nome usado em runtime DEVE ter metadata pro coverage map.
+    // Sem isso, a categoria fica 'undefined' no scoreCategoria do dashboard.
+    const mod = await import("./invariantes");
+
+    const r = await mod.executarTodasInvariantes();
+    for (const inv of r) {
+      expect(
+        mod.COBERTURA_INVARIANTES[inv.nome],
+        `Invariante ${inv.nome} sem entrada em COBERTURA_INVARIANTES`,
+      ).toBeDefined();
+    }
+  });
+
+  it("tabelas criticas estao listadas (proxy pra coverage map)", async () => {
+    const mod = await import("./invariantes");
+
+    expect(mod.TABELAS_CRITICAS_PEGUE.length).toBeGreaterThanOrEqual(10);
+    expect(mod.TABELAS_CRITICAS_PEGUE).toContain("corridas");
+    expect(mod.TABELAS_CRITICAS_PEGUE).toContain("pagamentos");
+    expect(mod.TABELAS_CRITICAS_PEGUE).toContain("bot_logs");
   });
 
   it("cada resultado tem campos obrigatorios bem-formados", async () => {
@@ -83,7 +121,7 @@ describe("modulo invariantes — Camada 3 defesa em profundidade", () => {
     expect(altas + medias).toBe(r.length);
   });
 
-  it("nomes sao unicos (INV-1 a INV-21)", async () => {
+  it("nomes sao unicos", async () => {
     const mod = await import("./invariantes");
 
     const r = await mod.executarTodasInvariantes();

@@ -21,6 +21,22 @@ import {
   invEnvVarsCriticas,
   invAsaasEmProducao,
 } from "./infra-checks";
+import {
+  invWatchdogCronAuditoria,
+  invSelfTestAlertadorRecente,
+} from "./meta-checks";
+import {
+  invValorPagoDivergeDaCorrida,
+  invCotacaoVsValorFinalDivergente,
+  invSplitValorErrado,
+  invStatusAvancadoSemPagamento,
+} from "./fluxo-checks";
+import {
+  invBotAtropelandoAtendimentoHumano,
+  invConversasWhatsappVazia,
+  invClientePresoEmColeta,
+  invOrigemNaoIdentificadaSemEscalation,
+} from "./atendimento-checks";
 
 const HORAS_24 = 24 * 60 * 60 * 1000;
 const HORAS_1 = 60 * 60 * 1000;
@@ -624,6 +640,72 @@ async function invClaimsAdminPendentesMuitoTempo(): Promise<ResultadoInvariante>
 // no formato esperado pelo runner do core.
 // ============================================================
 
+// === COVERAGE MAP — quem cobre o que ===
+// Mapa nome-da-invariante -> tabela ou superficie coberta. Usado pelo
+// dashboard /admin/imuni pra mostrar gaps de cobertura. Atualizar quando
+// adicionar/remover invariante. Tabelas que aparecem aqui precisam
+// existir no banco; superficies sao categorias logicas (infra/meta).
+//
+// Adicionado 4/Mai/2026 (Onda 1 IMUNI). Antes existia apenas a categoria
+// implicita pelo numero da invariante (1-11=banco, 12+=infra) — bom o
+// suficiente pro score, fraco pra coverage map.
+export const COBERTURA_INVARIANTES: Record<string, { categoria: "banco" | "infra" | "meta"; alvo: string; descricao_curta: string }> = {
+  "INV-1": { categoria: "banco", alvo: "corridas + pagamentos", descricao_curta: "concluidas sem repasse pago" },
+  "INV-2": { categoria: "banco", alvo: "prestadores", descricao_curta: "aprovados disponiveis sem chave PIX" },
+  "INV-3": { categoria: "banco", alvo: "pagamentos", descricao_curta: "repasse_status=pago sem pago_em" },
+  "INV-4": { categoria: "banco", alvo: "corridas", descricao_curta: "dispatch zumbi (com prestador + ativo)" },
+  "INV-5": { categoria: "banco", alvo: "corridas + pagamentos", descricao_curta: "status=paga sem prova externa" },
+  "INV-6": { categoria: "banco", alvo: "tarefas_agendadas", descricao_curta: "atrasadas >1h sem execucao" },
+  "INV-7": { categoria: "banco", alvo: "ocorrencias", descricao_curta: "abertas >24h sem resolucao" },
+  "INV-8": { categoria: "banco", alvo: "bot_logs (asaas)", descricao_curta: "repasses iniciados sem confirmacao 24h" },
+  "INV-9": { categoria: "banco", alvo: "corridas", descricao_curta: "pendentes >24h" },
+  "INV-10": { categoria: "banco", alvo: "prestadores_veiculos", descricao_curta: "placa duplicada em ativos" },
+  "INV-11": { categoria: "banco", alvo: "corridas + pagamentos", descricao_curta: "pago_em sem registro de pagamento" },
+  "INV-12": { categoria: "infra", alvo: "headers HTTP / Permissions-Policy", descricao_curta: "geolocation bloqueada (rastreio)" },
+  "INV-13": { categoria: "infra", alvo: "headers HTTP / HSTS", descricao_curta: "HSTS ausente" },
+  "INV-14": { categoria: "infra", alvo: "headers HTTP / CSP", descricao_curta: "CSP sem dominios criticos" },
+  "INV-15": { categoria: "infra", alvo: "env vars Vercel", descricao_curta: "env vars criticas ausentes" },
+  "INV-16": { categoria: "infra", alvo: "config Asaas", descricao_curta: "Asaas em sandbox em prod" },
+  "INV-17": { categoria: "banco", alvo: "alertas_admin_pendentes", descricao_curta: "claims pendentes >24h" },
+  "INV-18": { categoria: "banco", alvo: "corridas + bot_logs", descricao_curta: "canceladas sem estorno tratado" },
+  "INV-19": { categoria: "banco", alvo: "bot_sessions", descricao_curta: "cadastros abandonados >7d" },
+  "INV-20": { categoria: "banco", alvo: "bot_logs (asaas)", descricao_curta: "cobrancas duplicadas evitadas (race)" },
+  "INV-21": { categoria: "banco", alvo: "ocorrencias", descricao_curta: "SLA estourado >7d" },
+  // META — IMUNI vigiando IMUNI
+  "INV-22": { categoria: "meta", alvo: "cron auditar-invariantes", descricao_curta: "watchdog cron-alive (25h)" },
+  "INV-23": { categoria: "meta", alvo: "cron imuni-self-test", descricao_curta: "self-test alertador (8d)" },
+  // FLUXO DE VENDA (Onda 2 — 4/Mai/2026): cota -> cobra -> executa -> repassa
+  "INV-24": { categoria: "banco", alvo: "corridas + pagamentos", descricao_curta: "valor pago != corrida (cobranca incorreta)" },
+  "INV-25": { categoria: "banco", alvo: "corridas (cotacao vs final)", descricao_curta: "valor_final divergiu >5% do estimado" },
+  "INV-26": { categoria: "banco", alvo: "corridas (split)", descricao_curta: "valor_prestador + valor_pegue != valor_final" },
+  "INV-27": { categoria: "banco", alvo: "corridas + pagamentos", descricao_curta: "status pos-pagamento sem pagamento aprovado" },
+  // FLUXO DE ATENDIMENTO (Onda 3 — 5/Mai/2026): porta de entrada do cliente
+  "INV-28": { categoria: "banco", alvo: "bot_sessions + bot_logs", descricao_curta: "bot atropelou admin em atendimento_humano" },
+  "INV-29": { categoria: "banco", alvo: "bot_sessions + conversas_whatsapp", descricao_curta: "historico de conversa nao salvo" },
+  "INV-30": { categoria: "banco", alvo: "bot_sessions", descricao_curta: "cliente preso em coleta de dados >30min" },
+  "INV-31": { categoria: "banco", alvo: "bot_logs + bot_sessions", descricao_curta: "origem_nao_identificada >=2x sem escalar humano" },
+};
+
+// === TABELAS CRITICAS DO DOMINIO PEGUE ===
+// Lista canonica usada pelo coverage map pra cruzar "tabela X esta
+// coberta por algum invariante?". Sincronizada com
+// `feedback_armazenamento_inegociavel.md` (regra inegociavel).
+export const TABELAS_CRITICAS_PEGUE = [
+  "corridas",
+  "clientes",
+  "prestadores",
+  "prestadores_veiculos",
+  "provas_digitais",
+  "pagamentos",
+  "avaliacoes",
+  "feedback_precos",
+  "bot_logs",
+  "bot_sessions",
+  "tarefas_agendadas",
+  "ocorrencias",
+  "alertas_admin_pendentes",
+];
+
 export const pluginPegue: PluginImuni = {
   dominio: "pegue",
   invariantes: [
@@ -650,6 +732,19 @@ export const pluginPegue: PluginImuni = {
     invHeaderCspProducao,
     invEnvVarsCriticas,
     invAsaasEmProducao,
+    // === META (IMUNI vigiando IMUNI) ===
+    invWatchdogCronAuditoria,
+    invSelfTestAlertadorRecente,
+    // === FLUXO DE VENDA (cota -> cobra -> executa -> repassa) ===
+    invValorPagoDivergeDaCorrida,
+    invCotacaoVsValorFinalDivergente,
+    invSplitValorErrado,
+    invStatusAvancadoSemPagamento,
+    // === FLUXO DE ATENDIMENTO (porta de entrada — Onda 3 5/Mai/2026) ===
+    invBotAtropelandoAtendimentoHumano,
+    invConversasWhatsappVazia,
+    invClientePresoEmColeta,
+    invOrigemNaoIdentificadaSemEscalation,
   ],
 };
 

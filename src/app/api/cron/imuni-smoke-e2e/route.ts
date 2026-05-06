@@ -4,7 +4,9 @@ import { isValidCronKey, isValidAdminKey } from "@/lib/admin-auth";
 import { notificarAdmins } from "@/lib/admin-notify";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// 13 steps × ~2s sleep + chamadas webhook (geocoder/IA = 1-3s cada) = ate ~50-70s.
+// Sobra de 50s pra picos de latencia.
+export const maxDuration = 120;
 
 // Cron `/api/cron/imuni-smoke-e2e` — ESTAGIO 3 da IMUNI (executor de
 // testes em producao).
@@ -14,17 +16,25 @@ export const maxDuration = 60;
 // em qq parte do fluxo... fluxo precisa estar perfeito".
 //
 // O que essa rota faz: simula um CLIENTE FICTICIO percorrendo o fluxo
-// inicial do bot Pegue de "oi" ate cotacao. Cada step do fluxo eh
-// chamado via POST no proprio /api/whatsapp/webhook (igualzinho a
-// uma mensagem real do ChatPro). Apos cada chamada, le bot_sessions
-// pra verificar que o step avancou como esperado.
+// COMPLETO ate aguardando_aceite_termos (cotacao fechada). Para AI
+// antes de aceitar termos pra NAO disparar dispatch real pra fretistas.
+// Cada step eh chamado via POST no proprio /api/whatsapp/webhook
+// (igualzinho a uma mensagem real do ChatPro). Apos cada chamada, le
+// bot_sessions pra verificar que o step avancou como esperado.
+//
+// Cobertura: oi -> escolha frete -> GPS origem -> confirma -> itens
+// (lista numerada, sem chamar IA) -> destino texto -> confirma destino
+// -> tipo local terreo -> sem ajudante -> data agora -> confirma data
+// -> aguardando_aceite_termos. Valida campos da sessao no final
+// (origem/destino lat-lng, descricao_carga, distancia_km, valor_estimado,
+// data_agendada). PARA antes do "1" final que dispatch.
 //
 // Se algum step falha = alerta WhatsApp+Telegram pros admins (regressao
 // detectada ANTES de cliente real ver).
 //
 // Phone smoke: 5500000000001 (TODO em zero, claramente fake). Precisa
 // estar em TEST_PHONES no env Vercel pra evitar dispatch real e
-// cadastro no CRM.
+// cadastro no CRM, mesmo que o smoke pare antes do dispatch.
 //
 // Frequencia recomendada cron-job.org: 4x/dia (6h, 12h, 18h, 0h BRT).
 // URL: https://www.chamepegue.com.br/api/cron/imuni-smoke-e2e?key=CRON_SECRET
@@ -35,6 +45,10 @@ const SMOKE_PUSHNAME = "IMUNI Smoke E2E";
 // Coordenadas Osasco SP (Pegue cobre): centro de Osasco
 const SMOKE_LAT_ORIGEM = -23.5329;
 const SMOKE_LNG_ORIGEM = -46.7916;
+// Endereco destino plausivel em Osasco (Pegue cobre). Texto plano —
+// handleDestino vai geocodificar via Google Maps. Usar endereco real
+// reconhecivel reduz flakey.
+const SMOKE_DESTINO_TEXTO = "Avenida dos Autonomistas 896, Vila Yara, Osasco, SP";
 
 interface StepResult {
   step: string;
@@ -50,7 +64,17 @@ async function dormir(ms: number): Promise<void> {
 }
 
 async function limparPhoneSmoke(): Promise<void> {
-  // Cleanup completo: sessao + logs + cliente + conversas
+  // Cleanup completo: corridas (via cliente) -> sessao -> cliente -> conversas -> logs.
+  // ORDEM IMPORTA: corridas tem fk pra clientes, entao deletar cliente sem
+  // antes apagar corridas pode falhar (ou orfanar registros).
+  const { data: clienteSmoke } = await supabase
+    .from("clientes")
+    .select("id")
+    .eq("telefone", SMOKE_PHONE)
+    .maybeSingle();
+  if (clienteSmoke?.id) {
+    await supabase.from("corridas").delete().eq("cliente_id", clienteSmoke.id);
+  }
   await supabase.from("bot_sessions").delete().eq("phone", SMOKE_PHONE);
   await supabase.from("clientes").delete().eq("telefone", SMOKE_PHONE);
   await supabase.from("conversas_whatsapp").delete().eq("telefone", SMOKE_PHONE);
@@ -205,12 +229,13 @@ export async function GET(req: NextRequest) {
   );
   await dormir(2500); // geocoder pode demorar
   const step3Atual = await getStepAtual();
-  // Apos lat/lng valido, espera-se que step avance pra confirmar_origem ou aguardando_destino
-  const esperadoStep3 = ["confirmar_origem", "aguardando_destino"];
+  // Apos GPS valido, apresentarOrigemPraConfirmacao seta step pra
+  // "confirmando_origem" (com 'o' final). Antes esse smoke checava
+  // "confirmar_origem" e SEMPRE falhava silenciosamente — bug.
   steps.push({
     step: "3_origem_gps",
-    ok: esperadoStep3.includes(step3Atual || ""),
-    esperado: esperadoStep3.join(" OU "),
+    ok: step3Atual === "confirmando_origem",
+    esperado: "confirmando_origem",
     obtido: step3Atual || "(sem step)",
     duracao_ms: Date.now() - t3,
     erro: r3.status !== 200 ? `webhook retornou ${r3.status}` : undefined,
@@ -278,7 +303,267 @@ export async function GET(req: NextRequest) {
       : undefined,
   });
 
-  // Cleanup pos-teste (independente de sucesso/falha)
+  // Se origem nao foi confirmada, sem sentido seguir
+  if (!steps.find((s) => s.step === "3_origem_gps")?.ok) {
+    return await finalizar(steps, inicio, "step_3_origem_falhou");
+  }
+
+  // ========== STEP 6: Cliente confirma origem ("1") ==========
+  // Apos confirmar, handleConfirmandoOrigem -> step "aguardando_foto"
+  const t6 = Date.now();
+  const r6 = await chamarWebhook(baseUrl, payloadMensagemTexto("1"));
+  await dormir(1500);
+  const step6Atual = await getStepAtual();
+  steps.push({
+    step: "6_confirma_origem",
+    ok: step6Atual === "aguardando_foto",
+    esperado: "aguardando_foto",
+    obtido: step6Atual || "(sem step)",
+    duracao_ms: Date.now() - t6,
+    erro: r6.status !== 200 ? `webhook retornou ${r6.status}` : undefined,
+  });
+  if (!steps[steps.length - 1].ok) {
+    return await finalizar(steps, inicio, "step_6_falhou");
+  }
+
+  // ========== STEP 7: Cliente manda lista numerada de itens ==========
+  // "5, 6, 7" = Armario cozinha, Mesa cadeiras, Freezer (3 itens = veiculo HR).
+  // handleFoto detecta numeros >=2 e PULA IA — fluxo deterministic, sem custo.
+  const t7 = Date.now();
+  const r7 = await chamarWebhook(baseUrl, payloadMensagemTexto("5, 6, 7"));
+  await dormir(1500);
+  const step7Atual = await getStepAtual();
+  steps.push({
+    step: "7_itens_lista_numerada",
+    ok: step7Atual === "aguardando_destino",
+    esperado: "aguardando_destino",
+    obtido: step7Atual || "(sem step)",
+    duracao_ms: Date.now() - t7,
+    erro: r7.status !== 200 ? `webhook retornou ${r7.status}` : undefined,
+  });
+  if (!steps[steps.length - 1].ok) {
+    return await finalizar(steps, inicio, "step_7_falhou");
+  }
+
+  // ========== STEP 8: Cliente manda destino (texto) ==========
+  // handleDestino tenta geocodeAddress. Se Google Maps nao retornar coords,
+  // fluxo recusa (proibido fallback). Endereco escolhido eh real e indexado.
+  const t8 = Date.now();
+  const r8 = await chamarWebhook(baseUrl, payloadMensagemTexto(SMOKE_DESTINO_TEXTO));
+  await dormir(3000); // geocoder + reverseGeocode podem demorar
+  const step8Atual = await getStepAtual();
+  steps.push({
+    step: "8_destino_texto",
+    ok: step8Atual === "confirmando_destino",
+    esperado: "confirmando_destino",
+    obtido: step8Atual || "(sem step)",
+    duracao_ms: Date.now() - t8,
+    erro: r8.status !== 200 ? `webhook retornou ${r8.status}` : undefined,
+  });
+  if (!steps[steps.length - 1].ok) {
+    return await finalizar(steps, inicio, "step_8_falhou");
+  }
+
+  // Valida que destino foi persistido com lat/lng
+  const { data: sessaoAposDestino } = await supabase
+    .from("bot_sessions")
+    .select("destino_lat, destino_lng, destino_endereco")
+    .eq("phone", SMOKE_PHONE)
+    .maybeSingle();
+  const destinoOk = !!(sessaoAposDestino?.destino_lat && sessaoAposDestino?.destino_lng);
+  steps.push({
+    step: "8b_destino_persistido",
+    ok: destinoOk,
+    esperado: "destino_lat e destino_lng nao-nulos na bot_sessions",
+    obtido: `lat=${sessaoAposDestino?.destino_lat}, lng=${sessaoAposDestino?.destino_lng}`,
+    duracao_ms: 0,
+    erro: destinoOk ? undefined : "destino aceito mas lat/lng nao persistidos — bug em handleDestino",
+  });
+  if (!destinoOk) return await finalizar(steps, inicio, "step_8b_falhou");
+
+  // ========== STEP 9: Cliente confirma destino ("1") ==========
+  // handleConfirmandoDestino -> aguardando_tipo_local (sem contexto IA, fluxo padrao)
+  const t9 = Date.now();
+  const r9 = await chamarWebhook(baseUrl, payloadMensagemTexto("1"));
+  await dormir(1500);
+  const step9Atual = await getStepAtual();
+  steps.push({
+    step: "9_confirma_destino",
+    ok: step9Atual === "aguardando_tipo_local",
+    esperado: "aguardando_tipo_local",
+    obtido: step9Atual || "(sem step)",
+    duracao_ms: Date.now() - t9,
+    erro: r9.status !== 200 ? `webhook retornou ${r9.status}` : undefined,
+  });
+  if (!steps[steps.length - 1].ok) {
+    return await finalizar(steps, inicio, "step_9_falhou");
+  }
+
+  // ========== STEP 10: Tipo do local "1" (terreo) ==========
+  // handleTipoLocal -> aguardando_ajudante
+  const t10 = Date.now();
+  const r10 = await chamarWebhook(baseUrl, payloadMensagemTexto("1"));
+  await dormir(1500);
+  const step10Atual = await getStepAtual();
+  steps.push({
+    step: "10_tipo_local_terreo",
+    ok: step10Atual === "aguardando_ajudante",
+    esperado: "aguardando_ajudante",
+    obtido: step10Atual || "(sem step)",
+    duracao_ms: Date.now() - t10,
+    erro: r10.status !== 200 ? `webhook retornou ${r10.status}` : undefined,
+  });
+  if (!steps[steps.length - 1].ok) {
+    return await finalizar(steps, inicio, "step_10_falhou");
+  }
+
+  // ========== STEP 11: Sem ajudante "1" -> calcula orcamento ==========
+  // handleAjudante -> calcularEEnviarOrcamento -> step aguardando_data
+  // Esse passo eh CRITICO: aqui o sistema persiste valor_estimado, distancia_km,
+  // veiculo_sugerido. Falha aqui = problema na cotacao.
+  const t11 = Date.now();
+  const r11 = await chamarWebhook(baseUrl, payloadMensagemTexto("1"));
+  await dormir(2500); // calcular orcamento envolve calculos + insert
+  const step11Atual = await getStepAtual();
+  steps.push({
+    step: "11_sem_ajudante_calculou",
+    ok: step11Atual === "aguardando_data",
+    esperado: "aguardando_data",
+    obtido: step11Atual || "(sem step)",
+    duracao_ms: Date.now() - t11,
+    erro: r11.status !== 200 ? `webhook retornou ${r11.status}` : undefined,
+  });
+  if (!steps[steps.length - 1].ok) {
+    return await finalizar(steps, inicio, "step_11_falhou");
+  }
+
+  // Valida que cotacao salvou os campos financeiros chave
+  const { data: sessaoAposCota } = await supabase
+    .from("bot_sessions")
+    .select("valor_estimado, distancia_km, veiculo_sugerido, descricao_carga")
+    .eq("phone", SMOKE_PHONE)
+    .maybeSingle();
+  const cotacaoOk =
+    !!sessaoAposCota?.valor_estimado &&
+    Number(sessaoAposCota.valor_estimado) > 0 &&
+    !!sessaoAposCota.distancia_km &&
+    Number(sessaoAposCota.distancia_km) > 0 &&
+    !!sessaoAposCota.veiculo_sugerido &&
+    !!sessaoAposCota.descricao_carga;
+  steps.push({
+    step: "11b_campos_cotacao_persistidos",
+    ok: cotacaoOk,
+    esperado: "valor_estimado>0, distancia_km>0, veiculo_sugerido, descricao_carga preenchidos",
+    obtido: `valor=${sessaoAposCota?.valor_estimado}, dist=${sessaoAposCota?.distancia_km}km, veic=${sessaoAposCota?.veiculo_sugerido}, descr=${(sessaoAposCota?.descricao_carga || "").slice(0, 30)}`,
+    duracao_ms: 0,
+    erro: cotacaoOk ? undefined : "cotacao chegou no aguardando_data mas algum campo financeiro/descricao ficou vazio",
+  });
+  if (!cotacaoOk) return await finalizar(steps, inicio, "step_11b_falhou");
+
+  // ========== STEP 12: Cliente manda "agora" (urgente) ==========
+  // handleData -> aguardando_confirmacao
+  const t12 = Date.now();
+  const r12 = await chamarWebhook(baseUrl, payloadMensagemTexto("agora"));
+  await dormir(1500);
+  const step12Atual = await getStepAtual();
+  steps.push({
+    step: "12_data_agora",
+    ok: step12Atual === "aguardando_confirmacao",
+    esperado: "aguardando_confirmacao",
+    obtido: step12Atual || "(sem step)",
+    duracao_ms: Date.now() - t12,
+    erro: r12.status !== 200 ? `webhook retornou ${r12.status}` : undefined,
+  });
+  if (!steps[steps.length - 1].ok) {
+    return await finalizar(steps, inicio, "step_12_falhou");
+  }
+
+  // ========== STEP 13: Cliente confirma resumo ("1") ==========
+  // handleConfirmacao -> aguardando_aceite_termos
+  // ATENCAO: NAO mandar "1" no aceite_termos abaixo — isso disparararia
+  // dispatch real pra fretistas (ainda que filtrado por TEST_PHONES,
+  // criaria corrida no banco e poluiria producao).
+  const t13 = Date.now();
+  const r13 = await chamarWebhook(baseUrl, payloadMensagemTexto("1"));
+  await dormir(1500);
+  const step13Atual = await getStepAtual();
+  steps.push({
+    step: "13_confirma_resumo",
+    ok: step13Atual === "aguardando_aceite_termos",
+    esperado: "aguardando_aceite_termos",
+    obtido: step13Atual || "(sem step)",
+    duracao_ms: Date.now() - t13,
+    erro: r13.status !== 200 ? `webhook retornou ${r13.status}` : undefined,
+  });
+  if (!steps[steps.length - 1].ok) {
+    return await finalizar(steps, inicio, "step_13_falhou");
+  }
+
+  // ========== STEP 14: Validacao final da sessao ==========
+  // Garante que TODOS os campos esperados estao corretos no momento em
+  // que cliente real veria o card "ACEITO TERMOS". Tambem confirma que
+  // NENHUMA corrida foi gravada na tabela `corridas` (so eh gravada no
+  // aceite — proximo step que NAO disparamos).
+  const { data: sessaoFinal } = await supabase
+    .from("bot_sessions")
+    .select(
+      "step, origem_lat, origem_lng, destino_lat, destino_lng, descricao_carga, veiculo_sugerido, distancia_km, valor_estimado, data_agendada",
+    )
+    .eq("phone", SMOKE_PHONE)
+    .maybeSingle();
+
+  const sessaoCompleta =
+    sessaoFinal?.step === "aguardando_aceite_termos" &&
+    !!sessaoFinal?.origem_lat &&
+    !!sessaoFinal?.origem_lng &&
+    !!sessaoFinal?.destino_lat &&
+    !!sessaoFinal?.destino_lng &&
+    !!sessaoFinal?.descricao_carga &&
+    !!sessaoFinal?.veiculo_sugerido &&
+    !!sessaoFinal?.distancia_km &&
+    Number(sessaoFinal.distancia_km) > 0 &&
+    !!sessaoFinal?.valor_estimado &&
+    Number(sessaoFinal.valor_estimado) > 0 &&
+    !!sessaoFinal?.data_agendada;
+
+  steps.push({
+    step: "14_sessao_final_pronta_pra_pagar",
+    ok: sessaoCompleta,
+    esperado: "todos campos chave preenchidos no step aguardando_aceite_termos",
+    obtido: sessaoFinal
+      ? `step=${sessaoFinal.step}, valor=${sessaoFinal.valor_estimado}, dist=${sessaoFinal.distancia_km}km, data=${sessaoFinal.data_agendada}`
+      : "(sessao nao encontrada)",
+    duracao_ms: 0,
+    erro: sessaoCompleta ? undefined : "cotacao chegou no aceite mas algum campo critico nao foi preenchido",
+  });
+
+  // GARANTIA: nenhuma corrida foi salva (smoke parou ANTES do dispatch)
+  // Se algo gravou em corridas com phone smoke, ha bug serio (talvez o
+  // bot dispatch sem aguardar aceite explicito). Nao gravar = OK.
+  // Como `corridas` nao tem coluna telefone, joinamos via clientes.
+  const { data: clienteSmoke2 } = await supabase
+    .from("clientes")
+    .select("id")
+    .eq("telefone", SMOKE_PHONE)
+    .maybeSingle();
+  if (clienteSmoke2?.id) {
+    const { count: corridasIndevidas } = await supabase
+      .from("corridas")
+      .select("id", { count: "exact", head: true })
+      .eq("cliente_id", clienteSmoke2.id);
+    const semCorrida = (corridasIndevidas || 0) === 0;
+    steps.push({
+      step: "15_nenhuma_corrida_foi_salva",
+      ok: semCorrida,
+      esperado: "0 corridas salvas (smoke parou antes do aceite)",
+      obtido: `${corridasIndevidas || 0} corridas encontradas`,
+      duracao_ms: 0,
+      erro: semCorrida ? undefined : "FLUXO DISPATCHEU SEM ACEITE — bug critico em handleConfirmacao ou processo paralelo",
+    });
+  }
+
+  // Cleanup pos-teste (independente de sucesso/falha) — limparPhoneSmoke
+  // tambem deleta corridas via cliente_id pra evitar lixo.
   await limparPhoneSmoke();
 
   return await finalizar(steps, inicio, null);

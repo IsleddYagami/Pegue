@@ -101,11 +101,24 @@ async function handle(req: NextRequest) {
   const problemas: Problema[] = [];
 
   // ============ 1) SMOKE E2E FALHOU ============
+  // FILTRO TEMPORAL (7/Mai/2026 — pedido Fabio): smoke falha so vira
+  // problema ATIVO se NAO houver smoke verde mais recente. Caso contrario,
+  // significa que o bug ja foi corrigido e o smoke seguinte passou.
+  // Sem isso, cada deploy fix gera notificacao fantasma pelo backlog.
+  const { data: ultimoSmokeOk } = await supabase
+    .from("bot_logs")
+    .select("criado_em")
+    .filter("payload->>tipo", "eq", "imuni_smoke_e2e_ok")
+    .order("criado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const corteFalhas = ultimoSmokeOk?.criado_em || inicioJanela;
+
   const { data: smokeFalhas } = await supabase
     .from("bot_logs")
     .select("payload, criado_em")
     .filter("payload->>tipo", "eq", "imuni_smoke_e2e_falhou")
-    .gte("criado_em", inicioJanela)
+    .gte("criado_em", corteFalhas)
     .order("criado_em", { ascending: false })
     .limit(5);
 

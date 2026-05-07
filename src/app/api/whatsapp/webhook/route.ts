@@ -2241,8 +2241,13 @@ async function handleLocalizacao(
     // periferia/casos de Vila Atlantico (28/Abr cliente real perdido).
     const lowerMsg = message.toLowerCase();
     const ruidoRegex = /perto\s+(do|da|de)|ao\s+lado|atras\s+(do|da)|embaixo|em\s+frente|proximo\s+(ao|do|da)|uma\s+(rua|travessa|esquina)\s+(da|do|de)|de?ois\s+(do|da)|antes\s+(do|da)|na\s+esquina|fundo[s]?\s+(do|da)/i;
+    // POI/instituicoes (caso Igor 7/Mai/2026): "IFSP OSASCO" sem rua/numero
+    // — geocodeAddress direto retornava centro generico de Osasco. Agora
+    // forca IA antes pra preservar o nome da instituicao no textoLimpo.
+    const instituicaoRegex = /\b(IFSP|USP|UNICAMP|UNESP|PUC|UFSCAR|UFRJ|UFMG|UFRGS|UFSC|UFBA|UFPE|UnB|FATEC|ETEC|SENAI|SENAC|SESC|SESI|HCFMUSP|INCOR|HOSPITAL|HOSP\b|FACULDADE|ESCOLA|COLEGIO|UNIVERSIDADE|INSTITUTO|SHOPPING|MERCADO\s|SUPERMERCADO|SODIMAC|LEROY|HAVAN|MAGAZINE\s|MAGALU|EXTRA|CARREFOUR|ASSAI|ATACADAO|HOME\s?CENTER|CENTRO\s+DE|UPA\b|PRONTO\s?SOCORRO|PS\b)/i;
+    const temInstituicao = instituicaoRegex.test(message);
     const enderecoConfuso =
-      message.length > 60 || ruidoRegex.test(lowerMsg) || palavras.length > 8;
+      message.length > 60 || ruidoRegex.test(lowerMsg) || palavras.length > 8 || temInstituicao;
 
     if (enderecoConfuso) {
       try {
@@ -2260,8 +2265,15 @@ async function handleLocalizacao(
                 phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
               },
             });
-            const enderecoFinalIA =
+            const enderecoBase =
               (await reverseGeocode(coordsIA.lat, coordsIA.lng)) || interpretado.textoLimpo;
+            // Se IA reconheceu instituicao (ex: "IFSP Osasco"), preservar
+            // no texto final pra cliente confirmar com confianca. Senao
+            // cliente vê uma rua aleatoria (caso Igor) e pensa que sistema
+            // inventou.
+            const enderecoFinalIA = interpretado.instituicao
+              ? `${interpretado.instituicao} — ${enderecoBase}`
+              : enderecoBase;
             await apresentarOrigemPraConfirmacao(
               phone,
               enderecoFinalIA,

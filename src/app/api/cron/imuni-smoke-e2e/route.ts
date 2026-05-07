@@ -602,22 +602,37 @@ async function finalizar(
   motivoFalha: string | null,
 ): Promise<NextResponse> {
   // Coleta bot_logs criados durante a janela do smoke ANTES do cleanup.
-  // Filtro: logs com phone OU phone_masked do smoke. Webhook usa um ou outro
-  // dependendo do contexto (mascarado em LGPD-sensitive, full em internos).
-  // So coleta se algo falhou — sucesso nao precisa de debug verbose.
+  // 2 queries separadas (filtros por phone full e phone_masked) — o operador
+  // .or() do PostgREST pode quebrar com '*' no value (phone_masked tem
+  // asteriscos: '*********0001'). So coleta se algo falhou.
   let logsDebug: unknown = undefined;
   if (motivoFalha || steps.some((s) => !s.ok)) {
     const phoneMasked = SMOKE_PHONE.replace(/\d(?=\d{4})/g, "*");
-    const inicioIso = new Date(inicio - 5000).toISOString(); // -5s pra cobrir clock skew
-    // Pega logs do phone (full) OU mascarado, criados dentro da janela do smoke.
-    const { data: logs } = await supabase
-      .from("bot_logs")
-      .select("payload, criado_em")
-      .gte("criado_em", inicioIso)
-      .or(`payload->>phone.eq.${SMOKE_PHONE},payload->>phone_masked.eq.${phoneMasked}`)
-      .order("criado_em", { ascending: false })
-      .limit(30);
-    logsDebug = (logs || []).map((l: { payload: unknown; criado_em: string }) => ({
+    const inicioIso = new Date(inicio - 5000).toISOString();
+    const [{ data: logsFull }, { data: logsMasked }] = await Promise.all([
+      supabase
+        .from("bot_logs")
+        .select("payload, criado_em")
+        .gte("criado_em", inicioIso)
+        .filter("payload->>phone", "eq", SMOKE_PHONE)
+        .order("criado_em", { ascending: false })
+        .limit(30),
+      supabase
+        .from("bot_logs")
+        .select("payload, criado_em")
+        .gte("criado_em", inicioIso)
+        .filter("payload->>phone_masked", "eq", phoneMasked)
+        .order("criado_em", { ascending: false })
+        .limit(30),
+    ]);
+    const todos = [...(logsFull || []), ...(logsMasked || [])];
+    // Dedup por ts (mesma linha pode aparecer em ambas se tiver os 2 campos)
+    const dedupMap = new Map<string, { payload: unknown; criado_em: string }>();
+    for (const l of todos) dedupMap.set(l.criado_em, l);
+    const ordenados = Array.from(dedupMap.values()).sort(
+      (a, b) => (a.criado_em < b.criado_em ? 1 : -1),
+    );
+    logsDebug = ordenados.map((l) => ({
       ts: l.criado_em,
       tipo: (l.payload as Record<string, unknown>)?.tipo,
       payload: l.payload,

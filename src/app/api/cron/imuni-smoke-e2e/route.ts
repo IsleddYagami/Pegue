@@ -379,13 +379,16 @@ export async function GET(req: NextRequest) {
   const r8 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto(SMOKE_DESTINO_TEXTO));
   await dormir(3000); // geocoder + reverseGeocode podem demorar
   const step8Atual = await getStepAtual();
+  const step8Ok = step8Atual === "confirmando_destino";
   steps.push({
     step: "8_destino_texto",
-    ok: step8Atual === "confirmando_destino",
+    ok: step8Ok,
     esperado: "confirmando_destino",
     obtido: step8Atual || "(sem step)",
     duracao_ms: Date.now() - t8,
     erro: r8.status !== 200 ? `webhook retornou ${r8.status}` : undefined,
+    webhook_status: r8.status,
+    webhook_resposta: step8Ok ? undefined : r8.body,
   });
   if (!steps[steps.length - 1].ok) {
     return await finalizar(steps, inicio, "step_8_falhou");

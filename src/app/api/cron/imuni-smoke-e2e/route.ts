@@ -1340,16 +1340,32 @@ async function finalizar(
     },
   });
 
-  // Se falhou, alerta admins (estagio 3 IMUNI: avisa ANTES de cliente real ver)
+  // Se falhou, alerta admins COM PROMPT PRONTO PRO CLAUDE.
+  // Filosofia (Fabio 7/Mai/2026): IMUNI nao soh detecta — gera o prompt
+  // de forma copy-paste-friendly. Admin nao precisa pensar: copia o bloco
+  // entre === === e cola pro Claude. Sem isso e balela.
   if (!todosOk) {
-    const resumo = stepsFalhos
-      .map((s, i) => `${i + 1}. *${s.step}*\n   esperado: ${s.esperado}\n   obtido: ${s.obtido}${s.erro ? `\n   erro: ${s.erro}` : ""}`)
-      .join("\n\n");
+    const stepFalhouPrincipal = stepsFalhos[0];
+    const { promptDeFalhaSmokeStep } = await import("@/lib/imuni-prompt-builder");
+    // Pega bot_logs do phone smoke nos ultimos 60s pra contexto
+    const inicioJanelaLogs = new Date(Date.now() - 60_000).toISOString();
+    const { data: logsRecentes } = await supabase
+      .from("bot_logs")
+      .select("payload, criado_em")
+      .filter("payload->>phone", "eq", SMOKE_PHONE)
+      .gte("criado_em", inicioJanelaLogs)
+      .order("criado_em", { ascending: false })
+      .limit(10);
+    const promptCorrecao = promptDeFalhaSmokeStep(stepFalhouPrincipal, logsRecentes || []);
+
+    const resumoSteps = stepsFalhos
+      .map((s, i) => `${i + 1}. ${s.step} (esperado=${s.esperado}, obtido=${s.obtido})`)
+      .join("\n");
 
     await notificarAdmins(
-      "🚨 *IMUNI SMOKE E2E FALHOU*",
-      "fluxo de cotacao quebrado",
-      `O smoke sintetico detectou regressao no fluxo do bot ANTES de cliente real ver.\n\n*Steps que falharam:*\n${resumo}\n\n*Acao*: olhar deploy mais recente. Algo quebrou o fluxo "oi → 1 → localizacao".\n\nDuracao total: ${duracaoTotal}ms`,
+      "🦠 *IMUNI: smoke E2E falhou em prod*",
+      "fluxo cliente quebrado",
+      `Steps falhos:\n${resumoSteps}\n\nDuracao: ${duracaoTotal}ms\n\n*PROMPT PRONTO PRA CLAUDE* (copia o bloco entre === === e cola direto):\n\n${promptCorrecao}`,
     );
   }
 

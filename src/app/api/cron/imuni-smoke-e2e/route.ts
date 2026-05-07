@@ -45,10 +45,11 @@ const SMOKE_PUSHNAME = "IMUNI Smoke E2E";
 // Coordenadas Osasco SP (Pegue cobre): centro de Osasco
 const SMOKE_LAT_ORIGEM = -23.5329;
 const SMOKE_LNG_ORIGEM = -46.7916;
-// Endereco destino plausivel em Osasco (Pegue cobre). Texto plano —
-// handleDestino vai geocodificar via Google Maps. Usar endereco real
-// reconhecivel reduz flakey.
-const SMOKE_DESTINO_TEXTO = "Avenida dos Autonomistas 896, Vila Yara, Osasco, SP";
+// CEP de Osasco (Pegue cobre) — handleDestino tem caminho dedicado pra
+// CEP: extrai o CEP, consulta ViaCEP, e geocoda o endereco retornado.
+// Mais robusto que texto livre (que pode falhar no geocoder do Google
+// se endereco nao for indexado). Bairro Vila Yara, Osasco — 06093-080.
+const SMOKE_DESTINO_TEXTO = "06093-080";
 
 interface StepResult {
   step: string;

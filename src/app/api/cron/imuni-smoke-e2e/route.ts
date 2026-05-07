@@ -447,6 +447,56 @@ export async function GET(req: NextRequest) {
     },
   });
 
+  // ========== STEP 0: SIMULA CLIENTE HUMANO EM RAJADA ==========
+  // Caso real Igor (7/Mai/2026): cliente mandou 9 msgs em ~3s. Cada uma
+  // virou webhook concorrente, sistema processou em paralelo, gerou
+  // spam de respostas + travou em atendimento_humano.
+  //
+  // Esse step dispara 3 msgs SIMULTANEAS pro mesmo phone smoke. O sistema
+  // (lock + consolidacao) deve processar como UMA mensagem combinada,
+  // criar UMA sessao no estado correto, registrar todas as 3 conversas.
+  // Se o lock falhar, vamos ver multiplas sessoes ou step zumbi.
+  const t0 = Date.now();
+  const rajada = await Promise.all([
+    chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("Boa tarde!")),
+    chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("Preciso de um frete")),
+    chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("Tenho uns moveis pra mover de Osasco")),
+  ]);
+  // Aguarda lock+debounce processar (1.2s debounce + processamento ~2s + buffer)
+  await dormir(5000);
+  const stepRajada = await getStepAtual();
+  const { count: msgsRajada } = await supabase
+    .from("conversas_whatsapp")
+    .select("id", { count: "exact", head: true })
+    .eq("telefone", SMOKE_PHONE)
+    .eq("direcao", "in");
+  const respostasOk = rajada.every((r) => r.status === 200);
+  // Esperado: sessao em ESTADO VALIDO (atendimento_humano = bug, spam de respostas
+  // ou step parado em "inicio" sem avancar tambem = bug). Aceita estados onde IA
+  // teria avancado por causa do briefing rico.
+  const stepsValidosPosRajada = [
+    "aguardando_servico",
+    "confirmar_contexto_inicial", // IA pegou contexto rico e avancou
+    "aguardando_localizacao",
+    "atendimento_humano", // se IA escalou pq nao entendeu
+  ];
+  const rajadaOk =
+    respostasOk &&
+    stepsValidosPosRajada.includes(stepRajada || "") &&
+    (msgsRajada || 0) >= 3;
+  steps.push({
+    step: "0_rajada_3_msgs_simultaneas",
+    ok: rajadaOk,
+    esperado: "step valido + >=3 msgs IN registradas + nenhum 401/500",
+    obtido: `step=${stepRajada}, msgs_in=${msgsRajada}, statuses=${rajada.map((r) => r.status).join(",")}`,
+    duracao_ms: Date.now() - t0,
+    erro: rajadaOk ? undefined : "race condition/lock pode ter falhado — investigar logs_debug",
+  });
+  // Cleanup pra fluxo principal comecar limpo (preserva fretista smoke)
+  await limparPhoneSmoke();
+  // Re-setup do prestador smoke (limparPhoneSmoke nao mexe mas garante)
+  // ja foi chamado antes da rajada. Mas garante uma 2a vez idempotente.
+
   // ========== STEP 1: Cliente manda "oi" ==========
   const t1 = Date.now();
   const r1 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("oi"));

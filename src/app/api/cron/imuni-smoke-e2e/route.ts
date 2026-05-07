@@ -4,9 +4,8 @@ import { isValidCronKey, isValidAdminKey } from "@/lib/admin-auth";
 import { notificarAdmins } from "@/lib/admin-notify";
 
 export const dynamic = "force-dynamic";
-// 13 steps × ~2s sleep + chamadas webhook (geocoder/IA = 1-3s cada) = ate ~50-70s.
-// Sobra de 50s pra picos de latencia.
-export const maxDuration = 120;
+// 30 steps × ~3s cada (geocoder + IA + Asaas calls) = ate ~120-150s. Pad pra 240s.
+export const maxDuration = 240;
 
 // Cron `/api/cron/imuni-smoke-e2e` — ESTAGIO 3 da IMUNI (executor de
 // testes em producao).
@@ -41,6 +40,14 @@ export const maxDuration = 120;
 
 const SMOKE_PHONE = "5500000000001";
 const SMOKE_PUSHNAME = "IMUNI Smoke E2E";
+
+// Fretista smoke (prestador). Prefixo 55000 = phone teste (isPhoneTeste auto).
+// Setup garante que existe em prod com cadastro completo + veiculo HR ativo,
+// idempotente (cria se nao existe, atualiza disponivel/status se existe).
+const SMOKE_FRETISTA_PHONE = "5500000000002";
+const SMOKE_FRETISTA_NOME = "Fretista Smoke";
+// CPF valido (algoritmo digito verificador). Gerado deterministicamente.
+const SMOKE_FRETISTA_CPF = "39053344705";
 
 // Coordenadas Osasco SP (Pegue cobre): centro de Osasco
 const SMOKE_LAT_ORIGEM = -23.5329;
@@ -78,6 +85,17 @@ async function limparPhoneSmoke(): Promise<void> {
     .eq("telefone", SMOKE_PHONE)
     .maybeSingle();
   if (clienteSmoke?.id) {
+    // Apaga pagamentos/ocorrencias/avaliacoes referenciadas (fk em corridas)
+    const { data: corridasIds } = await supabase
+      .from("corridas")
+      .select("id")
+      .eq("cliente_id", clienteSmoke.id);
+    const ids = (corridasIds || []).map((r: { id: string }) => r.id);
+    if (ids.length > 0) {
+      await supabase.from("pagamentos").delete().in("corrida_id", ids);
+      await supabase.from("ocorrencias").delete().in("corrida_id", ids);
+      await supabase.from("avaliacoes").delete().in("corrida_id", ids);
+    }
     await supabase.from("corridas").delete().eq("cliente_id", clienteSmoke.id);
   }
   await supabase.from("bot_sessions").delete().eq("phone", SMOKE_PHONE);
@@ -88,6 +106,8 @@ async function limparPhoneSmoke(): Promise<void> {
     .from("bot_logs")
     .delete()
     .filter("payload->>phone", "eq", SMOKE_PHONE);
+  // Limpa fretista smoke session/logs tambem
+  await limparFretistaSmoke();
 }
 
 async function chamarWebhook(
@@ -164,6 +184,143 @@ async function getStepAtual(): Promise<string | null> {
   return (data?.step as string) || null;
 }
 
+async function getStepFretista(): Promise<string | null> {
+  const { data } = await supabase
+    .from("bot_sessions")
+    .select("step")
+    .eq("phone", SMOKE_FRETISTA_PHONE)
+    .maybeSingle();
+  return (data?.step as string) || null;
+}
+
+// Garante que o fretista smoke existe em prod com cadastro completo + veiculo HR.
+// Idempotente: se existir, soh confirma disponivel=true e status=aprovado.
+// Roda no inicio de cada smoke pra cobrir o caso de banco zerado.
+async function setupPrestadorSmoke(): Promise<{ id: string }> {
+  const { data: existente } = await supabase
+    .from("prestadores")
+    .select("id")
+    .eq("telefone", SMOKE_FRETISTA_PHONE)
+    .maybeSingle();
+
+  let prestadorId = existente?.id as string | undefined;
+
+  if (!prestadorId) {
+    const { data: novo, error } = await supabase
+      .from("prestadores")
+      .insert({
+        telefone: SMOKE_FRETISTA_PHONE,
+        nome: SMOKE_FRETISTA_NOME,
+        cpf: SMOKE_FRETISTA_CPF,
+        email: "smoke-fretista@pegue.test",
+        chave_pix: SMOKE_FRETISTA_PHONE, // PHONE — Asaas mock detecta smoke
+        status: "aprovado",
+        disponivel: true,
+        score: 5.0,
+        total_corridas: 0,
+        total_reclamacoes: 0,
+        regiao_atuacao: "osasco",
+        termos_aceitos: true,
+        termos_aceitos_em: new Date().toISOString(),
+        selfie_url: "https://smoke.local/selfie.jpg",
+        foto_documento_url: "https://smoke.local/doc.jpg",
+        foto_placa_url: "https://smoke.local/placa.jpg",
+        foto_veiculo_url: "https://smoke.local/veiculo.jpg",
+      })
+      .select("id")
+      .single();
+    if (error || !novo) {
+      throw new Error(`setup prestador smoke falhou: ${error?.message || "sem id"}`);
+    }
+    prestadorId = novo.id as string;
+  } else {
+    // Garante disponivel + aprovado
+    await supabase
+      .from("prestadores")
+      .update({ disponivel: true, status: "aprovado" })
+      .eq("id", prestadorId);
+  }
+
+  // Garante veiculo HR ativo
+  const { data: veiculoExistente } = await supabase
+    .from("prestadores_veiculos")
+    .select("id")
+    .eq("prestador_id", prestadorId)
+    .eq("tipo", "hr")
+    .maybeSingle();
+
+  if (!veiculoExistente) {
+    await supabase.from("prestadores_veiculos").insert({
+      prestador_id: prestadorId,
+      tipo: "hr",
+      marca: "Hyundai",
+      modelo: "HR Smoke",
+      ano: 2024,
+      placa: "SMK0001",
+      ativo: true,
+    });
+  } else {
+    await supabase
+      .from("prestadores_veiculos")
+      .update({ ativo: true })
+      .eq("id", veiculoExistente.id);
+  }
+
+  return { id: prestadorId };
+}
+
+// Simula webhook do Asaas chegando com PAYMENT_RECEIVED. Apos cliente smoke
+// "pagar" mock, precisamos sinalizar que o dinheiro entrou pra o fluxo seguir
+// (gerar PIN, avisar fretista, etc). O webhook Asaas tem auth via header
+// asaas-access-token (ASAAS_WEBHOOK_TOKEN env).
+async function simularPagamentoAsaas(
+  baseUrl: string,
+  asaasWebhookToken: string,
+  paymentId: string,
+  corridaId: string,
+  valor: number,
+): Promise<{ status: number; body: unknown }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  try {
+    const r = await fetch(`${baseUrl}/api/asaas/webhook`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "asaas-access-token": asaasWebhookToken,
+      },
+      body: JSON.stringify({
+        event: "PAYMENT_RECEIVED",
+        payment: {
+          id: paymentId,
+          status: "RECEIVED",
+          value: valor,
+          netValue: valor,
+          billingType: "PIX",
+          externalReference: corridaId,
+          customer: `cus_smoke_${SMOKE_PHONE}`,
+        },
+      }),
+      signal: controller.signal,
+    });
+    const body = await r.json().catch(() => ({}));
+    return { status: r.status, body };
+  } catch (e) {
+    return { status: 0, body: { erro: e instanceof Error ? e.message : "fetch falhou" } };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// Limpa estado do fretista smoke (entre rodadas / no inicio).
+async function limparFretistaSmoke(): Promise<void> {
+  await supabase.from("bot_sessions").delete().eq("phone", SMOKE_FRETISTA_PHONE);
+  await supabase
+    .from("bot_logs")
+    .delete()
+    .filter("payload->>phone", "eq", SMOKE_FRETISTA_PHONE);
+}
+
 export async function GET(req: NextRequest) {
   const key =
     req.nextUrl.searchParams.get("key") ||
@@ -192,11 +349,41 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Webhook Asaas exige header asaas-access-token. Necessario pra simular
+  // PAYMENT_RECEIVED quando cliente smoke "paga".
+  const asaasWebhookToken = process.env.ASAAS_WEBHOOK_TOKEN || "";
+  if (!asaasWebhookToken) {
+    return NextResponse.json(
+      {
+        ok: false,
+        motivo: "ASAAS_WEBHOOK_TOKEN ausente — smoke nao pode simular pagamento",
+      },
+      { status: 500 },
+    );
+  }
+
   const inicio = Date.now();
   const steps: StepResult[] = [];
 
   // Cleanup ANTES (se rodada anterior deixou lixo)
   await limparPhoneSmoke();
+
+  // Setup do prestador smoke (idempotente: cria se nao existe, atualiza
+  // disponivel/aprovado se existe). Sem isso, dispatch nao tem fretista
+  // smoke pra notificar e step 17 falha.
+  let prestadorSmokeId = "";
+  try {
+    const setup = await setupPrestadorSmoke();
+    prestadorSmokeId = setup.id;
+  } catch (e) {
+    return NextResponse.json(
+      {
+        ok: false,
+        motivo: `setup prestador smoke falhou: ${e instanceof Error ? e.message : "erro"}`,
+      },
+      { status: 500 },
+    );
+  }
 
   // Loga inicio (rastreabilidade — INV-23 vigia esse log)
   await supabase.from("bot_logs").insert({
@@ -204,6 +391,7 @@ export async function GET(req: NextRequest) {
       tipo: "imuni_smoke_e2e_iniciado",
       timestamp: new Date().toISOString(),
       base_url: baseUrl,
+      prestador_smoke_id: prestadorSmokeId,
     },
   });
 
@@ -567,30 +755,298 @@ export async function GET(req: NextRequest) {
     erro: sessaoCompleta ? undefined : "cotacao chegou no aceite mas algum campo critico nao foi preenchido",
   });
 
-  // GARANTIA: nenhuma corrida foi salva (smoke parou ANTES do dispatch)
-  // Se algo gravou em corridas com phone smoke, ha bug serio (talvez o
-  // bot dispatch sem aguardar aceite explicito). Nao gravar = OK.
-  // Como `corridas` nao tem coluna telefone, joinamos via clientes.
+  // Validacao intermediaria: corridas ainda zero (aceite nao aconteceu)
   const { data: clienteSmoke2 } = await supabase
     .from("clientes")
     .select("id")
     .eq("telefone", SMOKE_PHONE)
     .maybeSingle();
   if (clienteSmoke2?.id) {
-    const { count: corridasIndevidas } = await supabase
+    const { count: corridasAntesAceite } = await supabase
       .from("corridas")
       .select("id", { count: "exact", head: true })
       .eq("cliente_id", clienteSmoke2.id);
-    const semCorrida = (corridasIndevidas || 0) === 0;
     steps.push({
-      step: "15_nenhuma_corrida_foi_salva",
-      ok: semCorrida,
-      esperado: "0 corridas salvas (smoke parou antes do aceite)",
-      obtido: `${corridasIndevidas || 0} corridas encontradas`,
+      step: "15_zero_corridas_antes_do_aceite",
+      ok: (corridasAntesAceite || 0) === 0,
+      esperado: "0 corridas salvas ate aqui",
+      obtido: `${corridasAntesAceite || 0} corridas`,
       duracao_ms: 0,
-      erro: semCorrida ? undefined : "FLUXO DISPATCHEU SEM ACEITE — bug critico em handleConfirmacao ou processo paralelo",
+      erro: (corridasAntesAceite || 0) > 0 ? "FLUXO DISPATCHEU SEM ACEITE — bug critico" : undefined,
     });
+    if ((corridasAntesAceite || 0) > 0) {
+      await limparPhoneSmoke();
+      return await finalizar(steps, inicio, "step_15_corrida_indevida");
+    }
   }
+
+  // ========== STEP 16: Cliente aceita termos ("1") ==========
+  // handleAceiteTermos -> salvarCorrida -> dispararParaFretistas
+  // -> step muda pra "aguardando_fretista" (cliente esperando dispatch).
+  // dispatch_ativo=true na corrida.
+  const t16 = Date.now();
+  const r16 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("1"));
+  await dormir(3500); // dispatch envolve query + insert + notificacoes mock
+  const step16Atual = await getStepAtual();
+  steps.push({
+    step: "16_aceite_termos_dispatch",
+    ok: step16Atual === "aguardando_fretista",
+    esperado: "aguardando_fretista",
+    obtido: step16Atual || "(sem step)",
+    duracao_ms: Date.now() - t16,
+    erro: r16.status !== 200 ? `webhook retornou ${r16.status}` : undefined,
+    webhook_status: r16.status,
+    webhook_resposta: step16Atual === "aguardando_fretista" ? undefined : r16.body,
+  });
+  if (!steps[steps.length - 1].ok) {
+    return await finalizar(steps, inicio, "step_16_falhou");
+  }
+
+  // ========== STEP 17: Corrida criada com dispatch ativo ==========
+  const { data: corridaCriada } = await supabase
+    .from("corridas")
+    .select("id, status, dispatch_ativo, dispatch_prestadores, valor_estimado, prestador_id")
+    .eq("cliente_id", clienteSmoke2?.id || "")
+    .order("criado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const dispatchOk =
+    !!corridaCriada?.id &&
+    corridaCriada.dispatch_ativo === true &&
+    corridaCriada.prestador_id === null &&
+    Array.isArray(corridaCriada.dispatch_prestadores) &&
+    (corridaCriada.dispatch_prestadores as string[]).includes(SMOKE_FRETISTA_PHONE);
+  steps.push({
+    step: "17_corrida_em_dispatch_com_fretista_smoke",
+    ok: dispatchOk,
+    esperado: "corrida com dispatch_ativo=true, prestador_id=null, dispatch_prestadores inclui fretista smoke",
+    obtido: corridaCriada
+      ? `id=${corridaCriada.id.slice(0, 8)}, ativo=${corridaCriada.dispatch_ativo}, prestador=${corridaCriada.prestador_id}, qtd_dispatched=${(corridaCriada.dispatch_prestadores as string[] | null)?.length || 0}`
+      : "(corrida nao encontrada)",
+    duracao_ms: 0,
+    erro: dispatchOk ? undefined : "dispatch nao incluiu fretista smoke — verificar setupPrestadorSmoke + filtro veiculo HR",
+  });
+  if (!dispatchOk) return await finalizar(steps, inicio, "step_17_falhou");
+  const corridaId = corridaCriada!.id as string;
+
+  // ========== STEP 18: Fretista smoke aceita dispatch ("1") ==========
+  // handlePrestadorResponse -> tryAceitarDispatch -> notificarResultadoDispatch
+  // -> cobranca Asaas mock criada -> cliente vai pra "aguardando_pagamento"
+  const t18 = Date.now();
+  const r18 = await chamarWebhook(baseUrl, webhookSecret, {
+    Type: "receveid_message",
+    Body: {
+      Info: {
+        RemoteJid: `${SMOKE_FRETISTA_PHONE}@s.whatsapp.net`,
+        FromMe: false,
+        PushName: SMOKE_FRETISTA_NOME,
+        Source: { message: {} },
+      },
+      Text: "1",
+    },
+    instance: 1,
+  });
+  await dormir(4000); // tryAceitarDispatch + criar cobranca Asaas mock + sendToClient mock
+  const { data: corridaAposAceite } = await supabase
+    .from("corridas")
+    .select("status, prestador_id, asaas_payment_id")
+    .eq("id", corridaId)
+    .maybeSingle();
+  const fretistaAceitouOk =
+    corridaAposAceite?.status === "aceita" &&
+    !!corridaAposAceite.prestador_id &&
+    corridaAposAceite.prestador_id === prestadorSmokeId;
+  steps.push({
+    step: "18_fretista_smoke_aceita_dispatch",
+    ok: fretistaAceitouOk,
+    esperado: "corrida.status=aceita + prestador_id=fretista smoke",
+    obtido: `status=${corridaAposAceite?.status}, prestador_id=${corridaAposAceite?.prestador_id?.slice(0, 8)}`,
+    duracao_ms: Date.now() - t18,
+    erro: r18.status !== 200 ? `webhook retornou ${r18.status}` : undefined,
+    webhook_status: r18.status,
+    webhook_resposta: fretistaAceitouOk ? undefined : r18.body,
+  });
+  if (!fretistaAceitouOk) return await finalizar(steps, inicio, "step_18_falhou");
+
+  // ========== STEP 19: Cobranca Asaas mock criada ==========
+  const cobrancaCriada =
+    !!corridaAposAceite?.asaas_payment_id &&
+    String(corridaAposAceite.asaas_payment_id).startsWith("pay_smoke_");
+  steps.push({
+    step: "19_cobranca_asaas_mock_criada",
+    ok: cobrancaCriada,
+    esperado: "asaas_payment_id comecando com pay_smoke_",
+    obtido: `asaas_payment_id=${corridaAposAceite?.asaas_payment_id}`,
+    duracao_ms: 0,
+    erro: cobrancaCriada ? undefined : "cobranca Asaas nao foi criada com mock — verificar isSmokeClienteAsaasId em criarCobranca",
+  });
+  if (!cobrancaCriada) return await finalizar(steps, inicio, "step_19_falhou");
+
+  // ========== STEP 20: Cliente em aguardando_pagamento ==========
+  const stepCliente20 = await getStepAtual();
+  steps.push({
+    step: "20_cliente_aguardando_pagamento",
+    ok: stepCliente20 === "aguardando_pagamento",
+    esperado: "aguardando_pagamento",
+    obtido: stepCliente20 || "(sem step)",
+    duracao_ms: 0,
+    erro: stepCliente20 === "aguardando_pagamento" ? undefined : "cliente nao avancou pra aguardando_pagamento apos cobranca criada",
+  });
+  if (stepCliente20 !== "aguardando_pagamento") return await finalizar(steps, inicio, "step_20_falhou");
+
+  // ========== STEP 21: Simula PAYMENT_RECEIVED no webhook Asaas ==========
+  // Apos cliente "pagar" (mockado), webhook Asaas chega -> corrida.status=paga
+  // -> PIN gerado -> fretista avisado pra coletar.
+  const t21 = Date.now();
+  const valorCorrida = Number(corridaAposAceite?.asaas_payment_id ? corridaCriada!.valor_estimado : 0);
+  const r21 = await simularPagamentoAsaas(
+    baseUrl,
+    asaasWebhookToken,
+    String(corridaAposAceite?.asaas_payment_id),
+    corridaId,
+    valorCorrida,
+  );
+  await dormir(3000); // webhook Asaas processa: update corrida + gera PIN + sendToClient mock
+  const { data: corridaPaga } = await supabase
+    .from("corridas")
+    .select("status, pin_entrega")
+    .eq("id", corridaId)
+    .maybeSingle();
+  const pagamentoOk =
+    corridaPaga?.status === "paga" &&
+    !!corridaPaga.pin_entrega &&
+    String(corridaPaga.pin_entrega).length >= 4;
+  steps.push({
+    step: "21_pagamento_recebido_pin_gerado",
+    ok: pagamentoOk,
+    esperado: "corrida.status=paga + pin_entrega gerado (>=4 digitos)",
+    obtido: `status=${corridaPaga?.status}, pin=${corridaPaga?.pin_entrega ? "***" + String(corridaPaga.pin_entrega).slice(-2) : "null"}`,
+    duracao_ms: Date.now() - t21,
+    erro: r21.status !== 200 ? `webhook Asaas retornou ${r21.status}` : undefined,
+    webhook_status: r21.status,
+    webhook_resposta: pagamentoOk ? undefined : r21.body,
+  });
+  if (!pagamentoOk) return await finalizar(steps, inicio, "step_21_falhou");
+
+  // ========== STEP 22-25: Coleta + entrega (simplificado) ==========
+  // Esses passos exigem foto real + interacao em multiplos handlers. Validacao
+  // simplificada: pulamos pra "concluida" via update direto + chamamos
+  // logica de repasse simulando handler entrega. Isso testa repasse Asaas mock
+  // sem precisar de foto/PIN reais (que dependem de OpenAI Vision e media URL).
+
+  // 22: Marca corrida como concluida (simulando: fretista coletou, entregou,
+  // cliente confirmou PIN)
+  const t22 = Date.now();
+  const { error: errConcluir } = await supabase
+    .from("corridas")
+    .update({
+      status: "concluida",
+      valor_final: valorCorrida || 100,
+      entrega_em: new Date().toISOString(),
+    })
+    .eq("id", corridaId);
+  steps.push({
+    step: "22_corrida_concluida_simulada",
+    ok: !errConcluir,
+    esperado: "update corrida pra status=concluida",
+    obtido: errConcluir ? `erro: ${errConcluir.message}` : "ok",
+    duracao_ms: Date.now() - t22,
+    erro: errConcluir?.message,
+  });
+  if (errConcluir) return await finalizar(steps, inicio, "step_22_falhou");
+
+  // 23: Repasse PIX mock — chama transferirPix com chavePix do fretista smoke
+  const t23 = Date.now();
+  const { transferirPix } = await import("@/lib/asaas");
+  const valorPrestador = Math.round((valorCorrida || 100) * 0.88);
+  const repasseResult = await transferirPix({
+    valor: valorPrestador,
+    chavePix: SMOKE_FRETISTA_PHONE,
+    descricao: "Repasse smoke",
+    externalReference: `smoke_${corridaId}`,
+  });
+  steps.push({
+    step: "23_repasse_pix_mock",
+    ok: repasseResult.ok && !!repasseResult.transfer && String(repasseResult.transfer.id).startsWith("trf_smoke_"),
+    esperado: "transferirPix retorna trf_smoke_ + status DONE",
+    obtido: repasseResult.ok
+      ? `id=${repasseResult.transfer?.id}, status=${repasseResult.transfer?.status}`
+      : `erro: ${JSON.stringify(repasseResult.erro).slice(0, 100)}`,
+    duracao_ms: Date.now() - t23,
+    erro: !repasseResult.ok ? "transferirPix nao retornou mock smoke" : undefined,
+  });
+  if (!steps[steps.length - 1].ok) return await finalizar(steps, inicio, "step_23_falhou");
+
+  // 24: Estorno mock (simula reclamacao com refund)
+  const t24 = Date.now();
+  const { estornarCobranca } = await import("@/lib/asaas");
+  const estornoResult = await estornarCobranca(
+    String(corridaAposAceite?.asaas_payment_id),
+    "Smoke E2E - simulacao de estorno",
+  );
+  steps.push({
+    step: "24_estorno_mock",
+    ok: estornoResult.ok && estornoResult.estorno?.status === "REFUNDED",
+    esperado: "estornarCobranca retorna REFUNDED",
+    obtido: estornoResult.ok
+      ? `id=${estornoResult.estorno?.id}, status=${estornoResult.estorno?.status}`
+      : `erro: ${JSON.stringify(estornoResult.erro).slice(0, 100)}`,
+    duracao_ms: Date.now() - t24,
+    erro: !estornoResult.ok ? "estornarCobranca nao retornou mock" : undefined,
+  });
+  if (!steps[steps.length - 1].ok) return await finalizar(steps, inicio, "step_24_falhou");
+
+  // 25: getPagamento mock retorna RECEIVED
+  const t25 = Date.now();
+  const { getPagamento } = await import("@/lib/asaas");
+  const consultaResult = await getPagamento(String(corridaAposAceite?.asaas_payment_id));
+  steps.push({
+    step: "25_consulta_pagamento_mock",
+    ok: consultaResult.ok && consultaResult.pagamento?.status === "RECEIVED",
+    esperado: "getPagamento retorna RECEIVED pra pay_smoke_",
+    obtido: consultaResult.ok
+      ? `status=${consultaResult.pagamento?.status}`
+      : `erro: ${JSON.stringify(consultaResult.erro).slice(0, 100)}`,
+    duracao_ms: Date.now() - t25,
+    erro: !consultaResult.ok ? "getPagamento nao retornou mock" : undefined,
+  });
+  if (!steps[steps.length - 1].ok) return await finalizar(steps, inicio, "step_25_falhou");
+
+  // ========== STEP 26: Garante que NAO houve cobranca real Asaas ==========
+  // Se durante o smoke alguma chamada vazou pro Asaas real, teria criado
+  // payment id NAO comecando com pay_smoke_. Validacao final.
+  const { data: corridaFinalCheck } = await supabase
+    .from("corridas")
+    .select("asaas_payment_id, status, valor_final, prestador_id")
+    .eq("id", corridaId)
+    .maybeSingle();
+  const tudoMockado =
+    String(corridaFinalCheck?.asaas_payment_id || "").startsWith("pay_smoke_") &&
+    corridaFinalCheck?.status === "concluida" &&
+    corridaFinalCheck?.prestador_id === prestadorSmokeId;
+  steps.push({
+    step: "26_corrida_final_consistente",
+    ok: tudoMockado,
+    esperado: "asaas_payment_id mock + status=concluida + prestador=smoke",
+    obtido: `asaas=${corridaFinalCheck?.asaas_payment_id}, status=${corridaFinalCheck?.status}, prestador=${corridaFinalCheck?.prestador_id?.slice(0, 8)}`,
+    duracao_ms: 0,
+    erro: tudoMockado ? undefined : "estado final da corrida inconsistente",
+  });
+
+  // ========== STEP 27: Garante prestador smoke ainda tem disponivel=true ==========
+  const { data: prestadorFinal } = await supabase
+    .from("prestadores")
+    .select("disponivel, status")
+    .eq("id", prestadorSmokeId)
+    .maybeSingle();
+  steps.push({
+    step: "27_prestador_smoke_intacto",
+    ok: prestadorFinal?.disponivel === true && prestadorFinal?.status === "aprovado",
+    esperado: "prestador smoke disponivel=true e aprovado",
+    obtido: `disponivel=${prestadorFinal?.disponivel}, status=${prestadorFinal?.status}`,
+    duracao_ms: 0,
+    erro: undefined,
+  });
 
   // Cleanup pos-teste (independente de sucesso/falha) — limparPhoneSmoke
   // tambem deleta corridas via cliente_id pra evitar lixo.

@@ -62,6 +62,10 @@ export function getTestPhones(): string[] {
 
 export function isPhoneTeste(phone: string | null | undefined): boolean {
   if (!phone) return false;
+  // Phones com prefixo 55000 (DDI BR + DDD impossivel 00) sao SEMPRE teste —
+  // reservados pra IMUNI Smoke E2E. Independente de TEST_PHONES env var.
+  // Cliente real nunca usa esse formato (DDD valido eh 11-99).
+  if (/^55000\d+$/.test(phone)) return true;
   return getTestPhones().includes(phone);
 }
 

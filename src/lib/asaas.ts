@@ -21,6 +21,27 @@ function isConfigured(): boolean {
   return !!API_KEY && !!BASE_URL && !!WALLET_ID;
 }
 
+// Guards de smoke E2E: nunca chamar Asaas real pra phones/IDs marcados como
+// smoke. Retornam mocks deterministicos pra deixar o smoke rodar ponta-a-ponta
+// sem cobrar nem transferir dinheiro real. Ver feedback_autonomia.md
+// (smoke 7/Mai/2026 — Onda 2 cobertura completa).
+//
+// Convencoes:
+//   - Phone smoke: comeca com "55000" (DDI 55 + DDD impossivel 00)
+//   - Cliente Asaas mock: id "cus_smoke_<phone>"
+//   - Pagamento mock: id "pay_smoke_<corridaId>"
+//   - Transfer mock: id "trf_smoke_<timestamp>"
+//   - Estorno mock: id "ref_smoke_<timestamp>"
+function isSmokePhone(phone: string | undefined | null): boolean {
+  return /^55000\d+$/.test(phone || "");
+}
+function isSmokeClienteAsaasId(id: string | undefined | null): boolean {
+  return (id || "").startsWith("cus_smoke_");
+}
+function isSmokePaymentId(id: string | undefined | null): boolean {
+  return (id || "").startsWith("pay_smoke_");
+}
+
 // Wrapper interno pra chamadas Asaas. Retorna { ok, data, status, erro }.
 // Asaas usa header `access_token` (nao Authorization Bearer).
 async function asaasFetch<T = any>(
@@ -103,6 +124,19 @@ export async function criarOuObterCliente(params: {
   email?: string;
   cpf?: string;
 }): Promise<{ ok: boolean; cliente?: AsaasCustomer; erro?: any }> {
+  // SMOKE GUARD: phones smoke nao chamam Asaas real
+  if (isSmokePhone(params.telefone)) {
+    return {
+      ok: true,
+      cliente: {
+        id: `cus_smoke_${params.telefone}`,
+        name: params.nome,
+        cpfCnpj: params.cpf,
+        email: params.email,
+        phone: params.telefone,
+      },
+    };
+  }
   // 1) Tenta encontrar por externalReference
   const busca = await asaasFetch<{ data: AsaasCustomer[] }>(
     "GET",
@@ -153,6 +187,24 @@ export async function criarCobranca(params: {
   corridaId: string; // usado como externalReference (vincula pagamento -> corrida)
   diasVencimento?: number; // default 1 dia
 }): Promise<{ ok: boolean; cobranca?: AsaasPayment; pix?: { qrCodeBase64: string; payload: string }; erro?: any }> {
+  // SMOKE GUARD: clientes smoke nao geram cobranca real
+  if (isSmokeClienteAsaasId(params.clienteAsaasId)) {
+    return {
+      ok: true,
+      cobranca: {
+        id: `pay_smoke_${params.corridaId}`,
+        status: "PENDING",
+        value: params.valor,
+        billingType: "UNDEFINED",
+        invoiceUrl: `https://smoke.local/payment/${params.corridaId}`,
+        externalReference: params.corridaId,
+      },
+      pix: {
+        qrCodeBase64: "smoke_qrcode_base64_mock",
+        payload: `smoke_pix_payload_${params.corridaId}`,
+      },
+    };
+  }
   // Data de vencimento (formato YYYY-MM-DD)
   const dias = params.diasVencimento ?? 1;
   const venc = new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
@@ -188,6 +240,18 @@ export async function criarCobranca(params: {
 }
 
 export async function getPagamento(paymentId: string): Promise<{ ok: boolean; pagamento?: AsaasPayment; erro?: any }> {
+  // SMOKE GUARD: payments smoke retornam mock RECEIVED (cliente "ja pagou")
+  if (isSmokePaymentId(paymentId)) {
+    return {
+      ok: true,
+      pagamento: {
+        id: paymentId,
+        status: "RECEIVED",
+        value: 0,
+        billingType: "PIX",
+      },
+    };
+  }
   const r = await asaasFetch<AsaasPayment>("GET", `/payments/${paymentId}`);
   if (!r.ok) return { ok: false, erro: r.erro };
   return { ok: true, pagamento: r.data };
@@ -215,6 +279,17 @@ export async function estornarCobranca(paymentId: string, motivo?: string): Prom
   erro?: any;
 }> {
   if (!paymentId) return { ok: false, erro: { motivo: "payment_id_vazio" } };
+  // SMOKE GUARD: estorno mock pra payments smoke
+  if (isSmokePaymentId(paymentId)) {
+    return {
+      ok: true,
+      estorno: {
+        id: `ref_smoke_${Date.now()}`,
+        status: "REFUNDED",
+        refundedValue: 0,
+      },
+    };
+  }
   const r = await asaasFetch<{ id: string; status: string; refundedValue?: number }>(
     "POST",
     `/payments/${paymentId}/refund`,
@@ -260,6 +335,21 @@ export async function transferirPix(params: {
   }
   if (params.valor <= 0) {
     return { ok: false, erro: { motivo: "valor_invalido", valor: params.valor } };
+  }
+
+  // SMOKE GUARD: chave PIX smoke nao dispara transfer real (sem PIX saindo).
+  if (isSmokePhone(params.chavePix.replace(/\D/g, ""))) {
+    return {
+      ok: true,
+      transfer: {
+        id: `trf_smoke_${Date.now()}`,
+        status: "DONE",
+        value: params.valor,
+        netValue: params.valor,
+        effectiveDate: new Date().toISOString().slice(0, 10),
+        description: params.descricao,
+      },
+    };
   }
 
   const tipo = detectarTipoChavePix(params.chavePix);

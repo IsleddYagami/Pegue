@@ -53,6 +53,27 @@ export async function salvarProvaDigital(
   tipo: TipoProva,
   ordem: number = 1
 ): Promise<{ url: string | null; provaId: string | null }> {
+  // SMOKE GUARD: URLs smoke nao chamam fetch externo (URL fake), so registram
+  // em provas_digitais com path mock. Permite o smoke E2E exercitar todo o
+  // handler de foto sem precisar de imagem real ou Storage upload.
+  if (chatproUrl.startsWith("https://smoke.local/")) {
+    const path = `smoke/${corridaId}/${tipo}-${ordem}-${Date.now()}.jpg`;
+    const { data: prova, error: insertError } = await supabase
+      .from("provas_digitais")
+      .insert({
+        corrida_id: corridaId,
+        tipo,
+        foto_url: path,
+        metadata: { ordem, smoke: true, source: "smoke_e2e" },
+      })
+      .select("id")
+      .single();
+    if (insertError) {
+      console.error(`smoke: erro inserir prova_digital ${tipo}:`, insertError.message);
+      return { url: null, provaId: null };
+    }
+    return { url: path, provaId: prova?.id || null };
+  }
   try {
     // 1. Baixa do ChatPro
     const response = await fetch(chatproUrl);

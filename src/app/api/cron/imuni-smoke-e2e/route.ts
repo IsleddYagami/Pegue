@@ -175,6 +175,58 @@ function payloadLocalizacao(lat: number, lng: number, instance = 1): Record<stri
   };
 }
 
+// Payload de mensagem de texto pra UM phone arbitrario (cliente, fretista, etc).
+// Diferente de payloadMensagemTexto (que usa SMOKE_PHONE fixo).
+function payloadTextoDoPhone(
+  phone: string,
+  text: string,
+  pushName: string = SMOKE_PUSHNAME,
+  instance = 1,
+): Record<string, unknown> {
+  return {
+    Type: "receveid_message",
+    Body: {
+      Info: {
+        RemoteJid: `${phone}@s.whatsapp.net`,
+        FromMe: false,
+        PushName: pushName,
+        Source: { message: {} },
+      },
+      Text: text,
+    },
+    instance,
+  };
+}
+
+// Payload de imagem (foto de coleta/entrega do fretista). URL aponta pra
+// "smoke.local" — salvarProvaDigital tem guard que detecta esse host e
+// salva registro mock em provas_digitais sem chamar fetch externo.
+function payloadImagem(
+  phone: string,
+  imageUrl: string,
+  pushName: string = SMOKE_PUSHNAME,
+  instance = 1,
+): Record<string, unknown> {
+  return {
+    Type: "receveid_image",
+    Body: {
+      Info: {
+        RemoteJid: `${phone}@s.whatsapp.net`,
+        FromMe: false,
+        PushName: pushName,
+        Source: {
+          message: {
+            imageMessage: { url: imageUrl },
+          },
+        },
+      },
+      Text: "",
+    },
+    Url: imageUrl,
+    instance,
+  };
+}
+
 async function getStepAtual(): Promise<string | null> {
   const { data } = await supabase
     .from("bot_sessions")
@@ -928,124 +980,245 @@ export async function GET(req: NextRequest) {
   });
   if (!pagamentoOk) return await finalizar(steps, inicio, "step_21_falhou");
 
-  // ========== STEP 22-25: Coleta + entrega (simplificado) ==========
-  // Esses passos exigem foto real + interacao em multiplos handlers. Validacao
-  // simplificada: pulamos pra "concluida" via update direto + chamamos
-  // logica de repasse simulando handler entrega. Isso testa repasse Asaas mock
-  // sem precisar de foto/PIN reais (que dependem de OpenAI Vision e media URL).
-
-  // 22: Marca corrida como concluida (simulando: fretista coletou, entregou,
-  // cliente confirmou PIN)
+  // ========== STEP 22: Cliente envia numero coleta ==========
+  // handleNumeroColeta -> step "aguardando_numero_destino"
   const t22 = Date.now();
-  const { error: errConcluir } = await supabase
-    .from("corridas")
-    .update({
-      status: "concluida",
-      valor_final: valorCorrida || 100,
-      entrega_em: new Date().toISOString(),
-    })
-    .eq("id", corridaId);
+  const r22 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("100, Apto 12"));
+  await dormir(2000);
+  const step22Atual = await getStepAtual();
   steps.push({
-    step: "22_corrida_concluida_simulada",
-    ok: !errConcluir,
-    esperado: "update corrida pra status=concluida",
-    obtido: errConcluir ? `erro: ${errConcluir.message}` : "ok",
+    step: "22_cliente_numero_coleta",
+    ok: step22Atual === "aguardando_numero_destino",
+    esperado: "aguardando_numero_destino",
+    obtido: step22Atual || "(sem step)",
     duracao_ms: Date.now() - t22,
-    erro: errConcluir?.message,
+    erro: r22.status !== 200 ? `webhook retornou ${r22.status}` : undefined,
+    webhook_status: r22.status,
+    webhook_resposta: step22Atual === "aguardando_numero_destino" ? undefined : r22.body,
   });
-  if (errConcluir) return await finalizar(steps, inicio, "step_22_falhou");
+  if (step22Atual !== "aguardando_numero_destino") return await finalizar(steps, inicio, "step_22_falhou");
 
-  // 23: Repasse PIX mock — chama transferirPix com chavePix do fretista smoke
+  // ========== STEP 23: Cliente envia numero destino ==========
+  // handleNumeroDestino -> step "aguardando_pagamento" (volta — codigo legado,
+  // mas e a realidade do fluxo)
   const t23 = Date.now();
-  const { transferirPix } = await import("@/lib/asaas");
-  const valorPrestador = Math.round((valorCorrida || 100) * 0.88);
-  const repasseResult = await transferirPix({
-    valor: valorPrestador,
-    chavePix: SMOKE_FRETISTA_PHONE,
-    descricao: "Repasse smoke",
-    externalReference: `smoke_${corridaId}`,
-  });
+  const r23 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("200, Casa 3"));
+  await dormir(2500);
+  const step23Atual = await getStepAtual();
   steps.push({
-    step: "23_repasse_pix_mock",
-    ok: repasseResult.ok && !!repasseResult.transfer && String(repasseResult.transfer.id).startsWith("trf_smoke_"),
-    esperado: "transferirPix retorna trf_smoke_ + status DONE",
-    obtido: repasseResult.ok
-      ? `id=${repasseResult.transfer?.id}, status=${repasseResult.transfer?.status}`
-      : `erro: ${JSON.stringify(repasseResult.erro).slice(0, 100)}`,
+    step: "23_cliente_numero_destino",
+    ok: step23Atual === "aguardando_pagamento",
+    esperado: "aguardando_pagamento",
+    obtido: step23Atual || "(sem step)",
     duracao_ms: Date.now() - t23,
-    erro: !repasseResult.ok ? "transferirPix nao retornou mock smoke" : undefined,
+    erro: r23.status !== 200 ? `webhook retornou ${r23.status}` : undefined,
+    webhook_status: r23.status,
+    webhook_resposta: step23Atual === "aguardando_pagamento" ? undefined : r23.body,
   });
-  if (!steps[steps.length - 1].ok) return await finalizar(steps, inicio, "step_23_falhou");
+  if (step23Atual !== "aguardando_pagamento") return await finalizar(steps, inicio, "step_23_falhou");
 
-  // 24: Estorno mock (simula reclamacao com refund)
+  // ========== STEP 24: Fretista smoke envia foto da coleta ==========
+  // Step atual fretista: fretista_coleta_fotos. Foto smoke -> salvarProvaDigital
+  // mock cria registro em provas_digitais sem download externo.
   const t24 = Date.now();
+  const r24 = await chamarWebhook(
+    baseUrl,
+    webhookSecret,
+    payloadImagem(SMOKE_FRETISTA_PHONE, "https://smoke.local/coleta-1.jpg", SMOKE_FRETISTA_NOME),
+  );
+  await dormir(2500);
+  const { count: provasColeta } = await supabase
+    .from("provas_digitais")
+    .select("id", { count: "exact", head: true })
+    .eq("corrida_id", corridaId)
+    .eq("tipo", "coleta");
+  steps.push({
+    step: "24_fretista_foto_coleta_salva",
+    ok: (provasColeta || 0) >= 1,
+    esperado: ">=1 prova_digital de coleta criada",
+    obtido: `${provasColeta || 0} provas de coleta`,
+    duracao_ms: Date.now() - t24,
+    erro: r24.status !== 200 ? `webhook retornou ${r24.status}` : undefined,
+    webhook_status: r24.status,
+    webhook_resposta: (provasColeta || 0) >= 1 ? undefined : r24.body,
+  });
+  if ((provasColeta || 0) < 1) return await finalizar(steps, inicio, "step_24_falhou");
+
+  // ========== STEP 25: Fretista smoke "PRONTO" -> aguarda cliente confirmar ==========
+  // handleFretistFotos("coleta") -> fretista step="fretista_aguardando_cliente_ok_coleta"
+  // + cliente step="aguardando_confirmacao_coleta"
+  const t25 = Date.now();
+  const r25 = await chamarWebhook(
+    baseUrl,
+    webhookSecret,
+    payloadTextoDoPhone(SMOKE_FRETISTA_PHONE, "PRONTO", SMOKE_FRETISTA_NOME),
+  );
+  await dormir(2500);
+  const stepFretista25 = await getStepFretista();
+  const stepCliente25 = await getStepAtual();
+  const pronto25Ok =
+    stepFretista25 === "fretista_aguardando_cliente_ok_coleta" &&
+    stepCliente25 === "aguardando_confirmacao_coleta";
+  steps.push({
+    step: "25_fretista_pronto_coleta",
+    ok: pronto25Ok,
+    esperado: "fretista=fretista_aguardando_cliente_ok_coleta + cliente=aguardando_confirmacao_coleta",
+    obtido: `fretista=${stepFretista25}, cliente=${stepCliente25}`,
+    duracao_ms: Date.now() - t25,
+    erro: r25.status !== 200 ? `webhook retornou ${r25.status}` : undefined,
+    webhook_status: r25.status,
+    webhook_resposta: pronto25Ok ? undefined : r25.body,
+  });
+  if (!pronto25Ok) return await finalizar(steps, inicio, "step_25_falhou");
+
+  // ========== STEP 26: Cliente confirma coleta "1" -> fretista vai pra entrega ==========
+  // handleConfirmacaoColeta -> liberarFretistaParaEntrega -> fretista step
+  // muda pra fretista_entrega_fotos
+  const t26 = Date.now();
+  const r26 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("1"));
+  await dormir(2500);
+  const stepFretista26 = await getStepFretista();
+  steps.push({
+    step: "26_cliente_libera_coleta",
+    ok: stepFretista26 === "fretista_entrega_fotos",
+    esperado: "fretista=fretista_entrega_fotos",
+    obtido: `fretista=${stepFretista26}`,
+    duracao_ms: Date.now() - t26,
+    erro: r26.status !== 200 ? `webhook retornou ${r26.status}` : undefined,
+    webhook_status: r26.status,
+    webhook_resposta: stepFretista26 === "fretista_entrega_fotos" ? undefined : r26.body,
+  });
+  if (stepFretista26 !== "fretista_entrega_fotos") return await finalizar(steps, inicio, "step_26_falhou");
+
+  // ========== STEP 27: Fretista smoke envia foto da entrega ==========
+  const t27 = Date.now();
+  const r27 = await chamarWebhook(
+    baseUrl,
+    webhookSecret,
+    payloadImagem(SMOKE_FRETISTA_PHONE, "https://smoke.local/entrega-1.jpg", SMOKE_FRETISTA_NOME),
+  );
+  await dormir(2500);
+  const { count: provasEntrega } = await supabase
+    .from("provas_digitais")
+    .select("id", { count: "exact", head: true })
+    .eq("corrida_id", corridaId)
+    .eq("tipo", "entrega");
+  steps.push({
+    step: "27_fretista_foto_entrega_salva",
+    ok: (provasEntrega || 0) >= 1,
+    esperado: ">=1 prova_digital de entrega criada",
+    obtido: `${provasEntrega || 0} provas de entrega`,
+    duracao_ms: Date.now() - t27,
+    erro: r27.status !== 200 ? `webhook retornou ${r27.status}` : undefined,
+    webhook_status: r27.status,
+    webhook_resposta: (provasEntrega || 0) >= 1 ? undefined : r27.body,
+  });
+  if ((provasEntrega || 0) < 1) return await finalizar(steps, inicio, "step_27_falhou");
+
+  // ========== STEP 28: Fretista smoke "PRONTO" entrega -> aguarda PIN ==========
+  const t28 = Date.now();
+  const r28 = await chamarWebhook(
+    baseUrl,
+    webhookSecret,
+    payloadTextoDoPhone(SMOKE_FRETISTA_PHONE, "PRONTO", SMOKE_FRETISTA_NOME),
+  );
+  await dormir(2500);
+  const stepFretista28 = await getStepFretista();
+  steps.push({
+    step: "28_fretista_pronto_entrega",
+    ok: stepFretista28 === "fretista_aguardando_pin",
+    esperado: "fretista=fretista_aguardando_pin",
+    obtido: `fretista=${stepFretista28}`,
+    duracao_ms: Date.now() - t28,
+    erro: r28.status !== 200 ? `webhook retornou ${r28.status}` : undefined,
+    webhook_status: r28.status,
+    webhook_resposta: stepFretista28 === "fretista_aguardando_pin" ? undefined : r28.body,
+  });
+  if (stepFretista28 !== "fretista_aguardando_pin") return await finalizar(steps, inicio, "step_28_falhou");
+
+  // ========== STEP 29: Fretista digita PIN -> corrida concluida + repasse ==========
+  // Le PIN da corrida (cliente "recebeu" mock, fretista "pediu" e digita aqui)
+  const { data: corridaPinFinal } = await supabase
+    .from("corridas")
+    .select("pin_entrega")
+    .eq("id", corridaId)
+    .maybeSingle();
+  const pin = corridaPinFinal?.pin_entrega || "";
+  const t29 = Date.now();
+  const r29 = await chamarWebhook(
+    baseUrl,
+    webhookSecret,
+    payloadTextoDoPhone(SMOKE_FRETISTA_PHONE, pin, SMOKE_FRETISTA_NOME),
+  );
+  await dormir(4000); // PIN ok -> handleConfirmacaoEntrega -> repasse Asaas mock
+  const { data: corridaConcluida } = await supabase
+    .from("corridas")
+    .select("status, entrega_em, valor_final")
+    .eq("id", corridaId)
+    .maybeSingle();
+  steps.push({
+    step: "29_pin_validado_corrida_concluida",
+    ok: corridaConcluida?.status === "concluida" && !!corridaConcluida.entrega_em,
+    esperado: "corrida.status=concluida + entrega_em preenchido",
+    obtido: `status=${corridaConcluida?.status}, entrega_em=${corridaConcluida?.entrega_em ? "sim" : "nao"}`,
+    duracao_ms: Date.now() - t29,
+    erro: r29.status !== 200 ? `webhook retornou ${r29.status}` : undefined,
+    webhook_status: r29.status,
+    webhook_resposta: corridaConcluida?.status === "concluida" ? undefined : r29.body,
+  });
+  if (corridaConcluida?.status !== "concluida") return await finalizar(steps, inicio, "step_29_falhou");
+
+  // ========== STEP 30: Repasse PIX foi processado ==========
+  // handleConfirmacaoEntrega chama transferirPix com chave do prestador. Mock
+  // detecta phone smoke e retorna trf_smoke_. Entao pagamentos.repasse_status
+  // deveria estar 'pago' (ou 'pendente' se UPDATE foi adiado).
+  const { data: pagamentoFinal } = await supabase
+    .from("pagamentos")
+    .select("status, repasse_status, repasse_pago_em")
+    .eq("corrida_id", corridaId)
+    .maybeSingle();
+  const repasseOk =
+    pagamentoFinal?.status === "aprovado" &&
+    (pagamentoFinal?.repasse_status === "pago" || pagamentoFinal?.repasse_status === "pendente");
+  steps.push({
+    step: "30_pagamento_e_repasse_registrados",
+    ok: repasseOk,
+    esperado: "pagamentos.status=aprovado + repasse_status pago/pendente",
+    obtido: pagamentoFinal
+      ? `pgto=${pagamentoFinal.status}, repasse=${pagamentoFinal.repasse_status}`
+      : "(pagamento nao encontrado)",
+    duracao_ms: 0,
+    erro: repasseOk ? undefined : "pagamento ou repasse nao registrado apos PIN validado",
+  });
+
+  // ========== STEP 31: Estorno mock funciona ==========
   const { estornarCobranca } = await import("@/lib/asaas");
   const estornoResult = await estornarCobranca(
     String(corridaAposAceite?.asaas_payment_id),
-    "Smoke E2E - simulacao de estorno",
+    "Smoke E2E - cobertura de estorno",
   );
   steps.push({
-    step: "24_estorno_mock",
+    step: "31_estorno_mock_funciona",
     ok: estornoResult.ok && estornoResult.estorno?.status === "REFUNDED",
     esperado: "estornarCobranca retorna REFUNDED",
     obtido: estornoResult.ok
       ? `id=${estornoResult.estorno?.id}, status=${estornoResult.estorno?.status}`
       : `erro: ${JSON.stringify(estornoResult.erro).slice(0, 100)}`,
-    duracao_ms: Date.now() - t24,
-    erro: !estornoResult.ok ? "estornarCobranca nao retornou mock" : undefined,
-  });
-  if (!steps[steps.length - 1].ok) return await finalizar(steps, inicio, "step_24_falhou");
-
-  // 25: getPagamento mock retorna RECEIVED
-  const t25 = Date.now();
-  const { getPagamento } = await import("@/lib/asaas");
-  const consultaResult = await getPagamento(String(corridaAposAceite?.asaas_payment_id));
-  steps.push({
-    step: "25_consulta_pagamento_mock",
-    ok: consultaResult.ok && consultaResult.pagamento?.status === "RECEIVED",
-    esperado: "getPagamento retorna RECEIVED pra pay_smoke_",
-    obtido: consultaResult.ok
-      ? `status=${consultaResult.pagamento?.status}`
-      : `erro: ${JSON.stringify(consultaResult.erro).slice(0, 100)}`,
-    duracao_ms: Date.now() - t25,
-    erro: !consultaResult.ok ? "getPagamento nao retornou mock" : undefined,
-  });
-  if (!steps[steps.length - 1].ok) return await finalizar(steps, inicio, "step_25_falhou");
-
-  // ========== STEP 26: Garante que NAO houve cobranca real Asaas ==========
-  // Se durante o smoke alguma chamada vazou pro Asaas real, teria criado
-  // payment id NAO comecando com pay_smoke_. Validacao final.
-  const { data: corridaFinalCheck } = await supabase
-    .from("corridas")
-    .select("asaas_payment_id, status, valor_final, prestador_id")
-    .eq("id", corridaId)
-    .maybeSingle();
-  const tudoMockado =
-    String(corridaFinalCheck?.asaas_payment_id || "").startsWith("pay_smoke_") &&
-    corridaFinalCheck?.status === "concluida" &&
-    corridaFinalCheck?.prestador_id === prestadorSmokeId;
-  steps.push({
-    step: "26_corrida_final_consistente",
-    ok: tudoMockado,
-    esperado: "asaas_payment_id mock + status=concluida + prestador=smoke",
-    obtido: `asaas=${corridaFinalCheck?.asaas_payment_id}, status=${corridaFinalCheck?.status}, prestador=${corridaFinalCheck?.prestador_id?.slice(0, 8)}`,
     duracao_ms: 0,
-    erro: tudoMockado ? undefined : "estado final da corrida inconsistente",
   });
 
-  // ========== STEP 27: Garante prestador smoke ainda tem disponivel=true ==========
+  // ========== STEP 32: Prestador smoke intacto ==========
   const { data: prestadorFinal } = await supabase
     .from("prestadores")
     .select("disponivel, status")
     .eq("id", prestadorSmokeId)
     .maybeSingle();
   steps.push({
-    step: "27_prestador_smoke_intacto",
+    step: "32_prestador_smoke_intacto",
     ok: prestadorFinal?.disponivel === true && prestadorFinal?.status === "aprovado",
     esperado: "prestador smoke disponivel=true e aprovado",
     obtido: `disponivel=${prestadorFinal?.disponivel}, status=${prestadorFinal?.status}`,
     duracao_ms: 0,
-    erro: undefined,
   });
 
   // Cleanup pos-teste (independente de sucesso/falha) — limparPhoneSmoke

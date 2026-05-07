@@ -36,6 +36,56 @@ interface Problema {
   prompt_para_claude: string;
 }
 
+// Hash determinístico do problema pra dedup. Mesmo bug detectado varias
+// vezes seguidas vira UM hash — notifica 1 vez, depois respeita janela.
+function hashDoProblema(p: Problema): string {
+  if (p.tipo === "smoke_falhou") {
+    const m = p.resumo.match(/step `([^`]+)`/);
+    return `smoke_${m?.[1] || "unknown"}`;
+  }
+  if (p.tipo === "cliente_travado") {
+    const m = p.resumo.match(/Cliente (\d+)/);
+    return `travado_${m?.[1] || "unknown"}`;
+  }
+  if (p.tipo === "webhook_handler_error_cluster") {
+    return "handler_error_cluster";
+  }
+  return `${p.tipo}_${p.detectado_em.slice(0, 13)}`;
+}
+
+async function jaNotificouRecente(hash: string, janelaHoras: number = 6): Promise<boolean> {
+  const limite = new Date(Date.now() - janelaHoras * 3600 * 1000).toISOString();
+  const { data } = await supabase
+    .from("bot_logs")
+    .select("id")
+    .filter("payload->>tipo", "eq", "imuni_notificacao_enviada")
+    .filter("payload->>hash", "eq", hash)
+    .gte("criado_em", limite)
+    .limit(1);
+  return (data?.length || 0) > 0;
+}
+
+async function registrarNotificacao(hash: string, problema: Problema): Promise<void> {
+  await supabase.from("bot_logs").insert({
+    payload: {
+      tipo: "imuni_notificacao_enviada",
+      hash,
+      problema_tipo: problema.tipo,
+      resumo: problema.resumo.slice(0, 200),
+    },
+  });
+}
+
+// Janela de dedup: nao re-notifica o mesmo problema (mesmo hash) por essas horas.
+// 6h = razoavel: cron roda a cada 30min, janela de problemas = 2h. Significa que
+// um problema persistente vai gerar 1 notificacao a cada 6h em vez de 12.
+const DEDUP_JANELA_HORAS = 6;
+
+// Maximo de notificacoes por execucao do relatorio (pra evitar flood mesmo
+// quando ha muitos problemas NOVOS de uma vez, ex: deploy ruim que quebrou
+// 10 steps do smoke).
+const MAX_NOTIFICACOES_POR_RUN = 5;
+
 async function handle(req: NextRequest) {
   const key =
     req.nextUrl.searchParams.get("key") ||
@@ -171,19 +221,32 @@ async function handle(req: NextRequest) {
     });
   }
 
-  // ============ 4) NOTIFICAR ADMINS VIA WHATSAPP ============
+  // ============ 4) NOTIFICAR ADMINS VIA WHATSAPP (COM DEDUP) ============
   let notificacoes_enviadas = 0;
+  let notificacoes_skippadas_dedup = 0;
+  let notificacoes_skippadas_limite = 0;
   if (notificar && problemas.length > 0) {
     const { notificarAdmins } = await import("@/lib/admin-notify");
-    // Envia 1 mensagem por problema (admin recebe mensagens separadas no
-    // WhatsApp). Cada uma tem o prompt pronto entre marcadores === ===.
     for (const p of problemas) {
+      // Limite hard pra nao floodar
+      if (notificacoes_enviadas >= MAX_NOTIFICACOES_POR_RUN) {
+        notificacoes_skippadas_limite++;
+        continue;
+      }
+      // Dedup: nao re-notifica o mesmo bug se ja avisou nas ultimas N horas
+      const hash = hashDoProblema(p);
+      const jaAvisado = await jaNotificouRecente(hash, DEDUP_JANELA_HORAS);
+      if (jaAvisado) {
+        notificacoes_skippadas_dedup++;
+        continue;
+      }
       try {
         await notificarAdmins(
           `🦠 *IMUNI: ${p.resumo}*`,
           "sistema",
           `Detectado em ${p.detectado_em}\n\n${p.prompt_para_claude}\n\nCopia o bloco entre === === e cola pro Claude. Ele tem contexto completo pra corrigir sem precisar de back-and-forth.`,
         );
+        await registrarNotificacao(hash, p);
         notificacoes_enviadas++;
         // Pequeno delay pra nao floodar ChatPro
         await new Promise((r) => setTimeout(r, 1000));
@@ -198,6 +261,10 @@ async function handle(req: NextRequest) {
     janela_horas: janelaHoras,
     qtd_problemas: problemas.length,
     notificacoes_enviadas,
+    notificacoes_skippadas_dedup,
+    notificacoes_skippadas_limite,
+    dedup_janela_horas: DEDUP_JANELA_HORAS,
+    max_por_run: MAX_NOTIFICACOES_POR_RUN,
     problemas,
   });
 }

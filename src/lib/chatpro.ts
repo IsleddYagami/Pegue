@@ -5,6 +5,17 @@ import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 const CHATPRO_ENDPOINT = process.env.CHATPRO_ENDPOINT || "";
 const CHATPRO_TOKEN = process.env.CHATPRO_TOKEN || "";
 
+// Phones reservados pra IMUNI Smoke E2E. Esses phones SAO PROPOSITALMENTE
+// inexistentes ("5500000000001"). ChatPro retorna 400 e quebra o fluxo do
+// smoke. Fix: detectar esses phones na entrada do sendMessage/sendImage e
+// retornar mock sem chamar ChatPro. Loga em bot_logs pra rastreio.
+//
+// Convencao: phone smoke = comeca com 55000 (DDI BR + DDD impossivel 00).
+// Cliente real nunca usa esse formato (DDD valido vai 11-99).
+function isSmokePhone(to: string): boolean {
+  return /^55000\d+$/.test(to);
+}
+
 // Segunda instancia
 const CHATPRO_INSTANCE_2 = process.env.CHATPRO_INSTANCE_2 || "";
 const CHATPRO_TOKEN_2 = process.env.CHATPRO_TOKEN_2 || "";
@@ -45,6 +56,24 @@ async function fetchComTimeout(url: string, init: RequestInit, timeoutMs = 15000
 }
 
 export async function sendMessage({ to, message, instance }: SendMessageOptions) {
+  // Phones do smoke E2E: nao chama ChatPro (retornaria 400 sempre — phone
+  // inexistente). Loga em bot_logs pra observabilidade do smoke.
+  if (isSmokePhone(to)) {
+    try {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "chatpro_smoke_mock",
+          phone: to,
+          message_preview: (message || "").slice(0, 80),
+          instance: instance || 1,
+        },
+      });
+    } catch {
+      // Silencio — log auxiliar.
+    }
+    return { mocked: true, smoke: true };
+  }
+
   const { endpoint, token } = getConfig(instance);
 
   const response = await fetchComTimeout(`${endpoint}/api/v1/send_message`, {
@@ -69,6 +98,24 @@ export async function sendMessage({ to, message, instance }: SendMessageOptions)
 }
 
 export async function sendImage({ to, url, caption, instance }: SendImageOptions) {
+  // Mesma logica de sendMessage: phones smoke nao chamam ChatPro.
+  if (isSmokePhone(to)) {
+    try {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "chatpro_smoke_mock_image",
+          phone: to,
+          url_preview: (url || "").slice(0, 80),
+          caption_preview: (caption || "").slice(0, 80),
+          instance: instance || 1,
+        },
+      });
+    } catch {
+      // Silencio.
+    }
+    return { mocked: true, smoke: true };
+  }
+
   const { endpoint, token } = getConfig(instance);
 
   // Endpoint correto descoberto em 25/Abr: ChatPro usa send_message_file_from_url

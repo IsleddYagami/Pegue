@@ -122,7 +122,7 @@ async function chamarWebhook(
 
 function payloadMensagemTexto(text: string, instance = 1): Record<string, unknown> {
   return {
-    EventType: "receveid_message",
+    Type: "receveid_message",
     Body: {
       Info: {
         RemoteJid: `${SMOKE_PHONE}@s.whatsapp.net`,
@@ -138,7 +138,7 @@ function payloadMensagemTexto(text: string, instance = 1): Record<string, unknow
 
 function payloadLocalizacao(lat: number, lng: number, instance = 1): Record<string, unknown> {
   return {
-    EventType: "receveid_location",
+    Type: "receveid_location",
     Body: {
       Info: {
         RemoteJid: `${SMOKE_PHONE}@s.whatsapp.net`,

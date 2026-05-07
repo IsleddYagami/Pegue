@@ -57,6 +57,10 @@ interface StepResult {
   obtido?: string;
   duracao_ms: number;
   erro?: string;
+  // Quando step falha, anexamos o body do webhook pra debug
+  // (ex: ChatPro disse "ignored_invalid_phone" ou "rate_limited").
+  webhook_resposta?: unknown;
+  webhook_status?: number;
 }
 
 async function dormir(ms: number): Promise<void> {
@@ -207,13 +211,16 @@ export async function GET(req: NextRequest) {
   const r1 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("oi"));
   await dormir(1500); // dar tempo do webhook processar
   const step1Atual = await getStepAtual();
+  const step1Ok = step1Atual === "aguardando_servico";
   steps.push({
     step: "1_oi",
-    ok: step1Atual === "aguardando_servico",
+    ok: step1Ok,
     esperado: "aguardando_servico",
     obtido: step1Atual || "(sessao nao criada)",
     duracao_ms: Date.now() - t1,
     erro: r1.status !== 200 ? `webhook retornou ${r1.status}` : undefined,
+    webhook_status: r1.status,
+    webhook_resposta: step1Ok ? undefined : r1.body,
   });
 
   // Se falhou no step 1, nao adianta continuar

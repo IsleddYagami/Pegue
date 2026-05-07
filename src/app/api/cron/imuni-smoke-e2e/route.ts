@@ -87,6 +87,7 @@ async function limparPhoneSmoke(): Promise<void> {
 
 async function chamarWebhook(
   baseUrl: string,
+  webhookSecret: string,
   payload: unknown,
 ): Promise<{ status: number; body: unknown }> {
   // Timeout obrigatorio (regra eslint custom imuni/no-fetch-without-timeout):
@@ -95,7 +96,11 @@ async function chamarWebhook(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 12000);
   try {
-    const r = await fetch(`${baseUrl}/api/whatsapp/webhook`, {
+    // Webhook exige ?secret=WEBHOOK_WHATSAPP_SECRET (auditoria 30/Abr fail-secure).
+    // O smoke roda no mesmo runtime Vercel que tem essa env var, entao podemos
+    // usa-la pra autenticar. Sem isso, todas as chamadas viram 401.
+    const url = `${baseUrl}/api/whatsapp/webhook?secret=${encodeURIComponent(webhookSecret)}`;
+    const r = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -169,6 +174,19 @@ export async function GET(req: NextRequest) {
   const host = req.headers.get("host") || "www.chamepegue.com.br";
   const baseUrl = `${proto}://${host}`;
 
+  // Webhook eh fail-secure em producao: exige ?secret=WEBHOOK_WHATSAPP_SECRET.
+  // Sem essa env var, smoke nao consegue chamar webhook (todos os steps 401).
+  const webhookSecret = process.env.WEBHOOK_WHATSAPP_SECRET || "";
+  if (!webhookSecret) {
+    return NextResponse.json(
+      {
+        ok: false,
+        motivo: "WEBHOOK_WHATSAPP_SECRET ausente — smoke nao pode autenticar webhook",
+      },
+      { status: 500 },
+    );
+  }
+
   const inicio = Date.now();
   const steps: StepResult[] = [];
 
@@ -186,7 +204,7 @@ export async function GET(req: NextRequest) {
 
   // ========== STEP 1: Cliente manda "oi" ==========
   const t1 = Date.now();
-  const r1 = await chamarWebhook(baseUrl, payloadMensagemTexto("oi"));
+  const r1 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("oi"));
   await dormir(1500); // dar tempo do webhook processar
   const step1Atual = await getStepAtual();
   steps.push({
@@ -205,7 +223,7 @@ export async function GET(req: NextRequest) {
 
   // ========== STEP 2: Cliente escolhe "1" (frete) ==========
   const t2 = Date.now();
-  const r2 = await chamarWebhook(baseUrl, payloadMensagemTexto("1"));
+  const r2 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("1"));
   await dormir(1500);
   const step2Atual = await getStepAtual();
   steps.push({
@@ -225,6 +243,7 @@ export async function GET(req: NextRequest) {
   const t3 = Date.now();
   const r3 = await chamarWebhook(
     baseUrl,
+    webhookSecret,
     payloadLocalizacao(SMOKE_LAT_ORIGEM, SMOKE_LNG_ORIGEM),
   );
   await dormir(2500); // geocoder pode demorar
@@ -311,7 +330,7 @@ export async function GET(req: NextRequest) {
   // ========== STEP 6: Cliente confirma origem ("1") ==========
   // Apos confirmar, handleConfirmandoOrigem -> step "aguardando_foto"
   const t6 = Date.now();
-  const r6 = await chamarWebhook(baseUrl, payloadMensagemTexto("1"));
+  const r6 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("1"));
   await dormir(1500);
   const step6Atual = await getStepAtual();
   steps.push({
@@ -330,7 +349,7 @@ export async function GET(req: NextRequest) {
   // "5, 6, 7" = Armario cozinha, Mesa cadeiras, Freezer (3 itens = veiculo HR).
   // handleFoto detecta numeros >=2 e PULA IA — fluxo deterministic, sem custo.
   const t7 = Date.now();
-  const r7 = await chamarWebhook(baseUrl, payloadMensagemTexto("5, 6, 7"));
+  const r7 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("5, 6, 7"));
   await dormir(1500);
   const step7Atual = await getStepAtual();
   steps.push({
@@ -349,7 +368,7 @@ export async function GET(req: NextRequest) {
   // handleDestino tenta geocodeAddress. Se Google Maps nao retornar coords,
   // fluxo recusa (proibido fallback). Endereco escolhido eh real e indexado.
   const t8 = Date.now();
-  const r8 = await chamarWebhook(baseUrl, payloadMensagemTexto(SMOKE_DESTINO_TEXTO));
+  const r8 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto(SMOKE_DESTINO_TEXTO));
   await dormir(3000); // geocoder + reverseGeocode podem demorar
   const step8Atual = await getStepAtual();
   steps.push({
@@ -384,7 +403,7 @@ export async function GET(req: NextRequest) {
   // ========== STEP 9: Cliente confirma destino ("1") ==========
   // handleConfirmandoDestino -> aguardando_tipo_local (sem contexto IA, fluxo padrao)
   const t9 = Date.now();
-  const r9 = await chamarWebhook(baseUrl, payloadMensagemTexto("1"));
+  const r9 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("1"));
   await dormir(1500);
   const step9Atual = await getStepAtual();
   steps.push({
@@ -402,7 +421,7 @@ export async function GET(req: NextRequest) {
   // ========== STEP 10: Tipo do local "1" (terreo) ==========
   // handleTipoLocal -> aguardando_ajudante
   const t10 = Date.now();
-  const r10 = await chamarWebhook(baseUrl, payloadMensagemTexto("1"));
+  const r10 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("1"));
   await dormir(1500);
   const step10Atual = await getStepAtual();
   steps.push({
@@ -422,7 +441,7 @@ export async function GET(req: NextRequest) {
   // Esse passo eh CRITICO: aqui o sistema persiste valor_estimado, distancia_km,
   // veiculo_sugerido. Falha aqui = problema na cotacao.
   const t11 = Date.now();
-  const r11 = await chamarWebhook(baseUrl, payloadMensagemTexto("1"));
+  const r11 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("1"));
   await dormir(2500); // calcular orcamento envolve calculos + insert
   const step11Atual = await getStepAtual();
   steps.push({
@@ -463,7 +482,7 @@ export async function GET(req: NextRequest) {
   // ========== STEP 12: Cliente manda "agora" (urgente) ==========
   // handleData -> aguardando_confirmacao
   const t12 = Date.now();
-  const r12 = await chamarWebhook(baseUrl, payloadMensagemTexto("agora"));
+  const r12 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("agora"));
   await dormir(1500);
   const step12Atual = await getStepAtual();
   steps.push({
@@ -484,7 +503,7 @@ export async function GET(req: NextRequest) {
   // dispatch real pra fretistas (ainda que filtrado por TEST_PHONES,
   // criaria corrida no banco e poluiria producao).
   const t13 = Date.now();
-  const r13 = await chamarWebhook(baseUrl, payloadMensagemTexto("1"));
+  const r13 = await chamarWebhook(baseUrl, webhookSecret, payloadMensagemTexto("1"));
   await dormir(1500);
   const step13Atual = await getStepAtual();
   steps.push({

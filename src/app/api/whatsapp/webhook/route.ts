@@ -813,7 +813,25 @@ export async function POST(req: NextRequest) {
     try {
       await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia, imageUrl, pushName, instance);
     } catch (flowError: any) {
+      // BUG OCULTO: ate aqui o catch so chamava console.error — Vercel
+      // truncava em logs ofuscados, e nem bot_logs nem Sentry registravam.
+      // Erros em handleClienteMessage eram literalmente invisiveis (e.g.
+      // step travava sem motivo aparente). Agora persiste em bot_logs.
       console.error("Erro no fluxo:", flowError?.message);
+      try {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "webhook_handler_error",
+            phone: phoneNumber,
+            phone_masked: phoneNumber.replace(/\d(?=\d{4})/g, "*"),
+            mensagem: (message || "").slice(0, 200),
+            erro: flowError?.message || String(flowError),
+            stack: (flowError?.stack || "").slice(0, 1500),
+          },
+        });
+      } catch {
+        // Se ate o log falhar, nao tem o que fazer — Sentry pega via console.error
+      }
     }
 
     return NextResponse.json({ status: "ok" });

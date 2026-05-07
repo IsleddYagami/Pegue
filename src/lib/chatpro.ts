@@ -16,6 +16,39 @@ function isSmokePhone(to: string): boolean {
   return /^55000\d+$/.test(to);
 }
 
+// Dedupe de outbound (7/Mai/2026): cliente Igor real recebeu mesma msg
+// "Anotei, tô localizando..." 9x e "Não tô conseguindo identificar..." 7x
+// porque mandou 9 msgs em ~3s e cada webhook concorrente respondeu igual.
+// Solucao: cache em memoria (phone, hash da msg, ts). Se proxima envio
+// for IGUAL ao ultimo dentro de 30s, SKIP. Cache expira sozinho (Map size
+// limit 500). Se serverless reiniciar, cache zera — comportamento aceitavel.
+const outboundDedupCache = new Map<string, { hash: string; expiresAt: number }>();
+const OUTBOUND_DEDUP_WINDOW_MS = 30_000;
+function hashSimples(s: string): string {
+  // Hash simples baseado em primeiros 200 chars + length (suficiente pra
+  // mensagens do bot que tem padrao consistente).
+  return `${s.slice(0, 200)}|${s.length}`;
+}
+function devevDedupar(phone: string, message: string): boolean {
+  const agora = Date.now();
+  // Limpa entradas expiradas (cap memoria) — itera so se Map ficar grande
+  if (outboundDedupCache.size > 500) {
+    for (const [k, v] of outboundDedupCache) {
+      if (v.expiresAt < agora) outboundDedupCache.delete(k);
+    }
+  }
+  const cached = outboundDedupCache.get(phone);
+  const hash = hashSimples(message);
+  if (cached && cached.hash === hash && cached.expiresAt > agora) {
+    return true; // dedup
+  }
+  outboundDedupCache.set(phone, {
+    hash,
+    expiresAt: agora + OUTBOUND_DEDUP_WINDOW_MS,
+  });
+  return false;
+}
+
 // Segunda instancia
 const CHATPRO_INSTANCE_2 = process.env.CHATPRO_INSTANCE_2 || "";
 const CHATPRO_TOKEN_2 = process.env.CHATPRO_TOKEN_2 || "";
@@ -56,6 +89,23 @@ async function fetchComTimeout(url: string, init: RequestInit, timeoutMs = 15000
 }
 
 export async function sendMessage({ to, message, instance }: SendMessageOptions) {
+  // Dedupe outbound: msg igual ao mesmo phone em <30s = skip (cliente real
+  // 7/Mai/2026 Igor recebeu mesma msg 9x em 3s por race). Loga pra rastreio.
+  if (devevDedupar(to, message)) {
+    try {
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "chatpro_dedup_skip",
+          phone_masked: to.replace(/\d(?=\d{4})/g, "*"),
+          message_preview: message.slice(0, 80),
+          instance: instance || 1,
+        },
+      });
+    } catch {
+      // Best-effort
+    }
+    return { dedup: true, skip: true };
+  }
   // Phones do smoke E2E: nao chama ChatPro (retornaria 400 sempre — phone
   // inexistente). Loga em bot_logs pra observabilidade do smoke.
   if (isSmokePhone(to)) {

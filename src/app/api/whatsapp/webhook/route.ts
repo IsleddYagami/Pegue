@@ -809,9 +809,86 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // LOCK + DEBOUNCE (7/Mai/2026): cliente Igor mandou 9 msgs em 3s,
+    // cada uma virou webhook concorrente, cada uma tentou ser "endereco"
+    // -> caos + spam de respostas. Solucao: lock por phone (so 1 request
+    // processa por vez) + debounce 1.2s (dar tempo de outras msgs chegarem)
+    // + consolidacao (le todas msgs in dos ultimos 5s e processa como UMA).
+    //
+    // Mensagens do PRESTADOR (dispatch/comandos OK/PROBLEMA/PIN) NAO devem
+    // ser bloqueadas — sao operacionais, latencia importa. Cliente recebe
+    // benefico, prestador continua sem lock.
+    const isPrestador = !!(await getDispatchForPrestador(phoneNumber));
+    const isAdmin = isAdminPhone(phoneNumber);
+
+    if (isPrestador || isAdmin) {
+      // Comandos operacionais — processa imediato, sem lock/debounce
+      try {
+        await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia, imageUrl, pushName, instance);
+      } catch (flowError: any) {
+        console.error("Erro no fluxo (prestador/admin):", flowError?.message);
+        try {
+          await supabase.from("bot_logs").insert({
+            payload: {
+              tipo: "webhook_handler_error",
+              phone: phoneNumber,
+              phone_masked: phoneNumber.replace(/\d(?=\d{4})/g, "*"),
+              mensagem: (message || "").slice(0, 200),
+              erro: flowError?.message || String(flowError),
+              stack: (flowError?.stack || "").slice(0, 1500),
+              role: "prestador_ou_admin",
+            },
+          });
+        } catch {}
+      }
+      return NextResponse.json({ status: "ok" });
+    }
+
+    // CLIENTE: serializa via lock e consolida msgs em rajada
+    const { tentarAdquirirLock, liberarLock, dormir, consolidarMsgsRecentes } =
+      await import("@/lib/processing-lock");
+    const lockRes = await tentarAdquirirLock(phoneNumber);
+    if (!lockRes.ok) {
+      // Outro webhook tem lock — ele vai ler nossa msg em conversas_whatsapp
+      // (registrada acima). Retorna 200 sem reprocessar (evita race + spam).
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "webhook_skip_lock_busy",
+          phone_masked: phoneNumber.replace(/\d(?=\d{4})/g, "*"),
+          mensagem_preview: (message || "").slice(0, 80),
+        },
+      });
+      return NextResponse.json({ status: "skipped_lock_busy" });
+    }
+
+    let mensagemFinal = message;
+    try {
+      // Debounce: aguarda 1.2s pra outras msgs em rajada chegarem
+      // (cliente WhatsApp Business as vezes manda 5-10 msgs em 2s).
+      // Se nao houver media (foto/GPS), consolida em 1 string.
+      if (!hasMedia && (lat === null || lat === undefined)) {
+        await dormir(1200);
+        const cons = await consolidarMsgsRecentes(phoneNumber, 5);
+        if (cons.textoConsolidado && cons.qtdMsgs > 1) {
+          mensagemFinal = cons.textoConsolidado;
+          await supabase.from("bot_logs").insert({
+            payload: {
+              tipo: "webhook_msgs_consolidadas",
+              phone_masked: phoneNumber.replace(/\d(?=\d{4})/g, "*"),
+              qtd_msgs: cons.qtdMsgs,
+              preview: mensagemFinal.slice(0, 200),
+            },
+          });
+        }
+      }
+    } catch (consolidErr: any) {
+      console.error("Erro consolidando msgs:", consolidErr?.message);
+      // Continua com msg original se consolidacao falhar
+    }
+
     // Fluxo do cliente
     try {
-      await handleClienteMessage(phoneNumber, message, lat, lng, hasMedia, imageUrl, pushName, instance);
+      await handleClienteMessage(phoneNumber, mensagemFinal, lat, lng, hasMedia, imageUrl, pushName, instance);
     } catch (flowError: any) {
       // BUG OCULTO: ate aqui o catch so chamava console.error — Vercel
       // truncava em logs ofuscados, e nem bot_logs nem Sentry registravam.
@@ -825,6 +902,7 @@ export async function POST(req: NextRequest) {
             phone: phoneNumber,
             phone_masked: phoneNumber.replace(/\d(?=\d{4})/g, "*"),
             mensagem: (message || "").slice(0, 200),
+            mensagem_consolidada: mensagemFinal !== message ? (mensagemFinal || "").slice(0, 300) : undefined,
             erro: flowError?.message || String(flowError),
             stack: (flowError?.stack || "").slice(0, 1500),
           },
@@ -832,6 +910,10 @@ export async function POST(req: NextRequest) {
       } catch {
         // Se ate o log falhar, nao tem o que fazer — Sentry pega via console.error
       }
+    } finally {
+      // SEMPRE libera lock — mesmo em exception. Caso contrario lock fica
+      // 15s preso ate TTL expirar, atrasando proximas msgs do cliente.
+      await liberarLock(phoneNumber);
     }
 
     return NextResponse.json({ status: "ok" });
@@ -2130,11 +2212,22 @@ async function handleLocalizacao(
       await supabase.from("bot_logs").insert({
         payload: { tipo: "cep_nao_encontrado", phone, cep, origem_tentativa: message.slice(0, 100) },
       });
-      await sendToClient({
-        to: phone,
-        message: `🤔 Não achei esse CEP (*${cep}*) no ViaCEP.\n\nConfere se digitou certo ou tenta mandar:\n• *Rua, bairro e cidade* (ex: Rua Augusta, Consolacao, Sao Paulo)\n• *Localização* pelo *icone de anexo* (canto inferior direito do WhatsApp)`,
-      });
-      return;
+      // FALLBACK 7/Mai/2026 (caso Igor): cliente real mandou
+      // "Av. Franz Voegeli, 751 - Continental, Osasco - SP, 06010-190".
+      // ViaCEP NAO achou esse CEP (raro/recente), sistema desistia. Mas
+      // a mensagem ja tinha rua+bairro+cidade-completos! Agora cai no
+      // caminho C (geocoder direto da msg) ao inves de retornar erro.
+      // So vai pra erro se ate o caminho C falhar.
+      const palavrasResto = message.split(/\s+/).filter((p) => p.length > 2);
+      if (palavrasResto.length < 3) {
+        // Mensagem so tinha CEP — sem rua/bairro/cidade pra fallback. Erro mesmo.
+        await sendToClient({
+          to: phone,
+          message: `🤔 Não achei esse CEP (*${cep}*) no ViaCEP.\n\nConfere se digitou certo ou tenta mandar:\n• *Rua, bairro e cidade* (ex: Rua Augusta, Consolacao, Sao Paulo)\n• *Localização* pelo *icone de anexo* (canto inferior direito do WhatsApp)`,
+        });
+        return;
+      }
+      // Tem outras palavras alem do CEP — cai no caminho C (geocoder texto livre)
     }
   }
 
@@ -2976,11 +3069,20 @@ async function handleDestino(phone: string, message: string) {
         await supabase.from("bot_logs").insert({
           payload: { tipo: "cep_destino_nao_encontrado", phone, cep, destino_tentativa: message.slice(0, 100) },
         });
-        await sendToClient({
-          to: phone,
-          message: `🤔 Não achei esse CEP (*${cep}*) de destino.\n\nConfere se digitou certo ou manda:\n• *Rua, bairro e cidade* do destino\n\nExemplo: *Rua Augusta, Consolação, São Paulo*`,
-        });
-        return;
+        // FALLBACK 7/Mai/2026 (paridade com handleLocalizacao): se ViaCEP
+        // nao achou MAS msg tem rua+bairro+cidade, tenta geocodar direto.
+        const palavrasDest = message.split(/\s+/).filter((p) => p.length > 2);
+        if (palavrasDest.length < 3) {
+          await sendToClient({
+            to: phone,
+            message: `🤔 Não achei esse CEP (*${cep}*) de destino.\n\nConfere se digitou certo ou manda:\n• *Rua, bairro e cidade* do destino\n\nExemplo: *Rua Augusta, Consolação, São Paulo*`,
+          });
+          return;
+        }
+        // Cai pro caminho de geocoder direto (texto livre)
+        const coords = await geocodeAddress(message);
+        destinoLat = coords?.lat || null;
+        destinoLng = coords?.lng || null;
       }
     } else {
       const coords = await geocodeAddress(message);

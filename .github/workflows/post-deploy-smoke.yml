@@ -1,0 +1,81 @@
+name: Post-Deploy Smoke
+
+# Roda APOS push em main pra validar que o deploy production nao quebrou
+# o fluxo do bot. Se o smoke falhar:
+#   1) Notifica admins via WhatsApp (com prompt pronto pra Claude)
+#   2) (futuro) Chama auto-rollback pra reverter deploy
+#
+# Custo: zero (GitHub Actions free tier 2000min/mes; um run gasta ~3min).
+#
+# Pre-requisito: secret CRON_SECRET no repo (Settings > Secrets and
+# variables > Actions > New repository secret).
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  validar-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Aguardar Vercel terminar deploy production
+        # Vercel demora ~90-150s pra deployar apos push. Espera fixa de
+        # 180s cobre a maioria dos casos. Workflow nao falha se deploy
+        # estiver lento — smoke apenas vai retornar build velho ainda.
+        run: sleep 180
+
+      - name: Rodar smoke E2E feliz
+        id: smoke
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET nao configurado nos secrets do repo"
+            exit 1
+          fi
+          response=$(curl -s -m 240 \
+            "https://www.chamepegue.com.br/api/cron/imuni-smoke-e2e?key=$CRON_SECRET")
+          echo "smoke_body<<EOF" >> $GITHUB_OUTPUT
+          echo "$response" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          # Verifica que smoke retornou ok:true
+          ok=$(echo "$response" | grep -oE '"ok":(true|false)' | head -1)
+          motivo=$(echo "$response" | grep -oE '"motivo":(null|"[^"]+")' | head -1)
+          echo "smoke_status=$ok" >> $GITHUB_OUTPUT
+          echo "smoke_motivo=$motivo" >> $GITHUB_OUTPUT
+          if [ "$ok" != '"ok":true' ]; then
+            echo "::error::Smoke falhou pos-deploy. $ok / $motivo"
+            exit 1
+          fi
+          echo "::notice::Smoke verde pos-deploy"
+
+      - name: Rodar smoke adversarial (cliente caotico)
+        if: success()
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          response=$(curl -s -m 240 \
+            "https://www.chamepegue.com.br/api/cron/imuni-smoke-adversario?key=$CRON_SECRET")
+          ok=$(echo "$response" | grep -oE '"ok":(true|false)' | head -1)
+          aprovados=$(echo "$response" | grep -oE '"aprovados":[0-9]+' | head -1)
+          falhas=$(echo "$response" | grep -oE '"falhas":[0-9]+' | head -1)
+          echo "Adversarial: $ok ($aprovados, $falhas)"
+          if [ "$ok" != '"ok":true' ]; then
+            echo "::warning::Smoke adversarial falhou ($falhas falhas). Nao bloqueia, soh avisa."
+          fi
+
+      - name: Disparar relatorio IMUNI (se smoke falhou)
+        if: failure()
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # Deploy quebrou algo. Aciona relatorio com notificar=1 pra
+          # admins receberem WhatsApp com prompt pronto pro Claude.
+          # Janela=2h pra capturar APENAS o smoke recente que falhou.
+          curl -s -m 60 \
+            "https://www.chamepegue.com.br/api/admin-imuni-relatorio?key=$CRON_SECRET&notificar=1&janela_horas=2" \
+            > /dev/null
+          echo "::notice::Relatorio IMUNI disparado — admins recebendo WhatsApp"

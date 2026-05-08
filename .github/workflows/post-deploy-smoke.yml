@@ -67,14 +67,29 @@ jobs:
             echo "::warning::Smoke adversarial falhou ($falhas falhas). Nao bloqueia, soh avisa."
           fi
 
+      - name: Auto-rollback (se smoke falhou)
+        if: failure()
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # Deploy ruim — reverte automaticamente pro ultimo deploy verde
+          # via Vercel API. Cliente real volta a ver versao funcional em ~30s.
+          rollback_resp=$(curl -s -m 30 \
+            "https://www.chamepegue.com.br/api/admin-rollback-deploy?key=$CRON_SECRET")
+          echo "Rollback response: $rollback_resp"
+          if echo "$rollback_resp" | grep -q '"ok":true'; then
+            echo "::notice::Auto-rollback executado com sucesso — cliente esta na versao anterior verde"
+          else
+            echo "::error::Auto-rollback FALHOU — admin precisa intervir manualmente"
+          fi
+
       - name: Disparar relatorio IMUNI (se smoke falhou)
         if: failure()
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          # Deploy quebrou algo. Aciona relatorio com notificar=1 pra
-          # admins receberem WhatsApp com prompt pronto pro Claude.
-          # Janela=2h pra capturar APENAS o smoke recente que falhou.
+          # Notifica admins via WhatsApp com prompt pronto pra Claude
+          # corrigir o bug. Janela=2h pra capturar APENAS o smoke recente.
           curl -s -m 60 \
             "https://www.chamepegue.com.br/api/admin-imuni-relatorio?key=$CRON_SECRET&notificar=1&janela_horas=2" \
             > /dev/null

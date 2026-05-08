@@ -50,6 +50,10 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "acesso negado" }, { status: 401 });
   }
 
+  // Dry run: identifica current/anterior MAS NAO promove. Pra validar
+  // VERCEL_TOKEN/PROJECT_ID + acesso API sem afetar prod.
+  const dryRun = req.nextUrl.searchParams.get("dry_run") === "1";
+
   const vercelToken = process.env.VERCEL_TOKEN;
   const projectId = process.env.VERCEL_PROJECT_ID || "prj_7OKSUmZRyQJxJi5lFotlvOhBTBWc";
 
@@ -116,6 +120,25 @@ async function handle(req: NextRequest) {
     }
 
     const anterior = candidatos[0];
+
+    // Dry run: para aqui, antes de promover. Permite validar token + dados.
+    if (dryRun) {
+      return NextResponse.json({
+        ok: true,
+        modo: "dry_run",
+        current: {
+          id: currentId,
+          sha: currentSha,
+        },
+        candidato_rollback: {
+          id: anterior.uid,
+          sha: anterior.meta?.githubCommitSha,
+          commit_msg: (anterior.meta?.githubCommitMessage || "").slice(0, 100),
+          created: anterior.created,
+        },
+        msg: "rollback NAO foi executado — modo dry_run. Remova ?dry_run=1 pra executar.",
+      });
+    }
 
     // 3) Promove o anterior (rollback)
     const promoteResp = await fetch(

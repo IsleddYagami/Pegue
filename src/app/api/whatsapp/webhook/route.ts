@@ -2955,46 +2955,51 @@ async function handleMaisFotos(phone: string, message: string) {
     return;
   }
 
-  // NUMERO SOZINHO (sem "remover") - interpreta como remocao do item N
-  // Ex: cliente digitou '2' apos ver lista numerada
-  // Bug Fabio 26/Abr: comandos 'remover N', 'trocar N por X' eram confusos.
-  // Agora aceita apenas o NUMERO direto.
-  const matchNum = lower.match(/^(\d+)$/);
-  if (matchNum) {
-    const idx = parseInt(matchNum[1], 10) - 1;
+  // BUG REAL Maria 8/Mai/2026: bot dizia '1️⃣ Tudo certo / 2️⃣ Editar' e
+  // cliente respondia '1' achando que confirmava — sistema interpretava
+  // como REMOVER ITEM 1 da lista, ficava vazia, cliente perdido.
+  // FIX: '1' = TUDO CERTO (avanca pra destino). '2' = abrir menu edicao.
+  // Pra remover item especifico, cliente usa comando 'remover N' (que ja
+  // existe linhas acima) ou entra no menu de edicao.
+  if (lower === "1" || lower === "tudo certo" || lower === "pronto" || lower === "so isso" || lower === "só isso") {
     const itens = (session.descricao_carga || "").split(", ").filter((i) => i.trim().length > 0);
-
-    if (idx < 0 || idx >= itens.length) {
-      await sendToClient({
-        to: phone,
-        message: `Numero invalido. Sua lista tem ${itens.length} item${itens.length === 1 ? "" : "s"}:\n\n${formatarListaNumerada(session.descricao_carga)}\n\nManda um numero de *1* a *${itens.length}*.`,
-      });
-      return;
-    }
-
-    const itemRemovido = itens[idx];
-    itens.splice(idx, 1);
-    const novaLista = itens.join(", ");
-
-    await updateSession(phone, { descricao_carga: novaLista || null });
-
     if (itens.length === 0) {
-      await updateSession(phone, {
-        step: "aguardando_foto",
-        descricao_carga: null,
-        veiculo_sugerido: null,
-        foto_url: null,
-      });
       await sendToClient({
         to: phone,
-        message: `✅ Removi *${itemRemovido}*. Lista vazia.\n\n📸 Manda uma *foto* ou *descreve* pra recomecar.`,
+        message: "📦 Lista vazia. Manda uma *foto* ou *descreve* os itens primeiro.",
       });
       return;
     }
-
+    const veiculoNome: Record<string, string> = {
+      carro_comum: "Carro Comum",
+      utilitario: "Utilitario (Strada/Saveiro)",
+      hr: "HR",
+      caminhao_bau: "Caminhao Bau",
+    };
+    const veiculo = session.veiculo_sugerido || "utilitario";
+    const itensFormatados = itens.map((i) => `📦 ${i}`).join("\n");
+    await updateSession(phone, { step: "aguardando_destino" });
     await sendToClient({
       to: phone,
-      message: `✅ Removi: *${itemRemovido}*\n\n📦 Sua lista:\n${formatarListaNumerada(novaLista)}\n\n*Mais alguma edicao?*\n• Manda outro numero pra remover\n➕ *adicionar* — incluir mais\n✅ *pronto* — seguir`,
+      message: MSG.todosItensProntos(itensFormatados, veiculoNome[veiculo] || "Utilitario"),
+    });
+    return;
+  }
+
+  // '2' = abrir menu de edicao (mostra lista numerada pra cliente
+  // remover/trocar/adicionar item especifico).
+  if (lower === "2" || lower === "editar" || lower === "alterar") {
+    const itens = (session.descricao_carga || "").split(", ").filter((i) => i.trim().length > 0);
+    if (itens.length === 0) {
+      await sendToClient({
+        to: phone,
+        message: "📦 Lista vazia. Manda uma *foto* ou *descreve* os itens primeiro.",
+      });
+      return;
+    }
+    await sendToClient({
+      to: phone,
+      message: `✏️ *Sua lista atual:*\n\n${formatarListaNumerada(session.descricao_carga)}\n\nDigite:\n• *remover N* (ex: remover 2) — pra tirar item\n• *trocar N por X* (ex: trocar 1 por geladeira) — pra substituir\n• *adicionar* — pra incluir mais\n• *pronto* — pra seguir`,
     });
     return;
   }

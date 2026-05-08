@@ -58,21 +58,26 @@ export async function GET(req: NextRequest) {
     .order("criado_em", { ascending: false })
     .limit(limit);
 
-  // Bot logs do phone
+  // Bot logs do phone — 1 query por variante (operador in com payload->>X
+  // tem sintaxe quirky no PostgREST, melhor query separada)
   const phoneMasked = phoneDigits.replace(/\d(?=\d{4})/g, "*");
-  const { data: logsFull } = await supabase
-    .from("bot_logs")
-    .select("payload, criado_em")
-    .filter("payload->>phone", "in", `(${variantes.map((v) => `"${v}"`).join(",")})`)
-    .order("criado_em", { ascending: false })
-    .limit(20);
+  const logsFull: { payload: unknown; criado_em: string }[] = [];
+  for (const v of variantes) {
+    const { data } = await supabase
+      .from("bot_logs")
+      .select("payload, criado_em")
+      .filter("payload->>phone", "eq", v)
+      .order("criado_em", { ascending: false })
+      .limit(20);
+    if (data) logsFull.push(...data);
+  }
   const { data: logsMasked } = await supabase
     .from("bot_logs")
     .select("payload, criado_em")
     .filter("payload->>phone_masked", "eq", phoneMasked)
     .order("criado_em", { ascending: false })
     .limit(20);
-  const todosLogs = [...(logsFull || []), ...(logsMasked || [])];
+  const todosLogs = [...logsFull, ...(logsMasked || [])];
   const dedupMap = new Map<string, { payload: unknown; criado_em: string }>();
   for (const l of todosLogs) dedupMap.set(l.criado_em, l);
   const logs = Array.from(dedupMap.values())

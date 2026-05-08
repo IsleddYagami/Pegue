@@ -851,6 +851,145 @@ async function cenarioDescricaoComQuantidade(baseUrl: string, secret: string): P
   return r;
 }
 
+// Cenario 19: BUG REAL CASO MARIA (11951400612 — 8/Mai/2026). Apos cliente
+// mandar texto descritivo "fogao" o bot mostra "1 Tudo certo / 2 Editar".
+// Cliente respondia "1" achando que confirmava, sistema interpretava como
+// "remover item 1" -> lista vazia. Fix: '1' = avancar pra destino.
+// Esse cenario PROVA que o '1' agora confirma e nao remove.
+async function cenarioConfirmacaoItens(baseUrl: string, secret: string): Promise<CenarioResult> {
+  const phone = "5500000000028";
+  await limparPhone(phone);
+  const t0 = Date.now();
+
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "oi"));
+  await dormir(2500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1"));
+  await dormir(2500);
+  await chamarWebhook(
+    baseUrl,
+    secret,
+    {
+      Type: "receveid_location",
+      Body: {
+        Info: {
+          RemoteJid: `${phone}@s.whatsapp.net`,
+          FromMe: false,
+          PushName: "Smoke Adv",
+          Source: { message: { lat: -23.5329, lng: -46.7916 } },
+        },
+        Text: "",
+      },
+      instance: 1,
+    },
+  );
+  await dormir(3500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1")); // confirma origem
+  await dormir(2500);
+  // Texto descritivo simples (1 item)
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "fogao 4 bocas"));
+  await dormir(5000);
+  // Bot agora mostrou "1 Tudo certo / 2 Editar". Cliente responde "1".
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1"));
+  await dormir(3000);
+
+  const { data: sess } = await supabase
+    .from("bot_sessions")
+    .select("step, descricao_carga")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  const descricao = (sess?.descricao_carga || "").toLowerCase();
+  // PROVA: descricao_carga deve continuar com "fogao", step deve avancar
+  // pra aguardando_destino (ou outro step posterior). Inaceitavel:
+  // descricao vazia/null + step de volta pra aguardando_foto (= bot
+  // interpretou "1" como remover item).
+  const naoEsvaziou = !!descricao && descricao.length > 0;
+  const avancou = sess?.step === "aguardando_destino";
+  const ok = naoEsvaziou && avancou;
+
+  const r = {
+    cenario: "19_confirmacao_apos_foto_caso_maria",
+    ok,
+    esperado: "'1' avanca pra aguardando_destino (NAO remove item)",
+    obtido: `step=${sess?.step}, descr="${(sess?.descricao_carga || "").slice(0, 60)}"`,
+    duracao_ms: Date.now() - t0,
+  };
+  await limparPhone(phone);
+  return r;
+}
+
+// Cenario 20: BUG REAL ajudante com negacao. "nao preciso, sim ja tenho
+// ajuda em casa" antes pegava "sim" e gravava 1 ajudante. Agora deve
+// gravar 0 ajudantes.
+async function cenarioAjudanteNegado(baseUrl: string, secret: string): Promise<CenarioResult> {
+  const phone = "5500000000029";
+  await limparPhone(phone);
+  const t0 = Date.now();
+
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "oi"));
+  await dormir(2500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1"));
+  await dormir(2500);
+  await chamarWebhook(
+    baseUrl,
+    secret,
+    {
+      Type: "receveid_location",
+      Body: {
+        Info: {
+          RemoteJid: `${phone}@s.whatsapp.net`,
+          FromMe: false,
+          PushName: "Smoke Adv",
+          Source: { message: { lat: -23.5329, lng: -46.7916 } },
+        },
+        Text: "",
+      },
+      instance: 1,
+    },
+  );
+  await dormir(3500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1"));
+  await dormir(2500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "5, 6, 7"));
+  await dormir(2500);
+  // Destino texto curto que vai pegar
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "06093080"));
+  await dormir(3000);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1"));
+  await dormir(2500);
+  // tipo local terreo
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1"));
+  await dormir(2500);
+  // AGORA o teste: cliente fala com negacao + sim
+  await chamarWebhook(
+    baseUrl,
+    secret,
+    payloadTexto(phone, "nao preciso, sim ja tenho ajuda em casa pra carregar"),
+  );
+  await dormir(7000); // IA processa intent + calcula orcamento
+
+  const { data: sess } = await supabase
+    .from("bot_sessions")
+    .select("step, precisa_ajudante")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  // PROVA: precisa_ajudante deve ser false. Sistema deve avancar pra
+  // aguardando_data (calculou orcamento sem ajudante).
+  const semAjudante = !sess?.precisa_ajudante;
+  const ok = semAjudante;
+
+  const r = {
+    cenario: "20_ajudante_negado_com_sim",
+    ok,
+    esperado: "precisa_ajudante=false ('nao preciso, sim ja tenho')",
+    obtido: `step=${sess?.step}, precisa_ajudante=${sess?.precisa_ajudante}`,
+    duracao_ms: Date.now() - t0,
+  };
+  await limparPhone(phone);
+  return r;
+}
+
 // Cenario 6: cliente cancela no meio do fluxo. Sistema deve limpar sessao
 // e voltar ao inicio sem deixar lixo.
 async function cenarioCancelamento(baseUrl: string, secret: string): Promise<CenarioResult> {
@@ -922,6 +1061,8 @@ export async function GET(req: NextRequest) {
     cenarioListaGrandeMudanca,
     cenarioForaDeOrdem,
     cenarioDescricaoComQuantidade, // BUG REAL Natan 8/Mai
+    cenarioConfirmacaoItens, // BUG REAL Maria 8/Mai
+    cenarioAjudanteNegado, // BUG REAL "nao preciso, sim ja tenho"
   ];
   // Suprime warnings TS de funcoes nao usadas (definidas mas reservadas
   // pra ativacao individual no futuro).

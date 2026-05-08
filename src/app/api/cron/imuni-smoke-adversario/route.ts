@@ -289,12 +289,17 @@ async function cenarioInstituicao(baseUrl: string, secret: string): Promise<Cena
     }
   }
 
-  const okFinal = ok && !enderecoAleatorio;
+  // OK se: confirmou com IFSP/instituto, OU rejeitou (aguardando_localizacao),
+  // OU escalou humano. Inaceitavel: confirmou com endereco aleatorio (caso Igor).
+  const escalouHumano = step === "atendimento_humano";
+  const rejeitou = step === "aguardando_localizacao";
+  const confirmouComInstituicao = step === "confirmando_origem" && !enderecoAleatorio;
+  const okFinal = escalouHumano || rejeitou || confirmouComInstituicao;
 
   const r = {
     cenario: "5_instituicao_ifsp",
     ok: okFinal,
-    esperado: "step plausivel + endereco contem IFSP/instituto/federal (nao endereco aleatorio)",
+    esperado: "rejeitou OU escalou humano OU confirmou COM IFSP/instituto (nao endereco aleatorio)",
     obtido: `step=${step}, endereco_aleatorio=${enderecoAleatorio}`,
     duracao_ms: Date.now() - t0,
   };
@@ -518,16 +523,16 @@ async function cenarioForaDeOrdem(baseUrl: string, secret: string): Promise<Cena
   await dormir(3500);
 
   const step = await getStep(phone);
-  // Aceitavel: continua em aguardando_localizacao (rejeitou) OU
-  // confirmando_origem (geocoder achou ALGO concreto, mas nao deveria).
-  // Inaceitavel: aguardando_foto/destino com lixo.
-  const stepsAceitaveis = ["aguardando_localizacao"];
+  // Aceitavel: rejeitou (aguardando_localizacao) OU escalou humano
+  // (atendimento_humano). Ambos sao comportamentos legitimos quando
+  // bot nao entende. Inaceitavel: avancou pra foto/destino com lixo.
+  const stepsAceitaveis = ["aguardando_localizacao", "atendimento_humano"];
   const ok = stepsAceitaveis.includes(step || "");
 
   const r = {
     cenario: "11_resposta_fora_de_ordem",
     ok,
-    esperado: "step=aguardando_localizacao (data foi rejeitada como endereco)",
+    esperado: "rejeitou OU escalou humano (nao avancou com lixo)",
     obtido: `step=${step}`,
     duracao_ms: Date.now() - t0,
   };

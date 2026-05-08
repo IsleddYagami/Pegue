@@ -1679,16 +1679,16 @@ Boa sorte! 🎯`,
       await handleCadastroEmail(phone, message);
       break;
     case "cadastro_selfie":
-      await sendToClient({ to: phone, message: MSG.cadastroSelfie });
+      await handleTextoEmStepDeFoto(phone, message, "selfie", MSG.cadastroSelfie);
       break;
     case "cadastro_foto_documento":
-      await sendToClient({ to: phone, message: MSG.cadastroFotoDocumento });
+      await handleTextoEmStepDeFoto(phone, message, "documento", MSG.cadastroFotoDocumento);
       break;
     case "cadastro_foto_placa":
-      await sendToClient({ to: phone, message: MSG.cadastroFotoPlaca });
+      await handleTextoEmStepDeFoto(phone, message, "placa", MSG.cadastroFotoPlaca);
       break;
     case "cadastro_foto_veiculo":
-      await sendToClient({ to: phone, message: MSG.cadastroFotoVeiculo });
+      await handleTextoEmStepDeFoto(phone, message, "veiculo", MSG.cadastroFotoVeiculo);
       break;
     case "cadastro_placa":
       await handleCadastroPlaca(phone, message);
@@ -6095,6 +6095,46 @@ async function montarResumoCompletoOcorrencia(corridaId: string): Promise<string
 
 // === CADASTRO PRESTADOR ===
 
+// 8/Mai: prestador em step de foto que digita TEXTO (ex: "nao tenho camera",
+// "nao sei como faz", "ajuda") antes ficava ignorado — bot soh repetia
+// instrucao de foto sem reagir ao pedido de ajuda. Agora detecta intent
+// de duvida/dificuldade e escala pra especialista.
+async function handleTextoEmStepDeFoto(
+  phone: string,
+  message: string,
+  tipoFoto: string,
+  msgPedirFoto: string,
+) {
+  const lower = message.toLowerCase().trim();
+  const pedeAjuda =
+    /\bnao\s+(tenho|sei|consigo|funciona|abre)\b|\bnão\s+(tenho|sei|consigo|funciona|abre)\b/.test(lower) ||
+    lower.includes("duvida") ||
+    lower.includes("duvidas") ||
+    lower.includes("dúvida") ||
+    lower.includes("ajuda") ||
+    lower.includes("especialista") ||
+    lower.includes("falar com") ||
+    lower.includes("atendente") ||
+    lower === "humano";
+
+  if (pedeAjuda) {
+    await sendToClient({
+      to: phone,
+      message: "Tudo bem! Vou te direcionar pra um especialista da Pegue. Aguarda alguns minutos. 🙏",
+    });
+    await updateSession(phone, { step: "atendimento_humano" });
+    await notificarAdminsComClaim(
+      `🆘 *PRESTADOR PRECISA AJUDA — foto ${tipoFoto}*`,
+      phone,
+      `Prestador em cadastro_foto_${tipoFoto} digitou pedido de ajuda em vez de mandar foto.\n\nUltima msg: "${message.slice(0, 250)}"\n\nAjudar a tirar a foto OU coletar manual.`,
+    );
+    return;
+  }
+
+  // Texto comum (nao-pedido-de-ajuda) — repete instrucao de mandar foto
+  await sendToClient({ to: phone, message: msgPedirFoto });
+}
+
 async function handleCadastroNome(phone: string, message: string) {
   if (message.length < 3) {
     await sendToClient({ to: phone, message: "Me passa seu nome completo, por favor 😊" });
@@ -6193,6 +6233,17 @@ async function handleCadastroTipoVeiculo(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
   let tipoVeiculo = "";
 
+  // GUARD NEGACAO 8/Mai: prestador diz "nao quero utilitario, quero comum"
+  // — antes pegava "utilitario" e cadastrava errado. Agora se tem negacao,
+  // pede pra escolher pelo numero.
+  const negouTipo = temNegacao(lower);
+  if (negouTipo) {
+    await sendToClient({
+      to: phone,
+      message: "Pra evitar erro, escolha o tipo do seu veiculo pelo *numero*:\n\n1️⃣ Carro comum\n2️⃣ Utilitario\n3️⃣ HR / Bongo\n4️⃣ Caminhao Bau\n5️⃣ Guincho / Plataforma",
+    });
+    return;
+  }
   if (lower === "1" || lower.includes("comum") || lower.includes("kicks") || lower.includes("livina")) {
     tipoVeiculo = "carro_comum";
   } else if (lower === "2" || lower.includes("utilitario") || lower.includes("strada") || lower.includes("saveiro")) {
@@ -6218,6 +6269,43 @@ async function handleCadastroTermos(phone: string, message: string) {
   if (!session) return;
 
   const lower = message.toLowerCase().trim();
+
+  // ESCAPE 8/Mai: prestador que diz 'nao concordo', 'desistir', 'cancelar'
+  // — antes ficava preso em loop infinito. Agora escala humano.
+  const querSair =
+    /\bnao\s+(concordo|aceito)\b|\bnão\s+(concordo|aceito)\b/.test(lower) ||
+    lower === "desistir" ||
+    lower === "cancelar" ||
+    lower === "sair" ||
+    lower === "parar";
+  if (querSair) {
+    await sendToClient({
+      to: phone,
+      message: "Tudo bem, sem problema. ✋\n\nUm especialista vai te chamar pra esclarecer suas duvidas. Aguarda alguns minutos.",
+    });
+    await updateSession(phone, { step: "atendimento_humano" });
+    await notificarAdminsComClaim(
+      "🆘 *PRESTADOR REJEITOU TERMOS — ATUAR*",
+      phone,
+      `Prestador em cadastro_termos digitou rejeicao explicita: "${message.slice(0, 200)}"\n\nFalar com prestador pra entender duvida e/ou destravar.`,
+    );
+    return;
+  }
+
+  // Comando "4" pra falar com especialista (ja documentado na msg de termos)
+  if (lower === "4" || lower === "duvida" || lower === "duvidas" || lower === "especialista") {
+    await sendToClient({
+      to: phone,
+      message: "Beleza! Um especialista vai te chamar pra esclarecer. Aguarda alguns minutos. 🤝",
+    });
+    await updateSession(phone, { step: "atendimento_humano" });
+    await notificarAdminsComClaim(
+      "🆘 *PRESTADOR PEDIU AJUDA NOS TERMOS*",
+      phone,
+      `Prestador em cadastro_termos pediu falar com especialista.\n\nUltima msg: "${message.slice(0, 200)}"`,
+    );
+    return;
+  }
 
   if (lower !== "eu concordo") {
     await sendToClient({

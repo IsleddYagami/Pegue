@@ -49,6 +49,8 @@ import {
   contarItensTexto,
   determinarMelhorVeiculo,
   formatarListaNumerada,
+  temNegacao,
+  comecaComSim,
 } from "@/lib/bot-utils";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { uploadFotoPrestador } from "@/lib/storage-prestadores";
@@ -1456,17 +1458,23 @@ Boa sorte! 🎯`,
       const saudacaoRapida = `Olá ${nome}! 😊 Sou a *Íris*, atendente virtual da Pegue\n\nVamos rapidamente fazer sua cotacao? Eu te ajudo, vamos la! 🚚\n\nO que voce precisa? *(digite o número)*\n\n1️⃣ *Pequenos Fretes*\n2️⃣ *Mudanca completa*\n3️⃣ *Guincho*\n4️⃣ *Duvidas frequentes*`;
       await sendToClient({ to: phone, message: saudacaoRapida });
 
-      // Se ja da pra identificar o servico, encaminha direto
+      // Se ja da pra identificar o servico, encaminha direto.
+      // GUARD NEGACAO (8/Mai/2026): cliente diz "preciso de carreto, NAO eh
+      // mudanca completa" — antes pegava "mudança" e ignorava negacao.
+      // Agora: se tem palavra de negacao, deixa cliente escolher pelo menu.
       const lowerMsg = lower;
-      if (lowerMsg.includes("guincho")) {
-        await handleEscolhaServico(phone, "3");
-        return;
-      } else if (lowerMsg.includes("mudanca") || lowerMsg.includes("mudança")) {
-        await handleEscolhaServico(phone, "2");
-        return;
-      } else if (lowerMsg.includes("frete") || lowerMsg.includes("carreto")) {
-        await handleEscolhaServico(phone, "1");
-        return;
+      const negou = temNegacao(lowerMsg);
+      if (!negou) {
+        if (lowerMsg.includes("guincho")) {
+          await handleEscolhaServico(phone, "3");
+          return;
+        } else if (lowerMsg.includes("mudanca") || lowerMsg.includes("mudança")) {
+          await handleEscolhaServico(phone, "2");
+          return;
+        } else if (lowerMsg.includes("frete") || lowerMsg.includes("carreto")) {
+          await handleEscolhaServico(phone, "1");
+          return;
+        }
       }
       return;
     }
@@ -1488,9 +1496,11 @@ Boa sorte! 🎯`,
     });
 
     const lowerMsg = lower;
-    if (lowerMsg.includes("guincho")) { await handleEscolhaServico(phone, "3"); return; }
-    if (lowerMsg.includes("mudanca") || lowerMsg.includes("mudança")) { await handleEscolhaServico(phone, "2"); return; }
-    if (lowerMsg.includes("frete") || lowerMsg.includes("carreto")) { await handleEscolhaServico(phone, "1"); return; }
+    if (!temNegacao(lowerMsg)) {
+      if (lowerMsg.includes("guincho")) { await handleEscolhaServico(phone, "3"); return; }
+      if (lowerMsg.includes("mudanca") || lowerMsg.includes("mudança")) { await handleEscolhaServico(phone, "2"); return; }
+      if (lowerMsg.includes("frete") || lowerMsg.includes("carreto")) { await handleEscolhaServico(phone, "1"); return; }
+    }
     return;
   }
 
@@ -3333,7 +3343,7 @@ async function handleConfirmandoOrigem(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session) return;
 
-  const confirmou = lower === "1" || lower.startsWith("sim") || lower === "confirmar" || lower === "confirmo" || lower === "correto" || lower === "ok";
+  const confirmou = lower === "1" || comecaComSim(lower) || lower === "confirmar" || lower === "confirmo" || lower === "correto" || lower === "ok";
   const corrigiu = lower === "2" || lower === "nao" || lower === "não" || lower === "corrigir" || lower.includes("outro");
 
   if (confirmou) {
@@ -3371,7 +3381,7 @@ async function handleConfirmandoDestino(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session) return;
 
-  const confirmou = lower === "1" || lower.startsWith("sim") || lower === "confirmar" || lower === "confirmo" || lower === "correto" || lower === "ok";
+  const confirmou = lower === "1" || comecaComSim(lower) || lower === "confirmar" || lower === "confirmo" || lower === "correto" || lower === "ok";
   const corrigiu = lower === "2" || lower === "nao" || lower === "não" || lower === "corrigir" || lower.includes("outro");
 
   if (confirmou) {
@@ -3527,9 +3537,13 @@ async function handleAjudante(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
   let qtdAjudantes = 0;
 
-  if (lower === "1" || lower.includes("nao") || lower === "n" || lower.includes("não") || lower.includes("sem")) {
+  // GUARD NEGACAO (8/Mai): cliente diz "nao preciso, sim ja tenho ajuda
+  // em casa" — antes detectava "sim" e gravava 1 ajudante errado.
+  // Agora: se tem negacao na frase, NAO conta sim positivo.
+  const negou = temNegacao(lower);
+  if (lower === "1" || negou || lower === "n" || lower.includes("sem ajud")) {
     qtdAjudantes = 0;
-  } else if (lower === "2" || lower === "1 ajudante" || (lower.includes("sim") && !lower.includes("2"))) {
+  } else if (lower === "2" || lower === "1 ajudante" || (comecaComSim(lower) && !lower.includes("2"))) {
     qtdAjudantes = 1;
   } else if (lower === "3" || lower === "2 ajudantes" || lower.includes("2 ajudante") || lower.includes("dois")) {
     qtdAjudantes = 2;
@@ -3763,7 +3777,7 @@ async function handleConfirmandoEnderecosIA(phone: string, message: string) {
   // Detecta se eh fluxo de guincho ou frete (rotas diferentes apos confirmar)
   const isGuincho = session.veiculo_sugerido === "guincho" || session.veiculo_sugerido === "moto_guincho";
 
-  if (lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "ok" || lower === "confirmar" || lower === "correto") {
+  if (lower === "1" || comecaComSim(lower) || lower === "s" || lower === "ok" || lower === "confirmar" || lower === "correto") {
     await sendToClient({ to: phone, message: `📊 Calculando seu orçamento...` });
     if (isGuincho) {
       await cotarGuinchoEFinalizar(phone);
@@ -4015,7 +4029,13 @@ async function handleConfirmacao(phone: string, message: string, instance: 1 | 2
   };
 
   // Opcao 2: FRETE AGORA (urgente)
-  if (lower === "2" || lower === "agora" || lower === "ja" || lower === "já" || lower === "urgente" || lower.includes("frete agora") || lower.includes("urgent")) {
+  // GUARD NEGACAO (8/Mai): cliente diz "nao eh urgente, mais pra amanha"
+  // — antes pegava "urgent" como urgente. Agora exige sem negacao.
+  const negouConf = temNegacao(lower);
+  if (
+    !negouConf &&
+    (lower === "2" || lower === "agora" || lower === "ja" || lower === "já" || lower === "urgente" || lower.includes("frete agora") || lower.includes("urgent"))
+  ) {
     await updateSession(phone, { data_agendada: "AGORA - Urgente", periodo: null });
     await avancarParaTermos();
     return;
@@ -4032,7 +4052,8 @@ async function handleConfirmacao(phone: string, message: string, instance: 1 | 2
   }
 
   // Opcao 1: CONFIRMAR (mantem data atual da sessao)
-  const confirmacaoSimples = lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "confirmar" || lower === "confirmo" || lower === "correto" || lower === "ok";
+  // comecaComSim em vez de startsWith("sim") (que pegava "simples").
+  const confirmacaoSimples = lower === "1" || comecaComSim(lower) || lower === "s" || lower === "confirmar" || lower === "confirmo" || lower === "correto" || lower === "ok";
   if (confirmacaoSimples) {
     if (session.data_agendada && session.data_agendada.trim().length > 0) {
       await avancarParaTermos();
@@ -4112,7 +4133,7 @@ async function handleAceiteTermos(phone: string, message: string, instance: 1 | 
   const lower = message.toLowerCase().trim();
 
   // Opcao 1: CHAMAR FRETISTA
-  if (lower === "1" || lower.startsWith("sim") || lower === "aceito" || lower === "s" || lower.includes("aceit") || lower.includes("chamar fretista") || lower.includes("chamar fret")) {
+  if (lower === "1" || comecaComSim(lower) || lower === "aceito" || lower === "s" || lower.includes("aceit") || lower.includes("chamar fretista") || lower.includes("chamar fret")) {
     const corridaId = await salvarCorrida(session);
     if (corridaId) {
       await updateSession(phone, { step: "aguardando_fretista", corrida_id: corridaId });
@@ -4705,7 +4726,7 @@ async function handleConfirmarContextoInicial(phone: string, message: string) {
   const session = await getSession(phone);
   if (!session) return;
 
-  const confirmou = lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "ok" || lower === "confirmar";
+  const confirmou = lower === "1" || comecaComSim(lower) || lower === "s" || lower === "ok" || lower === "confirmar";
   const recusou = lower === "2" || lower.startsWith("nao") || lower.startsWith("não") || lower === "n";
 
   if (confirmou) {
@@ -4899,7 +4920,7 @@ async function handleConfirmarItensFoto(phone: string, message: string) {
   if (!session) return;
 
   // 1 - SIM, seguir
-  if (lower === "1" || lower.startsWith("sim") || lower === "s" || lower === "confirmar" || lower === "ok" || lower === "seguir" || lower === "correto") {
+  if (lower === "1" || comecaComSim(lower) || lower === "s" || lower === "confirmar" || lower === "ok" || lower === "seguir" || lower === "correto") {
     await updateSession(phone, { step: "aguardando_localizacao" });
     await enviarTutorialLocalizacao(
       phone,
@@ -6850,7 +6871,7 @@ async function handleConfirmacaoColeta(phone: string, message: string) {
 
   const lower = message.trim().toLowerCase();
 
-  if (lower === "1" || lower.startsWith("sim") || lower === "ok") {
+  if (lower === "1" || comecaComSim(lower) || lower === "ok") {
     const { data: corrida } = await supabase
       .from("corridas")
       .select("prestadores!prestador_id(telefone)")
@@ -7002,7 +7023,7 @@ async function handleConfirmacaoEntrega(phone: string, message: string) {
 
   const lower = message.toLowerCase().trim();
 
-  if (lower === "1" || lower.startsWith("sim") || lower === "s") {
+  if (lower === "1" || comecaComSim(lower) || lower === "s") {
     // BUG #F4-4 (audit 1/Mai/2026): idempotencia atomica. Antes, se cliente
     // respondesse "1" 2x rapido OU se houvesse retries do webhook, todo o
     // bloco de repasse PIX rodava 2x (fretista recebia DUPLO PIX). Agora UPDATE
@@ -8657,7 +8678,7 @@ async function handleCancelarConfirma(phone: string, message: string) {
     return;
   }
 
-  if (!lower.startsWith("sim") && lower !== "s") {
+  if (!comecaComSim(lower) && lower !== "s") {
     await sendToClient({ to: phone, message: "Responda *SIM* pra confirmar ou *NAO* pra manter o frete." });
     return;
   }

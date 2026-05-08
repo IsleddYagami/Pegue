@@ -31,6 +31,28 @@ export function isPalavraReservadaEndereco(texto: string): boolean {
   return false;
 }
 
+// Detecta se o texto tem negacao explicita ("nao", "não", "nunca", "jamais", "nem").
+// Helper criado em 8/Mai/2026 apos auditoria que encontrou 6 bugs de
+// `lower.includes("X")` sem checar negacao — cliente que digitava "nao
+// preciso, sim ja tenho" tinha "sim" detectado e gravava resposta errada.
+//
+// Usa split por separadores em vez de regex com \b porque \b em JS nao
+// trata bem palavras acentuadas.
+export function temNegacao(texto: string | null | undefined): boolean {
+  if (!texto) return false;
+  const palavras = texto.toLowerCase().split(/[\s,.;:!?]+/);
+  const negacoes = new Set(["nao", "não", "nunca", "jamais", "nem"]);
+  return palavras.some((p) => negacoes.has(p));
+}
+
+// Detecta "sim" como palavra/inicio limpo (NAO casa "simples", "simultaneamente").
+// Bug 8/Mai: lower.startsWith("sim") engolia "simples assim mesmo".
+export function comecaComSim(texto: string | null | undefined): boolean {
+  if (!texto) return false;
+  const lower = texto.toLowerCase().trim();
+  return lower === "sim" || /^sim[\s,!.]/.test(lower);
+}
+
 // Verifica se esta no horario de atendimento humano (seg-sex 10h-15h)
 export function isHorarioAtendimentoHumano(): boolean {
   const agora = new Date();

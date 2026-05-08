@@ -698,11 +698,10 @@ Pode ser CPF, email, telefone ou chave aleatoria.
 
   cadastroTipoVeiculo: `Qual o tipo do seu veiculo?
 
-1️⃣ *Carro comum* (Kicks, Livina, Renegade, Nivus, etc)
-2️⃣ *Utilitario* (Strada, Saveiro, Courier)
-3️⃣ *HR* (Hyundai HR, Bongo)
-4️⃣ *Caminhao Bau*
-5️⃣ *Guincho / Plataforma*`,
+1️⃣ *Utilitario* (Strada, Saveiro, Courier, Fiorino)
+2️⃣ *HR* (Hyundai HR, Bongo)
+3️⃣ *Caminhao Bau*
+4️⃣ *Guincho / Plataforma*`,
 
   cadastroTermos: `📋 *TERMOS DE PARTICIPACAO - PEGUE*
 

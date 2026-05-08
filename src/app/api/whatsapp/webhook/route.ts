@@ -6233,29 +6233,36 @@ async function handleCadastroTipoVeiculo(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
   let tipoVeiculo = "";
 
-  // GUARD NEGACAO 8/Mai: prestador diz "nao quero utilitario, quero comum"
-  // — antes pegava "utilitario" e cadastrava errado. Agora se tem negacao,
-  // pede pra escolher pelo numero.
+  // GUARD NEGACAO 8/Mai: prestador diz "nao quero utilitario, quero hr"
+  // — antes pegava "utilitario" e cadastrava errado.
   const negouTipo = temNegacao(lower);
   if (negouTipo) {
     await sendToClient({
       to: phone,
-      message: "Pra evitar erro, escolha o tipo do seu veiculo pelo *numero*:\n\n1️⃣ Carro comum\n2️⃣ Utilitario\n3️⃣ HR / Bongo\n4️⃣ Caminhao Bau\n5️⃣ Guincho / Plataforma",
+      message: "Pra evitar erro, escolha o tipo do seu veiculo pelo *numero*:\n\n1️⃣ Utilitario (Strada / Saveiro / Fiorino)\n2️⃣ HR / Bongo\n3️⃣ Caminhao Bau\n4️⃣ Guincho / Plataforma",
     });
     return;
   }
-  if (lower === "1" || lower.includes("comum") || lower.includes("kicks") || lower.includes("livina")) {
-    tipoVeiculo = "carro_comum";
-  } else if (lower === "2" || lower.includes("utilitario") || lower.includes("strada") || lower.includes("saveiro")) {
+  // 8/Mai/2026 (Fabio): removida opcao 'carro_comum' do cadastro.
+  // Prestador que digitar 'comum'/'kicks'/'livina' recebe instrucao
+  // pra escolher entre as 4 opcoes disponiveis.
+  if (lower.includes("comum") || lower.includes("kicks") || lower.includes("livina") || lower.includes("hatch")) {
+    await sendToClient({
+      to: phone,
+      message: "No momento, a Pegue trabalha apenas com:\n\n1️⃣ Utilitario (Strada / Saveiro / Fiorino)\n2️⃣ HR / Bongo\n3️⃣ Caminhao Bau\n4️⃣ Guincho / Plataforma\n\nSe voce tem algum desses, escolha pelo *numero*.",
+    });
+    return;
+  }
+  if (lower === "1" || lower.includes("utilitario") || lower.includes("strada") || lower.includes("saveiro") || lower.includes("fiorino")) {
     tipoVeiculo = "utilitario";
-  } else if (lower === "3" || lower.includes("hr") || lower.includes("bongo")) {
+  } else if (lower === "2" || lower.includes("hr") || lower.includes("bongo")) {
     tipoVeiculo = "hr";
-  } else if (lower === "4" || lower.includes("caminhao") || lower.includes("bau")) {
+  } else if (lower === "3" || lower.includes("caminhao") || lower.includes("bau")) {
     tipoVeiculo = "caminhao_bau";
-  } else if (lower === "5" || lower.includes("guincho") || lower.includes("plataforma")) {
+  } else if (lower === "4" || lower.includes("guincho") || lower.includes("plataforma")) {
     tipoVeiculo = "guincho";
   } else {
-    await sendToClient({ to: phone, message: "Escolhe o tipo do veiculo:\n\n1️⃣ Carro comum\n2️⃣ Utilitario\n3️⃣ HR / Bongo\n4️⃣ Caminhao Bau\n5️⃣ Guincho / Plataforma" });
+    await sendToClient({ to: phone, message: "Escolhe o tipo do veiculo:\n\n1️⃣ Utilitario (Strada / Saveiro / Fiorino)\n2️⃣ HR / Bongo\n3️⃣ Caminhao Bau\n4️⃣ Guincho / Plataforma" });
     return;
   }
 

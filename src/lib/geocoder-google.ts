@@ -110,16 +110,46 @@ export async function googleReverseGeocode(
       if (!r2.ok) return null;
       const d2 = await r2.json();
       if (d2.status !== "OK" || !d2.results?.length) return null;
-      return parseReverse(d2.results[0]);
+      return parseReverse(escolherMelhorReverso(d2.results));
     }
 
-    return parseReverse(data.results[0]);
+    // BUG REAL 8/Mai (Natan 11994207932): Google retornou
+    // "R. Arinos, 766" pra coords exatas que estavam em "Rua Serra das
+    // Antas". Pegar o primeiro result eh o street_address da casa numerada
+    // mais proxima — que pode ser na rua VIZINHA. Cliente recebe endereco
+    // INVENTADO e desconfia do sistema.
+    //
+    // Fix: priorizar 'route' (rua sem numero arbitrario) em vez de
+    // 'street_address' (casa numerada que pode ser na rua errada).
+    return parseReverse(escolherMelhorReverso(data.results));
   } catch (e: any) {
     if (e?.name !== "AbortError") {
       console.warn("[google-reverse] excecao:", e?.message);
     }
     return null;
   }
+}
+
+// Escolhe o melhor resultado do reverse geocode pra mostrar pro cliente.
+// Prioridade:
+//   1. 'route' (rua sem numero) — mais confiavel, nao inventa casa
+//   2. 'street_address' (casa numerada — pode ser na rua errada se
+//      coord estiver na fronteira)
+//   3. 'premise' / 'neighborhood' / qualquer outro
+//
+// Bug 8/Mai (Natan): coord em Rua Serra das Antas retornava
+// 'R. Arinos, 766' (casa vizinha). Agora prefere a rua exata.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function escolherMelhorReverso(results: any[]): any {
+  const rota = results.find((r) =>
+    (r.types || []).includes("route"),
+  );
+  if (rota) return rota;
+  const street = results.find((r) =>
+    (r.types || []).includes("street_address"),
+  );
+  if (street) return street;
+  return results[0];
 }
 
 function parseReverse(result: any): { enderecoFormatado: string; bairro: string | null; cidade: string | null } {

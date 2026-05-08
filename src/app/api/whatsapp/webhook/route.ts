@@ -3537,6 +3537,38 @@ async function handleAjudante(phone: string, message: string) {
   const lower = message.toLowerCase().trim();
   let qtdAjudantes = 0;
 
+  // FASE B (8/Mai): IA classifica intent ANTES de regex
+  if (lower.length >= 4 && !/^\d+$/.test(lower)) {
+    try {
+      const { classificarIntent } = await import("@/lib/intent-extractor");
+      const ia = await classificarIntent(message, "aguardando_ajudante");
+      if (ia && ia.confianca === "ALTA") {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "intent_extractor_aplicado",
+            handler: "handleAjudante",
+            phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+            intent: ia.intent,
+          },
+        });
+        if (ia.intent === "ajudante_nao") {
+          await calcularEEnviarOrcamento(phone, 0);
+          return;
+        }
+        if (ia.intent === "ajudante_sim") {
+          await calcularEEnviarOrcamento(phone, 1);
+          return;
+        }
+        if (ia.intent === "ajudante_2") {
+          await calcularEEnviarOrcamento(phone, 2);
+          return;
+        }
+      }
+    } catch (e: unknown) {
+      console.warn("intent-extractor handleAjudante:", e instanceof Error ? e.message : "");
+    }
+  }
+
   // GUARD NEGACAO (8/Mai): cliente diz "nao preciso, sim ja tenho ajuda
   // em casa" — antes detectava "sim" e gravava 1 ajudante errado.
   // Agora: se tem negacao na frase, NAO conta sim positivo.
@@ -4028,7 +4060,49 @@ async function handleConfirmacao(phone: string, message: string, instance: 1 | 2
     await sendToClient({ to: phone, message: MSG.aceiteTermosPagamento(valorFmt) });
   };
 
-  // Opcao 2: FRETE AGORA (urgente)
+  // FASE B (8/Mai/2026): se cliente escreveu texto humano (>=4 chars),
+  // chama IA pra classificar intent ANTES dos regex. Se IA tem ALTA
+  // confianca, usa intent. Se nao, cai no regex (com guards de negacao
+  // adicionados na FASE A). Custo: ~R$0,003/msg, soh msgs longas.
+  if (lower.length >= 4 && !/^\d+$/.test(lower)) {
+    try {
+      const { classificarIntent } = await import("@/lib/intent-extractor");
+      const ia = await classificarIntent(message, "aguardando_confirmacao");
+      if (ia && ia.confianca === "ALTA") {
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "intent_extractor_aplicado",
+            handler: "handleConfirmacao",
+            phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+            intent: ia.intent,
+            confianca: ia.confianca,
+          },
+        });
+        if (ia.intent === "urgente") {
+          await updateSession(phone, { data_agendada: "AGORA - Urgente", periodo: null });
+          await avancarParaTermos();
+          return;
+        }
+        if (ia.intent === "edita" || ia.intent === "cancela") {
+          await updateSession(phone, { step: "editando_escolha" });
+          await sendToClient({
+            to: phone,
+            message: `✏️ *O que você quer corrigir?*\n\n1️⃣ *Origem* (onde buscar)\n2️⃣ *Destino* (onde entregar)\n3️⃣ *Itens / material*\n4️⃣ *Data / horário*\n5️⃣ *Cancelar tudo* e começar do zero`,
+          });
+          return;
+        }
+        if (ia.intent === "confirma" && session.data_agendada && session.data_agendada.trim().length > 0) {
+          await avancarParaTermos();
+          return;
+        }
+        // Outras intents (data_horario, duvida) caem no regex abaixo
+      }
+    } catch (e: unknown) {
+      console.warn("intent-extractor handleConfirmacao falhou:", e instanceof Error ? e.message : "");
+    }
+  }
+
+  // Opcao 2: FRETE AGORA (urgente) - REGEX FALLBACK
   // GUARD NEGACAO (8/Mai): cliente diz "nao eh urgente, mais pra amanha"
   // — antes pegava "urgent" como urgente. Agora exige sem negacao.
   const negouConf = temNegacao(lower);

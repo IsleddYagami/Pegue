@@ -71,12 +71,13 @@ async function handle(req: NextRequest) {
     );
   }
 
-  // Busca corrida pra avisar fretistas notificados
+  // Busca corrida pra avisar fretistas notificados (sem join — prestador
+  // pode estar null se ninguem aceitou ainda)
   const { data: corrida } = await supabase
     .from("corridas")
-    .select("id, status, dispatch_prestadores, prestador_id, prestadores(telefone, nome)")
+    .select("id, status, dispatch_prestadores, prestador_id")
     .eq("id", corridaId)
-    .single();
+    .maybeSingle();
 
   if (!corrida) {
     return NextResponse.json({ error: "corrida nao encontrada" }, { status: 404 });

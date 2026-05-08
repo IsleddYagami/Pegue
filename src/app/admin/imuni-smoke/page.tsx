@@ -51,6 +51,7 @@ interface ConversaMsg {
 
 interface MetricaEtapa {
   label: string;
+  tentativas?: number;
   sucesso_100: number;
   com_falhas: number;
   taxa_sucesso_pct: number;
@@ -320,7 +321,7 @@ function CardEtapa({
   metrica: MetricaEtapa;
   total?: number;
 }) {
-  const totalReal = total ?? metrica.sucesso_100 + metrica.com_falhas;
+  const totalReal = total ?? metrica.tentativas ?? metrica.sucesso_100 + metrica.com_falhas;
   const corTaxa =
     metrica.taxa_sucesso_pct >= 95
       ? "text-green-400"

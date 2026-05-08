@@ -89,26 +89,51 @@ async function handle(req: NextRequest) {
     },
   );
 
-  // Metricas agregadas pra etapa 1 e 2
-  const totalRuns = smokeFelizRuns.length;
-  const etapa1Sucesso100 = smokeFelizRuns.filter((r) => (r as never as { etapa1_100: boolean }).etapa1_100).length;
-  const etapa2Sucesso100 = smokeFelizRuns.filter((r) => (r as never as { etapa2_100: boolean }).etapa2_100).length;
-  const etapa1Falhas = totalRuns - etapa1Sucesso100;
-  const etapa2Falhas = totalRuns - etapa2Sucesso100;
+  // Metricas agregadas — soh contam runs que TEVERAM steps na etapa.
+  // Runs antigas anteriores ao smoke v6 (so 15 steps) nao tinham etapa 2.
+  // Sem essa exclusao, denominador inflava e taxa caia artificialmente.
+  type RunComEtapas = SmokeRunSummary & {
+    etapa1_total?: number;
+    etapa1_100?: boolean;
+    etapa2_total?: number;
+    etapa2_100?: boolean;
+  };
+  const runsComEtapa1 = smokeFelizRuns.filter(
+    (r) => ((r as RunComEtapas).etapa1_total || 0) > 0,
+  );
+  const runsComEtapa2 = smokeFelizRuns.filter(
+    (r) => ((r as RunComEtapas).etapa2_total || 0) > 0,
+  );
+  const etapa1Sucesso100 = runsComEtapa1.filter(
+    (r) => (r as RunComEtapas).etapa1_100,
+  ).length;
+  const etapa2Sucesso100 = runsComEtapa2.filter(
+    (r) => (r as RunComEtapas).etapa2_100,
+  ).length;
+  const etapa1Falhas = runsComEtapa1.length - etapa1Sucesso100;
+  const etapa2Falhas = runsComEtapa2.length - etapa2Sucesso100;
 
   const metricas_etapas = {
-    total_execucoes: totalRuns,
+    total_execucoes: smokeFelizRuns.length,
     etapa1_cotacao: {
       label: "Cotação (entrada → aceite termos)",
+      tentativas: runsComEtapa1.length,
       sucesso_100: etapa1Sucesso100,
       com_falhas: etapa1Falhas,
-      taxa_sucesso_pct: totalRuns > 0 ? Math.round((etapa1Sucesso100 / totalRuns) * 100) : 0,
+      taxa_sucesso_pct:
+        runsComEtapa1.length > 0
+          ? Math.round((etapa1Sucesso100 / runsComEtapa1.length) * 100)
+          : 0,
     },
     etapa2_pagamento_repasse: {
       label: "Pagamento até repasse (aceite → entrega → PIX)",
+      tentativas: runsComEtapa2.length,
       sucesso_100: etapa2Sucesso100,
       com_falhas: etapa2Falhas,
-      taxa_sucesso_pct: totalRuns > 0 ? Math.round((etapa2Sucesso100 / totalRuns) * 100) : 0,
+      taxa_sucesso_pct:
+        runsComEtapa2.length > 0
+          ? Math.round((etapa2Sucesso100 / runsComEtapa2.length) * 100)
+          : 0,
     },
   };
 

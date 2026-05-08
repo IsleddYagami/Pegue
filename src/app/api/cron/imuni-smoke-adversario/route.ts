@@ -301,6 +301,239 @@ async function cenarioInstituicao(baseUrl: string, secret: string): Promise<Cena
   return r;
 }
 
+// Cenario 7: cliente manda TUDO numa msg so (origem + destino + itens +
+// data). IA deve extrair contexto e avancar pra confirmacao em vez de
+// pedir cada coisa separada.
+async function cenarioTudoDeUmaVez(baseUrl: string, secret: string): Promise<CenarioResult> {
+  const phone = "5500000000016";
+  await limparPhone(phone);
+  const t0 = Date.now();
+
+  // Briefing rico na 1a msg — IA deve pegar quase tudo
+  await chamarWebhook(
+    baseUrl,
+    secret,
+    payloadTexto(
+      phone,
+      "boa, preciso de frete da rua Augusta 123 Consolacao Sao Paulo pra rua Oscar Freire 456 Jardins Sao Paulo, hoje a tarde, 1 sofa de 3 lugares e 2 cadeiras",
+    ),
+  );
+  await dormir(7000); // IA processa briefing + extrai contexto
+
+  const step = await getStep(phone);
+  // Aceitavel: confirmar_contexto_inicial (IA pegou tudo) OU
+  // aguardando_localizacao (pelo menos avancou da saudacao).
+  // Inaceitavel: inicio/aguardando_servico (nao processou).
+  const stepsRuins = ["inicio", "aguardando_servico"];
+  const ok = !stepsRuins.includes(step || "") && step !== null;
+
+  const r = {
+    cenario: "7_tudo_de_uma_vez",
+    ok,
+    esperado: "step != inicio (IA extraiu briefing rico)",
+    obtido: `step=${step}`,
+    duracao_ms: Date.now() - t0,
+  };
+  await limparPhone(phone);
+  return r;
+}
+
+// Cenario 8: cliente NAO informa bairro, soh rua + cidade. Sistema deve
+// geocodar mesmo assim (Google Maps + SP context cobre) ou pedir bairro.
+// NAO deve travar nem inventar endereco.
+async function cenarioSemBairro(baseUrl: string, secret: string): Promise<CenarioResult> {
+  const phone = "5500000000017";
+  await limparPhone(phone);
+  const t0 = Date.now();
+
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "oi"));
+  await dormir(2500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1"));
+  await dormir(2500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "Rua Augusta 123, Sao Paulo"));
+  await dormir(5000);
+
+  const step = await getStep(phone);
+  // Aceitavel: confirmando_origem (geocodou OK) OU aguardando_localizacao
+  // (pediu bairro). Inaceitavel: aguardando_foto/destino (avancou com
+  // endereco invalido).
+  const stepsAceitaveis = [
+    "confirmando_origem",
+    "aguardando_localizacao",
+    "aguardando_bairro_origem",
+  ];
+  const ok = stepsAceitaveis.includes(step || "");
+
+  const r = {
+    cenario: "8_endereco_sem_bairro",
+    ok,
+    esperado: "geocodou ou pediu bairro (NAO foi pra foto/destino)",
+    obtido: `step=${step}`,
+    duracao_ms: Date.now() - t0,
+  };
+  await limparPhone(phone);
+  return r;
+}
+
+// Cenario 9: cliente passa quantidade VAGA do material ("umas caixas",
+// "uns moveis"). Classificador de itens deve detectar vagueza e pedir
+// clarificacao em vez de cotar com numero errado.
+async function cenarioQuantidadeVaga(baseUrl: string, secret: string): Promise<CenarioResult> {
+  const phone = "5500000000018";
+  await limparPhone(phone);
+  const t0 = Date.now();
+
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "oi"));
+  await dormir(2500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1"));
+  await dormir(2500);
+  // Manda GPS pra avancar pro step de itens
+  await chamarWebhook(
+    baseUrl,
+    secret,
+    {
+      Type: "receveid_location",
+      Body: {
+        Info: {
+          RemoteJid: `${phone}@s.whatsapp.net`,
+          FromMe: false,
+          PushName: "Smoke Adversarial",
+          Source: { message: { lat: -23.5329, lng: -46.7916 } },
+        },
+        Text: "",
+      },
+      instance: 1,
+    },
+  );
+  await dormir(3500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1")); // confirma origem
+  await dormir(2500);
+  // Agora step=aguardando_foto. Manda descricao VAGA de itens.
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "umas caixas, uns moveis"));
+  await dormir(5000);
+
+  const step = await getStep(phone);
+  // Aceitavel: aguardando_clarificacao_itens (sistema pediu detalhes) OU
+  // aguardando_destino (sistema decidiu ir em frente, mas com risco).
+  const stepsAceitaveis = [
+    "aguardando_clarificacao_itens",
+    "aguardando_destino",
+    "aguardando_foto",
+  ];
+  const ok = stepsAceitaveis.includes(step || "");
+
+  const r = {
+    cenario: "9_quantidade_vaga_itens",
+    ok,
+    esperado: "classificador pediu clarificacao OU avancou com fallback",
+    obtido: `step=${step}`,
+    duracao_ms: Date.now() - t0,
+  };
+  await limparPhone(phone);
+  return r;
+}
+
+// Cenario 10: cliente manda LISTA INTEIRA de mudanca de uma vez. Texto
+// longo com varios itens. Sistema deve classificar tudo e sugerir
+// veiculo grande (HR ou caminhao_bau) baseado em volume/peso.
+async function cenarioListaGrandeMudanca(baseUrl: string, secret: string): Promise<CenarioResult> {
+  const phone = "5500000000019";
+  await limparPhone(phone);
+  const t0 = Date.now();
+
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "oi"));
+  await dormir(2500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "2")); // mudanca completa
+  await dormir(2500);
+  await chamarWebhook(
+    baseUrl,
+    secret,
+    {
+      Type: "receveid_location",
+      Body: {
+        Info: {
+          RemoteJid: `${phone}@s.whatsapp.net`,
+          FromMe: false,
+          PushName: "Smoke Adversarial",
+          Source: { message: { lat: -23.5329, lng: -46.7916 } },
+        },
+        Text: "",
+      },
+      instance: 1,
+    },
+  );
+  await dormir(3500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1")); // confirma origem
+  await dormir(2500);
+  // Lista grande de itens
+  await chamarWebhook(
+    baseUrl,
+    secret,
+    payloadTexto(
+      phone,
+      "geladeira, fogao, microondas, maquina de lavar, sofa de 3 lugares, sofa de 2 lugares, cama casal, cama solteiro, guarda-roupa de 6 portas, comoda, mesa de jantar com 6 cadeiras, rack de TV, TV 50, 10 caixas grandes",
+    ),
+  );
+  await dormir(7000); // classificador IA precisa de tempo
+
+  const step = await getStep(phone);
+  const { data: sess } = await supabase
+    .from("bot_sessions")
+    .select("veiculo_sugerido, descricao_carga")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  const stepsAceitaveis = ["aguardando_destino", "aguardando_clarificacao_itens"];
+  // Sistema deve ter sugerido veiculo grande pra essa carga
+  const veiculoGrande = ["hr", "caminhao_bau"].includes(sess?.veiculo_sugerido || "");
+  const ok = stepsAceitaveis.includes(step || "") && (veiculoGrande || step === "aguardando_clarificacao_itens");
+
+  const r = {
+    cenario: "10_lista_grande_mudanca",
+    ok,
+    esperado: "step plausivel + veiculo grande sugerido (HR/caminhao)",
+    obtido: `step=${step}, veiculo=${sess?.veiculo_sugerido}, qtd_descricao=${(sess?.descricao_carga || "").split(",").length}`,
+    duracao_ms: Date.now() - t0,
+  };
+  await limparPhone(phone);
+  return r;
+}
+
+// Cenario 11: cliente NAO segue ordem do fluxo. Bot pergunta endereco e
+// cliente responde com data. Bot pergunta itens, cliente fala valor.
+// Sistema deve REJEITAR resposta inconsistente, NAO geocodar lixo, NAO
+// avancar com dados errados.
+async function cenarioForaDeOrdem(baseUrl: string, secret: string): Promise<CenarioResult> {
+  const phone = "5500000000020";
+  await limparPhone(phone);
+  const t0 = Date.now();
+
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "oi"));
+  await dormir(2500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1"));
+  await dormir(2500);
+  // Bot perguntou localizacao. Cliente responde DATA em vez.
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "amanha as 14h"));
+  await dormir(3500);
+
+  const step = await getStep(phone);
+  // Aceitavel: continua em aguardando_localizacao (rejeitou) OU
+  // confirmando_origem (geocoder achou ALGO concreto, mas nao deveria).
+  // Inaceitavel: aguardando_foto/destino com lixo.
+  const stepsAceitaveis = ["aguardando_localizacao"];
+  const ok = stepsAceitaveis.includes(step || "");
+
+  const r = {
+    cenario: "11_resposta_fora_de_ordem",
+    ok,
+    esperado: "step=aguardando_localizacao (data foi rejeitada como endereco)",
+    obtido: `step=${step}`,
+    duracao_ms: Date.now() - t0,
+  };
+  await limparPhone(phone);
+  return r;
+}
+
 // Cenario 6: cliente cancela no meio do fluxo. Sistema deve limpar sessao
 // e voltar ao inicio sem deixar lixo.
 async function cenarioCancelamento(baseUrl: string, secret: string): Promise<CenarioResult> {
@@ -362,6 +595,11 @@ export async function GET(req: NextRequest) {
     cenarioCepInvalidoComFallback,
     cenarioInstituicao,
     cenarioCancelamento,
+    cenarioTudoDeUmaVez,
+    cenarioSemBairro,
+    cenarioQuantidadeVaga,
+    cenarioListaGrandeMudanca,
+    cenarioForaDeOrdem,
   ];
 
   // Roda em SERIE (nao paralelo) pra nao sobrecarregar webhook + facilitar log

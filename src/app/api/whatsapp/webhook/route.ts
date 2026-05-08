@@ -2528,8 +2528,30 @@ async function handleFoto(
   }
 
   // Detecta numeros da lista (ex: 1, 3, 7, 9, 18x5)
+  // BUG REAL Natan 11994207932 (8/Mai/2026): cliente digitou
+  //   "Geladeira, fogão, cama box, rack, 6 caixas, 2 sofá de dois lugares..."
+  // Sistema viu "6" e "2" e gravou itens 6 (Mesa cadeiras) + 2 (Fogao) —
+  // ignorando palavras-chave dos moveis. Cliente recebeu cotacao com
+  // descricao_carga errada. Bug afeta TODO cliente que disser quantidade.
+  //
+  // FIX: parser numerico SO ativa pra LISTA PURA de numeros. Se houver
+  // palavras descritivas (>=2 palavras com 4+ chars que nao sejam tokens
+  // numericos), vai pro classificador IA.
+  const partesPraDetectar = message
+    .split(/[,\s]+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  const tokensNumericos = partesPraDetectar.filter((p) =>
+    /^\d+([x×]\d+)?$/.test(p),
+  );
+  const palavrasDescritivas = partesPraDetectar.filter(
+    (p) => p.length >= 4 && !/^\d+([x×]\d+)?$/.test(p),
+  );
+  const ehListaNumericaPura =
+    palavrasDescritivas.length < 2 && tokensNumericos.length >= 1;
+
   const temNumeros = message.match(/\d+/g);
-  if (temNumeros && temNumeros.length >= 2) {
+  if (ehListaNumericaPura && temNumeros && temNumeros.length >= 2) {
     const partes = message.split(/[,\s]+/).filter(p => p.trim());
     const itensEncontrados: string[] = [];
 

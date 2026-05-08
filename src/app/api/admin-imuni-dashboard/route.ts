@@ -22,6 +22,12 @@ interface SmokeRunSummary {
   qtd_falhas?: number;
   motivo?: string;
   detalhes?: unknown;
+  etapa1_total?: number;
+  etapa1_ok?: number;
+  etapa1_100?: boolean;
+  etapa2_total?: number;
+  etapa2_ok?: number;
+  etapa2_100?: boolean;
 }
 
 export async function GET(req: NextRequest) {
@@ -49,9 +55,20 @@ async function handle(req: NextRequest) {
     .order("criado_em", { ascending: false })
     .limit(30);
 
+  // Helper: extrai numero do step (ex: "16_aceite_termos_dispatch" -> 16)
+  const numeroDoStep = (stepName: string): number => {
+    const m = stepName.match(/^(\d+)/);
+    return m ? parseInt(m[1], 10) : 0;
+  };
+  // Etapa 1 = cotacao (steps 0-15). Etapa 2 = pagamento + execucao (16+).
+  const ETAPA_DIVISOR = 16;
+
   const smokeFelizRuns: SmokeRunSummary[] = (smokeFeliz || []).map(
     (l: { payload: Record<string, unknown>; criado_em: string }) => {
-      const detalhes = (l.payload.detalhes as Array<{ ok: boolean }> | undefined) || [];
+      const detalhes =
+        (l.payload.detalhes as Array<{ step: string; ok: boolean }> | undefined) || [];
+      const stepsEtapa1 = detalhes.filter((s) => numeroDoStep(s.step) < ETAPA_DIVISOR);
+      const stepsEtapa2 = detalhes.filter((s) => numeroDoStep(s.step) >= ETAPA_DIVISOR);
       return {
         ts: l.criado_em,
         ok: l.payload.tipo === "imuni_smoke_e2e_ok",
@@ -61,9 +78,39 @@ async function handle(req: NextRequest) {
         qtd_falhas: detalhes.filter((s) => !s.ok).length,
         motivo: l.payload.motivo as string | undefined,
         detalhes: l.payload.detalhes,
+        // Por etapa
+        etapa1_total: stepsEtapa1.length,
+        etapa1_ok: stepsEtapa1.filter((s) => s.ok).length,
+        etapa1_100: stepsEtapa1.length > 0 && stepsEtapa1.every((s) => s.ok),
+        etapa2_total: stepsEtapa2.length,
+        etapa2_ok: stepsEtapa2.filter((s) => s.ok).length,
+        etapa2_100: stepsEtapa2.length > 0 && stepsEtapa2.every((s) => s.ok),
       };
     },
   );
+
+  // Metricas agregadas pra etapa 1 e 2
+  const totalRuns = smokeFelizRuns.length;
+  const etapa1Sucesso100 = smokeFelizRuns.filter((r) => (r as never as { etapa1_100: boolean }).etapa1_100).length;
+  const etapa2Sucesso100 = smokeFelizRuns.filter((r) => (r as never as { etapa2_100: boolean }).etapa2_100).length;
+  const etapa1Falhas = totalRuns - etapa1Sucesso100;
+  const etapa2Falhas = totalRuns - etapa2Sucesso100;
+
+  const metricas_etapas = {
+    total_execucoes: totalRuns,
+    etapa1_cotacao: {
+      label: "Cotação (entrada → aceite termos)",
+      sucesso_100: etapa1Sucesso100,
+      com_falhas: etapa1Falhas,
+      taxa_sucesso_pct: totalRuns > 0 ? Math.round((etapa1Sucesso100 / totalRuns) * 100) : 0,
+    },
+    etapa2_pagamento_repasse: {
+      label: "Pagamento até repasse (aceite → entrega → PIX)",
+      sucesso_100: etapa2Sucesso100,
+      com_falhas: etapa2Falhas,
+      taxa_sucesso_pct: totalRuns > 0 ? Math.round((etapa2Sucesso100 / totalRuns) * 100) : 0,
+    },
+  };
 
   // ============ 2) Smoke adversarial ============
   const { data: smokeAdv } = await supabase
@@ -138,8 +185,20 @@ async function handle(req: NextRequest) {
   const ultimaSmokeAdv = smokeAdvRuns[0]?.ts;
   const ultimaSelfHeal = selfHealRuns[0]?.ts;
 
+  // Smoke adversarial: estatistica de cenarios passados/falhados
+  const totalAdvRuns = smokeAdvRuns.length;
+  const advSucesso100 = smokeAdvRuns.filter((r) => r.qtd_falhas === 0).length;
+  const metricas_adversarial = {
+    total_execucoes: totalAdvRuns,
+    sucesso_100: advSucesso100,
+    com_falhas: totalAdvRuns - advSucesso100,
+    taxa_sucesso_pct: totalAdvRuns > 0 ? Math.round((advSucesso100 / totalAdvRuns) * 100) : 0,
+  };
+
   return NextResponse.json({
     gerado_em: new Date().toISOString(),
+    metricas_etapas,
+    metricas_adversarial,
     smoke_feliz: {
       ultima_execucao: ultimaSmokeFeliz || null,
       ultimas_runs: smokeFelizRuns,

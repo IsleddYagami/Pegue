@@ -49,8 +49,26 @@ interface ConversaMsg {
   criado_em: string;
 }
 
+interface MetricaEtapa {
+  label: string;
+  sucesso_100: number;
+  com_falhas: number;
+  taxa_sucesso_pct: number;
+}
+
 interface DashboardData {
   gerado_em: string;
+  metricas_etapas?: {
+    total_execucoes: number;
+    etapa1_cotacao: MetricaEtapa;
+    etapa2_pagamento_repasse: MetricaEtapa;
+  };
+  metricas_adversarial?: {
+    total_execucoes: number;
+    sucesso_100: number;
+    com_falhas: number;
+    taxa_sucesso_pct: number;
+  };
   smoke_feliz: { ultima_execucao: string | null; ultimas_runs: SmokeRun[] };
   smoke_adversarial: { ultima_execucao: string | null; ultimas_runs: SmokeRun[] };
   self_heal: { ultima_execucao: string | null; ultimas_runs: SelfHealRun[] };
@@ -194,6 +212,45 @@ export default function ImuniSmokePage() {
 
         {data && (
           <>
+            {/* MÉTRICAS POR ETAPA */}
+            {data.metricas_etapas && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold">Taxa de sucesso por etapa</h2>
+                  <span className="text-xs text-gray-400">
+                    {data.metricas_etapas.total_execucoes} execuções nos últimos 7 dias
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <CardEtapa
+                    titulo="Etapa 1 — Cotação"
+                    descricao="Cliente diz 'oi' até confirmar termos"
+                    metrica={data.metricas_etapas.etapa1_cotacao}
+                  />
+                  <CardEtapa
+                    titulo="Etapa 2 — Pagamento até repasse"
+                    descricao="Aceite termos → paga → fretista → entrega → PIX"
+                    metrica={data.metricas_etapas.etapa2_pagamento_repasse}
+                  />
+                </div>
+                {data.metricas_adversarial && (
+                  <div className="mt-4 pt-4 border-t border-gray-800">
+                    <CardEtapa
+                      titulo="Smoke Adversarial — Cliente caótico"
+                      descricao="11 cenários de cliente real (rajada, IFSP, gírias, etc)"
+                      metrica={{
+                        label: "",
+                        sucesso_100: data.metricas_adversarial.sucesso_100,
+                        com_falhas: data.metricas_adversarial.com_falhas,
+                        taxa_sucesso_pct: data.metricas_adversarial.taxa_sucesso_pct,
+                      }}
+                      total={data.metricas_adversarial.total_execucoes}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* CARDS RESUMO */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <CardSentinela
@@ -247,6 +304,57 @@ export default function ImuniSmokePage() {
             {tab === "eventos" && <ListaEventos eventos={data.eventos} />}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function CardEtapa({
+  titulo,
+  descricao,
+  metrica,
+  total,
+}: {
+  titulo: string;
+  descricao: string;
+  metrica: MetricaEtapa;
+  total?: number;
+}) {
+  const totalReal = total ?? metrica.sucesso_100 + metrica.com_falhas;
+  const corTaxa =
+    metrica.taxa_sucesso_pct >= 95
+      ? "text-green-400"
+      : metrica.taxa_sucesso_pct >= 80
+        ? "text-yellow-400"
+        : "text-red-400";
+  return (
+    <div className="bg-gray-950 border border-gray-800 rounded-lg p-4">
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <h3 className="font-bold">{titulo}</h3>
+          <p className="text-xs text-gray-400 mt-1">{descricao}</p>
+        </div>
+        <div className={`text-3xl font-bold ${corTaxa}`}>{metrica.taxa_sucesso_pct}%</div>
+      </div>
+      <div className="grid grid-cols-3 gap-2 mt-3">
+        <div className="bg-gray-900 rounded p-2 text-center">
+          <div className="text-xl font-bold">{totalReal}</div>
+          <div className="text-xs text-gray-400">Tentativas</div>
+        </div>
+        <div className="bg-green-900/20 border border-green-900 rounded p-2 text-center">
+          <div className="text-xl font-bold text-green-400">{metrica.sucesso_100}</div>
+          <div className="text-xs text-gray-400">100% verde</div>
+        </div>
+        <div
+          className={`${
+            metrica.com_falhas > 0 ? "bg-red-900/20 border border-red-900" : "bg-gray-900"
+          } rounded p-2 text-center`}
+        >
+          <div className={`text-xl font-bold ${metrica.com_falhas > 0 ? "text-red-400" : "text-gray-500"}`}>
+            {metrica.com_falhas}
+          </div>
+          <div className="text-xs text-gray-400">Com falhas</div>
+        </div>
       </div>
     </div>
   );

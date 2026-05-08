@@ -778,6 +778,79 @@ async function cenarioJailbreak(baseUrl: string, secret: string): Promise<Cenari
   return r;
 }
 
+// Cenario 18: BUG REAL CASO NATAN (11994207932 — 8/Mai/2026). Cliente
+// digita itens com QUANTIDADE NO TEXTO ('6 caixas, 2 sofas'). Parser
+// numerico detectava '6' e '2' como itens 6/2 do menu de mudanca, gravava
+// 'Mesa com cadeiras, Fogao' em vez do que cliente disse. Bug afetava
+// TODO cliente que digitasse quantidade. Esse cenario PROVA que nao
+// volta.
+async function cenarioDescricaoComQuantidade(baseUrl: string, secret: string): Promise<CenarioResult> {
+  const phone = "5500000000027";
+  await limparPhone(phone);
+  const t0 = Date.now();
+
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "oi"));
+  await dormir(2500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1"));
+  await dormir(2500);
+  await chamarWebhook(
+    baseUrl,
+    secret,
+    {
+      Type: "receveid_location",
+      Body: {
+        Info: {
+          RemoteJid: `${phone}@s.whatsapp.net`,
+          FromMe: false,
+          PushName: "Smoke Adv",
+          Source: { message: { lat: -23.5329, lng: -46.7916 } },
+        },
+        Text: "",
+      },
+      instance: 1,
+    },
+  );
+  await dormir(3500);
+  await chamarWebhook(baseUrl, secret, payloadTexto(phone, "1"));
+  await dormir(2500);
+  // EXATAMENTE o texto do cliente Natan
+  await chamarWebhook(
+    baseUrl,
+    secret,
+    payloadTexto(
+      phone,
+      "Geladeira, fogao, cama box, rack, 6 caixas, 2 sofa de dois lugares, armario apenas a parte pequena de baixo",
+    ),
+  );
+  await dormir(7000); // classificador IA processa
+
+  const { data: sess } = await supabase
+    .from("bot_sessions")
+    .select("descricao_carga, step")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  const descricao = (sess?.descricao_carga || "").toLowerCase();
+  // PROVA do bug: descricao_carga contem APENAS "Mesa com cadeiras, Fogao"
+  // (itens 6 e 2 do menu de mudanca). Se aparecer 'mesa' SEM 'geladeira'
+  // = bug regrediu.
+  const temMesa = descricao.includes("mesa");
+  const temGeladeira = descricao.includes("geladeira");
+  const temSofa = descricao.includes("sofa") || descricao.includes("sofá");
+  const bugRegrediu = temMesa && !temGeladeira;
+  const ok = !bugRegrediu && (temGeladeira || temSofa);
+
+  const r = {
+    cenario: "18_descricao_com_quantidade_caso_natan",
+    ok,
+    esperado: "descricao_carga contem geladeira/sofa do texto (NAO so 'Mesa com cadeiras, Fogao')",
+    obtido: `step=${sess?.step}, descr="${(sess?.descricao_carga || "").slice(0, 100)}"`,
+    duracao_ms: Date.now() - t0,
+  };
+  await limparPhone(phone);
+  return r;
+}
+
 // Cenario 6: cliente cancela no meio do fluxo. Sistema deve limpar sessao
 // e voltar ao inicio sem deixar lixo.
 async function cenarioCancelamento(baseUrl: string, secret: string): Promise<CenarioResult> {
@@ -848,6 +921,7 @@ export async function GET(req: NextRequest) {
     cenarioQuantidadeVaga,
     cenarioListaGrandeMudanca,
     cenarioForaDeOrdem,
+    cenarioDescricaoComQuantidade, // BUG REAL Natan 8/Mai
   ];
   // Suprime warnings TS de funcoes nao usadas (definidas mas reservadas
   // pra ativacao individual no futuro).

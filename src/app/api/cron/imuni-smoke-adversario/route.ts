@@ -5,8 +5,8 @@ import { notificarAdmins } from "@/lib/admin-notify";
 import { promptDeFalhaSmokeStep } from "@/lib/imuni-prompt-builder";
 
 export const dynamic = "force-dynamic";
-// 17 cenarios x ~15s cada = 255s. Margem 105s pra picos.
-export const maxDuration = 360;
+// Plano Hobby Vercel limita a 300s. 11 cenarios x ~20s = 220s. Margem 80s.
+export const maxDuration = 300;
 
 // SMOKE ADVERSARIAL — testa cenarios REAIS de comportamento humano caotico
 // que poderiam quebrar o bot. Diferente do smoke v6 (feliz determinist),

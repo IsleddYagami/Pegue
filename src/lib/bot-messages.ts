@@ -1105,9 +1105,7 @@ Ja avisei a equipe Pegue e em breve entramos em contato pra finalizar seu pedido
 
 Se preferir, digite *oi* pra recomecar ou *4* pra falar com um especialista agora.`,
 
-  obrigado: `Por nada! 😊
-Estamos aqui sempre que precisar.
-Relaxa. A gente leva. 🚚✨
+  obrigado: `Nós que agradecemos! 💛
 
-Qualquer duvida, e so chamar!`,
+Sua ajuda faz a Pegue melhorar a cada dia. Quando precisar de um frete, é só chamar — a gente cuida com carinho. 🚚✨`,
 };

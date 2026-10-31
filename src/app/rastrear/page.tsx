@@ -1,55 +1,58 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
-import { Search, CheckCircle, Circle, Truck, MapPin, User } from "lucide-react";
+import { Search, MessageCircle, ShieldCheck } from "lucide-react";
 
-type StatusStep = {
-  label: string;
-  time: string;
-  detail?: string;
-  done: boolean;
-  current: boolean;
-};
+// Esta pagina ERA uma maquete: qualquer codigo comecando com "PEG" exibia uma
+// entrega inventada — motorista "Carlos Souza", placa "ABC-1234", horarios e
+// previsao de chegada falsos. Em producao, um cliente real digitando um codigo
+// via o rastreio de um frete que nao existe. Isso destroi exatamente a confianca
+// que a pagina deveria construir.
+//
+// Agora ela nao mostra nada que nao venha do banco. O rastreio de verdade mora em
+// /rastrear/[codigo]?t=<token>, e o token e o segredo que prova que o link e seu.
+// Sem token nao ha o que mostrar — e dizer isso e melhor que inventar.
+
+const WHATSAPP_LINK = "https://wa.me/5511970363713?text=Oi";
+
+// Link que o cliente recebe no WhatsApp: .../rastrear/PEG-123?t=<token>
+function extrairDoLink(entrada: string): { codigo: string; token: string } | null {
+  const texto = entrada.trim();
+  if (!texto) return null;
+
+  // Aceita o link inteiro colado, com ou sem dominio
+  const comToken = texto.match(/rastrear\/([^/?\s]+)\?(?:.*&)?t=([^&\s]+)/i);
+  if (comToken) {
+    return { codigo: decodeURIComponent(comToken[1]), token: comToken[2] };
+  }
+
+  // Aceita "CODIGO token" ou "CODIGO t=token" digitado na mao
+  const solto = texto.match(/^(\S+)\s+(?:t=)?(\S{12,})$/);
+  if (solto) {
+    return { codigo: solto[1], token: solto[2] };
+  }
+
+  return null;
+}
 
 export default function RastrearPage() {
-  const [codigo, setCodigo] = useState("");
-  const [buscou, setBuscou] = useState(false);
-  const [encontrado, setEncontrado] = useState(false);
-
-  // Mock de dados - no futuro busca do Supabase
-  const mockSteps: StatusStep[] = [
-    { label: "Pedido confirmado", time: "06/04 - 14:37", done: true, current: false },
-    {
-      label: "Motorista confirmado",
-      time: "07/04 - 07:30",
-      detail: "Carlos Souza - Placa ABC-1234",
-      done: true,
-      current: false,
-    },
-    {
-      label: "Coleta realizada",
-      time: "07/04 - 08:20",
-      detail: "Carga conferida e carregada",
-      done: true,
-      current: false,
-    },
-    {
-      label: "Em transito",
-      time: "07/04 - 08:45",
-      detail: "Previsao de chegada: 09:30",
-      done: false,
-      current: true,
-    },
-    { label: "Entrega finalizada", time: "-", done: false, current: false },
-  ];
+  const router = useRouter();
+  const [entrada, setEntrada] = useState("");
+  const [semToken, setSemToken] = useState(false);
 
   function handleBuscar(e: React.FormEvent) {
     e.preventDefault();
-    setBuscou(true);
-    // Mock: qualquer codigo que comece com PEG retorna resultado
-    setEncontrado(codigo.toUpperCase().startsWith("PEG"));
+    const achou = extrairDoLink(entrada);
+    if (achou) {
+      setSemToken(false);
+      router.push(`/rastrear/${encodeURIComponent(achou.codigo)}?t=${achou.token}`);
+      return;
+    }
+    // So o codigo nao abre o rastreio: o codigo nao e segredo, o token e.
+    setSemToken(true);
   }
 
   return (
@@ -59,126 +62,64 @@ export default function RastrearPage() {
       <main className="flex-1 bg-gray-50 py-12">
         <div className="mx-auto max-w-xl px-4">
           <h1 className="text-center text-3xl font-extrabold text-[#0A0A0A] md:text-4xl">
-            Rastrear Pedido
+            Acompanhar meu frete
           </h1>
           <p className="mt-2 text-center text-gray-500">
-            Acompanhe o status do seu frete em tempo real
+            Cole aqui o link de acompanhamento que você recebeu no WhatsApp.
           </p>
 
-          {/* Search */}
-          <form
-            onSubmit={handleBuscar}
-            className="mt-8 flex gap-2"
-          >
+          <form onSubmit={handleBuscar} className="mt-8 flex gap-2">
             <input
               type="text"
-              value={codigo}
+              value={entrada}
               onChange={(e) => {
-                setCodigo(e.target.value);
-                setBuscou(false);
+                setEntrada(e.target.value);
+                setSemToken(false);
               }}
-              placeholder="Ex: PEG-2024-0847"
+              placeholder="Cole o link do WhatsApp aqui"
               className="flex-1 rounded-xl border-2 border-gray-200 px-4 py-3 text-base transition-colors focus:border-[#C9A84C] focus:outline-none"
             />
             <button
               type="submit"
-              disabled={!codigo.trim()}
+              disabled={!entrada.trim()}
+              aria-label="Abrir acompanhamento"
               className="rounded-xl bg-[#C9A84C] px-6 py-3 font-bold text-[#0A0A0A] transition-transform hover:scale-105 disabled:opacity-40"
             >
               <Search size={20} />
             </button>
           </form>
 
-          {/* Not found */}
-          {buscou && !encontrado && (
-            <div className="mt-6 rounded-xl bg-white p-6 text-center shadow-sm">
-              <p className="text-gray-500">
-                Nenhum pedido encontrado com o codigo{" "}
-                <strong>{codigo}</strong>.
+          {semToken && (
+            <div className="mt-6 rounded-xl bg-white p-6 shadow-sm">
+              <p className="font-semibold text-[#0A0A0A]">
+                Esse não é o link de acompanhamento
               </p>
-              <p className="mt-2 text-sm text-gray-400">
-                Verifique o codigo e tente novamente.
+              <p className="mt-2 text-sm text-gray-500">
+                O código do pedido sozinho não abre o rastreio — e isso é de
+                propósito: se abrisse, qualquer pessoa veria para onde está indo a
+                sua carga. O link completo chega no seu WhatsApp assim que um
+                fretista aceita o frete.
               </p>
+              <a
+                href={WHATSAPP_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#0A0A0A] px-5 py-3 text-sm font-bold text-white transition-transform hover:scale-105"
+              >
+                <MessageCircle size={18} />
+                Pedir o link no WhatsApp
+              </a>
             </div>
           )}
 
-          {/* Found - Timeline */}
-          {buscou && encontrado && (
-            <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm md:p-8">
-              {/* Header */}
-              <div className="text-center">
-                <p className="text-sm text-gray-400">Codigo do pedido</p>
-                <p className="text-2xl font-extrabold text-[#C9A84C]">
-                  {codigo.toUpperCase()}
-                </p>
-                <p className="mt-1 text-sm text-gray-400">
-                  Osasco Centro &rarr; Carapicuiba
-                </p>
-              </div>
-
-              {/* Timeline */}
-              <div className="mt-8 space-y-0">
-                {mockSteps.map((step, i) => (
-                  <div key={step.label} className="flex gap-4">
-                    {/* Line + Dot */}
-                    <div className="flex flex-col items-center">
-                      {step.done ? (
-                        <CheckCircle className="h-6 w-6 shrink-0 text-[#C9A84C]" />
-                      ) : step.current ? (
-                        <div className="h-6 w-6 shrink-0 rounded-full border-4 border-orange-400 bg-white" />
-                      ) : (
-                        <Circle className="h-6 w-6 shrink-0 text-gray-300" />
-                      )}
-                      {i < mockSteps.length - 1 && (
-                        <div
-                          className={`h-full w-0.5 ${
-                            step.done ? "bg-[#C9A84C]" : "bg-gray-200"
-                          }`}
-                        />
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <div className="pb-6">
-                      <p
-                        className={`font-semibold ${
-                          step.current
-                            ? "text-orange-500"
-                            : step.done
-                              ? "text-[#0A0A0A]"
-                              : "text-gray-400"
-                        }`}
-                      >
-                        {step.label}
-                      </p>
-                      <p className="text-xs text-gray-400">{step.time}</p>
-                      {step.detail && (
-                        <p className="mt-1 text-sm text-gray-500">
-                          {step.detail}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Driver Card */}
-              <div className="mt-4 flex items-center gap-4 rounded-xl bg-gray-50 p-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#C9A84C] text-lg font-bold text-white">
-                  CS
-                </div>
-                <div>
-                  <p className="font-semibold text-[#0A0A0A]">Carlos Souza</p>
-                  <p className="text-sm text-gray-500">
-                    Caminhao bau branco | ABC-1234
-                  </p>
-                  <p className="text-sm text-[#C9A84C]">
-                    &#11088; 4.8 (127 corridas)
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="mt-8 flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-5">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#C9A84C]" />
+            <p className="text-sm leading-relaxed text-gray-500">
+              No acompanhamento você vê o nome do fretista, o veículo, a placa e a
+              posição dele no mapa até a entrega. Quem não tem o seu link não vê
+              nada disso.
+            </p>
+          </div>
         </div>
       </main>
 

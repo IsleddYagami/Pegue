@@ -3,15 +3,13 @@
 import Image from "next/image";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
+import { Cotador } from "@/components/cotador";
 import {
   MessageCircle,
-  ArrowRight,
   ArrowDown,
   Zap,
-  MapPin,
   Camera,
   DollarSign,
-  Clock,
   CheckCircle,
   Smartphone,
 } from "lucide-react";
@@ -55,22 +53,23 @@ export default function SimularPage() {
           </p>
 
           <a
-            href={WHATSAPP_LINK}
-            target="_blank"
-            rel="noopener noreferrer"
+            href="#cotar"
             className="inline-flex items-center gap-3 rounded-full bg-[#C9A84C] px-10 py-5 text-xl font-bold text-[#000000] shadow-lg shadow-[#C9A84C]/20 transition-all hover:scale-105"
           >
-            <MessageCircle className="h-6 w-6" />
+            <DollarSign className="h-6 w-6" />
             Quero meu preço agora
-            <ArrowRight className="h-5 w-5" />
+            <ArrowDown className="h-5 w-5" />
           </a>
 
           <div className="mt-6 inline-flex items-center gap-3 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-8 py-3">
             <Zap className="h-5 w-5 text-[#C9A84C]" />
-            <span className="text-base font-bold text-[#C9A84C]">Tempo total: menos de 2 minutos</span>
+            <span className="text-base font-bold text-[#C9A84C]">Preço nesta tela, sem cadastro</span>
           </div>
         </div>
       </section>
+
+      {/* COTACAO NA TELA — mesmo motor do WhatsApp */}
+      <Cotador />
 
       {/* EXEMPLO VISUAL */}
       <section className="border-t border-[#C9A84C]/10 py-16 md:py-24" style={{ background: "#000" }}>

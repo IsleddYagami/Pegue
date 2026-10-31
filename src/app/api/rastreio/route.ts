@@ -142,6 +142,52 @@ export async function GET(req: NextRequest) {
     .limit(1)
     .single();
 
+  // Identidade do fretista pro cliente que contratou: nome, veiculo, placa e nota.
+  // So quem tem o token (o link que foi pro WhatsApp dele) ve isso. Documento e
+  // selfie do cadastro NAO entram aqui — sao prova de verificacao, nao vitrine.
+  let prestadorInfo: {
+    nome: string;
+    placa: string | null;
+    veiculo_desc: string | null;
+    nota: number | null;
+    total_corridas: number | null;
+  } | null = null;
+
+  if (corrida.prestador_id) {
+    const [veic, aval, prest] = await Promise.all([
+      supabase
+        .from("prestadores_veiculos")
+        .select("marca, modelo, placa")
+        .eq("prestador_id", corrida.prestador_id)
+        .eq("ativo", true)
+        .limit(1)
+        .maybeSingle(),
+      supabase.from("avaliacoes").select("nota").eq("prestador_id", corrida.prestador_id),
+      supabase
+        .from("prestadores")
+        .select("total_corridas")
+        .eq("id", corrida.prestador_id)
+        .maybeSingle(),
+    ]);
+
+    const notas = (aval.data || [])
+      .map((a) => a.nota)
+      .filter((n): n is number => typeof n === "number" && n > 0);
+
+    prestadorInfo = {
+      nome: (corrida.prestadores as any)?.nome || "Fretista",
+      placa: veic.data?.placa || null,
+      veiculo_desc: veic.data
+        ? [veic.data.marca, veic.data.modelo].filter(Boolean).join(" ") || null
+        : null,
+      nota:
+        notas.length > 0
+          ? Math.round((notas.reduce((s, n) => s + n, 0) / notas.length) * 10) / 10
+          : null,
+      total_corridas: prest.data?.total_corridas ?? null,
+    };
+  }
+
   // Calcula distancia restante
   let distancia_restante = null;
   if (ultimaLoc && corrida.destino_lat && corrida.destino_lng) {
@@ -170,9 +216,7 @@ export async function GET(req: NextRequest) {
     distancia_restante_km: distancia_restante,
     carga: corrida.descricao_carga,
     veiculo: corrida.tipo_veiculo,
-    prestador: corrida.prestadores
-      ? { nome: (corrida.prestadores as any).nome }
-      : null,
+    prestador: prestadorInfo,
     ultima_localizacao: ultimaLoc
       ? { lat: ultimaLoc.lat, lng: ultimaLoc.lng, atualizado_em: ultimaLoc.criado_em }
       : null,

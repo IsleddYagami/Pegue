@@ -22,7 +22,13 @@ interface CorridaData {
   distancia_restante_km: number | null;
   carga: string;
   veiculo: string;
-  prestador: { nome: string } | null;
+  prestador: {
+    nome: string;
+    placa: string | null;
+    veiculo_desc: string | null;
+    nota: number | null;
+    total_corridas: number | null;
+  } | null;
   ultima_localizacao: { lat: number; lng: number; atualizado_em: string } | null;
 }
 
@@ -392,8 +398,22 @@ function ClienteTrackingInner() {
             <div>
               <p className="font-bold text-white">{corrida.prestador.nome}</p>
               <p className="text-xs text-gray-400">
-                {veiculoLabels[corrida.veiculo] || corrida.veiculo}
+                {[
+                  veiculoLabels[corrida.veiculo] || corrida.veiculo,
+                  corrida.prestador.veiculo_desc,
+                  corrida.prestador.placa,
+                ]
+                  .filter(Boolean)
+                  .join(" • ")}
               </p>
+              {corrida.prestador.nota !== null && (
+                <p className="text-xs text-[#C9A84C]">
+                  ★ {corrida.prestador.nota.toFixed(1)}
+                  {corrida.prestador.total_corridas
+                    ? ` • ${corrida.prestador.total_corridas} fretes`
+                    : ""}
+                </p>
+              )}
             </div>
           </div>
         )}

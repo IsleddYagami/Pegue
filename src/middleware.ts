@@ -35,5 +35,17 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/teste-:path*"],
+  // "/teste-:path*" NAO pegou /teste-pagamento (provado no ar 01/Nov: seguiu
+  // 200). O matcher do Next casa por SEGMENTO, entao prefixo dentro do segmento
+  // precisa de regex. As cinco rotas vao listadas tambem, pra nao depender de
+  // interpretacao: o que esta no ar tem que ser conferivel.
+  matcher: [
+    "/",
+    "/teste-(.*)",
+    "/teste-som",
+    "/teste-cores",
+    "/teste-boss",
+    "/teste-caminhao",
+    "/teste-pagamento",
+  ],
 };

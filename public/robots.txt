@@ -4,9 +4,6 @@ Disallow: /admin
 Disallow: /admin/
 Disallow: /api/
 Disallow: /rastrear/motorista/
-Disallow: /teste-som
-Disallow: /teste-caminhao
-Disallow: /teste-cores
-Disallow: /teste-pagamento
+Disallow: /teste-
 
-Sitemap: https://pegue-eta.vercel.app/sitemap.xml
+Sitemap: https://chamepegue.com.br/sitemap.xml

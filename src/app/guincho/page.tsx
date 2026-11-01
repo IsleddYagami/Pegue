@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { WHATSAPP_LINK } from "@/lib/constants";
-import { Phone, Clock, MapPin, Shield, Truck, Zap, Star, CheckCircle } from "lucide-react";
+import { Phone, Clock, MapPin, Shield, Truck, Zap, CheckCircle } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Guincho 24 Horas Osasco | Guincho Rapido Zona Oeste SP | Pegue",
@@ -140,26 +140,26 @@ export default function GuinchoPage() {
         </div>
       </section>
 
-      {/* Avaliacoes */}
+      {/* Garantias — substitui depoimentos ficticios (paridade com a home).
+          A Pegue tem 1 frete concluido e 0 avaliacoes: nome de cliente e
+          estrela inventados sao propaganda enganosa, nao prova social. */}
       <section className="border-b border-[#C9A84C]/10 px-4 py-16">
         <div className="mx-auto max-w-4xl">
-          <h2 className="mb-10 text-center text-3xl font-extrabold">
-            Quem <span className="text-[#C9A84C]">Ja Usou</span>
+          <h2 className="mb-3 text-center text-3xl font-extrabold">
+            Por que a <span className="text-[#C9A84C]">Pegue</span>
           </h2>
+          <p className="mb-10 text-center text-gray-400">
+            Transparência e segurança são pré-requisitos, não diferencial.
+          </p>
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              { nome: "Carlos M.", texto: "Carro parou na Raposo Tavares as 23h. Em 20 minutos o guincho chegou. Servico excelente!", estrelas: 5 },
-              { nome: "Patricia S.", texto: "Pneu furou em Osasco e nao tinha estepe. Chamei pelo WhatsApp e foi super rapido.", estrelas: 5 },
-              { nome: "Roberto L.", texto: "Precisei levar o carro pra oficina em Alphaville. Preco justo e motorista educado.", estrelas: 5 },
-            ].map((a) => (
-              <div key={a.nome} className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
-                <div className="mb-2 flex gap-1">
-                  {Array.from({ length: a.estrelas }).map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-[#C9A84C] text-[#C9A84C]" />
-                  ))}
-                </div>
-                <p className="mb-3 text-sm text-gray-300">&ldquo;{a.texto}&rdquo;</p>
-                <p className="text-xs font-bold text-[#C9A84C]">{a.nome}</p>
+              { titulo: "Fretista verificado", desc: "Cadastro com CPF, CNH, selfie com o documento e foto do veículo. Sem intermediário anônimo." },
+              { titulo: "Preço na hora", desc: "Você vê o valor antes de fechar. Nada de surpresa no dia da coleta." },
+              { titulo: "Sem app, sem cadastro", desc: "Tudo pelo WhatsApp que você já tem. Sem baixar nada." },
+            ].map((g) => (
+              <div key={g.titulo} className="rounded-xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-5">
+                <h3 className="mb-2 text-base font-bold text-white">{g.titulo}</h3>
+                <p className="text-sm text-gray-400">{g.desc}</p>
               </div>
             ))}
           </div>

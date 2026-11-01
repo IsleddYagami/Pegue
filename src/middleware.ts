@@ -20,11 +20,20 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(new URL("/carreto", request.url));
   }
 
+  // Paginas de teste (/teste-som, /teste-cores, /teste-pagamento, /teste-boss,
+  // /teste-caminhao) sao ferramenta de desenvolvimento. Em producao elas ficam
+  // 404: /teste-pagamento mostrava "Pagamento Aprovado!" pra qualquer visitante.
+  // Em dev continuam abrindo normal. robots.txt nao basta — so pede pro robo
+  // nao indexar, qualquer pessoa com o link entrava.
+  if (pathname.startsWith("/teste-") && process.env.NODE_ENV === "production") {
+    return NextResponse.rewrite(new URL("/_rota-inexistente-404", request.url));
+  }
+
   // chamepegue.com.br → home normal (nao precisa fazer nada)
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/"],
+  matcher: ["/", "/teste-:path*"],
 };

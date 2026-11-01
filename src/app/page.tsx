@@ -3,7 +3,6 @@ import Link from "next/link";
 import { MessageCircle, ArrowRight, CheckCircle, Shield, Clock, Star, Zap, Phone, Truck, DollarSign } from "lucide-react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
-import { FloatingNotification } from "@/components/floating-notification";
 import { GameButton } from "@/components/game-button";
 import { WHATSAPP_LINK, INSTAGRAM_LINK, INSTAGRAM_HANDLE } from "@/lib/constants";
 
@@ -11,7 +10,6 @@ export default function HomePage() {
   return (
     <>
       <Header />
-      <FloatingNotification />
       <GameButton />
 
       {/* ===== HERO - 3 SEGUNDOS PRA CONVENCER ===== */}
@@ -138,7 +136,7 @@ export default function HomePage() {
           <div className="grid gap-4 md:grid-cols-2">
             {[
               { icon: <Zap className="h-6 w-6" />, titulo: "Preço em 2 minutos", desc: "Manda foto, recebe o valor. Sem enrolação." },
-              { icon: <Shield className="h-6 w-6" />, titulo: "Fretistas verificados", desc: "Todos passam por aprovação. Nota 4.9." },
+              { icon: <Shield className="h-6 w-6" />, titulo: "Fretistas verificados", desc: "CPF, CNH, selfie com o documento e foto do veículo." },
               { icon: <MessageCircle className="h-6 w-6" />, titulo: "Tudo pelo WhatsApp", desc: "Sem baixar app. Sem cadastro. Sem complicação." },
               { icon: <Star className="h-6 w-6" />, titulo: "A Pegue Resolve", desc: "Frete, mudança, guincho. Uma solução pra tudo." },
             ].map((item, i) => (

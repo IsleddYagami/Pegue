@@ -9,6 +9,7 @@ import { describe, it, expect } from "vitest";
 import {
   areaIndisponivel,
   decidirCotacao,
+  foraDoEstado,
   MAX_ANDARES,
   MAX_ENDERECO,
   MENSAGEM_RECUSA,
@@ -17,8 +18,14 @@ import {
 } from "./cotacao";
 import { calcularPrecosCompleto } from "./bot-utils";
 
-const SP_CENTRO = { lat: -23.5505, lng: -46.6333 };
-const OSASCO = { lat: -23.5329, lng: -46.7916 };
+const SP_CENTRO = { lat: -23.5505, lng: -46.6333, uf: "SP", cidade: "Sao Paulo" };
+const OSASCO = { lat: -23.5329, lng: -46.7916, uf: "SP", cidade: "Osasco" };
+// Litoral e interior paulista tambem sao area atendida.
+const SANTOS = { lat: -23.9608, lng: -46.3336, uf: "SP", cidade: "Santos" };
+const RIBEIRAO = { lat: -21.1775, lng: -47.8103, uf: "SP", cidade: "Ribeirao Preto" };
+// Fora do estado.
+const MANAUS = { lat: -3.119, lng: -60.0217, uf: "AM", cidade: "Manaus" };
+const RIO = { lat: -22.9068, lng: -43.1729, uf: "RJ", cidade: "Rio de Janeiro" };
 
 function pedido(over: Partial<PedidoCotacao> = {}): PedidoCotacao {
   return {
@@ -253,5 +260,64 @@ describe("decidirCotacao — cotacao valida", () => {
     );
     if (!r.ok) throw new Error("deveria cotar");
     expect(r.zona).toBe("normal");
+  });
+});
+
+
+describe("foraDoEstado — a Pegue atende capital, litoral e interior paulista", () => {
+  it("aceita capital, litoral e interior quando a UF veio do geocoder", () => {
+    expect(foraDoEstado(SP_CENTRO)).toBe(false);
+    expect(foraDoEstado(SANTOS)).toBe(false);
+    expect(foraDoEstado(RIBEIRAO)).toBe(false);
+  });
+
+  it("recusa outra UF mesmo que o ponto seja perto", () => {
+    expect(foraDoEstado(MANAUS)).toBe(true);
+    expect(foraDoEstado(RIO)).toBe(true);
+  });
+
+  it("sem UF, decide pela caixa do estado", () => {
+    expect(foraDoEstado({ lat: -23.5505, lng: -46.6333 })).toBe(false);
+    expect(foraDoEstado({ lat: -3.119, lng: -60.0217 })).toBe(true);
+    expect(foraDoEstado({ lat: -12.9777, lng: -38.5016 })).toBe(true); // Salvador
+  });
+
+  it("UF em minuscula ou com espaco nao fura a trava", () => {
+    expect(foraDoEstado({ lat: -23.5, lng: -46.6, uf: " sp " })).toBe(false);
+    expect(foraDoEstado({ lat: -23.5, lng: -46.6, uf: "rj" })).toBe(true);
+  });
+});
+
+describe("decidirCotacao — fora do estado NAO mostra preco", () => {
+  it("destino em Manaus: recusa e manda pro humano, sem numero nenhum", () => {
+    const r = decidirCotacao(pedido(), OSASCO, MANAUS);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.motivo).toBe("destino_fora_do_estado");
+      expect(r.precisaHumano).toBe(true);
+      expect(MENSAGEM_RECUSA[r.motivo]).toContain("São Paulo");
+    }
+    expect(r).not.toHaveProperty("precos");
+  });
+
+  it("origem fora do estado tambem recusa", () => {
+    const r = decidirCotacao(pedido(), RIO, OSASCO);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.motivo).toBe("origem_fora_do_estado");
+  });
+
+  it("a trava nao atrapalha quem a Pegue atende: capital -> litoral cota", () => {
+    const r = decidirCotacao(pedido(), SP_CENTRO, SANTOS);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.km).toBeGreaterThan(0);
+      expect(r.cidadeOrigem).toBe("Sao Paulo");
+      expect(r.cidadeDestino).toBe("Santos");
+    }
+  });
+
+  it("capital -> interior (Ribeirao Preto) cota", () => {
+    const r = decidirCotacao(pedido(), SP_CENTRO, RIBEIRAO);
+    expect(r.ok).toBe(true);
   });
 });

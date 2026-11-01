@@ -189,27 +189,55 @@ export async function buscaCep(cep: string): Promise<string | null> {
 //   3. so cidade (aproximacao ampla)
 // Retorna coords mesmo que aproximadas pra nao travar o fluxo do cliente.
 
-async function geocodeUnico(query: string, timeoutMs = 3000): Promise<{ lat: number; lng: number } | null> {
+export interface PontoGeo {
+  lat: number;
+  lng: number;
+  // UF do ponto (SP, RJ, MG...). null quando o geocoder nao informou.
+  uf: string | null;
+  cidade: string | null;
+}
+
+// Nome do estado como o Nominatim devolve -> sigla. So precisa cobrir o que
+// importa pra decisao: SP e os vizinhos que colam na borda do estado.
+const UF_POR_ESTADO: Record<string, string> = {
+  "sao paulo": "SP",
+  "rio de janeiro": "RJ",
+  "minas gerais": "MG",
+  "parana": "PR",
+  "mato grosso do sul": "MS",
+};
+
+function ufDoEstado(nome: unknown): string | null {
+  if (typeof nome !== "string" || !nome.trim()) return null;
+  const norm = nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  return UF_POR_ESTADO[norm] || null;
+}
+
+async function geocodeUnico(query: string, timeoutMs = 3000): Promise<PontoGeo | null> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=br`,
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=br&addressdetails=1`,
       { headers: { "User-Agent": "Pegue-Bot/1.0" }, signal: controller.signal }
     );
     clearTimeout(timer);
     if (!response.ok) return null;
     const data = await response.json();
     if (!data.length) return null;
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    const a = data[0].address || {};
+    return {
+      lat: parseFloat(data[0].lat),
+      lng: parseFloat(data[0].lon),
+      uf: ufDoEstado(a.state),
+      cidade: a.city || a.town || a.municipality || a.village || null,
+    };
   } catch {
     return null;
   }
 }
 
-export async function geocodeAddress(
-  address: string
-): Promise<{ lat: number; lng: number } | null> {
+export async function geocodeAddress(address: string): Promise<PontoGeo | null> {
   try {
     let addr = address.trim();
 
@@ -223,7 +251,7 @@ export async function geocodeAddress(
     if (googleGeocodeAtivo()) {
       const g = await googleGeocode(addr);
       if (g && !g.partial) {
-        return { lat: g.lat, lng: g.lng };
+        return { lat: g.lat, lng: g.lng, uf: g.uf, cidade: g.cidade };
       }
       if (g?.partial) {
         console.warn(`[geocode] Google partial=true pra "${addr}" (precisao=${g.precisao}, formatado="${g.enderecoFormatado}") — REJEITADO, caindo pro Nominatim`);

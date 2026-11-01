@@ -34,6 +34,8 @@ type Resposta =
       ok: true;
       km: number;
       zona: string;
+      cidadeOrigem: string | null;
+      cidadeDestino: string | null;
       precos: TabelaPrecos;
     }
   | { ok: false; motivo: string; mensagem?: string; precisaHumano?: boolean };
@@ -278,6 +280,12 @@ export function Cotador() {
               <span>
                 Distância: <strong className="text-white">{resp.km} km</strong>
               </span>
+              {(resp.cidadeOrigem || resp.cidadeDestino) && (
+                <span>
+                  <strong className="text-white">{resp.cidadeOrigem ?? "—"}</strong> para{" "}
+                  <strong className="text-white">{resp.cidadeDestino ?? "—"}</strong>
+                </span>
+              )}
               {resp.zona !== "normal" && (
                 <span className="rounded-full border border-[#C9A84C]/30 px-3 py-1 text-xs text-[#C9A84C]">
                   {resp.zona === "fundao" ? "Região distante — acréscimo aplicado" : "Acesso difícil — acréscimo aplicado"}

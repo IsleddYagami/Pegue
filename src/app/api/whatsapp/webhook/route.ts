@@ -58,6 +58,7 @@ import { gerarSimulacao, formatarMensagemSimulacao, nomeVeiculo as nomeVeiculoAv
 import { criteriosMediaDaSimulacao, invalidarCacheAjustes } from "@/lib/ajustes-precos";
 import { isAdminPhone, isPhoneTeste, getAdminPhones } from "@/lib/admin-auth";
 import { notificarAdmins, notificarAdminsComClaim, notificarAssuncaoAtendimento } from "@/lib/admin-notify";
+import { foraDoEstado } from "@/lib/cotacao";
 import { registrarConversa, type TipoConversa } from "@/lib/registrar-conversa";
 import { extrairContextoInicial, formatarConfirmacaoContexto, type ContextoExtraido } from "@/lib/extrair-contexto";
 import { detectarLinkGoogleMaps, resolverGoogleMapsLink } from "@/lib/google-maps-link";
@@ -3762,6 +3763,25 @@ async function pedirConfirmacaoEnderecosIA(
       distancia_km: distanciaKm,
     },
   });
+
+  // PARIDADE COM O SITE: a Pegue atende o estado de Sao Paulo — capital,
+  // litoral e interior paulista. Fora disso o bot NAO cota: escala pro humano.
+  // Sem esta trava a formula de distancia (sem teto) cuspia preco pra Manaus.
+  const origemFora = foraDoEstado({ lat: origemLat, lng: origemLng });
+  const destinoFora = foraDoEstado({ lat: destinoLat, lng: destinoLng });
+  if (origemFora || destinoFora) {
+    await updateSession(phone, { step: "atendimento_humano" });
+    await notificarAdminsComClaim(
+      `🗺️ *FORA DO ESTADO DE SP — COTAR MANUAL*`,
+      phone,
+      `${origemFora ? "COLETA" : "ENTREGA"} caiu fora do estado de Sao Paulo.\n\nColeta: ${origem}\nEntrega: ${destino}\nDistancia: ${distanciaKm.toFixed(1)} km\n\nO bot NAO cotou (LEI: jamais cotar sem certeza).`,
+    );
+    await sendToClient({
+      to: phone,
+      message: `A gente atende São Paulo: a capital, o litoral e o interior paulista.\n\nO endereço de ${origemFora ? "coleta" : "entrega"} caiu fora do estado, então não vou chutar um preço pra você. Já chamei uma pessoa do time pra ver o seu caso. 🙏`,
+    });
+    return;
+  }
 
   // Distancia anomala (>100km na Grande SP) = sinal de geocoder pegou cidade
   // errada. Loga pra alerta proativo e auditoria. Cliente vai ver na confirmacao

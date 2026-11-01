@@ -16,10 +16,27 @@ export interface GoogleGeocodeResult {
   lat: number;
   lng: number;
   enderecoFormatado: string;
+  // UF e cidade vem de address_components. A UF e o que decide se a Pegue
+  // atende: SP (capital, litoral e interior). null quando o Google nao disse.
+  uf: string | null;
+  cidade: string | null;
   // location_type: ROOFTOP > RANGE_INTERPOLATED > GEOMETRIC_CENTER > APPROXIMATE
   precisao: "ROOFTOP" | "RANGE_INTERPOLATED" | "GEOMETRIC_CENTER" | "APPROXIMATE" | "UNKNOWN";
   // partial_match=true se Google teve que adivinhar parte do endereco
   partial: boolean;
+}
+
+// Le um address_component pelo tipo. short=true pega a sigla (SP), senao o
+// nome por extenso (Osasco).
+function componente(
+  components: any[] | undefined,
+  tipo: string,
+  short = false,
+): string | null {
+  if (!Array.isArray(components)) return null;
+  const c = components.find((x) => Array.isArray(x?.types) && x.types.includes(tipo));
+  const v = short ? c?.short_name : c?.long_name;
+  return typeof v === "string" && v.trim() ? v.trim() : null;
 }
 
 export function googleGeocodeAtivo(): boolean {
@@ -73,6 +90,10 @@ export async function googleGeocode(
       lat: loc.lat,
       lng: loc.lng,
       enderecoFormatado: result.formatted_address || endereco,
+      uf: componente(result.address_components, "administrative_area_level_1", true),
+      cidade:
+        componente(result.address_components, "administrative_area_level_2") ||
+        componente(result.address_components, "locality"),
       precisao: result.geometry?.location_type || "UNKNOWN",
       partial: !!result.partial_match,
     };

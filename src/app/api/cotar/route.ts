@@ -73,6 +73,8 @@ export async function POST(req: NextRequest) {
     ok: true,
     km: r.km,
     zona: r.zona,
+    cidadeOrigem: r.cidadeOrigem,
+    cidadeDestino: r.cidadeDestino,
     adicionais: {
       ajudante: pedido.ajudante,
       andares: pedido.andares,

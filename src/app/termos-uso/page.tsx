@@ -2,7 +2,8 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 
 export const metadata = {
-  title: "Termos de Uso | Pegue",
+  title: "Termos de Uso",
+  alternates: { canonical: "/termos-uso" },
   description: "Condições gerais para uso da plataforma Pegue por clientes e fretistas.",
 };
 

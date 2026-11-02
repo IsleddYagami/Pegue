@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
+import { WHATSAPP_LINK } from "@/lib/constants";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -14,7 +15,7 @@ const bricolage = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://chamepegue.com.br"),
+  metadataBase: new URL("https://www.chamepegue.com.br"),
   title: {
     default: "Pegue - Carreto, Mudanca e Guincho em Osasco e Zona Oeste SP",
     template: "%s | Pegue",
@@ -44,7 +45,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Pegue - Carreto, Mudanca e Guincho em Osasco e Zona Oeste SP",
     description: "Carreto e mudanca a partir de R$ 150. Manda foto e recebe o preco na hora pelo WhatsApp. Rapido e acessivel.",
-    url: "https://chamepegue.com.br",
+    url: "https://www.chamepegue.com.br",
     siteName: "Pegue",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Pegue - Soluções em Transportes e Fretes" }],
     locale: "pt_BR",
@@ -71,15 +72,15 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
-  "@id": "https://chamepegue.com.br/#business",
+  "@id": "https://www.chamepegue.com.br/#business",
   name: "Pegue",
   alternateName: "Chame Pegue",
   description:
     "Plataforma de fretes, mudanças e guinchos via WhatsApp com IA. Intermediamos entre clientes e prestadores na Grande SP.",
-  url: "https://chamepegue.com.br",
+  url: "https://www.chamepegue.com.br",
   telephone: "+5511970363713",
-  image: "https://chamepegue.com.br/logo-pegue-novo.png",
-  logo: "https://chamepegue.com.br/logo-pegue-novo.png",
+  image: "https://www.chamepegue.com.br/logo-pegue-novo.png",
+  logo: "https://www.chamepegue.com.br/logo-pegue-novo.png",
   priceRange: "R$",
   address: {
     "@type": "PostalAddress",
@@ -110,8 +111,8 @@ const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "Pegue",
-  url: "https://chamepegue.com.br",
-  logo: "https://chamepegue.com.br/logo-pegue-novo.png",
+  url: "https://www.chamepegue.com.br",
+  logo: "https://www.chamepegue.com.br/logo-pegue-novo.png",
   contactPoint: {
     "@type": "ContactPoint",
     telephone: "+5511970363713",
@@ -121,9 +122,6 @@ const organizationJsonLd = {
   },
   sameAs: ["https://www.instagram.com/chamepegue"],
 };
-
-const WHATSAPP_LINK =
-  "https://wa.me/5511999999999?text=Oi%2C%20quero%20fazer%20um%20frete!";
 
 export default function RootLayout({
   children,

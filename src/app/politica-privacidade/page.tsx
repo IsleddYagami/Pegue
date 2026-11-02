@@ -2,7 +2,8 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 
 export const metadata = {
-  title: "Política de Privacidade | Pegue",
+  title: "Política de Privacidade",
+  alternates: { canonical: "/politica-privacidade" },
   description: "Como a Pegue coleta, usa e protege seus dados pessoais conforme a LGPD.",
 };
 

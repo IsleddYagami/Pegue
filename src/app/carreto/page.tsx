@@ -4,9 +4,12 @@ import { WHATSAPP_LINK } from "@/lib/constants";
 import { Phone, Clock, MapPin, Shield, Truck, Zap, Package, Home, Building2 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Carreto Osasco | Frete e Mudanca Zona Oeste SP | Pegue",
+  title: "Carreto Osasco | Frete e Mudanca Zona Oeste SP",
   description: "Carreto e mudanca em Osasco e Zona Oeste de SP. Pequenos fretes, mudanca completa, transporte de moveis. Orcamento pelo WhatsApp em minutos. A partir de R$ 150.",
   keywords: "carreto osasco, frete osasco, mudanca osasco, carreto zona oeste, carreto barato osasco, pequenos fretes osasco, mudanca residencial osasco, carreto perto de mim, frete barato osasco",
+  // Sem canonical proprio a pagina herdava o "/" do layout e dizia ao Google
+  // que ela e' copia da home — a landing inteira era descartada.
+  alternates: { canonical: "/carreto" },
   openGraph: {
     title: "Carreto e Mudanca Osasco | Pegue",
     description: "Carreto e frete em Osasco e Zona Oeste. Orcamento instantaneo pelo WhatsApp.",

@@ -1,12 +1,14 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { WHATSAPP_LINK } from "@/lib/constants";
-import { Phone, Clock, MapPin, Shield, Truck, Zap, CheckCircle } from "lucide-react";
+import { Phone, Clock, MapPin, Shield, Truck, Zap } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Guincho 24 Horas Osasco | Guincho Rapido Zona Oeste SP | Pegue",
+  title: "Guincho 24 Horas Osasco | Guincho Rapido Zona Oeste SP",
   description: "Guincho 24 horas em Osasco e Zona Oeste de SP. Atendimento imediato via WhatsApp. Pneu furado, pane mecanica, acidente, guincho de moto. Preco justo e rapido.",
   keywords: "guincho 24 horas osasco, guincho osasco, guincho zona oeste, guincho rapido sp, guincho perto de mim, reboque osasco, auto socorro osasco, guincho moto osasco",
+  // Mesmo defeito do /carreto: canonical herdado apontava pra home.
+  alternates: { canonical: "/guincho" },
   openGraph: {
     title: "Guincho 24 Horas Osasco | Pegue",
     description: "Guincho rapido em Osasco e Zona Oeste. Atendimento imediato via WhatsApp.",

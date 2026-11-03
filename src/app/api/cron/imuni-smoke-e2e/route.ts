@@ -373,7 +373,55 @@ async function limparFretistaSmoke(): Promise<void> {
     .filter("payload->>phone", "eq", SMOKE_FRETISTA_PHONE);
 }
 
-export async function GET(req: NextRequest) {
+// Prazo proprio do smoke. Fica ABAIXO do maxDuration (240s) pra sobrar
+// tempo do finalizar() rodar (ele consulta bot_logs e notifica admins).
+// Sem isso o smoke estourava o tempo e MORRIA CALADO: o CI recebia timeout
+// puro, sem saber em que passo parou. Trava que roda e nao enxerga.
+const PRAZO_MS = 180_000;
+
+const ESTOURO = { estourou: true } as const;
+
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  const steps: StepResult[] = [];
+  const inicio = Date.now();
+
+  const resultado = await Promise.race([
+    rodarSmoke(req, steps, inicio),
+    dormir(PRAZO_MS).then((): typeof ESTOURO => ESTOURO),
+  ]);
+
+  if (resultado !== ESTOURO) return resultado as NextResponse;
+
+  // O relogio venceu. `steps` foi sendo preenchido pelo corpo que ainda
+  // roda, entao da' pra dizer exatamente ate' onde chegou.
+  const ultimo = steps.length ? steps[steps.length - 1].step : "nenhum";
+  const maisLentos = [...steps]
+    .sort((a, b) => b.duracao_ms - a.duracao_ms)
+    .slice(0, 3)
+    .map((s) => `${s.step}=${s.duracao_ms}ms`)
+    .join(", ");
+
+  steps.push({
+    step: "99_estourou_o_prazo",
+    ok: false,
+    esperado: `os 33 passos em menos de ${PRAZO_MS}ms`,
+    obtido: `parou depois de ${steps.length} passos; ultimo concluido: ${ultimo}`,
+    duracao_ms: Date.now() - inicio,
+    erro: `passos mais lentos ate' aqui: ${maisLentos || "nenhum passo terminou"}`,
+  });
+
+  return await finalizar(
+    steps,
+    inicio,
+    `smoke estourou ${PRAZO_MS}ms — parou no passo seguinte a "${ultimo}"`,
+  );
+}
+
+async function rodarSmoke(
+  req: NextRequest,
+  steps: StepResult[],
+  inicio: number,
+): Promise<NextResponse> {
   const key =
     req.nextUrl.searchParams.get("key") ||
     req.headers.get("authorization")?.replace("Bearer ", "");
@@ -414,8 +462,8 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const inicio = Date.now();
-  const steps: StepResult[] = [];
+  // `steps` e `inicio` vem do GET: assim, se o prazo estourar, o relatorio
+  // ja tem os passos que deram tempo de rodar.
 
   // Cleanup ANTES (se rodada anterior deixou lixo)
   await limparPhoneSmoke();

@@ -5,6 +5,7 @@ import {
   AlertCircle,
   ArrowRight,
   BadgeCheck,
+  CheckCircle2,
   Loader2,
   MessageCircle,
   Truck,
@@ -54,7 +55,9 @@ type TabelaPrecos = {
   caminhao_bau: PrecoDetalhado;
 };
 
-const VEICULOS: Array<{ chave: keyof TabelaPrecos; nome: string; cabe: string }> = [
+type Chave = keyof TabelaPrecos;
+
+const VEICULOS: Array<{ chave: Chave; nome: string; cabe: string }> = [
   { chave: "utilitario", nome: "Utilitário", cabe: "Fiorino, Kangoo. Até uns 10 volumes ou 1 móvel grande" },
   { chave: "hr", nome: "HR / Van", cabe: "Mudança de 1 quarto, geladeira, sofá de 3 lugares" },
   { chave: "caminhao_bau", nome: "Caminhão baú", cabe: "Mudança inteira, carga alta ou comprida" },
@@ -74,6 +77,52 @@ export function Cotador() {
   const [resp, setResp] = useState<Resposta | null>(null);
   const [erroRede, setErroRede] = useState<string | null>(null);
   const [conf, setConf] = useState<Confianca | null>(null);
+
+  // Fechamento do pedido NO SITE. Antes isso nao existia: o botao so abria o
+  // WhatsApp e nada era registrado.
+  const [veiculoEscolhido, setVeiculoEscolhido] = useState<Chave | null>(null);
+  const [nomeCliente, setNomeCliente] = useState("");
+  const [telCliente, setTelCliente] = useState("");
+  const [fechando, setFechando] = useState(false);
+  const [erroPedido, setErroPedido] = useState<string | null>(null);
+  const [pedido, setPedido] = useState<{ codigo: string; valor: number; avisoCliente: boolean } | null>(null);
+
+  async function fecharPedido(e: React.FormEvent) {
+    e.preventDefault();
+    if (!veiculoEscolhido) return;
+    setErroPedido(null);
+    setFechando(true);
+    try {
+      const r = await fetchComTimeout(
+        "/api/pedido",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            origem,
+            destino,
+            ajudante,
+            elevador: acesso === "elevador",
+            andares: acesso === "escada" ? andares : 0,
+            veiculo: veiculoEscolhido,
+            nome: nomeCliente,
+            telefone: telCliente,
+          }),
+        },
+        25000,
+      );
+      const d = await r.json();
+      if (d?.ok) {
+        setPedido({ codigo: d.codigo, valor: d.valor, avisoCliente: d.avisoCliente !== false });
+      } else {
+        setErroPedido(d?.mensagem || "Não consegui abrir o pedido. Tenta de novo ou fala no WhatsApp.");
+      }
+    } catch {
+      setErroPedido("Deu problema na conexão. Tenta de novo ou fala no WhatsApp.");
+    } finally {
+      setFechando(false);
+    }
+  }
 
   useEffect(() => {
     fetchComTimeout("/api/confianca", {}, 10000)
@@ -337,6 +386,22 @@ export function Cotador() {
                         </li>
                       )}
                     </ul>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVeiculoEscolhido(chave);
+                        setPedido(null);
+                        setErroPedido(null);
+                      }}
+                      className={`mt-5 w-full rounded-full px-4 py-3 text-sm font-bold transition-colors ${
+                        veiculoEscolhido === chave
+                          ? "bg-[#C9A84C] text-black"
+                          : "border border-[#C9A84C]/40 text-[#C9A84C] hover:bg-[#C9A84C]/10"
+                      }`}
+                    >
+                      {veiculoEscolhido === chave ? "Escolhido" : "Fechar com este"}
+                    </button>
                   </div>
                 );
               })}
@@ -348,16 +413,118 @@ export function Cotador() {
               escolhido; se a carga não couber nele, a gente te avisa antes de sair.
             </p>
 
-            <div className="mt-7 text-center">
-              <a
-                href={linkWhats(resumoPedido)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-3 rounded-full bg-[#C9A84C] px-10 py-4 text-lg font-bold text-black transition-transform hover:scale-105"
+            {pedido ? (
+              <div className="mt-7 rounded-2xl border border-green-500/30 bg-green-500/5 p-6 text-center">
+                <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-green-400" />
+                <p className="text-lg font-bold text-white">
+                  Pedido <span className="text-[#C9A84C]">{pedido.codigo}</span> aberto
+                </p>
+                <p className="mt-2 text-sm text-gray-300">
+                  {pedido.avisoCliente
+                    ? "Mandei a confirmação no seu WhatsApp. Responde lá com uma foto da carga pra eu confirmar o veículo."
+                    : "O pedido está registrado e a equipe já foi avisada. Não consegui te mandar no WhatsApp agora — chama a gente por lá com esse código."}
+                </p>
+                <a
+                  href={linkWhats(`Oi! Fechei o pedido ${pedido.codigo} no site.`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#C9A84C] px-8 py-3 text-sm font-bold text-black"
+                >
+                  <MessageCircle className="h-4 w-4" /> Abrir a conversa
+                </a>
+              </div>
+            ) : veiculoEscolhido ? (
+              <form
+                onSubmit={fecharPedido}
+                className="mt-7 rounded-2xl border border-[#C9A84C]/30 bg-[#0A0A0A] p-6"
               >
-                <MessageCircle className="h-5 w-5" /> Fechar esse frete
-              </a>
-            </div>
+                <p className="mb-1 text-center text-base font-bold text-white">
+                  Fechando: {VEICULOS.find((v) => v.chave === veiculoEscolhido)?.nome} por{" "}
+                  {reais(resp.precos[veiculoEscolhido].total)}
+                </p>
+                <p className="mb-5 text-center text-xs text-gray-500">
+                  Só o nome e o WhatsApp. Sem cadastro, sem senha.
+                </p>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label htmlFor="pedido-nome" className="mb-2 block text-sm text-gray-400">
+                      Seu nome
+                    </label>
+                    <input
+                      id="pedido-nome"
+                      value={nomeCliente}
+                      onChange={(e) => setNomeCliente(e.target.value)}
+                      required
+                      minLength={2}
+                      placeholder="Como posso te chamar"
+                      className="w-full rounded-xl border border-gray-800 bg-black px-4 py-3 text-white outline-none focus:border-[#C9A84C]"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="pedido-tel" className="mb-2 block text-sm text-gray-400">
+                      Seu WhatsApp
+                    </label>
+                    <input
+                      id="pedido-tel"
+                      value={telCliente}
+                      onChange={(e) => setTelCliente(e.target.value)}
+                      required
+                      inputMode="tel"
+                      placeholder="DDD + número"
+                      className="w-full rounded-xl border border-gray-800 bg-black px-4 py-3 text-white outline-none focus:border-[#C9A84C]"
+                    />
+                  </div>
+                </div>
+
+                {erroPedido && (
+                  <p className="mt-4 flex items-start gap-2 text-sm text-red-400">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {erroPedido}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={fechando}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#C9A84C] px-10 py-4 text-lg font-bold text-black transition-transform hover:scale-[1.02] disabled:opacity-60"
+                >
+                  {fechando ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" /> Abrindo o pedido...
+                    </>
+                  ) : (
+                    <>
+                      Confirmar pedido <ArrowRight className="h-5 w-5" />
+                    </>
+                  )}
+                </button>
+
+                <p className="mt-4 text-center text-xs text-gray-500">
+                  Prefere conversar antes?{" "}
+                  <a
+                    href={linkWhats(resumoPedido)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#C9A84C] underline"
+                  >
+                    fala no WhatsApp
+                  </a>
+                </p>
+              </form>
+            ) : (
+              <p className="mt-7 text-center text-sm text-gray-400">
+                Escolhe o veículo acima pra fechar o pedido aqui mesmo — ou{" "}
+                <a
+                  href={linkWhats(resumoPedido)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#C9A84C] underline"
+                >
+                  fala no WhatsApp
+                </a>
+                .
+              </p>
+            )}
           </div>
         )}
 

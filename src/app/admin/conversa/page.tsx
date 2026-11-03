@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ArrowLeft, RefreshCw, Loader2, Search, MessageCircle, AlertCircle, Send, CheckCircle2 } from "lucide-react";
 import { fetchComTimeout } from "@/lib/fetch-utils";
+import { AppAtendimento } from "@/components/app-atendimento";
 
 interface ConversaMsg {
   conteudo: string;
@@ -308,6 +309,8 @@ export default function ConversaClienteAoVivo() {
                 </div>
               </div>
             )}
+
+            <AppAtendimento />
 
             {/* RESPONDER — a caixa que faltava. O que sai daqui chega no
                 WhatsApp do cliente, pelo numero da Pegue, na mesma conversa. */}

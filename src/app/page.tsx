@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { MessageCircle, ArrowRight, CheckCircle, Shield, Clock, Star, Zap, Phone, Truck, DollarSign } from "lucide-react";
+import { MessageCircle, ArrowRight, Shield, Clock, Star, Zap, Truck, DollarSign } from "lucide-react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { GameButton } from "@/components/game-button";
@@ -25,19 +25,19 @@ export default function HomePage() {
         }} />
 
         <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 pt-4 pb-16 text-center md:pt-6 md:pb-24">
-          <Image src="/logo-pegue-novo.png" alt="Pegue - Fretes e Mudanças em Osasco" width={1000} height={1000} className="-mb-16 md:-mb-40 h-64 w-auto sm:h-[22rem] md:h-[40rem]" priority />
+          <Image src="/logo-pegue-novo.png" alt="Pegue - Fretes, Mudanças e Guincho em São Paulo" width={1000} height={1000} className="-mb-16 md:-mb-40 h-64 w-auto sm:h-[22rem] md:h-[40rem]" priority />
 
-          {/* FRASE PRINCIPAL - Emocional + SEO local */}
+          {/* FRASE PRINCIPAL - beneficio primeiro + SEO estadual (frase do Fabio 02/Nov) */}
           <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
-            Carreto em <span className="text-[#C9A84C]">Osasco</span>, Mudança, Frete e Guincho?
+            Frete, Guincho, Carreto ou Mudança em <span className="text-[#C9A84C]">São Paulo</span>?
           </h1>
 
           <p className="font-display mt-5 max-w-2xl text-lg font-medium leading-snug text-white md:text-2xl">
-            Mudar já é estressante. O carreto <span className="text-[#C9A84C] font-semibold">não precisa ser</span>.
+            Deixe a parte pesada <span className="text-[#C9A84C] font-semibold">com a gente</span>.
           </p>
 
           <p className="font-display mt-2 text-lg text-gray-300 md:text-xl">
-            Manda sua foto e seu destino no WhatsApp. A gente resolve. 🚚
+            Da capital ao litoral e ao interior. Manda a foto e o destino no WhatsApp — o preço sai na hora. 🚚
           </p>
 
           {/* BADGE DE PRECO */}

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, Loader2, Search, MessageCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, RefreshCw, Loader2, Search, MessageCircle, AlertCircle, Send, CheckCircle2 } from "lucide-react";
+import { fetchComTimeout } from "@/lib/fetch-utils";
 
 interface ConversaMsg {
   conteudo: string;
@@ -51,6 +52,51 @@ export default function ConversaClienteAoVivo() {
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  // Caixa de responder. Ate 3/Nov essa tela so' lia a conversa: o unico jeito
+  // de um humano falar com o cliente era digitar no app do celular.
+  const [resposta, setResposta] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [erroEnvio, setErroEnvio] = useState("");
+  const [enviadoOk, setEnviadoOk] = useState(false);
+
+  async function enviarResposta(e: React.FormEvent) {
+    e.preventDefault();
+    if (!adminKey || !phoneAtivo) return;
+    const texto = resposta.trim();
+    if (!texto) {
+      setErroEnvio("Escreve a mensagem antes de enviar.");
+      return;
+    }
+    setErroEnvio("");
+    setEnviando(true);
+    try {
+      const res = await fetchComTimeout(
+        "/api/admin-responder",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: adminKey, phone: phoneAtivo, mensagem: texto }),
+        },
+        25000,
+      );
+      const d = await res.json();
+      if (d?.ok) {
+        setResposta("");
+        setEnviadoOk(true);
+        setTimeout(() => setEnviadoOk(false), 3000);
+        // Recarrega pra mensagem aparecer na conversa — prova na tela de que
+        // saiu, em vez de so' confiar no "enviado".
+        carregar(adminKey, phoneAtivo);
+      } else {
+        setErroEnvio(d?.mensagem || "Não consegui enviar. Tenta de novo.");
+      }
+    } catch {
+      setErroEnvio("Deu problema na conexão. O cliente pode NÃO ter recebido.");
+    } finally {
+      setEnviando(false);
+    }
+  }
 
   const carregar = useCallback(async (key: string, phone: string) => {
     if (!phone) return;
@@ -262,6 +308,64 @@ export default function ConversaClienteAoVivo() {
                 </div>
               </div>
             )}
+
+            {/* RESPONDER — a caixa que faltava. O que sai daqui chega no
+                WhatsApp do cliente, pelo numero da Pegue, na mesma conversa. */}
+            <form
+              onSubmit={enviarResposta}
+              className="bg-gray-900 border border-orange-800/40 rounded-xl p-4 mb-4"
+            >
+              <h2 className="font-bold mb-1 flex items-center gap-2 text-orange-400">
+                <Send className="w-4 h-4" />
+                Responder o cliente
+              </h2>
+              <p className="text-xs text-gray-500 mb-3">
+                Chega no WhatsApp dele, do número da Pegue. Ao enviar, a Íris cala até você
+                escrever <span className="text-gray-300">VOLTA IRIS</span>.
+                {dados.sessao?.step === "atendimento_humano" && (
+                  <span className="text-yellow-400"> Íris já está calada nesta conversa.</span>
+                )}
+              </p>
+
+              <textarea
+                value={resposta}
+                onChange={(e) => setResposta(e.target.value)}
+                rows={3}
+                maxLength={4000}
+                placeholder="Escreve aqui o que o cliente vai receber no WhatsApp"
+                className="w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm outline-none focus:border-orange-500"
+              />
+
+              {erroEnvio && (
+                <p className="mt-2 flex items-start gap-2 text-xs text-red-400">
+                  <AlertCircle className="w-4 h-4 shrink-0" /> {erroEnvio}
+                </p>
+              )}
+              {enviadoOk && (
+                <p className="mt-2 flex items-center gap-2 text-xs text-green-400">
+                  <CheckCircle2 className="w-4 h-4" /> Enviado. Deve aparecer na conversa acima.
+                </p>
+              )}
+
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <span className="text-xs text-gray-600">{resposta.length}/4000</span>
+                <button
+                  type="submit"
+                  disabled={enviando || !resposta.trim()}
+                  className="flex items-center gap-2 rounded-lg bg-orange-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+                >
+                  {enviando ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" /> Enviar no WhatsApp
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
 
             {/* LOGS RELEVANTES */}
             {dados.logs.length > 0 && (

@@ -3,12 +3,22 @@ name: Post-Deploy Smoke
 # Roda APOS push em main pra validar que o deploy production nao quebrou
 # o fluxo do bot. Se o smoke falhar:
 #   1) Notifica admins via WhatsApp (com prompt pronto pra Claude)
-#   2) (futuro) Chama auto-rollback pra reverter deploy
+#   2) Reverte o deploy — MAS SO' COM PROVA (ver abaixo)
 #
 # Custo: zero (GitHub Actions free tier 2000min/mes; um run gasta ~3min).
 #
 # Pre-requisito: secret CRON_SECRET no repo (Settings > Secrets and
 # variables > Actions > New repository secret).
+#
+# 3/Nov/2026 — duas correcoes depois de o rollback derrubar deploy bom:
+#   - o curl espera MAIS que a funcao (280s vs maxDuration 240s e prazo
+#     interno de 180s), entao quem responde e' o smoke com o relatorio,
+#     nao o curl desistindo calado;
+#   - o rollback exige PROVA: so' reverte se um passo REAL do fluxo
+#     falhou. Smoke que nao respondeu, ou que so' estourou o prazo, nao
+#     prova nada sobre o deploy. Antes era `if: failure()` e, com o smoke
+#     vermelho desde Maio, praticamente TODO deploy era revertido.
+#     Provado no run 41562969221: promoveu 4ed962c por cima de eda805a.
 
 on:
   push:
@@ -19,8 +29,13 @@ on:
 jobs:
   validar-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
+      # Precisa do repo por causa de scripts/ler-smoke.py. O script mora
+      # aqui, e nao embutido no YAML, porque python multi-linha dentro de
+      # bloco YAML quebra o arquivo de workflow (ja quebrou em 3/Nov).
+      - uses: actions/checkout@v4
+
       - name: Aguardar Vercel terminar deploy production
         # Vercel demora ~90-150s pra deployar apos push. Espera fixa de
         # 180s cobre a maioria dos casos. Workflow nao falha se deploy
@@ -36,60 +51,21 @@ jobs:
             echo "::error::CRON_SECRET nao configurado nos secrets do repo"
             exit 1
           fi
-          # -m 280 e' MAIOR que o prazo do smoke (180s) e que o maxDuration
-          # (240s) de proposito: assim quem responde e' a funcao, com o
-          # relatorio de onde parou, e nao o curl desistindo calado. Ate
-          # 3/Nov/2026 os dois eram 240 e o CI so' via "exit 28".
           response=$(curl -s -m 280 \
             "https://www.chamepegue.com.br/api/cron/imuni-smoke-e2e?key=$CRON_SECRET")
           echo "smoke_body<<EOF" >> $GITHUB_OUTPUT
           echo "$response" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+          relatorio=$(echo "$response" | python3 scripts/ler-smoke.py)
+          echo "$relatorio"
+          justifica=$(echo "$relatorio" | grep '^rollback=' | tail -1 | cut -d= -f2)
+          echo "rollback_justificado=$justifica" >> $GITHUB_OUTPUT
+
           ok=$(echo "$response" | grep -oE '"ok":(true|false)' | head -1)
-          motivo=$(echo "$response" | grep -oE '"motivo":(null|"[^"]+")' | head -1)
           echo "smoke_status=$ok" >> $GITHUB_OUTPUT
-          echo "smoke_motivo=$motivo" >> $GITHUB_OUTPUT
-
-          # Mostra SEMPRE o que falhou e os passos mais lentos. Antes o log
-          # nao tinha nada e ninguem sabia onde o smoke parava.
-          echo "$response" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    print('resposta nao era JSON (smoke nao respondeu):'); print(sys.stdin.read()[:400]); raise SystemExit
-ss = d.get('steps') or []
-maus = [s for s in ss if not s.get('ok')]
-print('passos: %d | falhos: %d' % (len(ss), len(maus)))
-for s in maus:
-    print('  FALHOU %s | esperado=%s | obtido=%s' % (s.get('step'), s.get('esperado'), s.get('obtido')))
-for s in sorted(ss, key=lambda x: -(x.get('duracao_ms') or 0))[:5]:
-    print('  lento  %s %sms' % (s.get('step'), s.get('duracao_ms')))
-" || true
-
-          # ROLLBACK SO' COM PROVA. Ate 3/Nov o rollback disparava em QUALQUER
-          # falha do job — inclusive timeout do curl, que nao prova nada sobre
-          # o deploy. Resultado: com o smoke vermelho desde Maio, TODO deploy
-          # era revertido (provado: run 41562969221 promoveu 4ed962c por cima
-          # de eda805a e tirou do ar a frase que o Fabio tinha aprovado).
-          # Agora: so' reverte se um passo REAL do fluxo falhou. Smoke que nao
-          # respondeu, ou que so' estourou o prazo, deixa o deploy em paz e
-          # avisa — porque nao provou que o deploy esta ruim.
-          passo_real_falhou=$(echo "$response" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    print('nao'); raise SystemExit
-maus = [s.get('step','') for s in (d.get('steps') or []) if not s.get('ok')]
-reais = [s for s in maus if s != '99_estourou_o_prazo']
-print('sim' if reais else 'nao')
-" 2>/dev/null || echo "nao")
-          echo "rollback_justificado=$passo_real_falhou" >> $GITHUB_OUTPUT
-
           if [ "$ok" != '"ok":true' ]; then
-            echo "::error::Smoke falhou pos-deploy. $ok / $motivo (rollback justificado: $passo_real_falhou)"
+            echo "::error::Smoke falhou pos-deploy (rollback justificado: $justifica)"
             exit 1
           fi
           echo "::notice::Smoke verde pos-deploy"
@@ -99,7 +75,7 @@ print('sim' if reais else 'nao')
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          response=$(curl -s -m 240 \
+          response=$(curl -s -m 280 \
             "https://www.chamepegue.com.br/api/cron/imuni-smoke-adversario?key=$CRON_SECRET")
           ok=$(echo "$response" | grep -oE '"ok":(true|false)' | head -1)
           aprovados=$(echo "$response" | grep -oE '"aprovados":[0-9]+' | head -1)
@@ -109,7 +85,7 @@ print('sim' if reais else 'nao')
             echo "::warning::Smoke adversarial falhou ($falhas falhas). Nao bloqueia, soh avisa."
           fi
 
-      - name: Auto-rollback (so com passo real falhando)
+      - name: Auto-rollback (so com passo real do fluxo falhando)
         if: failure() && steps.smoke.outputs.rollback_justificado == 'sim'
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -120,10 +96,15 @@ print('sim' if reais else 'nao')
             "https://www.chamepegue.com.br/api/admin-rollback-deploy?key=$CRON_SECRET")
           echo "Rollback response: $rollback_resp"
           if echo "$rollback_resp" | grep -q '"ok":true'; then
-            echo "::notice::Auto-rollback executado com sucesso — cliente esta na versao anterior verde"
+            echo "::notice::Auto-rollback executado — cliente esta na versao anterior verde"
           else
             echo "::error::Auto-rollback FALHOU — admin precisa intervir manualmente"
           fi
+
+      - name: Smoke vermelho sem prova contra o deploy
+        if: failure() && steps.smoke.outputs.rollback_justificado != 'sim'
+        run: |
+          echo "::warning::Smoke vermelho, mas nenhum passo do fluxo falhou (nao respondeu ou so' estourou o prazo). O deploy FICA no ar — reverter aqui seria apagar deploy bom por falta de prova."
 
       - name: Disparar relatorio IMUNI (se smoke falhou)
         if: failure()

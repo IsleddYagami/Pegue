@@ -25,11 +25,11 @@ export default function HomePage() {
         }} />
 
         <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 pt-4 pb-16 text-center md:pt-6 md:pb-24">
-          <Image src="/logo-pegue-novo.png" alt="Pegue - Fretes, Mudanças e Guincho em São Paulo" width={1000} height={1000} className="-mb-16 md:-mb-40 h-64 w-auto sm:h-[22rem] md:h-[40rem]" priority />
+          <Image src="/logo-pegue-novo.png" alt="Pegue - Fretes e Mudanças em Osasco" width={1000} height={1000} className="-mb-16 md:-mb-40 h-64 w-auto sm:h-[22rem] md:h-[40rem]" priority />
 
-          {/* FRASE PRINCIPAL - beneficio primeiro + SEO estadual (frase do Fabio 02/Nov) */}
+          {/* FRASE PRINCIPAL - frase do Fabio, 02/Nov, exata */}
           <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
-            Frete, Guincho, Carreto ou Mudança em <span className="text-[#C9A84C]">São Paulo</span>?
+            Frete, Guincho, Carreto ou Mudança?
           </h1>
 
           <p className="font-display mt-5 max-w-2xl text-lg font-medium leading-snug text-white md:text-2xl">
@@ -37,7 +37,7 @@ export default function HomePage() {
           </p>
 
           <p className="font-display mt-2 text-lg text-gray-300 md:text-xl">
-            Da capital ao litoral e ao interior. Manda a foto e o destino no WhatsApp — o preço sai na hora. 🚚
+            Fácil e rápido!
           </p>
 
           {/* BADGE DE PRECO */}

@@ -37,7 +37,7 @@ export default function HomePage() {
           </p>
 
           <p className="font-display mt-2 text-lg text-gray-300 md:text-xl">
-            Fácil e rápido!
+            Cotação rápida!
           </p>
 
           {/* BADGE DE PRECO */}

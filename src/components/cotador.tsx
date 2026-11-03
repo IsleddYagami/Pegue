@@ -6,6 +6,7 @@ import {
   ArrowRight,
   BadgeCheck,
   CheckCircle2,
+  Copy,
   Loader2,
   MessageCircle,
   Truck,
@@ -178,6 +179,45 @@ export function Cotador() {
   }${acesso === "elevador" ? ", com elevador" : ""}${
     acesso === "escada" ? `, ${andares} andar(es) de escada` : ""
   }.`;
+
+  // Texto COMPLETO da cotacao, com veiculo e preco. O resumo antigo mandava
+  // so' os enderecos: o atendimento recebia o cliente sem saber o que ele
+  // tinha visto na tela e cotava tudo de novo, podendo dar outro numero.
+  function textoDaCotacao(chave: Chave | null): string {
+    if (!resp || resp.ok !== true) return resumoPedido;
+    const v = VEICULOS.find((x) => x.chave === chave);
+    const linhas = [
+      "Oi! Cotei no site da Pegue:",
+      "",
+      `De: ${origem}`,
+      `Para: ${destino}`,
+      `Distância: ${resp.km} km`,
+      `Acesso: ${acesso === "escada" ? `${andares} andar(es) de escada` : acesso === "elevador" ? "elevador" : "térreo"}`,
+      `Ajudante: ${ajudante ? "sim" : "não"}`,
+    ];
+    if (v) {
+      linhas.push("", `Veículo: ${v.nome}`, `Valor na tela: ${reais(resp.precos[v.chave].total)}`);
+    } else {
+      linhas.push("", "Preços que apareceram:");
+      for (const o of VEICULOS) linhas.push(`• ${o.nome}: ${reais(resp.precos[o.chave].total)}`);
+    }
+    return linhas.join("\n");
+  }
+
+  const [copiado, setCopiado] = useState(false);
+
+  async function copiarCotacao(chave: Chave | null) {
+    const texto = textoDaCotacao(chave);
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      // Navegador bloqueou a area de transferencia: mostra o texto pra ele
+      // selecionar na mao em vez de fingir que copiou.
+      setErroPedido("Seu navegador bloqueou a cópia. Toca em 'Abrir nosso WhatsApp' que o texto já vai pronto.");
+    }
+  }
 
   return (
     <section id="cotar" className="border-t border-[#C9A84C]/10 py-16 md:py-24" style={{ background: "#000" }}>
@@ -446,19 +486,57 @@ export function Cotador() {
                 </a>
               </div>
             ) : veiculoEscolhido ? (
-              <form
-                onSubmit={fecharPedido}
-                className="mt-7 rounded-2xl border border-[#C9A84C]/30 bg-[#0A0A0A] p-6"
-              >
-                <p className="mb-1 text-center text-base font-bold text-white">
-                  Fechando: {VEICULOS.find((v) => v.chave === veiculoEscolhido)?.nome} por{" "}
-                  {reais(resp.precos[veiculoEscolhido].total)}
-                </p>
-                <p className="mb-5 text-center text-xs text-gray-500">
-                  Só o nome e o WhatsApp. Sem cadastro, sem senha.
-                </p>
+              <div className="mt-7 grid gap-4 md:grid-cols-2">
+                {/* CAMINHO 1 — o cliente manda. Nao depende de API nenhuma:
+                    quem envia e' o WhatsApp dele. Custo zero e nao quebra
+                    quando o nosso provedor de envio esta fora. */}
+                <div className="flex flex-col rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6">
+                  <p className="text-base font-bold text-white">Eu mesmo mando</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                    Copia a cotação inteira — endereços, distância, veículo e valor — e manda
+                    no nosso WhatsApp de atendimento.
+                  </p>
+                  <div className="mt-auto flex flex-col gap-3 pt-5">
+                    <button
+                      type="button"
+                      onClick={() => copiarCotacao(veiculoEscolhido)}
+                      className="flex items-center justify-center gap-2 rounded-full border border-[#C9A84C]/40 px-6 py-3 text-sm font-bold text-[#C9A84C] transition-colors hover:bg-[#C9A84C]/10"
+                    >
+                      {copiado ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4" /> Copiado
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4" /> Copiar a cotação
+                        </>
+                      )}
+                    </button>
+                    <a
+                      href={linkWhats(textoDaCotacao(veiculoEscolhido))}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 rounded-full bg-[#1f1a0e] px-6 py-3 text-sm font-bold text-[#C9A84C]"
+                    >
+                      <MessageCircle className="h-4 w-4" /> Abrir nosso WhatsApp
+                    </a>
+                  </div>
+                </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                {/* CAMINHO 2 — o site fecha: grava o pedido e avisa o
+                    atendimento sem o cliente precisar fazer mais nada. */}
+                <form
+                  onSubmit={fecharPedido}
+                  className="flex flex-col rounded-2xl border border-[#C9A84C]/30 bg-[#0A0A0A] p-6"
+                >
+                  <p className="text-base font-bold text-white">Vocês cuidam</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                    Fechando: {VEICULOS.find((v) => v.chave === veiculoEscolhido)?.nome} por{" "}
+                    {reais(resp.precos[veiculoEscolhido].total)}. Só o nome e o WhatsApp — sem
+                    cadastro, sem senha.
+                  </p>
+
+                  <div className="mt-5 grid gap-4">
                   <div>
                     <label htmlFor="pedido-nome" className="mb-2 block text-sm text-gray-400">
                       Seu nome
@@ -511,18 +589,8 @@ export function Cotador() {
                   )}
                 </button>
 
-                <p className="mt-4 text-center text-xs text-gray-500">
-                  Prefere conversar antes?{" "}
-                  <a
-                    href={linkWhats(resumoPedido)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#C9A84C] underline"
-                  >
-                    fala no WhatsApp
-                  </a>
-                </p>
-              </form>
+                </form>
+              </div>
             ) : (
               <p className="mt-7 text-center text-sm text-gray-400">
                 Escolhe o veículo acima pra fechar o pedido aqui mesmo — ou{" "}

@@ -245,7 +245,13 @@ export async function POST(req: NextRequest) {
 
   // A EMPRESA FICA SABENDO. Era isto que nao existia: pedido fechado no site
   // e ninguem avisado.
-  await notificarAdmins(
+  //
+  // notificarAdmins devolve QUANTOS admins receberam no WhatsApp. A tela so'
+  // pode dizer "a equipe foi avisada" se esse numero for maior que zero —
+  // senao ela estaria mentindo. (3/Nov: o primeiro pedido de teste caiu
+  // exatamente nisso: o ChatPro recusou o envio e a tela afirmou que a
+  // equipe sabia.)
+  const adminsAvisados = await notificarAdmins(
     "🆕 *PEDIDO FECHADO NO SITE*",
     telefone,
     [
@@ -285,5 +291,24 @@ export async function POST(req: NextRequest) {
     avisoCliente = false;
   }
 
-  return NextResponse.json({ ok: true, codigo, valor, avisoCliente });
+  // RASTRO. Se ninguem foi avisado, o pedido NAO pode sumir no silencio: fica
+  // registrado que ele nasceu orfao, pra aparecer na auditoria depois.
+  try {
+    await supabase.from("bot_logs").insert({
+      payload: {
+        tipo: "pedido_fechado_no_site",
+        codigo,
+        valor,
+        veiculo,
+        admins_avisados: adminsAvisados,
+        cliente_avisado: avisoCliente,
+        orfao: adminsAvisados === 0,
+        telefone_masked: telefone.replace(/\d(?=\d{4})/g, "*"),
+      },
+    });
+  } catch {
+    // Log auxiliar: nao derruba o pedido.
+  }
+
+  return NextResponse.json({ ok: true, codigo, valor, avisoCliente, adminsAvisados });
 }

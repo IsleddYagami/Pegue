@@ -85,7 +85,12 @@ export function Cotador() {
   const [telCliente, setTelCliente] = useState("");
   const [fechando, setFechando] = useState(false);
   const [erroPedido, setErroPedido] = useState<string | null>(null);
-  const [pedido, setPedido] = useState<{ codigo: string; valor: number; avisoCliente: boolean } | null>(null);
+  const [pedido, setPedido] = useState<{
+    codigo: string;
+    valor: number;
+    avisoCliente: boolean;
+    adminsAvisados: number;
+  } | null>(null);
 
   async function fecharPedido(e: React.FormEvent) {
     e.preventDefault();
@@ -113,7 +118,12 @@ export function Cotador() {
       );
       const d = await r.json();
       if (d?.ok) {
-        setPedido({ codigo: d.codigo, valor: d.valor, avisoCliente: d.avisoCliente !== false });
+        setPedido({
+          codigo: d.codigo,
+          valor: d.valor,
+          avisoCliente: d.avisoCliente !== false,
+          adminsAvisados: Number(d.adminsAvisados ?? 0),
+        });
       } else {
         setErroPedido(d?.mensagem || "Não consegui abrir o pedido. Tenta de novo ou fala no WhatsApp.");
       }
@@ -422,7 +432,9 @@ export function Cotador() {
                 <p className="mt-2 text-sm text-gray-300">
                   {pedido.avisoCliente
                     ? "Mandei a confirmação no seu WhatsApp. Responde lá com uma foto da carga pra eu confirmar o veículo."
-                    : "O pedido está registrado e a equipe já foi avisada. Não consegui te mandar no WhatsApp agora — chama a gente por lá com esse código."}
+                    : pedido.adminsAvisados > 0
+                      ? "O pedido está registrado e a equipe já foi avisada. Não consegui te mandar no WhatsApp agora — chama a gente por lá com esse código."
+                      : "O pedido está registrado com esse código. Nosso WhatsApp está fora do ar neste momento, então chama a gente por lá quando voltar — ou liga. Não deixa de falar com a gente."}
                 </p>
                 <a
                   href={linkWhats(`Oi! Fechei o pedido ${pedido.codigo} no site.`)}

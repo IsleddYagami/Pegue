@@ -1296,6 +1296,80 @@ Boa sorte! 🎯`,
         { onConflict: "telefone", ignoreDuplicates: false },
       );
 
+    // PEDIDO FECHADO NO SITE (3/Nov/2026).
+    //
+    // Sem isto, o cliente que fechou no site e vem mandar a foto da carga
+    // caia no fluxo do ZERO: a Iris pedia localizacao, carga e destino de
+    // novo e, no fim, criaria um SEGUNDO pedido pro mesmo frete. O pedido
+    // existia no banco e a conversa nao sabia dele.
+    //
+    // Agora a conversa continua DE DENTRO do pedido: sessao ja' vem com
+    // origem, destino, distancia, veiculo e valor, e para' no unico passo
+    // que ainda falta — a foto da carga, que o site nao pede.
+    const { data: clienteDoSite } = await supabase
+      .from("clientes")
+      .select("id")
+      .eq("telefone", phone)
+      .maybeSingle();
+
+    if (clienteDoSite?.id) {
+      // Janela de 7 dias: pedido mais velho que isso provavelmente morreu,
+      // e retomar um frete de duas semanas atras confunde mais que ajuda.
+      const seteDias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: pedidoSite } = await supabase
+        .from("corridas")
+        .select(
+          "id, codigo, origem_endereco, origem_lat, origem_lng, destino_endereco, destino_lat, destino_lng, distancia_km, tipo_veiculo, valor_estimado, qtd_ajudantes, escada_origem, andares_origem",
+        )
+        .eq("cliente_id", clienteDoSite.id)
+        .eq("canal_origem", "site")
+        .eq("status", "pendente")
+        .gte("criado_em", seteDias)
+        .order("criado_em", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (pedidoSite) {
+        await updateSession(phone, {
+          step: "aguardando_foto",
+          corrida_id: pedidoSite.id,
+          origem_endereco: pedidoSite.origem_endereco,
+          origem_lat: pedidoSite.origem_lat,
+          origem_lng: pedidoSite.origem_lng,
+          destino_endereco: pedidoSite.destino_endereco,
+          destino_lat: pedidoSite.destino_lat,
+          destino_lng: pedidoSite.destino_lng,
+          distancia_km: pedidoSite.distancia_km,
+          veiculo_sugerido: pedidoSite.tipo_veiculo,
+          valor_estimado: pedidoSite.valor_estimado,
+          precisa_ajudante: (pedidoSite.qtd_ajudantes || 0) > 0,
+          tem_escada: !!pedidoSite.escada_origem,
+          andar: pedidoSite.andares_origem || 0,
+        });
+
+        await supabase.from("bot_logs").insert({
+          payload: {
+            tipo: "pedido_do_site_retomado",
+            codigo: pedidoSite.codigo,
+            phone_masked: phone.replace(/\d(?=\d{4})/g, "*"),
+          },
+        });
+
+        const primeiroNomeRetomada = primeiroNomeBruto || "";
+        await sendToClient({
+          to: phone,
+          message:
+            `${primeiroNomeRetomada ? `Oi ${primeiroNomeRetomada}! ` : "Oi! "}Aqui é a *Íris* da Pegue 😊\n\n` +
+            `Já estou com o seu pedido *${pedidoSite.codigo}*:\n` +
+            `• De ${pedidoSite.origem_endereco}\n` +
+            `• Para ${pedidoSite.destino_endereco}\n` +
+            `• R$ ${pedidoSite.valor_estimado}\n\n` +
+            `Falta só a *foto da carga* pra eu confirmar o veículo. Me manda aqui 📸`,
+        });
+        return;
+      }
+    }
+
     const primeiroNome = primeiroNomeBruto;
     const nome = primeiroNome || "voce";
 
@@ -8105,6 +8179,67 @@ async function notificarResultadoDispatch(
 
 async function salvarCorrida(session: BotSession): Promise<string | null> {
   const contextoErro = `📍 ${session.origem_endereco || "-"}\n🏠 ${session.destino_endereco || "-"}\n📦 ${session.descricao_carga || "-"}\n💰 R$ ${session.valor_estimado || "-"}`;
+
+  // PEDIDO QUE JA NASCEU NO SITE (3/Nov/2026).
+  //
+  // A sessao ja aponta pra ele (ver "pedido_do_site_retomado" no primeiro
+  // contato). Sem esta guarda, o fim do fluxo criaria um SEGUNDO pedido pro
+  // mesmo frete: o do site ficaria pendente pra sempre e o cliente apareceria
+  // duas vezes na fila de vocês.
+  //
+  // Em vez de inserir, COMPLETA o pedido do site com o que so' a conversa
+  // tem: a carga confirmada pela foto. E atualiza o valor, porque se a foto
+  // mostrar que a carga nao cabe no veiculo escolhido no site, o veiculo
+  // muda — e o preco tem que mudar junto, senao o cliente pagaria o preco de
+  // um veiculo e receberia outro.
+  if (session.corrida_id) {
+    const { data: doSite } = await supabase
+      .from("corridas")
+      .select("id, status, canal_origem")
+      .eq("id", session.corrida_id)
+      .maybeSingle();
+
+    if (doSite && doSite.status === "pendente" && doSite.canal_origem === "site") {
+      const valor = Number(session.valor_estimado || 0);
+      const atualizacao = {
+        atualizado_em: new Date().toISOString(),
+        ...(session.descricao_carga ? { descricao_carga: session.descricao_carga } : {}),
+        ...(session.veiculo_sugerido ? { tipo_veiculo: session.veiculo_sugerido } : {}),
+        ...(session.data_agendada ? { periodo: session.data_agendada } : {}),
+        ...(valor > 0
+          ? {
+              valor_estimado: valor,
+              valor_final: valor,
+              valor_prestador: Math.round(valor * 0.88 * 100) / 100,
+              valor_pegue: Math.round(valor * 0.12 * 100) / 100,
+            }
+          : {}),
+      };
+
+      const { error: errCompletar } = await supabase
+        .from("corridas")
+        .update(atualizacao)
+        .eq("id", doSite.id);
+
+      if (errCompletar) {
+        await notificarAdmin(
+          `🚨 *ERRO AO COMPLETAR PEDIDO DO SITE*`,
+          session.phone,
+          `Corrida ${doSite.id}: ${errCompletar.message}\n${contextoErro}`,
+        );
+        return null;
+      }
+
+      await supabase.from("bot_logs").insert({
+        payload: {
+          tipo: "pedido_do_site_completado",
+          corrida_id: doSite.id,
+          phone_masked: session.phone.replace(/\d(?=\d{4})/g, "*"),
+        },
+      });
+      return doSite.id;
+    }
+  }
 
   try {
     // UPSERT atomico em vez de SELECT-INSERT (race condition se 2 webhooks

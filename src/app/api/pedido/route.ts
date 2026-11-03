@@ -142,11 +142,34 @@ export async function POST(req: NextRequest) {
 
   // Cliente: mesma tabela e mesma chave (telefone) que o bot usa, pra o
   // atendimento no WhatsApp cair na MESMA pessoa, nao criar um duplicado.
-  const { data: cliente, error: errCliente } = await supabase
+  //
+  // NAO usar upsert com `nome`: o upsert SOBRESCREVE o nome de quem ja' e'
+  // cliente. Alguem que ja' esta' no cadastro como "Maria Silva" e digita
+  // "maria" no site viraria "maria" no banco. O nome digitado no site so'
+  // entra quando o cliente e' novo, ou quando o cadastro esta' sem nome.
+  const { data: achados } = await supabase
     .from("clientes")
-    .upsert({ telefone, nome, ativo: true }, { onConflict: "telefone", ignoreDuplicates: false })
-    .select("id")
-    .single();
+    .select("id, nome")
+    .eq("telefone", telefone)
+    .limit(1);
+
+  const existente = achados?.[0];
+  let cliente: { id: string } | null = existente ? { id: existente.id } : null;
+  let errCliente: { message: string } | null = null;
+
+  if (existente) {
+    if (!existente.nome) {
+      await supabase.from("clientes").update({ nome, ativo: true }).eq("id", existente.id);
+    }
+  } else {
+    const novo = await supabase
+      .from("clientes")
+      .insert({ telefone, nome, ativo: true })
+      .select("id")
+      .single();
+    cliente = novo.data;
+    errCliente = novo.error;
+  }
 
   if (errCliente || !cliente) {
     await notificarAdmins(

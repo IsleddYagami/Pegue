@@ -75,20 +75,20 @@ Ou digite *AGORA* se for urgente.`,
   localizacaoRecebida: (endereco: string) =>
     `Achei! Voce ta aqui pertinho: ${endereco} ✅
 
-Como prefere informar o que vai transportar?
+Como prefere me dizer o que vai transportar?
 
-1️⃣ 📸 *Mandar foto do MATERIAL* (so a carga, sem outras coisas)
-2️⃣ ✏️ *Descrever por texto*
-3️⃣ 📋 *Lista rapida de mudanca* (so escolher os itens)`,
+✏️ *Escreve aqui mesmo* — ex: geladeira, fogao, sofa, 3 caixas
+📋 Digite *LISTA* pra escolher de uma lista pronta
+📸 Se preferir, digite *FOTO* e manda a imagem`,
 
   enderecoRecebido: (endereco: string) =>
     `Anotado! Coleta em: ${endereco} ✅
 
-Como prefere informar o que vai transportar?
+Como prefere me dizer o que vai transportar?
 
-1️⃣ 📸 *Mandar foto do MATERIAL* (so a carga, sem outras coisas)
-2️⃣ ✏️ *Descrever por texto*
-3️⃣ 📋 *Lista rapida de mudanca* (so escolher os itens)`,
+✏️ *Escreve aqui mesmo* — ex: geladeira, fogao, sofa, 3 caixas
+📋 Digite *LISTA* pra escolher de uma lista pronta
+📸 Se preferir, digite *FOTO* e manda a imagem`,
 
   listaMudanca: `📋 *LISTA RAPIDA DE MUDANCA*
 

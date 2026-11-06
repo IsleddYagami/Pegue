@@ -458,9 +458,10 @@ export function Cotador() {
             </div>
 
             <p className="mt-5 text-center text-xs leading-relaxed text-gray-500">
-              O veículo certo é confirmado pela foto da carga — por isso os três preços
-              aparecem juntos. O que estiver na tela é o que você paga para o veículo
-              escolhido; se a carga não couber nele, a gente te avisa antes de sair.
+              O veículo certo é confirmado no WhatsApp, quando você disser o que vai — por
+              isso os três preços aparecem juntos. O que estiver na tela é o que você paga
+              para o veículo escolhido; se a carga não couber nele, a gente te avisa antes
+              de sair.
             </p>
 
             {pedido ? (
@@ -471,7 +472,7 @@ export function Cotador() {
                 </p>
                 <p className="mt-2 text-sm text-gray-300">
                   {pedido.avisoCliente
-                    ? "Mandei a confirmação no seu WhatsApp. Responde lá com uma foto da carga pra eu confirmar o veículo."
+                    ? "Mandei a confirmação no seu WhatsApp. Responde lá dizendo o que vai, que a gente confirma o veículo."
                     : pedido.adminsAvisados > 0
                       ? "O pedido está registrado e a equipe já foi avisada. Não consegui te mandar no WhatsApp agora — chama a gente por lá com esse código."
                       : "O pedido está registrado com esse código. Nosso WhatsApp está fora do ar neste momento, então chama a gente por lá quando voltar — ou liga. Não deixa de falar com a gente."}

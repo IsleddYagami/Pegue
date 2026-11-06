@@ -1298,14 +1298,14 @@ Boa sorte! 🎯`,
 
     // PEDIDO FECHADO NO SITE (3/Nov/2026).
     //
-    // Sem isto, o cliente que fechou no site e vem mandar a foto da carga
+    // Sem isto, o cliente que fechou no site e vem informar a carga
     // caia no fluxo do ZERO: a Iris pedia localizacao, carga e destino de
     // novo e, no fim, criaria um SEGUNDO pedido pro mesmo frete. O pedido
     // existia no banco e a conversa nao sabia dele.
     //
     // Agora a conversa continua DE DENTRO do pedido: sessao ja' vem com
     // origem, destino, distancia, veiculo e valor, e para' no unico passo
-    // que ainda falta — a foto da carga, que o site nao pede.
+    // que ainda falta — dizer o que vai, que o site nao pergunta.
     const { data: clienteDoSite } = await supabase
       .from("clientes")
       .select("id")
@@ -1364,7 +1364,8 @@ Boa sorte! 🎯`,
             `• De ${pedidoSite.origem_endereco}\n` +
             `• Para ${pedidoSite.destino_endereco}\n` +
             `• R$ ${pedidoSite.valor_estimado}\n\n` +
-            `Falta só a *foto da carga* pra eu confirmar o veículo. Me manda aqui 📸`,
+            `Falta só me dizer *o que vai*. Escreve aqui mesmo — ex: geladeira, fogão, sofá, 3 caixas.\n` +
+            `Ou digite *LISTA* pra escolher de uma pronta.`,
         });
         return;
       }
@@ -2596,8 +2597,11 @@ async function handleFoto(
     return;
   }
 
-  // Opcao 1 - Foto (so texto, foto real e processada no topo do POST)
-  if (lower === "1" || lower === "foto") {
+  // FOTO deixou de ser a opcao principal (ordem do Fabio, 6/Nov/2026: "os
+  // sistemas falham mto p identificar"). Agora e' secundaria e so' responde
+  // a palavra FOTO — "1" voltou a ser o item 1 da lista, que era o que o
+  // cliente queria dizer ao digitar 1 depois de ver a lista.
+  if (lower === "foto" || lower === "foto 📸" || lower === "📸") {
     await sendToClient({ to: phone, message: "Manda a foto do material 📸" });
     return;
   }
@@ -2907,7 +2911,7 @@ async function handleMaisFotos(phone: string, message: string) {
     });
     await sendToClient({
       to: phone,
-      message: "🧹 Lista limpa! Vamos começar de novo.\n\nComo você quer me passar os itens?\n\n1️⃣ *Mandar foto* 📸\n2️⃣ *Lista rápida de mudança*\n3️⃣ *Descrever por texto*",
+      message: "🧹 Lista limpa! Vamos começar de novo.\n\nComo prefere me dizer o que vai transportar?\n\n✏️ *Escreve aqui mesmo* — ex: geladeira, fogão, sofá, 3 caixas\n📋 Digite *LISTA* pra escolher de uma lista pronta\n📸 Se preferir, digite *FOTO* e manda a imagem",
     });
     return;
   }
@@ -2940,7 +2944,7 @@ async function handleMaisFotos(phone: string, message: string) {
       });
       await sendToClient({
         to: phone,
-        message: `✅ Removi *${itemRemovido}*. Sua lista ficou vazia.\n\nComo você quer me passar os itens?\n\n1️⃣ *Mandar foto* 📸\n2️⃣ *Lista rápida de mudança*\n3️⃣ *Descrever por texto*`,
+        message: `✅ Removi *${itemRemovido}*. Sua lista ficou vazia.\n\nComo prefere me dizer o que vai transportar?\n\n✏️ *Escreve aqui mesmo* — ex: geladeira, fogão, sofá, 3 caixas\n📋 Digite *LISTA* pra escolher de uma lista pronta\n📸 Se preferir, digite *FOTO* e manda a imagem`,
       });
       return;
     }
@@ -3430,7 +3434,7 @@ async function handleConfirmandoOrigem(phone: string, message: string) {
     await updateSession(phone, { step: "aguardando_foto" });
     await sendToClient({
       to: phone,
-      message: `✅ Anotado! Como prefere enviar?\n\n📸 *Foto* — manda 1 ou várias\n\n✏️ *Digita tudo de uma vez:*\n_Ex: geladeira, fogão, sofá, 3 caixas, cama_\n\n📋 *3* — lista de móveis comuns`,
+      message: `✅ Anotado! Como prefere me dizer o que vai transportar?\n\n✏️ *Escreve aqui mesmo* — ex: geladeira, fogão, sofá, 3 caixas\n📋 Digite *LISTA* pra escolher de uma lista pronta\n📸 Se preferir, digite *FOTO* e manda a imagem`,
     });
     return;
   }

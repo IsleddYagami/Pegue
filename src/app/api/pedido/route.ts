@@ -214,9 +214,9 @@ export async function POST(req: NextRequest) {
     distancia_km: cotacao.km,
     tipo_servico: SERVICO_POR_VEICULO[veiculo],
     tipo_veiculo: veiculo,
-    // O site NAO pede foto da carga. Fica explicito no pedido pra quem
-    // atende saber que a carga ainda precisa ser confirmada.
-    descricao_carga: "Pedido fechado no site — carga ainda não confirmada por foto",
+    // O site cota por veiculo escolhido no olho, sem saber a carga. Fica
+    // explicito no pedido pra quem atende saber que falta confirmar.
+    descricao_carga: "Pedido fechado no site — carga ainda não informada",
     escada_origem: pedido.andares > 0,
     andares_origem: pedido.andares,
     elevador_origem: pedido.elevador,
@@ -265,7 +265,7 @@ export async function POST(req: NextRequest) {
       pedido.andares > 0 ? `${pedido.andares} andar(es) de escada` : pedido.elevador ? "Com elevador" : "Térreo",
       `Valor: R$ ${valor}`,
       "",
-      "Veio do site, sem foto da carga. Confirmar a carga antes de despachar.",
+      "Veio do site, sem a carga informada. Confirmar a carga antes de despachar.",
     ].join("\n"),
   );
 
@@ -282,8 +282,10 @@ export async function POST(req: NextRequest) {
         `• De ${pedido.origem}\n` +
         `• Para ${pedido.destino}\n` +
         `• R$ ${valor}\n\n` +
-        `Falta só uma coisa: me manda uma *foto da carga* aqui pra eu confirmar o veículo. ` +
-        `Se a carga não couber nesse, eu te aviso antes de mandar alguém.`,
+        `Falta só me dizer *o que vai* — pode escrever aqui mesmo. ` +
+        `Ex: geladeira, fogão, sofá, 3 caixas.\n\n` +
+        `Se preferir, digite *LISTA* e eu te mostro uma pronta. ` +
+        `Com isso eu confirmo o veículo e te aviso antes se a carga não couber nele.`,
     });
   } catch {
     // WhatsApp fora do ar nao pode derrubar o pedido: ele ja esta salvo e o

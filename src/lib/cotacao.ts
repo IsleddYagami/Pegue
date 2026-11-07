@@ -7,10 +7,21 @@
 // e a area e atendida. Em qualquer outro caso devolve recusa com motivo —
 // nunca um numero aproximado.
 
-import { calcularDistanciaKm, calcularPrecosCompleto, detectarZona } from "./bot-utils";
+import {
+  calcularDistanciaKm,
+  calcularPrecosCompleto,
+  detectarZona,
+  precoAjudante,
+} from "./bot-utils";
 
 export const MAX_ENDERECO = 200;
 export const MAX_ANDARES = 30;
+
+/**
+ * Teto de ajudantes na cotacao da tela. A tela oferece 0, 1 e 2; o teto aqui
+ * existe pra request forjado nao pedir 99 ajudantes e inflar o total.
+ */
+export const MAX_AJUDANTES = 3;
 
 export type MotivoRecusa =
   | "faltou_endereco"
@@ -24,7 +35,10 @@ export type MotivoRecusa =
 export interface PedidoCotacao {
   origem: string;
   destino: string;
+  /** true quando ajudantes >= 1. Mantido porque o motor de preco pede booleano. */
   ajudante: boolean;
+  /** Quantos ajudantes (0..MAX_AJUDANTES). Ordem do Fabio, 7/Nov/2026. */
+  ajudantes: number;
   elevador: boolean;
   andares: number;
   dataAgendada: string | null;
@@ -89,10 +103,26 @@ export function normalizarPedido(body: unknown): PedidoCotacao | null {
   const andaresRaw = typeof b.andares === "number" && Number.isFinite(b.andares) ? b.andares : 0;
   const elevador = b.elevador === true;
 
+  // `ajudantes` (numero) e o campo novo da tela. `ajudante` (booleano) e o
+  // campo antigo e continua valendo: quem chamar /api/cotar com o corpo velho
+  // recebe o mesmo preco de antes.
+  const ajudantes = Math.min(
+    Math.max(
+      typeof b.ajudantes === "number" && Number.isFinite(b.ajudantes)
+        ? Math.trunc(b.ajudantes)
+        : b.ajudante === true
+          ? 1
+          : 0,
+      0,
+    ),
+    MAX_AJUDANTES,
+  );
+
   return {
     origem,
     destino,
-    ajudante: b.ajudante === true,
+    ajudante: ajudantes >= 1,
+    ajudantes,
     elevador,
     // Escada e elevador nao somam: se tem elevador, o numero de andares nao cobra.
     andares: Math.min(Math.max(Math.trunc(andaresRaw), 0), MAX_ANDARES),
@@ -149,20 +179,48 @@ export function decidirCotacao(
     return { ok: false, motivo: "mesma_origem_e_destino", precisaHumano: false };
   }
 
+  const precos = calcularPrecosCompleto(
+    km,
+    pedido.ajudante,
+    pedido.andares,
+    pedido.elevador,
+    pedido.destino,
+    pedido.dataAgendada,
+  );
+
   return {
     ok: true,
     km,
     cidadeOrigem: geoOrigem.cidade ?? null,
     cidadeDestino: geoDestino.cidade ?? null,
     zona: detectarZona(pedido.destino),
-    precos: calcularPrecosCompleto(
-      km,
-      pedido.ajudante,
-      pedido.andares,
-      pedido.elevador,
-      pedido.destino,
-      pedido.dataAgendada,
-    ),
+    precos: comAjudantesExtras(precos, km, pedido.ajudantes),
+  };
+}
+
+/**
+ * Soma o 2o (e 3o) ajudante. O motor de preco cobra UM ajudante; cada ajudante
+ * a mais custa o mesmo valor da tabela — `precoAjudante(km)`, o mesmo numero
+ * que o primeiro. Nao ha preco novo inventado aqui: se o valor do segundo
+ * ajudante for outro, muda em bot-utils e muda nos dois lugares de uma vez.
+ */
+export function comAjudantesExtras(
+  precos: ReturnType<typeof calcularPrecosCompleto>,
+  km: number,
+  ajudantes: number,
+): ReturnType<typeof calcularPrecosCompleto> {
+  const extras = Math.max(0, Math.min(Math.trunc(ajudantes), MAX_AJUDANTES) - 1);
+  if (extras <= 0) return precos;
+  const adicional = extras * precoAjudante(km);
+  const somar = (p: (typeof precos)["utilitario"]) => ({
+    ...p,
+    ajudante: p.ajudante + adicional,
+    total: p.total + adicional,
+  });
+  return {
+    utilitario: somar(precos.utilitario),
+    hr: somar(precos.hr),
+    caminhao_bau: somar(precos.caminhao_bau),
   };
 }
 

@@ -8,9 +8,9 @@ import {
   MessageCircle,
   ArrowDown,
   Zap,
-  Camera,
   DollarSign,
   CheckCircle,
+  Pencil,
   Smartphone,
 } from "lucide-react";
 
@@ -21,19 +21,13 @@ export default function SimularPage() {
     <div className="min-h-screen bg-[#000000] text-white">
       <Header />
 
-      {/* BANNER TUTORIAL - Grande no topo */}
-      <section style={{ background: "#000" }}>
-        <div className="mx-auto max-w-7xl">
-          <Image
-            src="/banner-passos-claro.png"
-            alt="Localização, tire a foto, diga o destino e pronto. Simples assim!"
-            width={1920}
-            height={800}
-            className="w-full"
-            priority
-          />
-        </div>
-      </section>
+      {/* O BANNER "Localizacao, tire a foto, diga o destino" SAIU daqui em
+          7/Nov/2026. Ele ensinava, em letra garrafal, o fluxo que o Fabio
+          tirou da frente em 6/Nov ("A QUESTAO DAS FOTOS DEVE SER UMA SOLUCAO
+          SECUNDARIA... OS SISTEMAS FALHAM MTO P IDENTIFICAR") — e ficava logo
+          acima da tela nova, que nao pede foto nenhuma.
+          O arquivo continua em /public/banner-passos-claro.png: nada foi
+          apagado, so' deixou de ser mostrado aqui. */}
 
       {/* CTA rapido */}
       <section className="py-10 md:py-14" style={{ background: "#000" }}>
@@ -49,7 +43,7 @@ export default function SimularPage() {
           </h1>
 
           <p className="mb-6 text-lg text-gray-400">
-            3 passos. 2 minutos. Tudo pelo WhatsApp.
+            Monta o seu frete aqui na tela. Sem endereço, sem CEP, sem cadastro.
           </p>
 
           <a
@@ -113,24 +107,27 @@ export default function SimularPage() {
                 </div>
               </div>
 
-              {/* Bot pede foto */}
+              {/* Bot pergunta a carga. ESCREVER e' o caminho principal desde
+                  6/Nov/2026 — a foto virou terceira opcao, por ordem do Fabio.
+                  Este trecho mostrava "manda foto" e o bot acertando o sofa:
+                  vendia justamente o que foi rebaixado. */}
               <div className="flex justify-start">
                 <div className="rounded-xl rounded-bl-sm bg-[#111] px-4 py-2">
-                  <p className="text-sm">Manda foto do material 📸</p>
+                  <p className="text-sm">O que você vai levar? ✏️</p>
                 </div>
               </div>
 
-              {/* Cliente manda foto */}
+              {/* Cliente escreve */}
               <div className="flex justify-end">
                 <div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-4 py-2">
-                  <p className="text-sm">📸 Foto enviada</p>
+                  <p className="text-sm">Sofá de 3 lugares e 4 caixas</p>
                 </div>
               </div>
 
-              {/* Bot analisa */}
+              {/* Bot confirma */}
               <div className="flex justify-start">
                 <div className="rounded-xl rounded-bl-sm bg-[#111] px-4 py-2">
-                  <p className="text-sm">Vi que é um <strong>Sofá</strong> 🛋️</p>
+                  <p className="text-sm">Anotado 🛋️📦</p>
                   <p className="text-sm">Pra onde leva?</p>
                 </div>
               </div>
@@ -162,13 +159,16 @@ export default function SimularPage() {
       <section className="border-t border-[#C9A84C]/10 py-16 md:py-24" style={{ background: "#000" }}>
         <div className="mx-auto max-w-4xl px-4">
           <h2 className="mb-12 text-center text-3xl font-extrabold md:text-4xl">
-            Por que pelo <span className="text-[#C9A84C]">WhatsApp</span>?
+            Prefere pelo <span className="text-[#C9A84C]">WhatsApp</span>?
           </h2>
           <div className="grid gap-4 md:grid-cols-4">
             {[
               { icon: <Zap className="h-6 w-6" />, titulo: "Rápido", desc: "Preço em menos de 2 minutos" },
               { icon: <Smartphone className="h-6 w-6" />, titulo: "Sem app", desc: "Usa o WhatsApp que você já tem" },
-              { icon: <Camera className="h-6 w-6" />, titulo: "IA na foto", desc: "A gente identifica o material" },
+              // Era "IA na foto - a gente identifica o material". Saiu em
+              // 7/Nov/2026: a foto deixou de ser caminho principal e nao da
+              // pra vender como vantagem o que erra muito.
+              { icon: <Pencil className="h-6 w-6" />, titulo: "Você escreve", desc: "Diz o que vai, do seu jeito" },
               { icon: <CheckCircle className="h-6 w-6" />, titulo: "Sem cadastro", desc: "Só mandar Oi e pronto" },
             ].map((item, i) => (
               <div key={i} className="rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6 text-center">

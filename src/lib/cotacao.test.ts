@@ -12,11 +12,13 @@ import {
   foraDoEstado,
   MAX_ANDARES,
   MAX_ENDERECO,
+  MAX_AJUDANTES,
   MENSAGEM_RECUSA,
+  comAjudantesExtras,
   normalizarPedido,
   type PedidoCotacao,
 } from "./cotacao";
-import { calcularPrecosCompleto } from "./bot-utils";
+import { calcularPrecosCompleto, precoAjudante } from "./bot-utils";
 
 const SP_CENTRO = { lat: -23.5505, lng: -46.6333, uf: "SP", cidade: "Sao Paulo" };
 const OSASCO = { lat: -23.5329, lng: -46.7916, uf: "SP", cidade: "Osasco" };
@@ -32,6 +34,7 @@ function pedido(over: Partial<PedidoCotacao> = {}): PedidoCotacao {
     origem: "Rua Augusta, 100, Consolacao, Sao Paulo",
     destino: "Rua Antonio Agu, 50, Centro, Osasco",
     ajudante: false,
+    ajudantes: 0,
     elevador: false,
     andares: 0,
     dataAgendada: null,
@@ -319,5 +322,79 @@ describe("decidirCotacao — fora do estado NAO mostra preco", () => {
   it("capital -> interior (Ribeirao Preto) cota", () => {
     const r = decidirCotacao(pedido(), SP_CENTRO, RIBEIRAO);
     expect(r.ok).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AJUDANTES (7/Nov/2026) — a tela passou a perguntar "quantos ajudantes".
+// O motor de preco cobra UM; cada ajudante a mais custa o mesmo valor da
+// tabela. Estes testes existem pra: (1) o corpo antigo continuar dando o
+// MESMO preco; (2) ninguem inventar numero novo pro segundo ajudante.
+// ---------------------------------------------------------------------------
+describe("ajudantes — quantidade", () => {
+  it("corpo antigo com ajudante:true vale 1 ajudante", () => {
+    const p = normalizarPedido({ origem: "Centro, Osasco, SP", destino: "Centro, Sao Paulo, SP", ajudante: true });
+    expect(p?.ajudantes).toBe(1);
+    expect(p?.ajudante).toBe(true);
+  });
+
+  it("corpo antigo sem ajudante vale 0", () => {
+    const p = normalizarPedido({ origem: "Centro, Osasco, SP", destino: "Centro, Sao Paulo, SP" });
+    expect(p?.ajudantes).toBe(0);
+    expect(p?.ajudante).toBe(false);
+  });
+
+  it("ajudantes numerico ganha do booleano", () => {
+    const p = normalizarPedido({
+      origem: "Centro, Osasco, SP",
+      destino: "Centro, Sao Paulo, SP",
+      ajudante: false,
+      ajudantes: 2,
+    });
+    expect(p?.ajudantes).toBe(2);
+    expect(p?.ajudante).toBe(true);
+  });
+
+  it("corta no teto e no piso", () => {
+    expect(normalizarPedido({ origem: "a, Osasco, SP", destino: "b, Cotia, SP", ajudantes: 99 })?.ajudantes).toBe(MAX_AJUDANTES);
+    expect(normalizarPedido({ origem: "a, Osasco, SP", destino: "b, Cotia, SP", ajudantes: -5 })?.ajudantes).toBe(0);
+  });
+
+  it("1 ajudante nao muda nada em relacao ao preco de antes", () => {
+    const base = calcularPrecosCompleto(20, true, 0, false, "", null);
+    expect(comAjudantesExtras(base, 20, 1)).toEqual(base);
+    expect(comAjudantesExtras(base, 20, 0)).toEqual(base);
+  });
+
+  it("2o ajudante soma o MESMO valor do primeiro (nao um numero novo)", () => {
+    const base = calcularPrecosCompleto(20, true, 0, false, "", null);
+    const dobro = comAjudantesExtras(base, 20, 2);
+    const unitario = base.utilitario.ajudante; // o que a tabela cobra por 1
+    expect(dobro.utilitario.ajudante).toBe(unitario * 2);
+    expect(dobro.utilitario.total).toBe(base.utilitario.total + unitario);
+    expect(dobro.hr.total).toBe(base.hr.total + unitario);
+    expect(dobro.caminhao_bau.total).toBe(base.caminhao_bau.total + unitario);
+  });
+
+  it("usa o preco de ajudante da distancia certa (<=10km e acima)", () => {
+    expect(precoAjudante(5)).toBe(80);
+    expect(precoAjudante(10)).toBe(80);
+    expect(precoAjudante(11)).toBe(100);
+
+    const curto = calcularPrecosCompleto(5, true, 0, false, "", null);
+    expect(comAjudantesExtras(curto, 5, 2).utilitario.ajudante).toBe(160);
+    const longo = calcularPrecosCompleto(40, true, 0, false, "", null);
+    expect(comAjudantesExtras(longo, 40, 2).utilitario.ajudante).toBe(200);
+  });
+
+  it("decidirCotacao cobra os dois ajudantes no total", () => {
+    const umAjudante = decidirCotacao(pedido({ ajudante: true, ajudantes: 1 }), SP_CENTRO, OSASCO);
+    const doisAjudantes = decidirCotacao(pedido({ ajudante: true, ajudantes: 2 }), SP_CENTRO, OSASCO);
+    expect(umAjudante.ok).toBe(true);
+    expect(doisAjudantes.ok).toBe(true);
+    if (umAjudante.ok && doisAjudantes.ok) {
+      const dif = doisAjudantes.precos.utilitario.total - umAjudante.precos.utilitario.total;
+      expect(dif).toBe(precoAjudante(umAjudante.km));
+    }
   });
 });

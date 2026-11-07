@@ -10,6 +10,12 @@ import {
   MENSAGEM_RECUSA,
   normalizarPedido,
 } from "@/lib/cotacao";
+import {
+  cabeNoVeiculo,
+  descricaoCarga,
+  normalizarItensRecebidos,
+  resumirCarga,
+} from "@/lib/itens-carga";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -33,7 +39,7 @@ type Veiculo = (typeof VEICULOS)[number];
 
 const NOME_VEICULO: Record<Veiculo, string> = {
   utilitario: "Utilitário",
-  hr: "HR / Van",
+  hr: "HR Carroceria",
   caminhao_bau: "Caminhão baú",
 };
 
@@ -125,6 +131,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ...cotacao, mensagem: MENSAGEM_RECUSA[cotacao.motivo] });
   }
 
+  // A CARGA vem da tela, mas o texto NAO vem do navegador: a rota remonta a
+  // descricao a partir do catalogo (itens-carga), pelos ids. Assim ninguem
+  // injeta texto no pedido e no WhatsApp do atendimento, e o volume e sempre
+  // o da tabela. Ate 7/Nov o pedido do site nascia sem carga nenhuma.
+  const itens = normalizarItensRecebidos(body.itens);
+  const resumo = resumirCarga(itens);
+  const carga = descricaoCarga(itens);
+  const encaixe = cabeNoVeiculo(resumo, veiculo);
+  const janela = String(body.janela ?? "").trim().slice(0, 40);
+
   const valor = Number(cotacao.precos[veiculo]?.total ?? 0);
   // Mesma guarda do bot: pedido com valor zero nao nasce. Melhor nenhum
   // pedido do que um pedido gratis por bug de calculo.
@@ -214,19 +230,27 @@ export async function POST(req: NextRequest) {
     distancia_km: cotacao.km,
     tipo_servico: SERVICO_POR_VEICULO[veiculo],
     tipo_veiculo: veiculo,
-    // O site cota por veiculo escolhido no olho, sem saber a carga. Fica
-    // explicito no pedido pra quem atende saber que falta confirmar.
-    descricao_carga: "Pedido fechado no site — carga ainda não informada",
+    // Carga que a pessoa marcou na tela. Quando ela nao marca nada (pode: a
+    // tela deixa cotar so pelo trajeto), fica explicito que falta confirmar —
+    // nao fica um texto fingindo que a carga e conhecida.
+    descricao_carga: carga || "Pedido fechado no site — carga não informada na tela",
     escada_origem: pedido.andares > 0,
     andares_origem: pedido.andares,
     elevador_origem: pedido.elevador,
-    qtd_ajudantes: pedido.ajudante ? 1 : 0,
+    qtd_ajudantes: pedido.ajudantes,
     plano: "padrao",
     valor_estimado: valor,
     valor_final: valor,
     valor_prestador: Math.round(valor * 0.88 * 100) / 100,
     valor_pegue: Math.round(valor * 0.12 * 100) / 100,
-    periodo: pedido.dataAgendada ?? null,
+    // `periodo` e texto livre no banco (o bot guarda a data do jeito que o
+    // cliente falou). A janela de hora entra junto, no mesmo campo, pra nao
+    // ficar guardada em lugar nenhum.
+    periodo: pedido.dataAgendada
+      ? janela
+        ? `${pedido.dataAgendada} — ${janela}`
+        : pedido.dataAgendada
+      : null,
     status: "pendente",
     canal_origem: "site",
   });
@@ -261,12 +285,27 @@ export async function POST(req: NextRequest) {
       `De: ${pedido.origem}`,
       `Para: ${pedido.destino}`,
       `Distância: ${cotacao.km} km`,
-      pedido.ajudante ? "Com ajudante" : "Sem ajudante",
+      carga ? `Carga: ${carga}` : "Carga: NÃO informada na tela",
+      resumo.totalItens > 0
+        ? `Volume estimado: ${resumo.volumeM3} m³ / ${resumo.pesoKg} kg (tabela)`
+        : null,
+      pedido.ajudantes > 0 ? `Ajudantes: ${pedido.ajudantes}` : "Sem ajudante",
       pedido.andares > 0 ? `${pedido.andares} andar(es) de escada` : pedido.elevador ? "Com elevador" : "Térreo",
+      pedido.dataAgendada ? `Quando: ${pedido.dataAgendada}${janela ? ` — ${janela}` : ""}` : null,
       `Valor: R$ ${valor}`,
       "",
-      "Veio do site, sem a carga informada. Confirmar a carga antes de despachar.",
-    ].join("\n"),
+      !carga
+        ? "Veio do site sem a carga marcada. Confirmar a carga antes de despachar."
+        : encaixe.motivo === "aperta"
+          ? `⚠️ O cliente escolheu ${NOME_VEICULO[veiculo]}, mas a tabela aponta ${resumo.veiculoSugerido}. Conferir antes de despachar.`
+          : encaixe.motivo === "excede_frota"
+            ? "⚠️ A carga marcada passa do maior veículo da frota. Falar com o cliente."
+            : encaixe.motivo === "nao_sei"
+              ? "O cliente escreveu um item fora da lista e sem medida: o volume não foi calculado. Conferir."
+              : "Carga marcada na tela e compatível com o veículo escolhido.",
+    ]
+      .filter((l): l is string => l !== null)
+      .join("\n"),
   );
 
   // O CLIENTE RECEBE CONFIRMACAO. Tambem nao existia. E a mensagem abre a
@@ -281,11 +320,17 @@ export async function POST(req: NextRequest) {
         `• ${NOME_VEICULO[veiculo]}\n` +
         `• De ${pedido.origem}\n` +
         `• Para ${pedido.destino}\n` +
+        (carga ? `• ${carga}\n` : "") +
+        (pedido.dataAgendada ? `• ${pedido.dataAgendada}${janela ? ` — ${janela}` : ""}\n` : "") +
         `• R$ ${valor}\n\n` +
-        `Falta só me dizer *o que vai* — pode escrever aqui mesmo. ` +
-        `Ex: geladeira, fogão, sofá, 3 caixas.\n\n` +
-        `Se preferir, digite *LISTA* e eu te mostro uma pronta. ` +
-        `Com isso eu confirmo o veículo e te aviso antes se a carga não couber nele.`,
+        // Quando a carga veio da tela, NAO perguntar de novo o que ja foi
+        // respondido. Ordem do Fabio: "o cliente nao vai copiar nada ele so
+        // quer contratar o servico".
+        (carga
+          ? `Confere se está certo. Se faltou alguma coisa, me diz aqui que eu ajusto — ` +
+            `e o endereço completo a gente combina aqui na hora de fechar.`
+          : `Falta só me dizer *o que vai* — pode escrever aqui mesmo. ` +
+            `Ex: geladeira, fogão, sofá, 3 caixas.`),
     });
   } catch {
     // WhatsApp fora do ar nao pode derrubar o pedido: ele ja esta salvo e o

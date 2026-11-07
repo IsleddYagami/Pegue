@@ -530,6 +530,18 @@ export interface PrecoDetalhado {
   feriadoNome?: string;
 }
 
+/**
+ * Preco de UM ajudante, pela distancia. R$80 ate 10km, R$100 acima.
+ *
+ * Virou funcao em 7/Nov/2026 porque a tela de cotacao passou a aceitar mais de
+ * um ajudante ("quantos ajudantes" — ordem do Fabio) e o segundo ajudante tem
+ * que custar o MESMO numero desta tabela, nao um numero novo copiado pra outro
+ * arquivo. Os valores e a regra sao exatamente os que ja estavam aqui dentro.
+ */
+export function precoAjudante(distanciaKm: number): number {
+  return distanciaKm <= 10 ? 80 : 100;
+}
+
 export function calcularPrecos(
   distanciaKm: number,
   veiculoTipo: string = "utilitario",
@@ -565,7 +577,7 @@ export function calcularPrecos(
   // Adicionais
   let ajudante = 0;
   if (temAjudante) {
-    ajudante = distanciaKm <= 10 ? 80 : 100;
+    ajudante = precoAjudante(distanciaKm);
   }
 
   let elevador = 0;

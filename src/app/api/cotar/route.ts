@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
     cidadeDestino: r.cidadeDestino,
     adicionais: {
       ajudante: pedido.ajudante,
+      ajudantes: pedido.ajudantes,
       andares: pedido.andares,
       elevador: pedido.elevador,
       dataAgendada: pedido.dataAgendada,

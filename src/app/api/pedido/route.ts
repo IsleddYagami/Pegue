@@ -297,7 +297,9 @@ export async function POST(req: NextRequest) {
       !carga
         ? "Veio do site sem a carga marcada. Confirmar a carga antes de despachar."
         : encaixe.motivo === "aperta"
-          ? `⚠️ O cliente escolheu ${NOME_VEICULO[veiculo]}, mas a tabela aponta ${resumo.veiculoSugerido}. Conferir antes de despachar.`
+          ? `⚠️ O cliente escolheu ${NOME_VEICULO[veiculo]}, mas a carga marcada pede ${
+              NOME_VEICULO[resumo.veiculoSugerido as Veiculo] ?? resumo.veiculoSugerido
+            }. Conferir antes de despachar.`
           : encaixe.motivo === "excede_frota"
             ? "⚠️ A carga marcada passa do maior veículo da frota. Falar com o cliente."
             : encaixe.motivo === "nao_sei"

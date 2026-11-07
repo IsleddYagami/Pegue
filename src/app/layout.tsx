@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: "%s | Pegue",
   },
   description:
-    "Carreto, mudanca e guincho em Osasco e Zona Oeste SP. Manda foto e recebe o preco na hora pelo WhatsApp. A partir de R$ 150. Rapido, acessivel e sem burocracia.",
+    "Carreto, mudanca e guincho em Osasco e Zona Oeste SP. Diz o que vai e recebe o preco na hora. A partir de R$ 150. Rapido, acessivel e sem burocracia.",
   keywords: [
     "carreto osasco",
     "carreto zona oeste",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Pegue - Carreto, Mudanca e Guincho em Osasco e Zona Oeste SP",
-    description: "Carreto e mudanca a partir de R$ 150. Manda foto e recebe o preco na hora pelo WhatsApp. Rapido e acessivel.",
+    description: "Carreto e mudanca a partir de R$ 150. Diz o que vai e recebe o preco na hora. Rapido e acessivel.",
     url: "https://www.chamepegue.com.br",
     siteName: "Pegue",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Pegue - Soluções em Transportes e Fretes" }],

@@ -117,14 +117,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ===== COMO FUNCIONA - VISUAL ===== */}
-      <section className="bg-[#000] py-8 md:py-12">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="overflow-hidden rounded-2xl border border-[#C9A84C]/20">
-            <Image src="/banner-passos.png" alt="3 passos: localização, foto, preço" width={1400} height={600} className="w-full object-cover" />
-          </div>
-        </div>
-      </section>
+      {/* O BANNER "3 passos: localizacao, foto, preco" SAIU daqui em
+          7/Nov/2026, por ordem do Fabio ("Tira da home"). Ele ensinava, em
+          imagem, o fluxo da foto — rebaixado em 6/Nov porque "OS SISTEMAS
+          FALHAM MTO P IDENTIFICAR". O arquivo continua em
+          /public/banner-passos.png: nada foi apagado, so' deixou de ser
+          mostrado aqui. */}
 
       {/* ===== POR QUE A PEGUE? ===== */}
       <section className="bg-[#000] py-16 md:py-20">
@@ -135,7 +133,7 @@ export default function HomePage() {
 
           <div className="grid gap-4 md:grid-cols-2">
             {[
-              { icon: <Zap className="h-6 w-6" />, titulo: "Preço em 2 minutos", desc: "Manda foto, recebe o valor. Sem enrolação." },
+              { icon: <Zap className="h-6 w-6" />, titulo: "Preço em 2 minutos", desc: "Diz o que vai, recebe o valor. Sem enrolação." },
               { icon: <Shield className="h-6 w-6" />, titulo: "Fretistas verificados", desc: "CPF, CNH, selfie com o documento e foto do veículo." },
               { icon: <MessageCircle className="h-6 w-6" />, titulo: "Tudo pelo WhatsApp", desc: "Sem baixar app. Sem cadastro. Sem complicação." },
               { icon: <Star className="h-6 w-6" />, titulo: "A Pegue Resolve", desc: "Frete, mudança, guincho. Uma solução pra tudo." },
@@ -275,9 +273,9 @@ export default function HomePage() {
                 <div className="flex justify-end"><div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>Oi</p></div></div>
                 <div className="flex justify-start"><div className="rounded-xl rounded-bl-sm bg-[#2a2a2a] border border-[#444] px-3 py-2 text-white"><p>Oii Maria! Mande sua localização 📍</p></div></div>
                 <div className="flex justify-end"><div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>📍 Osasco, SP</p></div></div>
-                <div className="flex justify-start"><div className="rounded-xl rounded-bl-sm bg-[#2a2a2a] border border-[#444] px-3 py-2 text-white"><p>Manda foto do material 📸</p></div></div>
-                <div className="flex justify-end"><div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>📸 [foto]</p></div></div>
-                <div className="flex justify-start"><div className="rounded-xl rounded-bl-sm bg-[#2a2a2a] border border-[#444] px-3 py-2 text-white"><p>Vi que é um *Sofá* 🛋️ Pra onde?</p></div></div>
+                <div className="flex justify-start"><div className="rounded-xl rounded-bl-sm bg-[#2a2a2a] border border-[#444] px-3 py-2 text-white"><p>O que você vai levar? ✏️</p></div></div>
+                <div className="flex justify-end"><div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>Um sofá de 3 lugares</p></div></div>
+                <div className="flex justify-start"><div className="rounded-xl rounded-bl-sm bg-[#2a2a2a] border border-[#444] px-3 py-2 text-white"><p>Anotado 🛋️ Pra onde?</p></div></div>
                 <div className="flex justify-end"><div className="rounded-xl rounded-br-sm bg-[#C9A84C]/20 px-3 py-1.5"><p>Barra Funda</p></div></div>
                 <div className="flex justify-start">
                   <div className="rounded-xl rounded-bl-sm border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-3 py-2">
@@ -297,7 +295,7 @@ export default function HomePage() {
               <div className="space-y-4 mb-8">
                 {[
                   { n: "1", t: "Manda \"Oi\" no WhatsApp", s: "A gente já te chama pelo nome" },
-                  { n: "2", t: "Tira a foto do material", s: "Nossa IA identifica tudo na hora" },
+                  { n: "2", t: "Diz o que vai levar", s: "Escreve, ou escolhe de uma lista pronta" },
                   { n: "3", t: "Diga o destino e pronto!", s: "Preço instantâneo" },
                 ].map((item) => (
                   <div key={item.n} className="flex items-start gap-3">
@@ -472,7 +470,7 @@ export default function HomePage() {
             {[
               {
                 q: "Como funciona a cotação?",
-                a: "Você manda uma mensagem no nosso WhatsApp com o endereço de origem, destino e foto do material. Em minutos recebe o valor com o fretista disponível."
+                a: "Você manda uma mensagem no nosso WhatsApp com o endereço de origem, o destino e o que vai levar. Em minutos recebe o valor com o fretista disponível."
               },
               {
                 q: "Quanto custa o frete?",
@@ -525,7 +523,7 @@ export default function HomePage() {
             "@context": "https://schema.org",
             "@type": "FAQPage",
             "mainEntity": [
-              { "@type": "Question", "name": "Como funciona a cotação?", "acceptedAnswer": { "@type": "Answer", "text": "Você manda uma mensagem no nosso WhatsApp com o endereço de origem, destino e foto do material. Em minutos recebe o valor com o fretista disponível." }},
+              { "@type": "Question", "name": "Como funciona a cotação?", "acceptedAnswer": { "@type": "Answer", "text": "Você manda uma mensagem no nosso WhatsApp com o endereço de origem, o destino e o que vai levar. Em minutos recebe o valor com o fretista disponível." }},
               { "@type": "Question", "name": "Quanto custa o frete?", "acceptedAnswer": { "@type": "Answer", "text": "A partir de R$ 150 para carreto pequeno. O valor final depende da distância, tipo de veículo e se precisa de ajudante." }},
               { "@type": "Question", "name": "Os fretistas são verificados?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. Todos passam por cadastro com CPF, CNH, selfie com documento, foto do veículo e aceite dos termos." }},
               { "@type": "Question", "name": "Preciso desmontar os móveis?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. Não fazemos desmontagem/montagem. Guarda-roupas, camas, beliches, estantes e armários grandes precisam estar desmontados antes da coleta." }},

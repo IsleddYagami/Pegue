@@ -13,7 +13,7 @@ import {
   Truck,
 } from "lucide-react";
 import { fetchComTimeout } from "@/lib/fetch-utils";
-import { SeletorCidade } from "@/components/seletor-cidade";
+import { SeletorLocal, type Local } from "@/components/seletor-local";
 import { SeletorItens } from "@/components/seletor-itens";
 import {
   cabeNoVeiculo,
@@ -150,10 +150,8 @@ function dataPorExtenso(iso: string): string {
 export function Cotador() {
   // --- o que a pessoa escolheu, na ordem do fluxo ---
   const [passo, setPasso] = useState(0);
-  const [bairroOrigem, setBairroOrigem] = useState("");
-  const [cidadeOrigem, setCidadeOrigem] = useState("");
-  const [bairroDestino, setBairroDestino] = useState("");
-  const [cidadeDestino, setCidadeDestino] = useState("");
+  const [localOrigem, setLocalOrigem] = useState<Local>({ bairro: "", cidade: "" });
+  const [localDestino, setLocalDestino] = useState<Local>({ bairro: "", cidade: "" });
   const [itens, setItens] = useState<ItemEscolhido[]>([]);
   const [veiculo, setVeiculo] = useState<Chave | null>(null);
   const [data, setData] = useState("");
@@ -182,8 +180,10 @@ export function Cotador() {
   } | null>(null);
 
   const resumo = useMemo(() => resumirCarga(itens), [itens]);
-  const origem = bairroOrigem.trim() && cidadeOrigem ? `${bairroOrigem.trim()}, ${cidadeOrigem}, SP` : "";
-  const destino = bairroDestino.trim() && cidadeDestino ? `${bairroDestino.trim()}, ${cidadeDestino}, SP` : "";
+  const enderecoDe = (l: Local) =>
+    l.bairro.trim() && l.cidade ? `${l.bairro.trim()}, ${l.cidade}, SP` : "";
+  const origem = enderecoDe(localOrigem);
+  const destino = enderecoDe(localDestino);
 
   // Cada passo e menor que o anterior: sem isto, ao avancar a pagina encolhe
   // e a pessoa fica olhando pro rodape em vez da proxima pergunta. Visto na
@@ -206,8 +206,8 @@ export function Cotador() {
   }, []);
 
   const podeAvancar = [
-    bairroOrigem.trim().length >= 2 && !!cidadeOrigem,
-    bairroDestino.trim().length >= 2 && !!cidadeDestino,
+    !!origem,
+    !!destino,
     true, // a carga pode ficar em branco: quem sabe o veiculo cota direto
     !!veiculo,
     !!data,
@@ -370,46 +370,25 @@ export function Cotador() {
               </div>
             </div>
 
-            {/* 1 — DE ONDE SAI */}
+            {/* 1 — DE ONDE SAI. Um campo so: escreve o bairro, toca na
+                linha "Bairro · Cidade". Ordem do Fabio, 7/Nov: "igual o waze". */}
             {passo === 0 && (
-              <div className="grid gap-5">
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-semibold text-gray-300">
-                    Bairro de onde sai
-                  </span>
-                  <input
-                    value={bairroOrigem}
-                    onChange={(e) => setBairroOrigem(e.target.value)}
-                    aria-label="Bairro de onde sai"
-                    placeholder="Ex: Centro, Vila Yara, Presidente Altino"
-                    maxLength={80}
-                    autoComplete="off"
-                    className="w-full rounded-xl border border-gray-700 bg-[#111] px-4 py-3.5 text-lg text-white placeholder-gray-600 outline-none focus:border-[#C9A84C]"
-                  />
-                </label>
-                <SeletorCidade valor={cidadeOrigem} onEscolher={setCidadeOrigem} rotulo="Cidade de onde sai" />
-              </div>
+              <SeletorLocal
+                valor={localOrigem}
+                onMudar={setLocalOrigem}
+                rotulo="De que bairro sai"
+                exemplo="Ex: Centro, Presidente Altino, Butantã"
+              />
             )}
 
             {/* 2 — PRA ONDE VAI */}
             {passo === 1 && (
-              <div className="grid gap-5">
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-semibold text-gray-300">
-                    Bairro da entrega
-                  </span>
-                  <input
-                    value={bairroDestino}
-                    onChange={(e) => setBairroDestino(e.target.value)}
-                    aria-label="Bairro da entrega"
-                    placeholder="Ex: Butantã, Jardim das Flores"
-                    maxLength={80}
-                    autoComplete="off"
-                    className="w-full rounded-xl border border-gray-700 bg-[#111] px-4 py-3.5 text-lg text-white placeholder-gray-600 outline-none focus:border-[#C9A84C]"
-                  />
-                </label>
-                <SeletorCidade valor={cidadeDestino} onEscolher={setCidadeDestino} rotulo="Cidade da entrega" />
-              </div>
+              <SeletorLocal
+                valor={localDestino}
+                onMudar={setLocalDestino}
+                rotulo="Pra que bairro vai"
+                exemplo="Ex: Jardim das Flores, Vila Mariana"
+              />
             )}
 
             {/* 3 — O QUE VAI */}
@@ -650,7 +629,7 @@ export function Cotador() {
             </button>
             {!podeAvancar && passo <= 1 && (
               <p className="mt-2.5 text-center text-xs text-gray-600">
-                Escreve o bairro e escolhe a cidade pra continuar.
+                Escreve o bairro e toca no que aparecer embaixo.
               </p>
             )}
           </div>

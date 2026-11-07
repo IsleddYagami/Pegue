@@ -1,0 +1,185 @@
+[
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city_district": "Guarulhos",
+   "city": "Guarulhos",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Santos",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city_district": "Santo André",
+   "city": "Santo André",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Diadema",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Taboão da Serra",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "town": "Avaré",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Campinas",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Ribeirão Preto",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Sorocaba",
+   "municipality": "Sorocaba",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "São Bernardo do Campo",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "São José do Rio Preto",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Bauru",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Limeira",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Mogi das Cruzes",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Barueri",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Presidente Prudente",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Taubaté",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "town": "Bertioga",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Guaratinguetá",
+   "state": "São Paulo"
+  }
+ },
+ {
+  "name": "Centro",
+  "addresstype": "suburb",
+  "address": {
+   "suburb": "Centro",
+   "city": "Americana",
+   "state": "São Paulo"
+  }
+ }
+]

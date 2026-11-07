@@ -324,7 +324,13 @@ export function Cotador() {
   const noPreco = resp !== null || carregando;
 
   return (
-    <section id="cotar" className="border-t border-[#C9A84C]/10 py-16 md:py-24" style={{ background: "#000" }}>
+    <section
+      id="cotar"
+      // O cabecalho e fixo: sem margem de rolagem, o link #cotar para com o
+      // titulo escondido atras dele (visto no celular, 7/Nov).
+      className="scroll-mt-20 border-t border-[#C9A84C]/10 py-16 md:py-24"
+      style={{ background: "#000" }}
+    >
       <div className="mx-auto max-w-4xl px-4">
         <h2 className="mb-3 text-center text-3xl font-extrabold md:text-4xl">
           Seu preço <span className="text-[#C9A84C]">agora</span>, nesta tela

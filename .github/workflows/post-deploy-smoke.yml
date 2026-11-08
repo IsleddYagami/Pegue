@@ -78,13 +78,19 @@ jobs:
           fi
           echo "::notice::Smoke verde pos-deploy"
 
+      # 8/Nov/2026: este passo DIZIA "nao bloqueia, soh avisa" e bloqueava.
+      # O curl estourava os 280s (exit 28) e, com `set -e`, matava o job em
+      # TODO push — vermelho eterno + WhatsApp pros admins a cada deploy.
+      # Agora: continue-on-error (o aviso continua) e `|| true` no curl, pra
+      # a logica do passo rodar e dizer o que aconteceu.
       - name: Rodar smoke adversarial (cliente caotico)
         if: success()
+        continue-on-error: true
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           response=$(curl -s -m 280 \
-            "https://www.chamepegue.com.br/api/cron/imuni-smoke-adversario?key=$CRON_SECRET")
+            "https://www.chamepegue.com.br/api/cron/imuni-smoke-adversario?key=$CRON_SECRET" || true)
           ok=$(echo "$response" | grep -oE '"ok":(true|false)' | head -1)
           aprovados=$(echo "$response" | grep -oE '"aprovados":[0-9]+' | head -1)
           falhas=$(echo "$response" | grep -oE '"falhas":[0-9]+' | head -1)

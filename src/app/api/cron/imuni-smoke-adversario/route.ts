@@ -990,6 +990,90 @@ async function cenarioAjudanteNegado(baseUrl: string, secret: string): Promise<C
   return r;
 }
 
+// Cenario 21: BUG REAL CASO EDUARDO (11954596019 — 7/Mai/2026). Cliente
+// mandou 5 msgs em ~3s. Primeiras eram curtas ("Bom dia", "Tudo bem ?",
+// "Gostaria de saber o valor") e DEPOIS veio o briefing rico ("De levar
+// uma geladeira de Osasco pra Barueri"). Sem lock+consolidacao, cada msg
+// virou um webhook independente — saudacao curta marcava sessao como
+// "aguardando_servico" e msgs de briefing chegavam DEPOIS, perdendo o
+// contexto. Resultado: 5 saudacoes em paralelo + cliente forcado pelo menu.
+// Esse cenario PROVA que lock+consolidacao captura tudo e roda IA UMA vez
+// com o texto consolidado.
+async function cenarioBriefingPosSaudacao(baseUrl: string, secret: string): Promise<CenarioResult> {
+  const phone = "5500000000030";
+  await limparPhone(phone);
+  const t0 = Date.now();
+
+  // Rajada quase simultanea: igual sequencia exata do Eduardo
+  const msgs = [
+    "Gostaria de saber o valor",
+    "Bom dia",
+    "Tudo bem ?",
+    "De levar uma geladeira aqui de Osasco no centro",
+    "Pra Barueri, na travessa da rua Niterói. No Jd Maria Helena, em Barueri",
+  ];
+  await Promise.all(
+    msgs.map((m) => chamarWebhook(baseUrl, secret, payloadTexto(phone, m))),
+  );
+  await dormir(8000); // lock 1.2s + IA briefing rico ~3s + folga
+
+  const { data: sess } = await supabase
+    .from("bot_sessions")
+    .select("step, descricao_carga, origem_endereco, destino_endereco")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  // Conta saudacoes enviadas pelo bot. Antes da consolidacao, sistema
+  // disparava 5 saudacoes (uma por msg). Com lock+consolidacao, deve
+  // ter NO MAXIMO 1 saudacao + 1 mensagem de "analisando".
+  const { data: outs } = await supabase
+    .from("conversas_whatsapp")
+    .select("conteudo")
+    .eq("telefone", phone)
+    .eq("direcao", "out");
+  const saudacoes = (outs || []).filter((c: { conteudo: string }) =>
+    /aqui é a \*íris\*|sou a \*íris\*|aqui e a \*iris\*|sou a \*iris\*/i.test(c.conteudo || ""),
+  );
+
+  // Aceitavel: step avancou pra confirmar_contexto_inicial (IA pegou
+  // briefing), confirmando_origem (geocodou direto) OU pelo menos
+  // descricao_carga contem "geladeira" (ou similar). INACEITAVEL:
+  // step=aguardando_servico e descricao vazia (cliente foi forcado ao menu).
+  const step = sess?.step || null;
+  const descr = (sess?.descricao_carga || "").toLowerCase();
+  const stepsBons = [
+    "confirmar_contexto_inicial",
+    "confirmando_origem",
+    "aguardando_localizacao",
+    "aguardando_destino",
+    "aguardando_foto",
+  ];
+  const stepEsperado = stepsBons.includes(step || "");
+  const pegouGeladeira = descr.includes("geladeira");
+  const pegouEnderecos =
+    !!(sess?.origem_endereco || "").toLowerCase().match(/osasco/) ||
+    !!(sess?.destino_endereco || "").toLowerCase().match(/barueri/);
+  const semSpamSaudacao = saudacoes.length <= 2;
+  const ok = stepEsperado && (pegouGeladeira || pegouEnderecos) && semSpamSaudacao;
+
+  const r = {
+    cenario: "21_briefing_pos_saudacao_caso_eduardo",
+    ok,
+    esperado: "step avancou + IA pegou geladeira/Osasco/Barueri + sem spam de saudacao",
+    obtido: `step=${step}, descr="${descr.slice(0, 60)}", saudacoes=${saudacoes.length}`,
+    duracao_ms: Date.now() - t0,
+    detalhes: {
+      step,
+      descricao_carga: sess?.descricao_carga,
+      origem_endereco: sess?.origem_endereco,
+      destino_endereco: sess?.destino_endereco,
+      qtd_saudacoes_out: saudacoes.length,
+    },
+  };
+  await limparPhone(phone);
+  return r;
+}
+
 // Cenario 6: cliente cancela no meio do fluxo. Sistema deve limpar sessao
 // e voltar ao inicio sem deixar lixo.
 async function cenarioCancelamento(baseUrl: string, secret: string): Promise<CenarioResult> {
@@ -1027,6 +1111,10 @@ async function cenarioCancelamento(baseUrl: string, secret: string): Promise<Cen
 
 // ============ EXECUTOR ============
 
+// Prazo proprio do adversarial. Fica abaixo dos 280s que o CI espera e do
+// maxDuration (300s), pra sobrar tempo de logar em bot_logs e responder.
+const PRAZO_MS = 240_000;
+
 export async function GET(req: NextRequest) {
   const key =
     req.nextUrl.searchParams.get("key") ||
@@ -1063,6 +1151,7 @@ export async function GET(req: NextRequest) {
     cenarioDescricaoComQuantidade, // BUG REAL Natan 8/Mai
     cenarioConfirmacaoItens, // BUG REAL Maria 8/Mai
     cenarioAjudanteNegado, // BUG REAL "nao preciso, sim ja tenho"
+    cenarioBriefingPosSaudacao, // BUG REAL Eduardo 7/Mai (rajada saudacao+briefing)
   ];
   // Suprime warnings TS de funcoes nao usadas (definidas mas reservadas
   // pra ativacao individual no futuro).
@@ -1075,20 +1164,45 @@ export async function GET(req: NextRequest) {
 
   // Roda em SERIE (nao paralelo) pra nao sobrecarregar webhook + facilitar log
   const resultados: CenarioResult[] = [];
-  for (const cenario of cenarios) {
-    try {
-      const r = await cenario(baseUrl, webhookSecret);
-      resultados.push(r);
-    } catch (e: unknown) {
-      resultados.push({
-        cenario: cenario.name,
-        ok: false,
-        esperado: "execucao sem exception",
-        obtido: "exception",
-        duracao_ms: 0,
-        erro: e instanceof Error ? e.message : "erro desconhecido",
-      });
+
+  async function rodarTodos(): Promise<void> {
+    for (const cenario of cenarios) {
+      try {
+        const r = await cenario(baseUrl, webhookSecret);
+        resultados.push(r);
+      } catch (e: unknown) {
+        resultados.push({
+          cenario: cenario.name,
+          ok: false,
+          esperado: "execucao sem exception",
+          obtido: "exception",
+          duracao_ms: 0,
+          erro: e instanceof Error ? e.message : "erro desconhecido",
+        });
+      }
     }
+  }
+
+  // PRAZO PROPRIO (8/Nov/2026). Sem isto o cenario adversarial MORRIA
+  // CALADO: 15 cenarios em serie passam dos 280s que o CI espera no curl,
+  // o curl desistia com "exit 28" e ninguem sabia em que cenario parou —
+  // e o job ficava vermelho em TODO push, disparando WhatsApp pros admins
+  // a cada deploy (alarme que ninguem le mais). Mesmo conserto do smoke
+  // E2E: o relogio vence, mas quem responde e' o relatorio.
+  const estourou = await Promise.race([
+    rodarTodos().then(() => false),
+    dormir(PRAZO_MS).then(() => true),
+  ]);
+
+  if (estourou) {
+    resultados.push({
+      cenario: "99_estourou_o_prazo",
+      ok: false,
+      esperado: `os ${cenarios.length} cenarios em menos de ${PRAZO_MS}ms`,
+      obtido: `parou depois de ${resultados.length} cenario(s)`,
+      duracao_ms: Date.now() - inicio,
+      erro: `ultimo concluido: ${resultados.length ? resultados[resultados.length - 1].cenario : "nenhum"}`,
+    });
   }
 
   const todosOk = resultados.every((r) => r.ok);
@@ -1106,9 +1220,12 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  // Se falhou, alerta admins com prompt pronto
-  if (!todosOk) {
-    const primeiraFalha = falhas[0];
+  // Se falhou, alerta admins com prompt pronto.
+  // Prazo estourado NAO acorda ninguem: nao e' cenario quebrado, e' tempo.
+  // Mesma regra do scripts/ler-smoke.py (prova errada inventa bug).
+  const falhasReais = falhas.filter((f) => f.cenario !== "99_estourou_o_prazo");
+  if (falhasReais.length > 0) {
+    const primeiraFalha = falhasReais[0];
     // Reusa o builder do smoke principal — formato compativel
     const promptCorrecao = promptDeFalhaSmokeStep(
       {
@@ -1119,7 +1236,7 @@ export async function GET(req: NextRequest) {
       },
       [],
     );
-    const resumoCenarios = falhas
+    const resumoCenarios = falhasReais
       .map((f, i) => `${i + 1}. ${f.cenario} (${f.obtido})`)
       .join("\n");
     await notificarAdmins(

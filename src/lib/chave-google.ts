@@ -16,11 +16,15 @@
 // derrubou cliente de verdade em 28/Abr (Vila Atlantico). Quebrar a cotacao
 // pra "ficar limpo" seria trocar uma violacao por um prejuizo.
 //
-// O QUE FAZ ISSO NAO SER PROMESSA: a herdada e' DENUNCIADA todo dia. O probe
-// de google_maps no registry de integracoes (INV-51, cron diario) devolve
-// "degradado" enquanto a chave for a antiga, com o motivo escrito. No dia em
-// que ele puser GOOGLE_MAPS_API_KEY_PEGUE, o aviso apaga sozinho — sem
-// deploy, sem ninguem lembrar de limpar nada.
+// QUEM LE ISSO (estado real em 8/Nov/2026, sem promessa):
+//   - AGORA: `GET /api/test-geocoder` (admin) mostra `google_chave_origem` e
+//     `google_chave_aviso`. E' consulta sob demanda, nao vigia diario.
+//   - QUANDO O IMUNI DE INTEGRACOES ENTRAR NO REPO (hoje ainda nao esta;
+//     `integracoes-registry.ts` e' trabalho de outra sessao, so' no disco):
+//     o `probeChaveGoogle` daqui vira o probe de google_maps do INV-51 e o
+//     aviso passa a sair no cron diario.
+// Nos dois casos, o aviso apaga sozinho no dia em que
+// GOOGLE_MAPS_API_KEY_PEGUE existir — sem deploy, sem ninguem limpar nada.
 
 export type OrigemChaveGoogle = "pegue" | "herdada" | "ausente";
 

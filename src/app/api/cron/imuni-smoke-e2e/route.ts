@@ -380,10 +380,14 @@ async function limparFretistaSmoke(): Promise<void> {
 // 8/Nov/2026: 180s nao cabia. Medido no run 42455724978: a rodada chegou ao
 // passo 30 de 33 em 182s e estourou. Smoke vermelho por TEMPO (vermelho
 // desde Maio, diz o YAML) e' pior que smoke nenhum: foi o que armou o
-// auto-rollback que apagou o deploy do bairro pelo Google. 215s deixa a
-// rodada terminar e ainda sobra ~25s dentro do maxDuration (240s) pro
-// finalizar() consultar bot_logs e avisar os admins.
-const PRAZO_MS = 215_000;
+// auto-rollback que apagou o deploy do bairro pelo Google.
+//
+// Com 215s a rodada ficou VERDE pela primeira vez (run 42505937410):
+// 36 passos, 0 falhos, 208.782ms. Mas 215s deixava so' 6s de folga, e 6s
+// nao sobrevive a um passo lento. 225s: ~16s de folga medida, e ainda 15s
+// dentro do maxDuration (240s) pro finalizar() consultar bot_logs e avisar
+// os admins.
+const PRAZO_MS = 225_000;
 
 const ESTOURO = { estourou: true } as const;
 

@@ -11,9 +11,10 @@ Uso:
 
 Imprime o relatorio legivel no stderr/stdout e, na ULTIMA linha do stdout,
 sempre uma destas:
-    rollback=sim   -> um passo REAL do fluxo falhou; reverter se justifica
-    rollback=nao   -> smoke nao respondeu, ou so' estourou o prazo:
-                      nao prova que o deploy esta ruim, entao nao reverte
+    rollback=sim   -> a rodada TERMINOU e um passo real do fluxo falhou
+    rollback=nao   -> smoke nao respondeu, ou a rodada estourou o prazo (ai
+                      nenhum passo falho conta: pode ter sido cortado no
+                      meio) — nao prova que o deploy esta ruim
 
 Mora no repositorio (e nao embutido no YAML) porque python multi-linha
 dentro de bloco YAML quebra o arquivo de workflow — ja quebrou uma vez.
@@ -65,7 +66,29 @@ def main() -> int:
         for p in mais_lentos:
             print("     %-40s %sms" % (p.get("step"), p.get("duracao_ms")))
 
+    # REGRA DE PROVA (8/Nov/2026, depois de o rollback APAGAR o deploy bom
+    # 0b981e7 — o do bairro pelo Google — promovendo 7aaa09a por cima):
+    # se o smoke estourou o PROPRIO prazo, a rodada nao terminou, e rodada
+    # que nao terminou nao prova nada sobre o deploy. O corpo do smoke
+    # continua rodando depois do prazo e vai marcando passo como falho por
+    # ter sido cortado no meio — foi assim que "26_cliente_libera_coleta"
+    # virou "prova" e derrubou deploy bom. Entao: estourou = NAO reverte,
+    # tenha falhado o que tiver falhado.
+    estourou = any(p.get("step") == PASSO_DE_PRAZO for p in falhos) or (
+        "estourou" in str(dados.get("motivo") or "")
+    )
+
     reais = [p for p in falhos if p.get("step") != PASSO_DE_PRAZO]
+    if estourou:
+        if reais:
+            print(
+                "  a rodada estourou o prazo: os %d passo(s) falhos acima podem"
+                " ter sido cortados no meio. Nao serve de prova contra o deploy."
+                % len(reais)
+            )
+        print("rollback=nao")
+        return 0
+
     print("rollback=%s" % ("sim" if reais else "nao"))
     return 0
 

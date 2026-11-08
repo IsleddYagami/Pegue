@@ -36,6 +36,14 @@ jobs:
       # bloco YAML quebra o arquivo de workflow (ja quebrou em 3/Nov).
       - uses: actions/checkout@v4
 
+      # Quem decide o auto-rollback e' o scripts/ler-smoke.py. Em 8/Nov o
+      # criterio dele apagou um deploy BOM: a rodada estourou o prazo, um
+      # passo cortado no meio contou como prova e o rollback promoveu o
+      # commit anterior. Agora a regra tem prova rodando aqui, antes de
+      # qualquer rollback existir.
+      - name: Provar o leitor do smoke (quem decide o rollback)
+        run: python3 scripts/testar-ler-smoke.py
+
       - name: Aguardar Vercel terminar deploy production
         # Vercel demora ~90-150s pra deployar apos push. Espera fixa de
         # 180s cobre a maioria dos casos. Workflow nao falha se deploy

@@ -377,7 +377,13 @@ async function limparFretistaSmoke(): Promise<void> {
 // tempo do finalizar() rodar (ele consulta bot_logs e notifica admins).
 // Sem isso o smoke estourava o tempo e MORRIA CALADO: o CI recebia timeout
 // puro, sem saber em que passo parou. Trava que roda e nao enxerga.
-const PRAZO_MS = 180_000;
+// 8/Nov/2026: 180s nao cabia. Medido no run 42455724978: a rodada chegou ao
+// passo 30 de 33 em 182s e estourou. Smoke vermelho por TEMPO (vermelho
+// desde Maio, diz o YAML) e' pior que smoke nenhum: foi o que armou o
+// auto-rollback que apagou o deploy do bairro pelo Google. 215s deixa a
+// rodada terminar e ainda sobra ~25s dentro do maxDuration (240s) pro
+// finalizar() consultar bot_logs e avisar os admins.
+const PRAZO_MS = 215_000;
 
 const ESTOURO = { estourou: true } as const;
 

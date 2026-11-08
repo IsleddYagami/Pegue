@@ -22,6 +22,8 @@
 // que ele puser GOOGLE_MAPS_API_KEY_PEGUE, o aviso apaga sozinho — sem
 // deploy, sem ninguem lembrar de limpar nada.
 
+import type { ResultadoProbe } from "@/lib/imuni/integracoes";
+
 export type OrigemChaveGoogle = "pegue" | "herdada" | "ausente";
 
 /** A chave que as chamadas usam. Prefere a do projeto so' da Pegue. */
@@ -50,4 +52,17 @@ export function avisoChaveGoogle(): string | null {
     case "ausente":
       return "sem chave do Google: geocoding e busca de bairro caem no OpenStreetMap (cobertura menor).";
   }
+}
+
+/**
+ * Probe pro registry de integracoes (INV-51, cron diario). Fica AQUI, e nao
+ * no registry, por um motivo pratico: o registry importa o supabase-admin e
+ * nao carrega fora do servidor — aqui a trava tem teste de verdade rodando.
+ *
+ * NAO chama o Google: toda chamada la' e' billable. So' le a variavel.
+ */
+export function probeChaveGoogle(): Promise<ResultadoProbe> {
+  const aviso = avisoChaveGoogle();
+  if (!aviso) return Promise.resolve({ status: "ok", latenciaMs: 0 });
+  return Promise.resolve({ status: "degradado", latenciaMs: 0, detalhe: aviso });
 }

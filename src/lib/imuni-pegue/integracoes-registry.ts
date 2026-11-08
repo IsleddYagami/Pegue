@@ -20,7 +20,9 @@ import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { probeHttpReadonly, checarSaudeIntegracoes } from "@/lib/imuni/integracoes";
 import type { Integracao, RegistryIntegracoes, ResultadoProbe } from "@/lib/imuni/integracoes";
 import type { ResultadoInvariante } from "@/lib/imuni/types";
-import { avisoChaveGoogle } from "@/lib/chave-google";
+// O probe da chave do Google vive em chave-google.ts — de la ele tem teste
+// (este arquivo importa o supabase-admin e nao carrega fora do servidor).
+import { probeChaveGoogle } from "@/lib/chave-google";
 
 // --- Probes individuais (read-only) ---
 
@@ -53,14 +55,6 @@ function probeAsaas(): Promise<ResultadoProbe> {
   return probeHttpReadonly(`${base}/finance/balance`, {
     headers: { access_token: process.env.ASAAS_API_KEY || "", "User-Agent": "PegueMarketplace/1.0" },
   });
-}
-
-// Google Maps: NAO chama o Google (toda chamada e' billable). So' confere de
-// qual projeto veio a chave — ver src/lib/chave-google.ts.
-function probeChaveGoogle(): Promise<ResultadoProbe> {
-  const aviso = avisoChaveGoogle();
-  if (!aviso) return Promise.resolve({ status: "ok", latenciaMs: 0 });
-  return Promise.resolve({ status: "degradado", latenciaMs: 0, detalhe: aviso });
 }
 
 // Resend (e-mail de alerta): GET /domains — read-only. 200 = chave ok.

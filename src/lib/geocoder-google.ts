@@ -3,8 +3,13 @@
 // Quando ativado (GOOGLE_MAPS_API_KEY presente), substitui Nominatim
 // como geocoder primario. Cobertura ~99% Brasil vs ~80% Nominatim.
 //
-// Custo: $200 free credit/mes da Google = ~40k requests gratis.
-// Volume Pegue (~600/mes) = ~1.5% da franquia. Gratis na pratica.
+// Custo (conferido na tabela oficial em 8/Nov/2026): o SKU "Geocoding" e da
+// categoria Essentials — 10.000 chamadas GRATIS por mes, depois US$ 5,00 por
+// mil. O credito de US$ 200/mes que estava escrito aqui NAO existe mais: a
+// Google trocou por franquia gratuita por SKU em 1/Mar/2025.
+// Volume Pegue (~600/mes) = 6% da franquia. Gratis de verdade, com folga.
+// https://developers.google.com/maps/billing-and-pricing/pricing
+// https://developers.google.com/maps/billing-and-pricing/march-2025
 // Reference: https://developers.google.com/maps/documentation/geocoding
 //
 // IMPORTANTE: nao quebra fluxo se chave ausente — retorna null e

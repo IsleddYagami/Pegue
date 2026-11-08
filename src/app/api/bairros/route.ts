@@ -15,6 +15,7 @@ import {
   normalizarGoogle,
 } from "@/lib/busca-bairro-google";
 import { consumirCotaMensal } from "@/lib/cota-mensal";
+import { chaveGoogle } from "@/lib/chave-google";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 15;
@@ -74,7 +75,7 @@ function guardaNoCache(chave: string, sugestoes: SugestaoBairro[]): void {
  * Nunca lanca, nunca chama sem contar na cota.
  */
 async function tentarGoogle(q: string): Promise<SugestaoBairro[]> {
-  const chave = process.env.GOOGLE_MAPS_API_KEY;
+  const chave = chaveGoogle();
   if (!chave) return [];
   if (Date.now() - googleDesligadoEm < ESQUECER_DESLIGADO_MS) return [];
 

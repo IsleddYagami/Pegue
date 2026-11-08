@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { geocodeAddress } from "@/lib/bot-utils";
 import { googleGeocode, googleGeocodeAtivo } from "@/lib/geocoder-google";
 import { interpretarEnderecoComIA } from "@/lib/geocoder-ia";
+import { avisoChaveGoogle, origemChaveGoogle } from "@/lib/chave-google";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -84,7 +85,8 @@ export async function GET(req: NextRequest) {
 
   const config = {
     google_ativo: googleGeocodeAtivo(),
-    google_key_presente: !!process.env.GOOGLE_MAPS_API_KEY,
+    google_chave_origem: origemChaveGoogle(),
+    google_chave_aviso: avisoChaveGoogle(),
     openai_ativo: !!process.env.OPENAI_API_KEY,
   };
 

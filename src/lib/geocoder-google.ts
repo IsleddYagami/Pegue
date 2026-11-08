@@ -1,6 +1,6 @@
 // Google Maps Geocoding API adapter.
 //
-// Quando ativado (GOOGLE_MAPS_API_KEY presente), substitui Nominatim
+// Quando ativado (chave presente — ver chave-google.ts), substitui Nominatim
 // como geocoder primario. Cobertura ~99% Brasil vs ~80% Nominatim.
 //
 // Custo (conferido na tabela oficial em 8/Nov/2026): o SKU "Geocoding" e da
@@ -14,6 +14,8 @@
 //
 // IMPORTANTE: nao quebra fluxo se chave ausente — retorna null e
 // caller cai pro Nominatim automaticamente.
+
+import { chaveGoogle } from "./chave-google";
 
 const GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
 
@@ -45,7 +47,7 @@ function componente(
 }
 
 export function googleGeocodeAtivo(): boolean {
-  return !!process.env.GOOGLE_MAPS_API_KEY;
+  return !!chaveGoogle();
 }
 
 // Geocode forward: endereco -> coords
@@ -53,7 +55,7 @@ export async function googleGeocode(
   endereco: string,
   timeoutMs = 4000,
 ): Promise<GoogleGeocodeResult | null> {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
+  const key = chaveGoogle();
   if (!key) return null;
   if (!endereco || endereco.trim().length < 3) return null;
 
@@ -116,7 +118,7 @@ export async function googleReverseGeocode(
   lng: number,
   timeoutMs = 4000,
 ): Promise<{ enderecoFormatado: string; bairro: string | null; cidade: string | null } | null> {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
+  const key = chaveGoogle();
   if (!key) return null;
 
   try {

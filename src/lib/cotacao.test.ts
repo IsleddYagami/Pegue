@@ -38,6 +38,8 @@ function pedido(over: Partial<PedidoCotacao> = {}): PedidoCotacao {
     elevador: false,
     andares: 0,
     dataAgendada: null,
+    servico: "frete",
+    volumeDescarteM3: 0,
     ...over,
   };
 }

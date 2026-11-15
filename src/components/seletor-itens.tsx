@@ -1,17 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Minus, Plus, Ruler, Trash2 } from "lucide-react";
+import { Minus, Plus, Ruler, Sparkles, Star, Trash2 } from "lucide-react";
 import {
   AMBIENTES,
   CATALOGO,
+  DESTAQUES,
   ITEM_OUTRO,
   itemPorId,
   MAX_QTD_POR_ITEM,
+  servicoDaCarga,
   type Ambiente,
   type ItemEscolhido,
   type ResumoCarga,
 } from "@/lib/itens-carga";
+import { INCLUI_SERVICO, NOME_SERVICO } from "@/lib/servicos-especiais";
 
 // O QUE VAI NO CAMINHAO — tocando, nao digitando.
 //
@@ -34,8 +37,18 @@ interface Props {
   resumo: ResumoCarga;
 }
 
+/**
+ * A primeira aba nao e' um comodo: e' a lista dos itens que todo mundo leva.
+ * Fabio, 15/Nov/2026, olhando a tela parada na Sala: "nao colocou os
+ * principais? fogao, geladeira, armario, microondas, guarda roupa desmontado,
+ * mesa de cozinha, cama, tv x polegadas, caixas, sacolas". Estavam todos no
+ * catalogo — escondidos atras das abas de comodo. Abrir em "Mais pedidos"
+ * resolve na primeira olhada, sem tirar os comodos de quem quer detalhar.
+ */
+type Aba = "destaques" | Ambiente;
+
 export function SeletorItens({ escolhidos, onMudar, resumo }: Props) {
-  const [ambiente, setAmbiente] = useState<Ambiente>("sala");
+  const [ambiente, setAmbiente] = useState<Aba>("destaques");
   const [medindo, setMedindo] = useState<string | null>(null);
   const [nomeOutro, setNomeOutro] = useState("");
 
@@ -124,25 +137,41 @@ export function SeletorItens({ escolhidos, onMudar, resumo }: Props) {
     });
   }
 
-  const daVez = CATALOGO.filter((i) => i.ambiente === ambiente);
+  const daVez = ambiente === "destaques" ? DESTAQUES : CATALOGO.filter((i) => i.ambiente === ambiente);
+
+  // O servico sai do que ja' esta marcado. Quem poe um colchao velho pra jogar
+  // fora tem que ver, ali na hora, que isso nao e' frete comum — e o que vem
+  // junto no preco. Quem decide o valor e o servidor (lib/cotacao); aqui e' so'
+  // o aviso.
+  const { servico } = servicoDaCarga(escolhidos);
+
+  const abas: Array<{ chave: Aba; nome: string; emoji: string }> = [
+    { chave: "destaques", nome: "Mais pedidos", emoji: "⭐" },
+    ...AMBIENTES.map((a) => ({ chave: a.chave as Aba, nome: a.nome, emoji: a.emoji })),
+  ];
 
   return (
     <div>
-      {/* Abas por ambiente: a pessoa pensa por lugar da casa, nao por categoria. */}
+      {/* Abas: "Mais pedidos" primeiro, depois cada lugar da casa. */}
       <div className="mb-4 flex flex-wrap gap-2">
-        {AMBIENTES.map((a) => {
-          const marcados = escolhidos.filter(
-            (e) => e.id !== ITEM_OUTRO && itemPorId(e.id)?.ambiente === a.chave,
-          ).length;
+        {abas.map((a) => {
+          const marcados =
+            a.chave === "destaques"
+              ? escolhidos.filter((e) => e.id !== ITEM_OUTRO && itemPorId(e.id)?.destaque).length
+              : escolhidos.filter(
+                  (e) => e.id !== ITEM_OUTRO && itemPorId(e.id)?.ambiente === a.chave,
+                ).length;
+          const ativa = ambiente === a.chave;
           return (
             <button
               key={a.chave}
               type="button"
               onClick={() => setAmbiente(a.chave)}
-              className={`flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors ${
-                ambiente === a.chave
-                  ? "border-[#C9A84C] bg-[#C9A84C]/15 text-[#C9A84C]"
-                  : "border-gray-700 bg-[#111] text-gray-400 hover:border-gray-500"
+              aria-pressed={ativa}
+              className={`flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-all ${
+                ativa
+                  ? "border-[#C9A84C] bg-[#C9A84C]/15 text-[#C9A84C] shadow-[0_0_0_1px_rgba(201,168,76,0.35)]"
+                  : "border-gray-800 bg-[#0C0C0C] text-gray-400 hover:border-gray-600 hover:text-gray-200"
               }`}
             >
               <span aria-hidden="true">{a.emoji}</span>
@@ -157,6 +186,21 @@ export function SeletorItens({ escolhidos, onMudar, resumo }: Props) {
         })}
       </div>
 
+      {ambiente === "destaques" && (
+        <p className="mb-3 flex items-center gap-2 text-xs text-gray-500">
+          <Star className="h-3.5 w-3.5 shrink-0 text-[#C9A84C]" />
+          O que mais sai nas mudanças. Tem mais coisa em cada cômodo, ao lado.
+        </p>
+      )}
+
+      {ambiente === "descarte" && (
+        <p className="mb-3 flex items-center gap-2 text-xs text-gray-500">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#C9A84C]" />
+          A gente retira e dá o destino certo. Serviço com equipe e descarte
+          incluídos — o preço é diferente do frete.
+        </p>
+      )}
+
       <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         {daVez.map((item) => {
           const esc = porId.get(item.id);
@@ -164,8 +208,10 @@ export function SeletorItens({ escolhidos, onMudar, resumo }: Props) {
           return (
             <div
               key={item.id}
-              className={`rounded-2xl border p-3 transition-colors ${
-                qtd > 0 ? "border-[#C9A84C] bg-[#C9A84C]/10" : "border-gray-800 bg-[#0A0A0A]"
+              className={`rounded-2xl border p-3 transition-all ${
+                qtd > 0
+                  ? "border-[#C9A84C] bg-gradient-to-b from-[#C9A84C]/15 to-transparent shadow-[0_0_0_1px_rgba(201,168,76,0.25)]"
+                  : "border-gray-800 bg-[#0A0A0A] hover:border-gray-600"
               }`}
             >
               <button
@@ -177,7 +223,12 @@ export function SeletorItens({ escolhidos, onMudar, resumo }: Props) {
                 aria-label={qtd > 0 ? `Somar um ${item.nome}` : `Incluir ${item.nome}`}
                 className="flex w-full items-center gap-3 text-left"
               >
-                <span className="text-2xl leading-none" aria-hidden="true">
+                <span
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-2xl leading-none ${
+                    qtd > 0 ? "bg-[#C9A84C]/20" : "bg-[#141414]"
+                  }`}
+                  aria-hidden="true"
+                >
                   {item.emoji}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -276,6 +327,26 @@ export function SeletorItens({ escolhidos, onMudar, resumo }: Props) {
           );
         })}
       </div>
+
+      {/* Serviço reconhecido: mostra o que vai junto no preço. Isso e' o valor
+          agregado aparecendo ANTES do numero — a pessoa entende por que custa
+          mais antes de ver quanto custa. */}
+      {servico !== "frete" && (
+        <div className="mt-5 overflow-hidden rounded-2xl border border-[#C9A84C]/40 bg-gradient-to-b from-[#C9A84C]/10 to-transparent">
+          <div className="flex items-center gap-2 border-b border-[#C9A84C]/20 px-4 py-3">
+            <Sparkles className="h-4 w-4 shrink-0 text-[#C9A84C]" />
+            <span className="text-sm font-bold text-[#C9A84C]">{NOME_SERVICO[servico]}</span>
+          </div>
+          <ul className="space-y-2 px-4 py-3">
+            {INCLUI_SERVICO[servico].map((linha) => (
+              <li key={linha} className="flex items-start gap-2 text-sm text-gray-300">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#C9A84C]" />
+                {linha}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Item fora da lista: escrever e' a saida, nao a porta de entrada. */}
       <div className="mt-5 rounded-2xl border border-gray-800 bg-[#0A0A0A] p-4">

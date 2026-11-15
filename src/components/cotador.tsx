@@ -19,8 +19,15 @@ import {
   cabeNoVeiculo,
   descricaoCarga,
   resumirCarga,
+  servicoDaCarga,
   type ItemEscolhido,
+  type ServicoCarga,
 } from "@/lib/itens-carga";
+import {
+  AJUDANTES_MINIMOS,
+  INCLUI_SERVICO,
+  NOME_SERVICO,
+} from "@/lib/servicos-especiais";
 
 // COTACAO NA TELA, PASSO A PASSO.
 //
@@ -77,6 +84,9 @@ type Resposta =
       cidadeOrigem: string | null;
       cidadeDestino: string | null;
       precos: TabelaPrecos;
+      /** Frete, descarte ou entulho. Quem decide e' o servidor, pelos itens. */
+      servico?: ServicoCarga;
+      adicionais?: { ajudantes?: number };
     }
   | { ok: false; motivo: string; mensagem?: string; precisaHumano?: boolean };
 
@@ -180,6 +190,10 @@ export function Cotador() {
   } | null>(null);
 
   const resumo = useMemo(() => resumirCarga(itens), [itens]);
+  // Servico que os itens pedem. A tela usa isso so' pra EXPLICAR; o preco e o
+  // minimo de ajudantes quem decide e' o servidor (lib/cotacao + servicos-especiais).
+  const servico = useMemo(() => servicoDaCarga(itens).servico, [itens]);
+  const ajudantesMinimos = AJUDANTES_MINIMOS[servico];
   const enderecoDe = (l: Local) =>
     l.bairro.trim() && l.cidade ? `${l.bairro.trim()}, ${l.cidade}, SP` : "";
   const origem = enderecoDe(localOrigem);
@@ -233,6 +247,10 @@ export function Cotador() {
             elevador: acesso === "elevador",
             andares: acesso === "escada" ? andares : 0,
             dataAgendada: data || null,
+            // Os itens vao pra cotacao desde 15/Nov: e' por eles que o
+            // servidor descobre se isso e' frete, descarte ou remocao de
+            // entulho — e cobra diferente.
+            itens,
           }),
         },
         25000,
@@ -297,13 +315,20 @@ export function Cotador() {
     const linhas = ["Oi! Cotei no site da Pegue:", "", `De: ${origem || "—"}`, `Para: ${destino || "—"}`];
     if (resp?.ok === true) linhas.push(`Distância: ${resp.km} km`);
     const carga = descricaoCarga(itens);
+    // O servico vem do servidor quando ja' cotou; antes disso, do que esta
+    // marcado na tela. Entulho e descarte nao podem sumir no caminho pro
+    // WhatsApp: e' o que muda a equipe e o destino da carga.
+    const serv = resp?.ok === true ? (resp.servico ?? servico) : servico;
+    if (serv !== "frete") linhas.push(`Serviço: ${NOME_SERVICO[serv]}`);
     if (carga) linhas.push(`Carga: ${carga}`);
     if (v) linhas.push(`Veículo: ${v.nome}`);
     if (data) linhas.push(`Quando: ${dataPorExtenso(data)} — ${janela}`);
     linhas.push(
       `Acesso: ${acesso === "escada" ? `${andares} andar(es) de escada` : acesso === "elevador" ? "elevador" : "térreo"}`,
     );
-    linhas.push(`Ajudantes: ${ajudantes}`);
+    linhas.push(
+      `Ajudantes: ${resp?.ok === true ? (resp.adicionais?.ajudantes ?? ajudantes) : Math.max(ajudantes, AJUDANTES_MINIMOS[serv])}`,
+    );
     if (resp?.ok === true && veiculo) {
       linhas.push("", `Valor na tela: ${reais(resp.precos[veiculo].total)}`);
     }
@@ -604,6 +629,17 @@ export function Cotador() {
                     </button>
                   ))}
                 </div>
+
+                {/* Entulho ja' vai com equipe: a pessoa pode escolher 0 aqui e
+                    ainda assim receber 3 pessoas no preco. Dizer isso ANTES do
+                    valor evita a surpresa de ver um numero que nao bate com o
+                    que ela marcou. */}
+                {ajudantesMinimos > 0 && (
+                  <p className="mt-4 rounded-xl border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-4 py-3 text-sm text-[#C9A84C]">
+                    {NOME_SERVICO[servico]} vai com {ajudantesMinimos} pessoas no mínimo —
+                    já estão no preço, mesmo que você escolha menos aqui.
+                  </p>
+                )}
               </div>
             )}
 
@@ -715,18 +751,36 @@ export function Cotador() {
                 {VEICULOS.find((v) => v.chave === veiculo)?.nome}
                 {data ? ` · ${dataPorExtenso(data)} — ${janela}` : ""}
               </p>
+              {/* Servico que o servidor reconheceu. Entulho e descarte nao sao
+                  frete e nao podem chegar na tela com cara de frete. */}
+              {resp.servico && resp.servico !== "frete" && (
+                <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/40 bg-[#C9A84C]/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-[#C9A84C]">
+                  <BadgeCheck className="h-3.5 w-3.5" />
+                  {NOME_SERVICO[resp.servico]}
+                </p>
+              )}
               <p className="mt-2 text-5xl font-extrabold text-white md:text-6xl">
                 {reais(resp.precos[veiculo].total)}
               </p>
               <ul className="mx-auto mt-5 max-w-xs space-y-1 border-t border-[#C9A84C]/20 pt-4 text-left text-xs text-gray-400">
                 <li className="flex justify-between">
-                  <span>Frete</span>
+                  <span>
+                    {resp.servico && resp.servico !== "frete"
+                      ? NOME_SERVICO[resp.servico]
+                      : "Frete"}
+                  </span>
                   <span>{reais(resp.precos[veiculo].base)}</span>
                 </li>
                 {resp.precos[veiculo].ajudante > 0 && (
                   <li className="flex justify-between">
                     <span>
-                      {ajudantes} {ajudantes === 1 ? "ajudante" : "ajudantes"}
+                      {(() => {
+                        // O servidor pode ter forcado o minimo do servico (3
+                        // no entulho). Mostrar o numero DELE, nao o que a
+                        // pessoa marcou — se nao, a linha mente.
+                        const n = resp.adicionais?.ajudantes ?? ajudantes;
+                        return `${n} ${n === 1 ? "ajudante" : "ajudantes"}`;
+                      })()}
                     </span>
                     <span>{reais(resp.precos[veiculo].ajudante)}</span>
                   </li>
@@ -750,6 +804,17 @@ export function Cotador() {
                   </li>
                 )}
               </ul>
+              {/* O que esta incluso: valor agregado na frente do preco. */}
+              {resp.servico && resp.servico !== "frete" && (
+                <ul className="mx-auto mt-5 max-w-xs space-y-2 border-t border-[#C9A84C]/20 pt-4 text-left text-xs text-gray-300">
+                  {INCLUI_SERVICO[resp.servico].map((linha) => (
+                    <li key={linha} className="flex items-start gap-2">
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#C9A84C]" />
+                      {linha}
+                    </li>
+                  ))}
+                </ul>
+              )}
               {encaixe?.motivo === "aperta" && (
                 <p className="mt-4 text-xs text-yellow-300">
                   Pelo que você marcou, a carga pode não caber neste veículo. A gente confirma

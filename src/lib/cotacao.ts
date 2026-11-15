@@ -13,6 +13,12 @@ import {
   detectarZona,
   precoAjudante,
 } from "./bot-utils";
+import {
+  normalizarItensRecebidos,
+  servicoDaCarga,
+  type ServicoCarga,
+} from "./itens-carga";
+import { ajudantesDoServico, aplicarPremio } from "./servicos-especiais";
 
 export const MAX_ENDERECO = 200;
 export const MAX_ANDARES = 30;
@@ -42,6 +48,15 @@ export interface PedidoCotacao {
   elevador: boolean;
   andares: number;
   dataAgendada: string | null;
+  /**
+   * Servico que a carga pede: frete, descarte ou entulho. Sai dos ITENS, pelo
+   * catalogo, aqui no servidor — o navegador manda os ids, nao manda o
+   * servico. Corpo forjado nao consegue pedir remocao de entulho com preco de
+   * frete.
+   */
+  servico: ServicoCarga;
+  /** m³ do que vai pro descarte. Vai pro pedido e pro atendimento. */
+  volumeDescarteM3: number;
 }
 
 export type Ponto = { lat: number; lng: number; uf?: string | null; cidade?: string | null };
@@ -82,6 +97,10 @@ export type Cotacao = {
   cidadeDestino: string | null;
   zona: ReturnType<typeof detectarZona>;
   precos: ReturnType<typeof calcularPrecosCompleto>;
+  /** Frete, descarte ou entulho — e quantos ajudantes o servico obrigou. */
+  servico: ServicoCarga;
+  ajudantes: number;
+  volumeDescarteM3: number;
 };
 
 function textoEndereco(v: unknown): string | null {
@@ -118,11 +137,22 @@ export function normalizarPedido(body: unknown): PedidoCotacao | null {
     MAX_AJUDANTES,
   );
 
+  // O servico sai dos itens, nao de um campo que o cliente manda. E os
+  // ajudantes do servico mandam no que ele pediu: entulho entra com 3 mesmo
+  // que a tela tenha vindo com 0 ("precisa de no minimo 3 pessoas").
+  const carga = servicoDaCarga(normalizarItensRecebidos(b.itens));
+  const ajudantesFinais = Math.min(
+    ajudantesDoServico(carga.servico, ajudantes),
+    MAX_AJUDANTES,
+  );
+
   return {
     origem,
     destino,
-    ajudante: ajudantes >= 1,
-    ajudantes,
+    ajudante: ajudantesFinais >= 1,
+    ajudantes: ajudantesFinais,
+    servico: carga.servico,
+    volumeDescarteM3: carga.volumeDescarteM3,
     elevador,
     // Escada e elevador nao somam: se tem elevador, o numero de andares nao cobra.
     andares: Math.min(Math.max(Math.trunc(andaresRaw), 0), MAX_ANDARES),
@@ -188,13 +218,27 @@ export function decidirCotacao(
     pedido.dataAgendada,
   );
 
+  // Ordem: primeiro a conta do frete com todos os ajudantes, depois o premio
+  // do servico em cima do total. O premio tem que pegar o trabalho inteiro —
+  // se entrasse antes dos ajudantes, 3 pessoas num entulho sairiam pelo preco
+  // de frete comum.
+  const comAjudantes = comAjudantesExtras(precos, km, pedido.ajudantes);
+  const premiado = {
+    utilitario: aplicarPremio(comAjudantes.utilitario, pedido.servico),
+    hr: aplicarPremio(comAjudantes.hr, pedido.servico),
+    caminhao_bau: aplicarPremio(comAjudantes.caminhao_bau, pedido.servico),
+  };
+
   return {
     ok: true,
     km,
     cidadeOrigem: geoOrigem.cidade ?? null,
     cidadeDestino: geoDestino.cidade ?? null,
     zona: detectarZona(pedido.destino),
-    precos: comAjudantesExtras(precos, km, pedido.ajudantes),
+    precos: premiado,
+    servico: pedido.servico,
+    ajudantes: pedido.ajudantes,
+    volumeDescarteM3: pedido.volumeDescarteM3,
   };
 }
 

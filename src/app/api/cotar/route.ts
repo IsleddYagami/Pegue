@@ -75,6 +75,9 @@ export async function POST(req: NextRequest) {
     zona: r.zona,
     cidadeOrigem: r.cidadeOrigem,
     cidadeDestino: r.cidadeDestino,
+    // Frete, descarte ou entulho — decidido no servidor, pelos itens.
+    servico: r.servico,
+    volumeDescarteM3: r.volumeDescarteM3,
     adicionais: {
       ajudante: pedido.ajudante,
       ajudantes: pedido.ajudantes,

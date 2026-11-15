@@ -16,6 +16,7 @@ import {
   normalizarItensRecebidos,
   resumirCarga,
 } from "@/lib/itens-carga";
+import { NOME_SERVICO } from "@/lib/servicos-especiais";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -233,7 +234,12 @@ export async function POST(req: NextRequest) {
     // Carga que a pessoa marcou na tela. Quando ela nao marca nada (pode: a
     // tela deixa cotar so pelo trajeto), fica explicito que falta confirmar —
     // nao fica um texto fingindo que a carga e conhecida.
-    descricao_carga: carga || "Pedido fechado no site — carga não informada na tela",
+    // O servico entra no TEXTO da carga, e nao em `tipo_servico`: essa coluna
+    // e' o par do veiculo no banco e tem enum proprio. Quem abre o pedido
+    // precisa ler "REMOÇÃO DE ENTULHO" na primeira linha.
+    descricao_carga:
+      (cotacao.servico !== "frete" ? `[${NOME_SERVICO[cotacao.servico].toUpperCase()}] ` : "") +
+      (carga || "Pedido fechado no site — carga não informada na tela"),
     escada_origem: pedido.andares > 0,
     andares_origem: pedido.andares,
     elevador_origem: pedido.elevador,
@@ -281,6 +287,11 @@ export async function POST(req: NextRequest) {
     [
       `Código: *${codigo}*`,
       `Cliente: ${nome} — ${telefone}`,
+      // Entulho e descarte nao podem chegar no despacho com cara de mudanca:
+      // muda a equipe, muda o tempo e muda o destino da carga.
+      cotacao.servico !== "frete"
+        ? `⚠️ SERVIÇO: ${NOME_SERVICO[cotacao.servico].toUpperCase()} — ${cotacao.volumeDescarteM3} m³ pra descartar`
+        : null,
       `Veículo: ${NOME_VEICULO[veiculo]}`,
       `De: ${pedido.origem}`,
       `Para: ${pedido.destino}`,

@@ -61,6 +61,9 @@ export function Footer() {
               <Link href="/rastrear" className="transition-colors hover:text-[#C9A84C]">
                 Rastrear Pedido
               </Link>
+              <Link href="/jogo" className="transition-colors hover:text-[#C9A84C]">
+                Jogo e ranking
+              </Link>
               <Link href="/politica-privacidade" className="transition-colors hover:text-[#C9A84C]">
                 Política de Privacidade
               </Link>

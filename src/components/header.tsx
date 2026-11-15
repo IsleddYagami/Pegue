@@ -12,6 +12,9 @@ const navLinks = [
   { label: "Seja Parceiro", href: "/parceiro" },
   { label: "Minha Conta", href: "/minha-conta" },
   { label: "FAQ", href: "/faq" },
+  // 14/11/2026: o jogo nao era linkado de lugar nenhum. Entra no menu pra
+  // ter acesso facil em qualquer pagina, como ele pediu.
+  { label: "Jogo", href: "/jogo" },
 ];
 
 export function Header() {

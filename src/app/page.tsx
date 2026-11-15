@@ -4,6 +4,7 @@ import { MessageCircle, ArrowRight, Shield, Clock, Star, Zap, Truck, DollarSign 
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { GameButton } from "@/components/game-button";
+import { JogoDestaque } from "@/components/jogo-destaque";
 import { WHATSAPP_LINK, INSTAGRAM_LINK, INSTAGRAM_HANDLE } from "@/lib/constants";
 
 export default function HomePage() {
@@ -545,6 +546,9 @@ export default function HomePage() {
           </a>
         </div>
       </section>
+
+      {/* ===== JOGO + RANKING (ordem do Fabio 14/11) ===== */}
+      <JogoDestaque />
 
       {/* ===== CTA FINAL ===== */}
       <section className="bg-[#000] py-20 md:py-28">

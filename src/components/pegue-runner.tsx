@@ -1,5 +1,6 @@
 "use client";
 import { fetchComTimeout } from "@/lib/fetch-utils";
+import { melhorPorJogador } from "@/lib/ranking-jogo";
 
 import { useEffect, useRef, useState, useCallback } from "react";
 
@@ -363,7 +364,9 @@ export default function PegueRunner({ onClose, startPhase }: PegueRunnerProps) {
     try {
       const r = await fetchComTimeout("/api/ranking");
       const data = await r.json();
-      setRanking(data);
+      // Uma linha por JOGADOR (14/11/2026). A API devolve o historico cru: em
+      // 14/11 o top 20 tinha 20 linhas e so' 8 jogadores, com a Clara 7 vezes.
+      setRanking(melhorPorJogador(data, 20));
     } catch {}
   }
 

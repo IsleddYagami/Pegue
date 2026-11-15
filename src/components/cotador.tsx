@@ -28,6 +28,7 @@ import {
   INCLUI_SERVICO,
   NOME_SERVICO,
 } from "@/lib/servicos-especiais";
+import { VEICULOS } from "@/lib/veiculos";
 
 // COTACAO NA TELA, PASSO A PASSO.
 //
@@ -97,27 +98,6 @@ type Confianca = {
   totalAvaliacoes: number | null;
   verificacoes: string[];
 };
-
-const VEICULOS: Array<{ chave: Chave; nome: string; emoji: string; cabe: string }> = [
-  {
-    chave: "utilitario",
-    nome: "Utilitário",
-    emoji: "🚐",
-    cabe: "Fiorino, Kangoo. Até uns 10 volumes ou 1 móvel grande",
-  },
-  {
-    chave: "hr",
-    nome: "HR Carroceria",
-    emoji: "🛻",
-    cabe: "Mudança de 1 quarto, geladeira, sofá de 3 lugares",
-  },
-  {
-    chave: "caminhao_bau",
-    nome: "Caminhão baú",
-    emoji: "🚚",
-    cabe: "Mudança inteira, carga alta ou comprida",
-  },
-];
 
 const JANELAS = [
   { chave: "manhã", nome: "Manhã", detalhe: "8h às 12h" },

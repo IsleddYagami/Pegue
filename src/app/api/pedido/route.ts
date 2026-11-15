@@ -17,6 +17,7 @@ import {
   resumirCarga,
 } from "@/lib/itens-carga";
 import { NOME_SERVICO } from "@/lib/servicos-especiais";
+import { NOME_VEICULO, VEICULOS_CHAVES, type VeiculoChave } from "@/lib/veiculos";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -35,14 +36,8 @@ export const maxDuration = 30;
 // recalcula do zero com o mesmo motor da /api/cotar (decidirCotacao). Se o
 // endereco nao confirma ou esta fora da area, nao nasce pedido.
 
-const VEICULOS = ["utilitario", "hr", "caminhao_bau"] as const;
-type Veiculo = (typeof VEICULOS)[number];
-
-const NOME_VEICULO: Record<Veiculo, string> = {
-  utilitario: "Utilitário",
-  hr: "HR Carroceria",
-  caminhao_bau: "Caminhão baú",
-};
+const VEICULOS = VEICULOS_CHAVES;
+type Veiculo = VeiculoChave;
 
 // tipo_servico segue a mesma heuristica do bot (webhook salvarCorrida):
 // veiculo maior = mudanca. Sem isso o dispatch filtra errado.

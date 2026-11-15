@@ -43,7 +43,10 @@ export default function SimularPage() {
           </h1>
 
           <p className="mb-6 text-lg text-gray-400">
-            Monta o seu frete aqui na tela. Sem endereço, sem CEP, sem cadastro.
+            {/* 14/11/2026: eu tinha escrito "Sem endereço, sem CEP" aqui. E'
+                mentira: o passo 1 e' "De onde sai" e o 2 e' "Pra onde vai".
+                Texto so' com o que a tela pede de verdade. NAO voltar. */}
+            Monta o seu frete aqui na tela: bairro e cidade de saída e de entrega. Sem cadastro.
           </p>
 
           <a

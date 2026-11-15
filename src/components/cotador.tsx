@@ -336,7 +336,7 @@ export function Cotador() {
           Seu preço <span className="text-[#C9A84C]">agora</span>, nesta tela
         </h2>
         <p className="mx-auto mb-10 max-w-xl text-center text-gray-400">
-          Sete toques. Sem endereço, sem CEP, sem cadastro.
+          Sete toques. Bairro e cidade de saída e de entrega. Sem cadastro.
         </p>
 
         {!noPreco && (

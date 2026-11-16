@@ -32,7 +32,7 @@ const ITENS_POPULARES = [
 ];
 
 const DIFERENCIAIS = [
-  { icon: Zap, titulo: "Orcamento em 2 min", desc: "Manda foto dos itens e recebe o preco na hora" },
+  { icon: Zap, titulo: "Orcamento em 2 min", desc: "Voce diz o que vai e recebe o preco na hora" },
   { icon: Shield, titulo: "Fretista Verificado", desc: "Todos os motoristas passam por cadastro e avaliacao" },
   { icon: Clock, titulo: "Voce escolhe o horario", desc: "Agende pra manha, tarde ou horario especifico" },
   { icon: MapPin, titulo: "Rastreio em tempo real", desc: "Acompanhe seu frete no mapa pelo celular" },
@@ -44,6 +44,11 @@ const REGIOES = [
   "Zona Oeste SP", "Butanta", "Pinheiros", "Lapa", "Perdizes", "Vila Leopoldina",
 ];
 
+// 15/Nov/2026, ordem do Fabio: a FOTO nao faz o preco. Em 4 lugares esta
+// pagina vendia "manda foto e recebe o orcamento" — a cotacao sai do que a
+// pessoa diz que vai levar. A foto continua existindo, mas e' OPCIONAL e serve
+// so' como arquivo consultivo pro fretista saber o que vai pegar.
+//
 // A tabela sai da frota de verdade (lib/veiculos.ts), nao de numero escrito a
 // mao. Antes de 15/Nov/2026 esta pagina prometia MAIS do que o cotador aceita
 // (utilitario "ate 800kg" quando o motor para em 650, caminhao "ate 6.000kg,
@@ -70,7 +75,7 @@ export default function CarretoPage() {
             Carreto e <span className="text-[#C9A84C]">Mudanca</span> em Osasco
           </h1>
           <p className="mb-4 text-lg text-gray-400 md:text-xl">
-            Precisa transportar moveis? Vai mudar de casa? Manda foto dos itens pelo WhatsApp e recebe o orcamento na hora.
+            Precisa transportar moveis? Vai mudar de casa? Diz o que vai pelo WhatsApp e recebe o orcamento na hora.
           </p>
           <p className="mb-8 text-2xl font-bold text-[#C9A84C]">A partir de R$ 150</p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
@@ -169,7 +174,7 @@ export default function CarretoPage() {
           </h2>
           <div className="grid gap-8 md:grid-cols-3">
             {[
-              { num: "1", titulo: "Manda foto dos itens", desc: "Abre o WhatsApp, manda foto do que precisa transportar. A IA calcula tudo." },
+              { num: "1", titulo: "Diz o que vai", desc: "Abre o WhatsApp e conta o que precisa transportar. Foto e' opcional: serve pro fretista ver o que vai pegar, nao pra fazer o preco." },
               { num: "2", titulo: "Recebe o orcamento", desc: "Em menos de 2 minutos voce tem o preco. Sem surpresas, sem taxa escondida." },
               { num: "3", titulo: "Fretista a caminho", desc: "Confirma, paga pelo app e acompanha seu frete em tempo real no mapa." },
             ].map((p) => (
@@ -235,7 +240,7 @@ export default function CarretoPage() {
             Precisa de <span className="text-[#C9A84C]">Carreto</span>?
           </h2>
           <p className="mb-8 text-gray-400">
-            Manda foto dos itens pelo WhatsApp e recebe o orcamento na hora. Sem compromisso.
+            Diz o que vai pelo WhatsApp e recebe o orcamento na hora. Sem compromisso.
           </p>
           <Link
             href={WHATSAPP_LINK}

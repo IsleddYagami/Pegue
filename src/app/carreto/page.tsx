@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { WHATSAPP_LINK } from "@/lib/constants";
+import { VEICULOS } from "@/lib/veiculos";
 import { Phone, Clock, MapPin, Shield, Truck, Zap, Package, Home, Building2 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -43,11 +44,17 @@ const REGIOES = [
   "Zona Oeste SP", "Butanta", "Pinheiros", "Lapa", "Perdizes", "Vila Leopoldina",
 ];
 
-const PRECOS = [
-  { veiculo: "Utilitario", desc: "Strada, Saveiro, Fiorino", preco: "A partir de R$ 150", capacidade: "Ate 800kg" },
-  { veiculo: "HR", desc: "Hyundai HR, Kia Bongo", preco: "A partir de R$ 220", capacidade: "Ate 1.500kg" },
-  { veiculo: "Caminhao Bau", desc: "3/4 ou Toco", preco: "A partir de R$ 500", capacidade: "Ate 6.000kg" },
-];
+// A tabela sai da frota de verdade (lib/veiculos.ts), nao de numero escrito a
+// mao. Antes de 15/Nov/2026 esta pagina prometia MAIS do que o cotador aceita
+// (utilitario "ate 800kg" quando o motor para em 650, caminhao "ate 6.000kg,
+// 3/4 ou Toco" quando o maior veiculo e' um Iveco Daily de 2.500kg) — cliente
+// lia aqui e o cotador jogava a carga pro veiculo de cima.
+const PRECOS = VEICULOS.map((v) => ({
+  veiculo: v.nome,
+  desc: v.cabe.split(" — ")[0],
+  preco: `A partir de R$ ${v.precoMinimo}`,
+  capacidade: `Ate ${v.limite.pesoKg.toLocaleString("pt-BR")}kg e ${v.limite.volumeM3.toLocaleString("pt-BR")}m³`,
+}));
 
 export default function CarretoPage() {
   return (
@@ -130,7 +137,7 @@ export default function CarretoPage() {
             ))}
           </div>
           <p className="mt-6 text-center text-xs text-gray-500">
-            Valores para ate 10km. Acima disso, acrescimo por km rodado. Ajudante: +R$ 80.
+            Preco de partida, pra trajeto curto. A partir dai sobe com a distancia. Ajudante: +R$ 80 ate 10km, +R$ 100 acima disso.
           </p>
         </div>
       </section>

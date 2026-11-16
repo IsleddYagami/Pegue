@@ -24,6 +24,14 @@ export type Veiculo = {
   cabe: string;
   /** Limites que o motor usa pra sugerir o veiculo (lib/bot-utils.ts). */
   limite: { pesoKg: number; volumeM3: number };
+  /**
+   * O MENOR preco que o motor chega a cobrar por este veiculo, medido em
+   * calcularPrecos (lib/bot-utils.ts) — nao e' o MIN_VEICULO escrito la.
+   * No HR o MIN_VEICULO e' 220, mas o multiplicador do veiculo empurra pra
+   * 225 em qualquer distancia, entao 225 e' o que o cliente paga de verdade.
+   * A trava em veiculos.test.ts mede isso, pra pagina nunca prometer menos.
+   */
+  precoMinimo: number;
 };
 
 export const VEICULOS: Veiculo[] = [
@@ -33,6 +41,7 @@ export const VEICULOS: Veiculo[] = [
     emoji: "🛻",
     cabe: "Fiat Strada, Saveiro ou Ford Courier. Caçamba de 1,20m x 1,50m — uns 10 volumes ou 1 móvel grande",
     limite: { pesoKg: 650, volumeM3: 1.0 },
+    precoMinimo: 150,
   },
   {
     chave: "hr",
@@ -40,6 +49,7 @@ export const VEICULOS: Veiculo[] = [
     emoji: "🚚",
     cabe: "Hyundai HR ou Kia Bongo. Carroceria de 1,70m x 2,80m — mudança de 1 quarto, geladeira, sofá de 3 lugares",
     limite: { pesoKg: 1000, volumeM3: 8 },
+    precoMinimo: 225,
   },
   {
     chave: "caminhao_bau",
@@ -47,6 +57,7 @@ export const VEICULOS: Veiculo[] = [
     emoji: "🚛",
     cabe: "Iveco Daily e similares. Baú de 2,50m x 3,50m — mudança inteira, carga alta ou comprida",
     limite: { pesoKg: 2500, volumeM3: 12 },
+    precoMinimo: 500,
   },
 ];
 

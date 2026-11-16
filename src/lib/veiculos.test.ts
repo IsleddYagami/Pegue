@@ -12,7 +12,7 @@
 
 import { describe, it, expect } from "vitest";
 import { VEICULOS, VEICULOS_CHAVES, NOME_VEICULO } from "./veiculos";
-import { sugerirVeiculoPorVolumePeso } from "./bot-utils";
+import { sugerirVeiculoPorVolumePeso, calcularPrecos } from "./bot-utils";
 
 const TEXTO = VEICULOS.map((v) => `${v.nome} ${v.cabe}`).join(" | ");
 
@@ -62,5 +62,31 @@ describe("o limite escrito aqui e' o mesmo que o motor usa", () => {
     expect(sugerirVeiculoPorVolumePeso(VEICULOS[1].limite.volumeM3, 100)).toBe("hr");
     expect(sugerirVeiculoPorVolumePeso(VEICULOS[2].limite.volumeM3, 100)).toBe("caminhao_bau");
     expect(sugerirVeiculoPorVolumePeso(VEICULOS[2].limite.volumeM3 + 0.1, 100)).toBe("carga_excedida");
+  });
+});
+
+describe("o 'a partir de' da pagina do carreto e' o piso que o motor cobra", () => {
+  // A pagina /carreto monta a tabela com v.precoMinimo. Se o piso do motor
+  // mudar e ninguem mexer aqui, a pagina passa a mentir o preco — entao o
+  // numero escrito tem que continuar sendo o que sai de calcularPrecos num
+  // trajeto curto, onde o piso e' que manda.
+  it("nenhum trajeto sai mais barato do que o minimo escrito na frota", () => {
+    for (const v of VEICULOS) {
+      let menor = Infinity;
+      for (let km = 0.5; km <= 15; km += 0.5) {
+        menor = Math.min(menor, calcularPrecos(km, v.chave, false, 0, false, "").padrao.total);
+      }
+      // Igual, nunca acima: se o motor baratear e ninguem mexer aqui, a pagina
+      // passa a cobrar mais caro do que anuncia, e isto quebra.
+      expect(menor).toBe(v.precoMinimo);
+    }
+  });
+
+  it("a capacidade que a pagina promete e' a que o motor aceita", () => {
+    for (const v of VEICULOS) {
+      expect(sugerirVeiculoPorVolumePeso(0.1, v.limite.pesoKg)).not.toBe("carga_excedida");
+    }
+    const maior = VEICULOS[VEICULOS.length - 1];
+    expect(sugerirVeiculoPorVolumePeso(0.1, maior.limite.pesoKg + 1)).toBe("carga_excedida");
   });
 });

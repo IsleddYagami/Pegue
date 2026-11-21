@@ -46,13 +46,21 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          {/* 15/Nov/2026: o botao do topo e' a COTACAO NA TELA, caminho mais
+              curto pro preco. O WhatsApp fica do lado, pra quem prefere falar. */}
+          <Link
+            href="/simular"
+            className="rounded-full border-2 border-[#C9A84C] bg-[#C9A84C] px-6 py-2 text-sm font-bold text-[#0A0A0A] transition-all hover:bg-transparent hover:text-[#C9A84C]"
+          >
+            Ver meu preço
+          </Link>
           <a
             href={WHATSAPP_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full border-2 border-[#C9A84C] bg-[#C9A84C] px-6 py-2 text-sm font-bold text-[#0A0A0A] transition-all hover:bg-transparent hover:text-[#C9A84C]"
+            className="rounded-full border-2 border-[#C9A84C]/40 px-5 py-2 text-sm font-semibold text-[#C9A84C] transition-colors hover:bg-[#C9A84C]/10"
           >
-            Chamar no WhatsApp
+            WhatsApp
           </a>
         </nav>
 
@@ -79,13 +87,20 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          <Link
+            href="/simular"
+            className="rounded-full bg-[#C9A84C] px-5 py-3 text-center text-sm font-bold text-[#0A0A0A]"
+            onClick={() => setMenuOpen(false)}
+          >
+            Ver meu preço
+          </Link>
           <a
             href={WHATSAPP_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full bg-[#C9A84C] px-5 py-3 text-center text-sm font-bold text-[#0A0A0A]"
+            className="rounded-full border border-[#C9A84C]/40 px-5 py-3 text-center text-sm font-semibold text-[#C9A84C]"
           >
-            Chamar no WhatsApp
+            Falar no WhatsApp
           </a>
         </nav>
       )}

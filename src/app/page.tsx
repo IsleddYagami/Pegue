@@ -26,7 +26,7 @@ export default function HomePage() {
         }} />
 
         <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 pt-4 pb-16 text-center md:pt-6 md:pb-24">
-          <Image src="/logo-pegue-novo.png" alt="Pegue - Fretes e Mudanças em Osasco" width={1000} height={1000} className="-mb-16 md:-mb-40 h-64 w-auto sm:h-[22rem] md:h-[40rem]" priority />
+          <Image src="/logo-pegue-novo.png" alt="Pegue - Fretes e Mudanças em Osasco" width={1000} height={1000} className="-mb-16 md:-mb-40 h-64 w-auto sm:h-[22rem] md:h-[34rem]" priority />
 
           {/* FRASE PRINCIPAL - frase do Fabio, 02/Nov, exata */}
           <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
@@ -47,22 +47,35 @@ export default function HomePage() {
             A partir de R$ 150 · Orçamento sem compromisso
           </div>
 
-          {/* BOTAO PRINCIPAL */}
+          {/* BOTAO PRINCIPAL — a COTACAO NA TELA.
+              15/Nov/2026, ordem do Fabio: "eu falo p vc deixar o site objetivo
+              rapido facil ai vc nao coloca ja a forma principal p a pessoa
+              orcar". O caminho mais rapido e' a tela de 7 toques, que da o
+              preco na hora sem sair do site. O WhatsApp continua aqui, logo
+              embaixo, pra quem prefere conversar. */}
+          <Link
+            href="/simular"
+            className="group mt-8 flex items-center gap-3 rounded-full bg-[#C9A84C] px-10 py-5 text-xl font-bold text-[#000] shadow-lg shadow-[#C9A84C]/20 transition-all hover:scale-105 hover:shadow-xl hover:shadow-[#C9A84C]/30"
+          >
+            <Zap className="h-6 w-6" />
+            Ver meu preço agora
+            <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+          </Link>
+
           <a
             href={WHATSAPP_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            className="group mt-8 flex items-center gap-3 rounded-full bg-[#C9A84C] px-10 py-5 text-xl font-bold text-[#000] shadow-lg shadow-[#C9A84C]/20 transition-all hover:scale-105 hover:shadow-xl hover:shadow-[#C9A84C]/30"
+            className="mt-4 flex items-center gap-2 rounded-full border border-[#C9A84C]/40 px-7 py-3 text-base font-semibold text-[#C9A84C] transition-colors hover:bg-[#C9A84C]/10"
           >
-            <MessageCircle className="h-6 w-6" />
-            Pegar orçamento no WhatsApp
-            <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+            <MessageCircle className="h-5 w-5" />
+            Prefiro falar no WhatsApp
           </a>
 
           {/* PROVA SOCIAL RAPIDA - mantém "Fretistas verificados" (real) e troca os exagerados */}
           <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm text-gray-400">
             <span className="flex items-center gap-1"><Shield className="h-4 w-4 text-[#C9A84C]" /> Fretistas cadastrados com CPF e CNH</span>
-            <span className="flex items-center gap-1"><MessageCircle className="h-4 w-4 text-[#C9A84C]" /> 100% pelo WhatsApp</span>
+            <span className="flex items-center gap-1"><Zap className="h-4 w-4 text-[#C9A84C]" /> Preço na tela, sem cadastro</span>
             <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-[#C9A84C]" /> Orçamento em minutos</span>
           </div>
         </div>
@@ -95,22 +108,28 @@ export default function HomePage() {
 
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              { titulo: "Carreto / Frete", preco: "A partir de R$ 150", desc: "Sofa, geladeira, caixas. Busca e entrega no mesmo dia." },
-              { titulo: "Mudanca", preco: "A partir de R$ 500", desc: "De um quarto a casa inteira. A Pegue Resolve." },
-              { titulo: "Guincho 24h", preco: "A partir de R$ 150", desc: "Carro ou moto. Dia e noite. Rapido e seguro." },
+              { titulo: "Carreto / Frete", preco: "A partir de R$ 150", desc: "Sofa, geladeira, caixas. Busca e entrega no mesmo dia.", href: "/simular", naTela: true },
+              { titulo: "Mudanca", preco: "A partir de R$ 500", desc: "De um quarto a casa inteira. A Pegue Resolve.", href: "/simular", naTela: true },
+              // Guincho nao tem cotacao na tela (o cotador e' so' de carga) e e'
+              // urgente: continua indo direto pro WhatsApp, que e' o caminho mais
+              // curto pra quem esta parado na rua.
+              { titulo: "Guincho 24h", preco: "A partir de R$ 150", desc: "Carro ou moto. Dia e noite. Rapido e seguro.", href: WHATSAPP_LINK, naTela: false },
             ].map((srv) => (
               <a
                 key={srv.titulo}
-                href={WHATSAPP_LINK}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={srv.href}
+                {...(srv.naTela ? {} : { target: "_blank", rel: "noopener noreferrer" })}
                 className="group rounded-2xl border border-[#C9A84C]/20 bg-[#0A0A0A] p-6 text-center transition-all hover:border-[#C9A84C]/50 hover:shadow-lg hover:shadow-[#C9A84C]/5"
               >
                 <h3 className="text-lg font-bold text-white">{srv.titulo}</h3>
                 <p className="mt-2 text-2xl font-extrabold text-[#C9A84C]">{srv.preco}</p>
                 <p className="mt-2 text-sm text-gray-400">{srv.desc}</p>
                 <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#C9A84C]">
-                  <MessageCircle className="h-4 w-4" /> Solicitar agora
+                  {srv.naTela ? (
+                    <><Zap className="h-4 w-4" /> Ver meu preço</>
+                  ) : (
+                    <><MessageCircle className="h-4 w-4" /> Solicitar agora</>
+                  )}
                 </span>
               </a>
             ))}
@@ -309,10 +328,10 @@ export default function HomePage() {
                 ))}
               </div>
 
-              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer"
+              <Link href="/simular"
                 className="inline-flex items-center gap-2 rounded-full bg-[#C9A84C] px-8 py-4 text-lg font-bold text-[#000] transition-all hover:scale-105">
-                <MessageCircle className="h-5 w-5" /> Quero meu preço agora
-              </a>
+                <Zap className="h-5 w-5" /> Quero meu preço agora
+              </Link>
             </div>
           </div>
         </div>
@@ -564,10 +583,15 @@ export default function HomePage() {
             Guincho e frete a partir de R$ 150. Preço na hora. Fretistas verificados.
           </p>
 
-          <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer"
+          <Link href="/simular"
             className="group mt-8 flex items-center gap-3 rounded-full bg-[#C9A84C] px-10 py-5 text-xl font-bold text-[#000] shadow-lg shadow-[#C9A84C]/20 transition-all hover:scale-105">
-            <MessageCircle className="h-6 w-6" /> Chamar no WhatsApp
+            <Zap className="h-6 w-6" /> Ver meu preço agora
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+          </Link>
+
+          <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer"
+            className="mt-4 flex items-center gap-2 rounded-full border border-[#C9A84C]/40 px-7 py-3 text-base font-semibold text-[#C9A84C] transition-colors hover:bg-[#C9A84C]/10">
+            <MessageCircle className="h-5 w-5" /> Prefiro falar no WhatsApp
           </a>
 
           <p className="mt-4 text-sm text-gray-500">

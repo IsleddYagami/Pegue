@@ -174,8 +174,14 @@ export function Cotador() {
   // minimo de ajudantes quem decide e' o servidor (lib/cotacao + servicos-especiais).
   const servico = useMemo(() => servicoDaCarga(itens).servico, [itens]);
   const ajudantesMinimos = AJUDANTES_MINIMOS[servico];
-  const enderecoDe = (l: Local) =>
-    l.bairro.trim() && l.cidade ? `${l.bairro.trim()}, ${l.cidade}, SP` : "";
+  // Cidade sozinha JA' VALE. Antes, quem escolhia so' a cidade na lista levava
+  // um bairro inventado ("Centro") — e "Centro, Sao Paulo" cai em Diadema no
+  // mapa. Nao se inventa endereco: sem bairro, cota a cidade.
+  const enderecoDe = (l: Local) => {
+    if (!l.cidade) return "";
+    const bairro = l.bairro.trim();
+    return bairro ? `${bairro}, ${l.cidade}, SP` : `${l.cidade}, SP`;
+  };
   const origem = enderecoDe(localOrigem);
   const destino = enderecoDe(localDestino);
 
@@ -223,6 +229,12 @@ export function Cotador() {
           body: JSON.stringify({
             origem,
             destino,
+            // A cidade que a PESSOA escolheu. O servidor confere contra a que o
+            // mapa devolver: se o bairro digitado nao for daquela cidade, o
+            // Google acha outro lugar e a cotacao e' recusada em vez de sair
+            // errada (21/Nov/2026 — "Centro, Sao Paulo" caia em Diadema).
+            cidadeOrigem: localOrigem.cidade || null,
+            cidadeDestino: localDestino.cidade || null,
             ajudantes,
             elevador: acesso === "elevador",
             andares: acesso === "escada" ? andares : 0,
@@ -257,6 +269,10 @@ export function Cotador() {
           body: JSON.stringify({
             origem,
             destino,
+            // Mesma conferencia da cotacao: o pedido recalcula o preco, entao
+            // tem que passar pela mesma trava de cidade.
+            cidadeOrigem: localOrigem.cidade || null,
+            cidadeDestino: localDestino.cidade || null,
             ajudantes,
             elevador: acesso === "elevador",
             andares: acesso === "escada" ? andares : 0,

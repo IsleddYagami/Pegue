@@ -33,6 +33,8 @@ function pedido(over: Partial<PedidoCotacao> = {}): PedidoCotacao {
   return {
     origem: "Rua Augusta, 100, Consolacao, Sao Paulo",
     destino: "Rua Antonio Agu, 50, Centro, Osasco",
+    cidadeOrigem: null,
+    cidadeDestino: null,
     ajudante: false,
     ajudantes: 0,
     elevador: false,

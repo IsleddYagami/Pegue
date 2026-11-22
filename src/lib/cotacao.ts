@@ -36,7 +36,8 @@ export type MotivoRecusa =
   | "destino_nao_validado"
   | "origem_fora_do_estado"
   | "destino_fora_do_estado"
-  | "mesma_origem_e_destino";
+  | "mesma_origem_e_destino"
+  | "cidade_nao_confere";
 
 export interface PedidoCotacao {
   origem: string;
@@ -57,6 +58,49 @@ export interface PedidoCotacao {
   servico: ServicoCarga;
   /** m³ do que vai pro descarte. Vai pro pedido e pro atendimento. */
   volumeDescarteM3: number;
+  /**
+   * A cidade que a PESSOA escolheu na tela, pra cada ponta. Serve pra uma coisa
+   * so': conferir se o mapa entendeu a mesma cidade que ela disse.
+   *
+   * Por que existe (21/Nov/2026): a tela monta o endereco como
+   * "<bairro>, <cidade>, SP" com o texto que a pessoa digitou. Se o que ela
+   * digitou nao for bairro daquela cidade, o Google acha OUTRO lugar e NAO
+   * marca partial — a unica trava que existia aqui. Medido no site no ar:
+   * "Centro, Sao Paulo, SP" caia em DIADEMA, 29,2 km, mesmo ponto de
+   * "Centro, Diadema, SP" (a capital nao tem bairro "Centro" oficial).
+   * Saia preco de Diadema pra quem disse Sao Paulo.
+   *
+   * null = nao informado (e o caso do bot do WhatsApp, que recebe texto livre
+   * e nao tem cidade escolhida): a conferencia nao roda e nada muda pra ele.
+   */
+  cidadeOrigem: string | null;
+  cidadeDestino: string | null;
+}
+
+/** Tira acento, caixa e espaco sobrando, pra comparar nome de cidade. */
+export function nomeComparavel(s: string | null | undefined): string {
+  if (!s) return "";
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * A cidade que o mapa confirmou bate com a que a pessoa escolheu?
+ * Sem uma das duas, nao da pra conferir — e ai nao reprova (quem nao informa
+ * cidade, como o bot, segue como antes).
+ */
+export function cidadeConfere(
+  escolhida: string | null | undefined,
+  confirmada: string | null | undefined,
+): boolean {
+  const a = nomeComparavel(escolhida);
+  const b = nomeComparavel(confirmada);
+  if (!a || !b) return true;
+  return a === b;
 }
 
 export type Ponto = { lat: number; lng: number; uf?: string | null; cidade?: string | null };
@@ -146,9 +190,15 @@ export function normalizarPedido(body: unknown): PedidoCotacao | null {
     MAX_AJUDANTES,
   );
 
+  // A cidade escolhida na tela, so' pra conferir contra o que o mapa devolver.
+  const cidadeEscolhida = (v: unknown): string | null =>
+    typeof v === "string" && v.trim() ? v.trim() : null;
+
   return {
     origem,
     destino,
+    cidadeOrigem: cidadeEscolhida(b.cidadeOrigem),
+    cidadeDestino: cidadeEscolhida(b.cidadeDestino),
     ajudante: ajudantesFinais >= 1,
     ajudantes: ajudantesFinais,
     servico: carga.servico,
@@ -199,6 +249,17 @@ export function decidirCotacao(
   }
   if (foraDoEstado(geoDestino)) {
     return { ok: false, motivo: "destino_fora_do_estado", precisaHumano: true };
+  }
+
+  // O MAPA TEM QUE TER ENTENDIDO A MESMA CIDADE QUE A PESSOA DISSE.
+  // Sem isto, "Centro, Sao Paulo" sai cotado como Diadema (medido no ar em
+  // 21/Nov/2026) — e o Google nao marca partial nesse caso, entao a trava de
+  // partial passa batido. LEI: jamais cotar sem certeza. Na duvida, humano.
+  if (
+    !cidadeConfere(pedido.cidadeOrigem, geoOrigem.cidade) ||
+    !cidadeConfere(pedido.cidadeDestino, geoDestino.cidade)
+  ) {
+    return { ok: false, motivo: "cidade_nao_confere", precisaHumano: true };
   }
 
   const km = calcularDistanciaKm(geoOrigem.lat, geoOrigem.lng, geoDestino.lat, geoDestino.lng);
@@ -282,4 +343,6 @@ export const MENSAGEM_RECUSA: Record<MotivoRecusa, string> = {
   destino_fora_do_estado:
     "A Pegue atende São Paulo: a capital, o litoral e o interior paulista. O endereço de entrega caiu fora do estado. Se eu entendi errado, fala com a gente no WhatsApp.",
   mesma_origem_e_destino: "A saída e a entrega caíram no mesmo lugar. Confere os dois endereços.",
+  cidade_nao_confere:
+    "O bairro que você escreveu não bate com a cidade que você escolheu — do jeito que está, o preço sairia de outro lugar. Confere o bairro e a cidade, ou fala com a gente no WhatsApp que a gente resolve.",
 };

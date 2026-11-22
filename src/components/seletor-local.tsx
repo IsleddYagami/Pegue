@@ -22,6 +22,15 @@ import { SeletorCidade } from "@/components/seletor-cidade";
 // mora num bairro que o mapa nao tem ficaria preso de novo — o mesmo erro com
 // outra roupa.
 
+/** Mesma comparacao do servidor (lib/cotacao): sem acento, sem caixa. */
+function comparavel(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 export interface Local {
   bairro: string;
   cidade: string;
@@ -43,7 +52,8 @@ export function SeletorLocal({ valor, onMudar, rotulo, exemplo }: Props) {
   const idCampo = useId();
   const ultimaBusca = useRef("");
 
-  const escolhido = !!valor.cidade && !!valor.bairro;
+  // Cidade sozinha basta: quem nao achou o bairro escolhe so' a cidade.
+  const escolhido = !!valor.cidade;
 
   useEffect(() => {
     if (escolhido) return;
@@ -100,8 +110,14 @@ export function SeletorLocal({ valor, onMudar, rotulo, exemplo }: Props) {
           <span className="flex min-w-0 items-center gap-2">
             <MapPin className="h-4 w-4 shrink-0 text-[#C9A84C]" />
             <span className="min-w-0 truncate">
-              <strong className="text-white">{valor.bairro}</strong>
-              <span className="text-gray-400"> · {valor.cidade}</span>
+              {valor.bairro ? (
+                <>
+                  <strong className="text-white">{valor.bairro}</strong>
+                  <span className="text-gray-400"> · {valor.cidade}</span>
+                </>
+              ) : (
+                <strong className="text-white">{valor.cidade}</strong>
+              )}
             </span>
           </span>
           <span className="flex shrink-0 items-center gap-1 text-xs text-gray-400">
@@ -189,11 +205,17 @@ export function SeletorLocal({ valor, onMudar, rotulo, exemplo }: Props) {
           <SeletorCidade
             valor=""
             rotulo="Cidade"
+            buscaInicial={texto.trim()}
             onEscolher={(cidade) => {
               if (!cidade) return;
-              const bairro = texto.trim();
-              onMudar({ bairro: bairro || "Centro", cidade });
-              if (!bairro) setTexto("Centro");
+              // NAO inventa bairro. Antes entrava "Centro" quando a pessoa nao
+              // digitava nada — e "Centro, Sao Paulo" cai em Diadema no mapa
+              // (medido em 21/Nov/2026). Sem bairro, a cotacao vai pela cidade.
+              const digitado = texto.trim();
+              // Escreveu o nome da propria cidade no campo do bairro (o caso do
+              // "cotia"): nao vira "cotia, Cotia" — vira a cidade, so'.
+              const ehONomeDaCidade = comparavel(digitado) === comparavel(cidade);
+              onMudar({ bairro: ehONomeDaCidade ? "" : digitado, cidade });
             }}
           />
         </div>

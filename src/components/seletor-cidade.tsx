@@ -20,12 +20,21 @@ export function SeletorCidade({
   valor,
   onEscolher,
   rotulo,
+  buscaInicial = "",
 }: {
   valor: string;
   onEscolher: (cidade: string) => void;
   rotulo: string;
+  /**
+   * O que a pessoa ja' digitou no campo do bairro. Entra aqui como busca de
+   * cidade, porque muita gente escreve o nome da CIDADE no campo do bairro —
+   * foi o que aconteceu com "cotia" em 21/Nov/2026. Assim ela ve "Cotia" na
+   * lista e escolhe a cidade certa, em vez de olhar uma lista fixa que nao tem
+   * nada a ver com o que ela escreveu.
+   */
+  buscaInicial?: string;
 }) {
-  const [busca, setBusca] = useState("");
+  const [busca, setBusca] = useState(buscaInicial);
   const idBusca = useId();
   const resultados = useMemo(() => buscarCidades(busca, 8), [busca]);
 

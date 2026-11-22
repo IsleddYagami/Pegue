@@ -3,10 +3,10 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { geocodeAddress } from "@/lib/bot-utils";
 import {
   areaIndisponivel,
-  decidirCotacao,
   MENSAGEM_RECUSA,
   normalizarPedido,
 } from "@/lib/cotacao";
+import { decidirCotacaoComDivisa } from "@/lib/cidade-de-divisa";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     geocodeAddress(pedido.destino),
   ]);
 
-  const r = decidirCotacao(pedido, geoOrigem, geoDestino);
+  const r = await decidirCotacaoComDivisa(pedido, geoOrigem, geoDestino);
 
   if (!r.ok) {
     return NextResponse.json({ ...r, mensagem: MENSAGEM_RECUSA[r.motivo] });

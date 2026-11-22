@@ -6,10 +6,10 @@ import { isValidBrPhone, sendToClient } from "@/lib/chatpro";
 import { notificarAdmins } from "@/lib/admin-notify";
 import {
   areaIndisponivel,
-  decidirCotacao,
   MENSAGEM_RECUSA,
   normalizarPedido,
 } from "@/lib/cotacao";
+import { decidirCotacaoComDivisa } from "@/lib/cidade-de-divisa";
 import {
   cabeNoVeiculo,
   descricaoCarga,
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
 
   // Mesmo motor, mesma regra, mesmo numero da tela. Preco do navegador e'
   // ignorado de proposito — se o cliente mexer no JS, nao muda nada aqui.
-  const cotacao = decidirCotacao(pedido, geoOrigem, geoDestino);
+  const cotacao = await decidirCotacaoComDivisa(pedido, geoOrigem, geoDestino);
   if (!cotacao.ok) {
     return NextResponse.json({ ...cotacao, mensagem: MENSAGEM_RECUSA[cotacao.motivo] });
   }

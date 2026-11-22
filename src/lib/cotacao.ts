@@ -89,6 +89,19 @@ export function nomeComparavel(s: string | null | undefined): string {
 }
 
 /**
+ * Ate onde um bairro pode "vazar" pra cidade vizinha sem que isso seja erro.
+ *
+ * Medido no site no ar em 21/Nov/2026, com a propria cotacao de regua —
+ * distancia entre o ponto que o mapa achou e o CENTRO da cidade escolhida:
+ *   Alphaville, escolhida Barueri (o mapa diz Santana de Parnaiba) ... 4,2 km
+ *   "Centro, Sao Paulo" (o mapa diz Diadema) ......................  18,6 km
+ *   "cotia" + Sao Paulo (o mapa diz Cotia) ........................  38,7 km
+ * O primeiro e' bairro de divisa, e o preco sai igual (15,0 km contra 15,1).
+ * Os outros dois sao lugar errado mesmo. 8 km fica com folga no meio.
+ */
+export const TOLERANCIA_BORDA_KM = 8;
+
+/**
  * A cidade que o mapa confirmou bate com a que a pessoa escolheu?
  * Sem uma das duas, nao da pra conferir — e ai nao reprova (quem nao informa
  * cidade, como o bot, segue como antes).
@@ -104,6 +117,29 @@ export function cidadeConfere(
 }
 
 export type Ponto = { lat: number; lng: number; uf?: string | null; cidade?: string | null };
+
+/**
+ * O ponto que o mapa achou pode ser aceito como sendo da cidade escolhida?
+ *
+ * Bate o nome: sim. Nao bate: so' se o ponto estiver perto do centro da cidade
+ * escolhida (bairro de divisa). Sem o centro em maos, nao da pra ter certeza —
+ * e sem certeza nao sai preco.
+ */
+export function pontoDaCidadeEscolhida(
+  escolhida: string | null | undefined,
+  ponto: Ponto,
+  centroDaEscolhida?: Ponto | null,
+): boolean {
+  if (cidadeConfere(escolhida, ponto.cidade)) return true;
+  if (!centroDaEscolhida) return false;
+  const d = calcularDistanciaKm(
+    ponto.lat,
+    ponto.lng,
+    centroDaEscolhida.lat,
+    centroDaEscolhida.lng,
+  );
+  return d <= TOLERANCIA_BORDA_KM;
+}
 
 /**
  * A Pegue atende o estado de Sao Paulo: capital, litoral paulista e interior
@@ -230,6 +266,12 @@ export function decidirCotacao(
   pedido: PedidoCotacao,
   geoOrigem: Ponto | null,
   geoDestino: Ponto | null,
+  /**
+   * Centro da cidade que a pessoa escolheu, por ponta. So' e' usado quando a
+   * cidade do mapa diverge da escolhida — serve pra separar bairro de divisa
+   * (aprova) de lugar errado (recusa). Sem isto, divergencia e' recusa.
+   */
+  centros?: { origem?: Ponto | null; destino?: Ponto | null },
 ): Cotacao | Recusa {
   if (areaIndisponivel(pedido)) {
     return { ok: false, motivo: "area_indisponivel", precisaHumano: true };
@@ -255,9 +297,15 @@ export function decidirCotacao(
   // Sem isto, "Centro, Sao Paulo" sai cotado como Diadema (medido no ar em
   // 21/Nov/2026) — e o Google nao marca partial nesse caso, entao a trava de
   // partial passa batido. LEI: jamais cotar sem certeza. Na duvida, humano.
+  //
+  // A excecao e' o bairro de DIVISA: Alphaville e' endereco de Barueri e o
+  // mapa devolve Santana de Parnaiba, com o ponto a 4,2 km do centro de
+  // Barueri e preco igual. Por isso, quando as cidades divergem, ainda da pra
+  // aprovar se o ponto cair perto do centro da cidade escolhida — e quem passa
+  // esse centro e' quem chama (a rota so' busca na hora que precisa).
   if (
-    !cidadeConfere(pedido.cidadeOrigem, geoOrigem.cidade) ||
-    !cidadeConfere(pedido.cidadeDestino, geoDestino.cidade)
+    !pontoDaCidadeEscolhida(pedido.cidadeOrigem, geoOrigem, centros?.origem) ||
+    !pontoDaCidadeEscolhida(pedido.cidadeDestino, geoDestino, centros?.destino)
   ) {
     return { ok: false, motivo: "cidade_nao_confere", precisaHumano: true };
   }
